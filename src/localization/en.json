@@ -704,6 +704,10 @@
             "notification_center_page": "Notification center page.",
             "my_avatars": "My Avatars",
             "avatar_collection_page": "Avatar collection page.",
+            "two_person_relationship": "Two Person Relationship",
+            "two_person_relationship_chart": "Two-person relationship chart.",
+            "relationship_timeline": "Relationship Timeline",
+            "relationship_timeline_chart": "Relationship timeline chart.",
             "tools": "Tools",
             "tools_launcher_page": "Tools launcher page."
         }

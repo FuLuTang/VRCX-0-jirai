@@ -704,6 +704,10 @@
             "notification_center_page": "通知中心页面。",
             "my_avatars": "我的模型",
             "avatar_collection_page": "模型收藏页面。",
+            "two_person_relationship": "双人关系",
+            "two_person_relationship_chart": "双人关系图表。",
+            "relationship_timeline": "关系时间轴",
+            "relationship_timeline_chart": "关系时间轴图表。",
             "tools": "工具",
             "tools_launcher_page": "工具启动页。"
         }

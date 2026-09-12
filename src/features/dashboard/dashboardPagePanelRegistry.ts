@@ -68,6 +68,14 @@ const toolsPage = lazyDashboardPage(
     () => import('@/features/tools/ToolsPage'),
     'ToolsPage'
 );
+const twoPersonRelationshipPage = lazyDashboardPage(
+    () => import('@/features/charts/TwoPersonRelationshipPage'),
+    'TwoPersonRelationshipPage'
+);
+const relationshipTimelinePage = lazyDashboardPage(
+    () => import('@/features/charts/RelationshipTimelinePage'),
+    'RelationshipTimelinePage'
+);
 
 const dashboardPagePanelComponentMap: Record<
     string,
@@ -86,6 +94,8 @@ const dashboardPagePanelComponentMap: Record<
     'social/moderation': moderationPage,
     notification: notificationPage,
     'my-avatars': myAvatarsPage,
+    'charts-two-person': twoPersonRelationshipPage,
+    'charts-timeline': relationshipTimelinePage,
     'friend-log': friendLogPage,
     'friend-list': friendListPage,
     moderation: moderationPage,

@@ -177,6 +177,20 @@ const DASHBOARD_PAGE_DEFINITIONS: DashboardPanelDefinition[] = [
         descriptionKey: 'dashboard.registry.avatar_collection_page'
     },
     {
+        key: 'charts-two-person',
+        category: 'page',
+        labelKey: 'dashboard.registry.two_person_relationship',
+        path: '/charts/two-person',
+        descriptionKey: 'dashboard.registry.two_person_relationship_chart'
+    },
+    {
+        key: 'charts-timeline',
+        category: 'page',
+        labelKey: 'dashboard.registry.relationship_timeline',
+        path: '/charts/timeline',
+        descriptionKey: 'dashboard.registry.relationship_timeline_chart'
+    },
+    {
         key: 'tools',
         category: 'page',
         labelKey: 'dashboard.registry.tools',
