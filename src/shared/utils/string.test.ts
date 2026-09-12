@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    buildLineDiff,
     localeIncludes,
     normalizeString,
     removeEmojis,
@@ -34,5 +35,14 @@ describe('string utils', () => {
         expect(replaceBioSymbols(null)).toBe('');
         expect(removeEmojis('Hello 😊 world ✨')).toBe('Hello world');
         expect(removeEmojis(null)).toBe('');
+    });
+
+    it('keeps unchanged Bio lines and marks additions and removals', () => {
+        expect(buildLineDiff('first\nold\nlast', 'first\nnew\nlast')).toEqual([
+            { type: 'equal', text: 'first' },
+            { type: 'remove', text: 'old' },
+            { type: 'add', text: 'new' },
+            { type: 'equal', text: 'last' }
+        ]);
     });
 });

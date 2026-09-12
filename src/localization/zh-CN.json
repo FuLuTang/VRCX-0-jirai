@@ -3707,6 +3707,7 @@
                 "unknown_avatar": "未知模型",
                 "represented_group": "展示群组",
                 "bio": "个人简介",
+                "bio_history": "个人简介历史",
                 "translate_bio": "翻译个人简介",
                 "show_original_bio": "显示原文",
                 "open_bio_link": "打开{link}",

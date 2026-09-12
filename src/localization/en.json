@@ -3706,6 +3706,7 @@
                 "unknown_avatar": "Unknown Avatar",
                 "represented_group": "Represented Group",
                 "bio": "Bio",
+                "bio_history": "Bio History",
                 "translate_bio": "Translate Bio",
                 "show_original_bio": "Show Original",
                 "open_bio_link": "Open {link}",

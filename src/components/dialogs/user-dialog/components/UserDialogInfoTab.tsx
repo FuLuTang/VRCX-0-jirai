@@ -1,5 +1,5 @@
-import { ChevronRightIcon, ExternalLinkIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { ChevronRightIcon, ExternalLinkIcon, HistoryIcon } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { AvatarInfoLine } from '@/components/feed/FeedAvatarInfoLine';
@@ -22,12 +22,16 @@ import type { EntityRecord } from '@/domain/entities/shared';
 import type { UserProfileEntity } from '@/domain/entities/user';
 import { formatDateTime } from '@/lib/dateTime';
 import { cn } from '@/lib/utils';
+import type { FeedRowOutput } from '@/platform/tauri/bindings';
+import feedRepository from '@/repositories/feedRepository';
 import {
     convertFileUrlToImageUrl,
     openExternalLink
 } from '@/services/entityMediaService';
 import type { UserDialogPreviousInstance } from '@/services/userDialogSessionCacheService';
 import type { UserDialogRelationshipEvent } from '@/services/userDialogSessionCacheService';
+import { buildLineDiff } from '@/shared/utils/string';
+import { useRuntimeStore } from '@/state/runtimeStore';
 import { Button } from '@/ui/shadcn/button';
 import {
     Card,
@@ -43,6 +47,7 @@ import {
     PopoverTrigger
 } from '@/ui/shadcn/popover';
 import { Separator } from '@/ui/shadcn/separator';
+import { Spinner } from '@/ui/shadcn/spinner';
 
 import { EntityDialogTabContent } from '../../EntityDialogScaffold';
 import { formatStatsDuration } from '../userDialogRows';
@@ -609,7 +614,68 @@ function UserDialogProfileLinksPanel({
 }
 
 function UserDialogBioPanel({ profile, bioLinks }: UserDialogBioSectionProps) {
-    const { t } = useTranslation();
+    const { i18n, t } = useTranslation();
+    const currentUserId = useRuntimeStore((state) => state.auth.currentUserId);
+    const [showHistory, setShowHistory] = useState(false);
+    const [historyRows, setHistoryRows] = useState<FeedRowOutput[]>([]);
+    const [selectedHistoryIndex, setSelectedHistoryIndex] = useState(0);
+    const [historyLoading, setHistoryLoading] = useState(false);
+
+    useEffect(() => {
+        if (!showHistory || !currentUserId || !profile.id) {
+            return;
+        }
+
+        let active = true;
+        setHistoryLoading(true);
+        feedRepository
+            .queryFeed({
+                userId: currentUserId,
+                scopedUserIds: [profile.id],
+                filters: ['Bio'],
+                maxEntries: 50
+            })
+            .then((rows) => {
+                if (!active) {
+                    return;
+                }
+                const bioRows = rows
+                    .filter(
+                        (row) => row.userId === profile.id && row.type === 'Bio'
+                    )
+                    .sort(
+                        (left, right) =>
+                            Date.parse(String(right.created_at || '')) -
+                            Date.parse(String(left.created_at || ''))
+                    );
+                setHistoryRows(bioRows);
+                setSelectedHistoryIndex(0);
+            })
+            .catch(() => {
+                if (active) {
+                    setHistoryRows([]);
+                }
+            })
+            .finally(() => {
+                if (active) {
+                    setHistoryLoading(false);
+                }
+            });
+
+        return () => {
+            active = false;
+        };
+    }, [currentUserId, profile.id, showHistory]);
+
+    const selectedHistory = historyRows[selectedHistoryIndex] || null;
+    const selectedBioDiff = useMemo(
+        () =>
+            buildLineDiff(
+                selectedHistory?.previousBio || '',
+                selectedHistory?.bio || ''
+            ),
+        [selectedHistory]
+    );
 
     return (
         <TranslatableText
@@ -618,10 +684,93 @@ function UserDialogBioPanel({ profile, bioLinks }: UserDialogBioSectionProps) {
             density="button"
         >
             {({ action, meta, error, text }) => (
-                <InfoPanel title={t('dialog.user.info.bio')} action={action}>
+                <InfoPanel
+                    title={t('dialog.user.info.bio')}
+                    action={
+                        <div className="flex items-center gap-1">
+                            <Button
+                                type="button"
+                                variant={showHistory ? 'secondary' : 'ghost'}
+                                size="icon-xs"
+                                aria-label={t('dialog.user.info.bio_history')}
+                                title={t('dialog.user.info.bio_history')}
+                                onClick={() =>
+                                    setShowHistory((value) => !value)
+                                }
+                            >
+                                <HistoryIcon />
+                            </Button>
+                            {action}
+                        </div>
+                    }
+                >
                     {meta}
                     <div className="min-w-0">
-                        <TextScroll className="h-52 min-w-0">{text}</TextScroll>
+                        {showHistory ? (
+                            <div className="flex min-w-0 flex-col gap-2">
+                                {historyRows.length > 1 ? (
+                                    <select
+                                        className="border-input bg-background h-8 rounded-md border px-2 text-xs"
+                                        value={selectedHistoryIndex}
+                                        onChange={(event) =>
+                                            setSelectedHistoryIndex(
+                                                Number(event.target.value)
+                                            )
+                                        }
+                                    >
+                                        {historyRows.map((row, index) => (
+                                            <option
+                                                key={row.rowId || index}
+                                                value={index}
+                                            >
+                                                {formatLocalizedActivityDate(
+                                                    row.created_at,
+                                                    i18n.resolvedLanguage ||
+                                                        i18n.language
+                                                )}
+                                            </option>
+                                        ))}
+                                    </select>
+                                ) : null}
+                                {selectedHistory ? (
+                                    <pre className="bg-muted/40 h-52 overflow-auto rounded-md p-3 text-xs whitespace-pre-wrap">
+                                        {selectedBioDiff.map((line, index) => (
+                                            <div
+                                                key={`${line.type}:${index}`}
+                                                className={cn(
+                                                    line.type === 'add'
+                                                        ? 'text-emerald-600'
+                                                        : line.type === 'remove'
+                                                          ? 'text-rose-600'
+                                                          : ''
+                                                )}
+                                            >
+                                                {line.type === 'add'
+                                                    ? '+ '
+                                                    : line.type === 'remove'
+                                                      ? '- '
+                                                      : '  '}
+                                                {line.text}
+                                            </div>
+                                        ))}
+                                    </pre>
+                                ) : (
+                                    <TextScroll className="h-52 min-w-0">
+                                        {text}
+                                    </TextScroll>
+                                )}
+                                {historyLoading ? (
+                                    <div className="text-muted-foreground flex items-center gap-2 text-xs">
+                                        <Spinner className="size-3" />
+                                        {t('browse_history.loading')}
+                                    </div>
+                                ) : null}
+                            </div>
+                        ) : (
+                            <TextScroll className="h-52 min-w-0">
+                                {text}
+                            </TextScroll>
+                        )}
                         {error}
                     </div>
                     {bioLinks.length ? (

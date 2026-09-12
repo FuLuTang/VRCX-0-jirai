@@ -89,4 +89,66 @@ function removeEmojis(text: unknown): string {
         .trim();
 }
 
-export { localeIncludes, normalizeString, replaceBioSymbols, removeEmojis };
+export type LineDiff = {
+    type: 'equal' | 'add' | 'remove';
+    text: string;
+};
+
+/**
+ * Returns a stable, line-oriented diff suitable for compact history viewers.
+ * Bio text is user-authored and can be multiline, so word-level diffs tend to
+ * obscure the changes more than they help.
+ */
+function buildLineDiff(
+    previousText: unknown,
+    currentText: unknown
+): LineDiff[] {
+    const left = String(previousText ?? '').split(/\r?\n/);
+    const right = String(currentText ?? '').split(/\r?\n/);
+    const table = Array.from({ length: left.length + 1 }, () =>
+        Array.from({ length: right.length + 1 }, () => 0)
+    );
+
+    for (let row = left.length - 1; row >= 0; row -= 1) {
+        for (let column = right.length - 1; column >= 0; column -= 1) {
+            table[row][column] =
+                left[row] === right[column]
+                    ? table[row + 1][column + 1] + 1
+                    : Math.max(table[row + 1][column], table[row][column + 1]);
+        }
+    }
+
+    const lines: LineDiff[] = [];
+    let row = 0;
+    let column = 0;
+    while (row < left.length && column < right.length) {
+        if (left[row] === right[column]) {
+            lines.push({ type: 'equal', text: left[row] });
+            row += 1;
+            column += 1;
+        } else if (table[row + 1][column] >= table[row][column + 1]) {
+            lines.push({ type: 'remove', text: left[row] });
+            row += 1;
+        } else {
+            lines.push({ type: 'add', text: right[column] });
+            column += 1;
+        }
+    }
+    while (row < left.length) {
+        lines.push({ type: 'remove', text: left[row] });
+        row += 1;
+    }
+    while (column < right.length) {
+        lines.push({ type: 'add', text: right[column] });
+        column += 1;
+    }
+    return lines;
+}
+
+export {
+    buildLineDiff,
+    localeIncludes,
+    normalizeString,
+    replaceBioSymbols,
+    removeEmojis
+};
