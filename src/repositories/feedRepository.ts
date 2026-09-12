@@ -45,6 +45,20 @@ interface FeedLatestQueryOptions {
     maxRows?: number;
 }
 
+/**
+ * Compatibility shape for the relationship views originally implemented in
+ * vrcx-0-jirai. This stays in the frontend: current vrcx already provides
+ * the owner-scoped Feed query it needs.
+ */
+interface FeedUserHistoryQueryOptions {
+    userId: string;
+    targetUserId: string;
+    types?: FeedFilter[];
+    dateFrom?: string;
+    dateTo?: string;
+    maxEntries?: number;
+}
+
 interface FeedReadyState {
     normalizedUserId: string;
     maxTableSize: number;
@@ -143,6 +157,24 @@ class FeedRepository {
 
     async queryFeedPage(options: FeedQueryOptions): Promise<FeedRowOutput[]> {
         return this.queryFeed(options);
+    }
+
+    async queryFeedUserHistory({
+        userId,
+        targetUserId,
+        types = [],
+        dateFrom,
+        dateTo,
+        maxEntries
+    }: FeedUserHistoryQueryOptions): Promise<FeedRowOutput[]> {
+        return this.queryFeed({
+            userId,
+            scopedUserIds: [targetUserId],
+            filters: types,
+            dateFrom,
+            dateTo,
+            maxEntries
+        });
     }
 
     async queryFeedLatest({

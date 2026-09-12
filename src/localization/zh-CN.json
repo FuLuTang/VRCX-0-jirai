@@ -1806,6 +1806,43 @@
                     "unavailable_nodes": "{count} 人未公开或未获取"
                 }
             },
+            "two_person_relationship": {
+                "header": "双人关系",
+                "tips": {
+                    "description": "通过分析本地记录，找出两位好友曾经共处一室的记录。"
+                },
+                "select_friend_a": "选择好友 A",
+                "select_friend_b": "选择好友 B",
+                "swap_friends": "交换好友",
+                "total_coexistence_time": "共存总时长",
+                "instance_count": "共同在场次数",
+                "no_friend_selected": "请选择两位好友以查看共同在场记录",
+                "show_self_presence": "显示自己是否在场",
+                "self_present": "在场",
+                "self_not_present": "缺席",
+                "instance_creator": "房间创建者",
+                "meet_count": "{count} 次共存",
+                "initiator_leftPlayer": "左侧跟随",
+                "initiator_rightPlayer": "右侧跟随",
+                "initiator_mutual": "双向奔赴",
+                "initiator_unknown": "未知",
+                "status": {
+                    "loading": "正在加载两位好友的游戏记录数据。",
+                    "no_data": "在所选范围内未找到两位好友的共同在场记录。",
+                    "error": "加载关系历史失败。"
+                }
+            },
+            "relationship_timeline": {
+                "header": "关系时间轴",
+                "friend": "好友",
+                "range_days": "范围（天）",
+                "total_overlap": "总共处时长",
+                "active_days": "活跃天数",
+                "status_changes": "状态变更",
+                "co_presence_chart": "共处时间线",
+                "status_chart": "状态变更频率",
+                "timeline_rows": "时间轴详情"
+            },
             "loading": {
                 "loading_instance_activity": "正在加载房间活动",
                 "loading_graph": "正在加载图谱",
@@ -6370,6 +6407,10 @@
             "charts_landing_route": "图表入口页面。",
             "charts_mutual": "图表：共同好友",
             "mutual_friends_graph_over_cached_data": "基于缓存数据的共同好友图谱。",
+            "charts_two_person_relationship": "图表：双人关系",
+            "two_person_relationship_chart": "双人关系图表。",
+            "charts_relationship_timeline": "图表：关系时间轴",
+            "relationship_timeline_chart": "关系时间轴图表。",
             "tools": "工具",
             "tools_landing_route_and_folder_shortcuts": "工具入口路由和文件夹快捷方式。",
             "gallery": "模型相册",

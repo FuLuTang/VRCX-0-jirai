@@ -1806,6 +1806,43 @@
                     "unavailable_nodes": "{count} not shared or not fetched"
                 }
             },
+            "two_person_relationship": {
+                "header": "Duo Relationship",
+                "tips": {
+                    "description": "Analyzes your local history to find instances where two friends were present in the same room."
+                },
+                "select_friend_a": "Select Friend A",
+                "select_friend_b": "Select Friend B",
+                "swap_friends": "Swap friends",
+                "total_coexistence_time": "Total co-presence time",
+                "instance_count": "Shared instance count",
+                "no_friend_selected": "Select two friends to view their shared instances",
+                "show_self_presence": "Show my presence indicator",
+                "self_present": "Present",
+                "self_not_present": "Absent",
+                "instance_creator": "Creator",
+                "meet_count": "{count} encounters",
+                "initiator_leftPlayer": "Left Follow",
+                "initiator_rightPlayer": "Right Follow",
+                "initiator_mutual": "Mutual",
+                "initiator_unknown": "Unknown",
+                "status": {
+                    "loading": "Loading feed history for both selected users.",
+                    "no_data": "No shared instance overlap was found for the selected users.",
+                    "error": "Failed to load relationship history."
+                }
+            },
+            "relationship_timeline": {
+                "header": "Relationship Timeline",
+                "friend": "Friend",
+                "range_days": "Range (days)",
+                "total_overlap": "Total Overlap",
+                "active_days": "Active Days",
+                "status_changes": "Status Changes",
+                "co_presence_chart": "Co-presence Timeline",
+                "status_chart": "Status Change Frequency",
+                "timeline_rows": "Timeline Details"
+            },
             "loading": {
                 "loading_instance_activity": "Loading instance activity",
                 "loading_graph": "Loading graph...",
@@ -6369,6 +6406,10 @@
             "charts_landing_route": "Charts landing route.",
             "charts_mutual": "Charts Mutual",
             "mutual_friends_graph_over_cached_data": "Mutual-friends graph over cached data.",
+            "charts_two_person_relationship": "Charts Two-Person Relationship",
+            "two_person_relationship_chart": "Two-person relationship chart.",
+            "charts_relationship_timeline": "Charts Relationship Timeline",
+            "relationship_timeline_chart": "Relationship timeline chart.",
             "tools": "Tools",
             "tools_landing_route_and_folder_shortcuts": "Tools landing route and folder shortcuts.",
             "gallery": "Gallery",

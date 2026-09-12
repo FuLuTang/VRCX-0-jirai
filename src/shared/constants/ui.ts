@@ -128,6 +128,20 @@ const navDefinitions = [
         routeName: 'charts-mutual'
     },
     {
+        key: 'charts-two-person',
+        icon: 'lucide:ArrowLeftRight',
+        tooltip: 'view.charts.two_person_relationship.header',
+        labelKey: 'view.charts.two_person_relationship.header',
+        routeName: 'charts-two-person'
+    },
+    {
+        key: 'charts-timeline',
+        icon: 'lucide:TrendingUp',
+        tooltip: 'view.charts.relationship_timeline.header',
+        labelKey: 'view.charts.relationship_timeline.header',
+        routeName: 'charts-timeline'
+    },
+    {
         key: 'tools',
         icon: 'lucide:Wrench',
         tooltip: 'nav_tooltip.tools',

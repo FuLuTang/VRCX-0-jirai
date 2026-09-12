@@ -1,8 +1,10 @@
 # VRCX-0-jirai clean port
 
 This branch starts from `vrcx` commit `bd63532d4` (v2.28), rather than
-replaying the historical `vrcx-0-jirai` commits. The old repository remains a
-read-only implementation reference during the port.
+replaying the historical `vrcx-0-jirai` commits. The old `vrcx-0-jirai`
+repository remains the only feature baseline and a read-only implementation
+reference during the port. Features that existed only in `vrcx-jirai` are out
+of scope for this migration.
 
 ## Compatibility rules
 
@@ -20,9 +22,8 @@ read-only implementation reference during the port.
 1. VRCX-0-jirai branding and the icon set sourced from `vrcx-jirai`.
 2. User Bio history diff inside the existing user dialog.
 3. Two-person relationship history.
-4. Relationship timeline, preserving the original `vrcx-jirai` per-bucket
+4. Relationship timeline, preserving the original `vrcx-0-jirai` per-bucket
    Top-N percentage algorithm and controls.
-5. The overlay relationship-suggestion extension point.
 
 ## Release setup required before publishing
 

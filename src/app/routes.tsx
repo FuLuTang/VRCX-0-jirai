@@ -248,6 +248,24 @@ export const protectedRoutes: AppRouteDefinition[] = [
         )
     },
     {
+        path: '/charts/two-person',
+        titleKey: 'app.routes.charts_two_person_relationship',
+        descriptionKey: 'app.routes.two_person_relationship_chart',
+        element: lazyRouteElement(
+            () => import('@/features/charts/TwoPersonRelationshipPage'),
+            'TwoPersonRelationshipPage'
+        )
+    },
+    {
+        path: '/charts/timeline',
+        titleKey: 'app.routes.charts_relationship_timeline',
+        descriptionKey: 'app.routes.relationship_timeline_chart',
+        element: lazyRouteElement(
+            () => import('@/features/charts/RelationshipTimelinePage'),
+            'RelationshipTimelinePage'
+        )
+    },
+    {
         path: '/tools/group-moderation/:groupId?',
         titleKey: 'view.tools.group.moderation',
         descriptionKey: 'view.tools.group.moderation_description',
