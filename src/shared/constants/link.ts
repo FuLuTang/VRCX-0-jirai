@@ -1,13 +1,13 @@
 import { vrchatPasswordUrl, vrchatRegisterUrl } from './vrchatWebUrls';
 
 const links: Record<string, string> = {
-    wiki: 'https://github.com/Map1en/VRCX-0/wiki',
-    github: 'https://github.com/Map1en/VRCX-0',
+    wiki: 'https://github.com/FuLuTang/VRCX-0-jirai/wiki',
+    github: 'https://github.com/FuLuTang/VRCX-0-jirai',
     githubSponsors: 'https://github.com/sponsors/Map1en',
     afdian: 'https://ifdian.net/a/map1en_',
     kofi: 'https://ko-fi.com/map1en_',
-    issues: 'https://github.com/Map1en/VRCX-0/issues',
-    releases: 'https://github.com/Map1en/VRCX-0/releases',
+    issues: 'https://github.com/FuLuTang/VRCX-0-jirai/issues',
+    releases: 'https://github.com/FuLuTang/VRCX-0-jirai/releases',
     contributorsApi:
         'https://api.github.com/repos/Map1en/VRCX-0/contributors?per_page=100',
     license: 'https://github.com/Map1en/VRCX-0/blob/master/LICENSE',

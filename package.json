@@ -1,7 +1,7 @@
 {
-    "name": "VRCX-0",
+    "name": "VRCX-0-jirai",
     "private": true,
-    "description": "The fast, lightweight VRCX built with Tauri and Rust.",
+    "description": "VRCX-0-jirai, a personal VRCX-0 build based on Tauri and Rust.",
     "keywords": [
         "react",
         "rust",
@@ -12,7 +12,7 @@
     "author": "Map1en <maplenagisa@gmail.com>",
     "repository": {
         "type": "git",
-        "url": "https://github.com/Map1en/VRCX-0"
+        "url": "https://github.com/FuLuTang/VRCX-0-jirai"
     },
     "type": "module",
     "scripts": {

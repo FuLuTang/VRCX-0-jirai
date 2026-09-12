@@ -1,6 +1,6 @@
 {
     "$schema": "https://schema.tauri.app/config/2",
-    "productName": "VRCX-0",
+    "productName": "VRCX-0-jirai",
     "version": "2.28.0",
     "identifier": "com.vrcx-0.app",
     "build": {
@@ -34,7 +34,7 @@
             {
                 "label": "main",
                 "create": false,
-                "title": "VRCX-0",
+                "title": "VRCX-0-jirai",
                 "width": 1024,
                 "height": 768,
                 "minWidth": 320,
@@ -47,7 +47,7 @@
         "trayIcon": {
             "id": "main",
             "iconPath": "icons/icon.png",
-            "tooltip": "VRCX-0"
+            "tooltip": "VRCX-0-jirai"
         }
     },
     "bundle": {
@@ -87,8 +87,8 @@
         "updater": {
             "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEIwQTA3NTFDOTAxM0E3MjYKUldRbXB4T1FISFdnc0dXNWJhUEVNUVNNcm5ubytmR3lEdTBCUzJPUFY0dHpLcW1UdldwUFB4OWEK",
             "endpoints": [
-                "https://github.com/Map1en/VRCX-0/releases/latest/download/latest_linux_and_macos.json",
-                "https://github.com/Map1en/VRCX-0/releases/latest/download/latest_windows.json"
+                "https://github.com/FuLuTang/VRCX-0-jirai/releases/latest/download/latest_linux_and_macos.json",
+                "https://github.com/FuLuTang/VRCX-0-jirai/releases/latest/download/latest_windows.json"
             ],
             "windows": {
                 "installMode": "passive"
