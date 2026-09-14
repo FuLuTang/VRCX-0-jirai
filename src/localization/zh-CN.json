@@ -3749,6 +3749,16 @@
                 "represented_group": "展示群组",
                 "bio": "个人简介",
                 "bio_history": "个人简介历史",
+                "status_distribution": "状态分布",
+                "refresh_status_distribution": "刷新状态分布",
+                "status_distribution_hint": "加载已记录的状态历史，估算各状态持续时间。",
+                "no_status_distribution": "没有已记录的状态历史。",
+                "status": {
+                    "join_me": "跟我来",
+                    "active": "在线",
+                    "ask_me": "询问我",
+                    "busy": "忙碌"
+                },
                 "translate_bio": "翻译个人简介",
                 "show_original_bio": "显示原文",
                 "open_bio_link": "打开{link}",

@@ -1,5 +1,10 @@
-import { ChevronRightIcon, ExternalLinkIcon, HistoryIcon } from 'lucide-react';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+    ChevronRightIcon,
+    ExternalLinkIcon,
+    HistoryIcon,
+    RefreshCwIcon
+} from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { AvatarInfoLine } from '@/components/feed/FeedAvatarInfoLine';
@@ -52,6 +57,7 @@ import { Spinner } from '@/ui/shadcn/spinner';
 import { EntityDialogTabContent } from '../../EntityDialogScaffold';
 import { formatStatsDuration } from '../userDialogRows';
 import { EntityList } from '../UserDialogViewParts';
+import { buildStatusDistribution } from './statusDistribution';
 
 type OpenGroupDialog =
     (typeof import('@/services/dialogService'))['openGroupDialog'];
@@ -806,6 +812,113 @@ function UserDialogBioPanel({ profile, bioLinks }: UserDialogBioSectionProps) {
     );
 }
 
+export function UserDialogStatusDistributionPanel({
+    profile
+}: {
+    profile: UserDialogInfoProfile;
+}) {
+    const { t } = useTranslation();
+    const currentUserId = useRuntimeStore((state) => state.auth.currentUserId);
+    const [rows, setRows] = useState<FeedRowOutput[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [loaded, setLoaded] = useState(false);
+    const requestId = useRef(0);
+
+    const load = () => {
+        if (!currentUserId || !profile.id) {
+            return;
+        }
+        const activeRequestId = requestId.current + 1;
+        requestId.current = activeRequestId;
+        setLoading(true);
+        feedRepository
+            .queryFeedUserHistory({
+                userId: currentUserId,
+                targetUserId: profile.id,
+                types: ['Status', 'Online', 'Offline']
+            })
+            .then((nextRows) => {
+                if (requestId.current === activeRequestId) {
+                    setRows(nextRows);
+                }
+            })
+            .catch(() => {
+                if (requestId.current === activeRequestId) {
+                    setRows([]);
+                }
+            })
+            .finally(() => {
+                if (requestId.current === activeRequestId) {
+                    setLoading(false);
+                    setLoaded(true);
+                }
+            });
+    };
+
+    useEffect(() => {
+        requestId.current += 1;
+        setRows([]);
+        setLoaded(false);
+        setLoading(false);
+    }, [currentUserId, profile.id]);
+
+    const targetUserId = profile.id || '';
+    const distribution = useMemo(
+        () => buildStatusDistribution(rows, targetUserId),
+        [rows, targetUserId]
+    );
+
+    return (
+        <InfoPanel
+            title={t('dialog.user.info.status_distribution')}
+            action={
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    disabled={!currentUserId || !profile.id || loading}
+                    aria-label={t(
+                        'dialog.user.info.refresh_status_distribution'
+                    )}
+                    title={t('dialog.user.info.refresh_status_distribution')}
+                    onClick={load}
+                >
+                    {loading ? (
+                        <Spinner className="size-3" />
+                    ) : (
+                        <RefreshCwIcon />
+                    )}
+                </Button>
+            }
+        >
+            {!loaded && !loading ? (
+                <p className="text-muted-foreground text-xs">
+                    {t('dialog.user.info.status_distribution_hint')}
+                </p>
+            ) : null}
+            {loaded && !distribution.length ? (
+                <p className="text-muted-foreground text-xs">
+                    {t('dialog.user.info.no_status_distribution')}
+                </p>
+            ) : null}
+            {distribution.length ? (
+                <InfoStatGrid className="sm:grid-cols-1">
+                    {distribution.map((entry) => (
+                        <InfoStat
+                            key={entry.status}
+                            label={t(
+                                `dialog.user.info.status.${entry.status.replace(' ', '_')}`
+                            )}
+                            value={formatStatsDuration(entry.seconds)}
+                            subtle
+                        />
+                    ))}
+                </InfoStatGrid>
+            ) : null}
+        </InfoPanel>
+    );
+}
+
 function UserRelationshipStat({
     friendedAt,
     history
@@ -1018,6 +1131,7 @@ export function UserDialogInfoTab({
                             profileLinksSection.visibleHomeLocationTarget
                         }
                     />
+                    <UserDialogStatusDistributionPanel profile={profile} />
                     <UserDialogActivitySummaryPanel
                         friendedAt={activitySummarySection.friendedAt}
                         relationshipHistory={

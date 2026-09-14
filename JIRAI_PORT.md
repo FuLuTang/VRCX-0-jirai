@@ -1,10 +1,13 @@
 # VRCX-0-jirai clean port
 
 This branch starts from `vrcx` commit `bd63532d4` (v2.28), rather than
-replaying the historical `vrcx-0-jirai` commits. The old `vrcx-0-jirai`
-repository remains the only feature baseline and a read-only implementation
-reference during the port. Features that existed only in `vrcx-jirai` are out
-of scope for this migration.
+replaying the historical `vrcx-0-jirai` commits. The old `vrcx-jirai`
+repository remains a read-only implementation reference. Follow-up work uses
+an evidence-backed inventory: only selected low-risk features may be
+reimplemented against current VRCX-0, while complex legacy-only features need
+a separate investigation and migration decision first. See
+`docs/jirai-port/legacy-feature-inventory.md` and
+`docs/jirai-port/migration-plan.md`.
 
 ## Compatibility rules
 

@@ -11,7 +11,24 @@ import {
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { UserDialogActivitySummaryPanel } from './UserDialogInfoTab';
+import {
+    UserDialogActivitySummaryPanel,
+    UserDialogStatusDistributionPanel
+} from './UserDialogInfoTab';
+
+const mocks = vi.hoisted(() => ({
+    queryFeedUserHistory: vi.fn()
+}));
+
+vi.mock('@/repositories/feedRepository', () => ({
+    default: { queryFeedUserHistory: mocks.queryFeedUserHistory }
+}));
+
+vi.mock('@/state/runtimeStore', () => ({
+    useRuntimeStore: (
+        selector: (state: { auth: { currentUserId: string } }) => unknown
+    ) => selector({ auth: { currentUserId: 'usr_owner' } })
+}));
 
 vi.mock('react-i18next', async (importOriginal) => ({
     ...(await importOriginal<typeof import('react-i18next')>()),
@@ -22,6 +39,41 @@ vi.mock('react-i18next', async (importOriginal) => ({
 }));
 
 afterEach(cleanup);
+
+describe('UserDialogStatusDistributionPanel', () => {
+    it('loads only the displayed user history on request', async () => {
+        const user = userEvent.setup();
+        mocks.queryFeedUserHistory.mockResolvedValue([
+            {
+                rowId: 1,
+                type: 'Status',
+                created_at: '2026-01-01T00:00:00Z',
+                userId: 'usr_target',
+                displayName: 'Target',
+                status: 'active'
+            }
+        ]);
+        render(
+            <UserDialogStatusDistributionPanel profile={{ id: 'usr_target' }} />
+        );
+
+        expect(mocks.queryFeedUserHistory).not.toHaveBeenCalled();
+        await user.click(
+            screen.getByRole('button', {
+                name: 'dialog.user.info.refresh_status_distribution'
+            })
+        );
+
+        expect(mocks.queryFeedUserHistory).toHaveBeenCalledWith({
+            userId: 'usr_owner',
+            targetUserId: 'usr_target',
+            types: ['Status', 'Online', 'Offline']
+        });
+        expect(
+            await screen.findByText('dialog.user.info.status.active')
+        ).toBeTruthy();
+    });
+});
 
 describe('UserDialogActivitySummaryPanel', () => {
     it('shows the relationship timeline without navigating on click', async () => {

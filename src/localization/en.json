@@ -3748,6 +3748,16 @@
                 "represented_group": "Represented Group",
                 "bio": "Bio",
                 "bio_history": "Bio History",
+                "status_distribution": "Status Distribution",
+                "refresh_status_distribution": "Refresh status distribution",
+                "status_distribution_hint": "Load observed status history to estimate time by status.",
+                "no_status_distribution": "No observed status history.",
+                "status": {
+                    "join_me": "Join Me",
+                    "active": "Active",
+                    "ask_me": "Ask Me",
+                    "busy": "Busy"
+                },
                 "translate_bio": "Translate Bio",
                 "show_original_bio": "Show Original",
                 "open_bio_link": "Open {link}",
