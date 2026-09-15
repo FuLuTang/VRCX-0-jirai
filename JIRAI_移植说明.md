@@ -4,8 +4,8 @@
 `vrcx-0-jirai` 提交。旧的 `vrcx-jirai` 仓库仍作为只读实现参考。后续工作依据
 有证据支持的清单：仅可针对当前 VRCX-0 重新实现选定的低风险功能，而复杂的仅旧版功能需要
 先进行单独调查并作出迁移决策。参见
-`docs/jirai-port/legacy-feature-inventory.md` 和
-`docs/jirai-port/migration-plan.md`。
+`docs/jirai-port/旧版功能清单.md` 和
+`docs/jirai-port/后续迁移计划.md`。
 
 ## 兼容性规则
 
