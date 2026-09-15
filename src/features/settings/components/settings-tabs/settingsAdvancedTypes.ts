@@ -3,6 +3,7 @@ import type { AvatarAutoCleanupPreference } from '@/shared/constants/settings';
 
 export type SettingsAdvancedPrefs = {
     anonymousUsageTelemetry?: boolean;
+    autoJoinGroupCertification?: boolean;
     autoSweepVRChatCache?: boolean;
     avatarAutoCleanup?: AvatarAutoCleanupPreference;
     gameLogDisabled?: boolean;
@@ -23,6 +24,7 @@ export type SettingsAdvancedModel = {
     avatarAutoCleanupOptions: readonly AvatarAutoCleanupPreference[];
     configTreeData: Record<string, unknown>;
     onAnonymousUsageTelemetryChange: (checked: boolean) => void;
+    onAutoJoinGroupCertificationChange: (checked: boolean) => void;
     onAutoSweepVRChatCacheChange: (checked: boolean) => void;
     onAvatarAutoCleanupChange: (value: AvatarAutoCleanupPreference) => void;
     onClearConfigTreeData: () => void;

@@ -2836,6 +2836,10 @@
                         "header": "Force Quit VRChat on Exit",
                         "description": "Force close VRChat after exiting the game"
                     },
+                    "auto_join_group_certification": {
+                        "header": "Automatically join the developer group",
+                        "description": "Join the default developer group after your groups finish loading."
+                    },
                     "auto_cache_management": {
                         "header": "Auto Manage Cache on Exit",
                         "description": "Automatically clean up old cache data when closing VRChat."

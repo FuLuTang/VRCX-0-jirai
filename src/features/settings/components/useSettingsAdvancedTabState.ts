@@ -11,6 +11,7 @@ export function useSettingsAdvancedTabState() {
     const prefs = usePreferencesStore(
         useShallow((state) => ({
             relaunchVRChatAfterCrash: state.relaunchVRChatAfterCrash,
+            autoJoinGroupCertification: state.autoJoinGroupCertification,
             vrcQuitFix: state.vrcQuitFix,
             focusVrchatOnJoin: state.focusVrchatOnJoin,
             autoSweepVRChatCache: state.autoSweepVRChatCache,
@@ -59,6 +60,13 @@ export function useSettingsAdvancedTabState() {
         onlineVisitCount,
         configTreeData,
         appDataDirState,
+        onAutoJoinGroupCertificationChange: (checked: boolean) => {
+            saveBoolPreference(
+                'autoJoinGroupCertification',
+                'VRCX_autoJoinGroupCertification',
+                checked
+            );
+        },
         onRelaunchVRChatAfterCrashChange: (checked: boolean) => {
             saveBoolPreference(
                 'relaunchVRChatAfterCrash',

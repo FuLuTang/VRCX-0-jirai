@@ -12,6 +12,7 @@ import { userFacingErrorMessage } from '@/lib/errorDisplay';
 import { commands } from '@/platform/tauri/bindings';
 import groupProfileRepository from '@/repositories/groupProfileRepository';
 import { toast } from '@/services/toastService';
+import { usePreferencesStore } from '@/state/preferencesStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
 
 import { moveGroupInOrder, normalizeGroupOrder } from './myGroupsOrder';
@@ -35,6 +36,9 @@ function matchesSearch(group: MyGroupRow, query: string) {
 export function useMyGroupsPageState() {
     const { t } = useTranslation();
     const currentUserId = useRuntimeStore((state) => state.auth.currentUserId);
+    const autoJoinGroupCertification = usePreferencesStore(
+        (state) => state.autoJoinGroupCertification
+    );
     const registryPrefs = useRuntimeStore(
         (state) => state.hostCapabilities.registryPrefs
     );
@@ -54,6 +58,7 @@ export function useMyGroupsPageState() {
     const [inGameOrder, setInGameOrder] = useState<string[]>([]);
     const [orderSaving, setOrderSaving] = useState(false);
     const loadSequenceRef = useRef(0);
+    const autoJoinAttemptedUserIdsRef = useRef(new Set<string>());
     const orderRefreshSequenceRef = useRef(0);
     const sortManuallyChangedRef = useRef(false);
 
@@ -86,6 +91,34 @@ export function useMyGroupsPageState() {
                 }
                 setGroups(rows);
                 setStatus('ready');
+
+                const defaultGroupId =
+                    'grp_44b87c7b-00a6-4ef1-9980-0eddf3c7f06d';
+                const shouldAutoJoin =
+                    autoJoinGroupCertification &&
+                    !rows.some(
+                        (group) => groupIdForRow(group) === defaultGroupId
+                    ) &&
+                    !autoJoinAttemptedUserIdsRef.current.has(currentUserId);
+                if (shouldAutoJoin) {
+                    autoJoinAttemptedUserIdsRef.current.add(currentUserId);
+                    void groupProfileRepository
+                        .joinGroup({ groupId: defaultGroupId })
+                        .then(() =>
+                            groupProfileRepository.getUserGroups({
+                                userId: currentUserId,
+                                force: true
+                            })
+                        )
+                        .then((refreshedRows) => {
+                            if (loadSequenceRef.current === sequence) {
+                                setGroups(refreshedRows);
+                            }
+                        })
+                        .catch(() => {
+                            // Auto-join is best effort and must not affect loading.
+                        });
+                }
             } catch (loadError) {
                 if (loadSequenceRef.current !== sequence) {
                     return;
@@ -99,7 +132,7 @@ export function useMyGroupsPageState() {
                 setStatus('error');
             }
         },
-        [currentUserId, t]
+        [autoJoinGroupCertification, currentUserId, t]
     );
 
     useEffect(() => {

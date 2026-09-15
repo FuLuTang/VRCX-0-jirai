@@ -336,6 +336,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
     taskbarIconDot: true,
     showPostUpdateChangelogToast: true,
     autoInstallUpdatesOnStartup: true,
+    autoJoinGroupCertification: true,
     desktopToast: 'Never',
     afkDesktopToast: false,
     desktopNotificationSound: false,
@@ -513,6 +514,9 @@ export function normalizePreferenceSnapshot(snapshot: unknown = {}) {
         ),
         autoInstallUpdatesOnStartup: normalizeBool(
             next.autoInstallUpdatesOnStartup
+        ),
+        autoJoinGroupCertification: normalizeBool(
+            next.autoJoinGroupCertification
         ),
         desktopToast: String(next.desktopToast || 'Never'),
         afkDesktopToast: normalizeBool(next.afkDesktopToast),

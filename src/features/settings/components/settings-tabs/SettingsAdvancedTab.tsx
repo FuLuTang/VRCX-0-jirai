@@ -157,6 +157,7 @@ export function SettingsAdvancedTabContent({
         onlineVisitCount,
         configTreeData,
         appDataDirState,
+        onAutoJoinGroupCertificationChange,
         onRelaunchVRChatAfterCrashChange,
         onVrcQuitFixChange,
         onFocusVrchatOnJoinChange,
@@ -206,6 +207,20 @@ export function SettingsAdvancedTabContent({
                     <Switch
                         checked={prefs.relaunchVRChatAfterCrash}
                         onCheckedChange={onRelaunchVRChatAfterCrashChange}
+                    />
+                </Field>
+
+                <Field
+                    label={t(
+                        'view.settings.advanced.advanced.auto_join_group_certification.header'
+                    )}
+                    description={t(
+                        'view.settings.advanced.advanced.auto_join_group_certification.description'
+                    )}
+                >
+                    <Switch
+                        checked={prefs.autoJoinGroupCertification}
+                        onCheckedChange={onAutoJoinGroupCertificationChange}
                     />
                 </Field>
 

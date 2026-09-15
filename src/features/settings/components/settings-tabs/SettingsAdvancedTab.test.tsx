@@ -13,6 +13,8 @@ import type { SettingsAdvancedModel } from './settingsAdvancedTypes';
 const labels: Record<string, string> = {
     'view.settings.advanced.advanced_ui.behavior.deep_link_registration':
         'Open VRCX-0 links',
+    'view.settings.advanced.advanced.auto_join_group_certification.header':
+        'Automatically join the developer group',
     'view.settings.advanced.advanced_ui.storage.change_folder':
         'Change folder…',
     'view.settings.advanced.advanced_ui.storage.more':
@@ -77,6 +79,7 @@ function createModel(
         avatarAutoCleanupOptions: ['Off'],
         configTreeData: {},
         onAnonymousUsageTelemetryChange: vi.fn(),
+        onAutoJoinGroupCertificationChange: vi.fn(),
         onAutoSweepVRChatCacheChange: vi.fn(),
         onAvatarAutoCleanupChange: vi.fn(),
         onClearConfigTreeData: vi.fn(),
@@ -100,6 +103,7 @@ function createModel(
         onlineVisitCount: null,
         prefs: {
             anonymousUsageTelemetry: false,
+            autoJoinGroupCertification: true,
             autoSweepVRChatCache: false,
             avatarAutoCleanup: 'Off',
             gameLogDisabled: false,
@@ -267,6 +271,20 @@ describe('SettingsAdvancedTab data directory states', () => {
         fireEvent.click(toggle);
 
         expect(onFocusVrchatOnJoinChange.mock.calls[0]?.[0]).toBe(true);
+    });
+
+    it('shows the developer group toggle and reports changes', () => {
+        const onAutoJoinGroupCertificationChange = vi.fn();
+        renderTab(createModel({ onAutoJoinGroupCertificationChange }));
+
+        const toggle = screen.getByRole('switch', {
+            name: 'Automatically join the developer group'
+        });
+        expect(toggle.getAttribute('aria-checked')).toBe('true');
+        fireEvent.click(toggle);
+        expect(onAutoJoinGroupCertificationChange.mock.calls[0]?.[0]).toBe(
+            false
+        );
     });
 
     it('hides the VRChat focus toggle on platforms without window focus', () => {

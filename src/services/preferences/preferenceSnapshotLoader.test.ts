@@ -291,4 +291,25 @@ describe('preferenceSnapshotLoader', () => {
             false
         );
     });
+
+    it('loads the developer group preference enabled by default and respects opt-out', async () => {
+        mocks.getBool.mockImplementation((key: string, fallback = false) =>
+            Promise.resolve(
+                key === 'VRCX_autoJoinGroupCertification'
+                    ? false
+                    : Boolean(fallback)
+            )
+        );
+
+        const snapshot = await loadPreferenceSnapshot();
+
+        expect(mocks.getBool).toHaveBeenCalledWith(
+            'VRCX_autoJoinGroupCertification',
+            true
+        );
+        expect(snapshot.autoJoinGroupCertification).toBe(false);
+        expect(usePreferencesStore.getState().autoJoinGroupCertification).toBe(
+            false
+        );
+    });
 });
