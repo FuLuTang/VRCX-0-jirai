@@ -1,56 +1,47 @@
-# VRCX-jirai legacy feature inventory
+# VRCX-jirai 旧版功能清单
 
-## Scope and method
+## 范围与方法
 
-This inventory compares Jirai-authored behavior in the legacy Electron/Vue
-repository (`../VRCX-jirai`) with this Tauri/React repository. It is not a
-whole-tree diff between two differently evolved upstream applications.
+本清单将旧版 Electron/Vue 仓库（`../VRCX-jirai`）中由 Jirai 编写的行为
+与本 Tauri/React 仓库进行比较。这不是两个演进不同的上游应用之间的
+全树差异比较。
 
-The original clean-port scope is already complete:
+原始清洁移植范围已完成：
 
-- branding, icons, updater/repository identity;
-- Bio history diff in the user dialog;
-- two-person relationship history;
-- relationship timeline and its route, navigation, and Dashboard entries.
+- 品牌、图标、更新器/仓库身份；
+- 用户对话框中的 Bio 历史差异；
+- 两人关系历史；
+- 关系时间线及其路由、导航和 Dashboard 条目。
 
-Those items correspond to commits `76b1a447`, `c4150616`, `a23e5108`, and
-`c26eeff8` on this repository's base. Legacy implementation details are
-reference material only; no Electron/.NET/Vue architecture is imported.
+这些项目对应本仓库基线上的提交 `76b1a447`、`c4150616`、`a23e5108` 和
+`c26eeff8`。旧版实现细节仅作参考材料；未导入 Electron/.NET/Vue 架构。
 
-## Classification
+## 分类
 
-| Legacy capability | Legacy evidence | Current equivalent / gap | Decision |
+| 旧版能力 | 旧版证据 | 当前等价项 / 差距 | 决策 |
 | --- | --- | --- | --- |
-| Branding, updater/release links, icons | legacy updater/link changes | completed in `76b1a447` | **Already migrated** |
-| Bio history word diff | legacy user-dialog Bio feature | completed in `c4150616` using owner-scoped Feed | **Already migrated** |
-| Two-person relationship history and timeline | legacy Charts pages | completed in `a23e5108` / `c26eeff8` | **Already migrated** |
-| Status-history distribution in user dialog | `137abf6f`; `UserDialogStatusDistributionTab.vue` | no current dialog view; `feedRepository.queryFeedUserHistory()` already supports `Status` rows | **Simple query/UI port** |
-| Historical-Bio quick search | `a94824c2`; legacy `quickSearchWorker.js` and local Feed query | current search has remote Bio search, but no local historical-Bio result path | **Simple candidate; deferred** |
-| Selected-friend automatic follow | `4a38a56f`; `autoFollow.js` / `AutoFollowDialog.vue` | no direct equivalent | **Requires product/safety investigation** |
-| Feed image drag/drop to Gallery | `055c55b5`; Feed/Gallery UI | no direct equivalent identified | **UI candidate; deferred** |
-| Jirai developer-group auto-join | `a77c6cf6`, configurable in `6ef9f690` | current group join API exists | **Do not port without opt-in product decision** |
-| Friend log/status/notification history | legacy database services | current owner-scoped realtime Feed, Friend Log, and notification pipeline are broader | **Already covered; no port** |
-| Avatar local history | legacy `avatarFavorites.js` | current owner-aware avatar repository exists | **Already covered; do not copy legacy global-cache deletion** |
-| Tracked non-friends | `f66d455c`, `trackedNonFriends` service/store/UI | no equivalent; requires persistence, scheduler and profile requests | **Complex report** |
-| Manual relations and graph overlay | `manualRelations.js`, `ManualRelationsDialog.vue` | current mutual-graph snapshot is read-only observed data, but has no manual-edge domain | **Complex report** |
-| Relationship recommendations | `929db097`, `a95836c3`, `392365f0` | no equivalent; uses heuristic scoring over private history | **Complex report** |
-| Fake GameLog record injection | `c4f1a461`, Previous Instances dialog | generic typed GameLog add command exists, but no provenance model | **Complex report** |
-| Profile completion / bulk historical recording | `infoFetchCoordinator.js`, `ProfileCompletionDialog.vue` | current Feed exists, but no equivalent bulk background scan | **Complex report** |
-| Concurrent multi-account V4 | `733dab99`, `accountHub.js`, `accountSession.js`, design doc | saved-account switching exists; runtime is deliberately single active session | **Complex report / no direct port** |
-| Default visibility, table style, glass styling | small legacy commits | upstream preference/visual behavior | **Document only** |
+| 品牌、更新器/发布链接、图标 | 旧版更新器/链接变更 | 已在 `76b1a447` 完成 | **已迁移** |
+| Bio 历史词语差异 | 旧版用户对话框 Bio 功能 | 已在 `c4150616` 中使用所有者范围 Feed 完成 | **已迁移** |
+| 两人关系历史和时间线 | 旧版 Charts 页面 | 已在 `a23e5108` / `c26eeff8` 完成 | **已迁移** |
+| 用户对话框中的状态历史分布 | `137abf6f`；`UserDialogStatusDistributionTab.vue` | 当前没有对话框视图；`feedRepository.queryFeedUserHistory()` 已支持 `Status` 行 | **简单查询/UI 移植** |
+| 历史 Bio 快速搜索 | `a94824c2`；旧版 `quickSearchWorker.js` 和本地 Feed 查询 | 当前搜索有远程 Bio 搜索，但没有本地历史 Bio 结果路径 | **简单候选；延期** |
+| 对选定好友自动关注 | `4a38a56f`；`autoFollow.js` / `AutoFollowDialog.vue` | 没有直接等价项 | **需要产品/安全调查** |
+| Feed 图片拖放到 Gallery | `055c55b5`；Feed/Gallery UI | 未发现直接等价项 | **UI 候选；延期** |
+| Jirai 开发者群自动加入 | `a77c6cf6`，可在 `6ef9f690` 中配置 | 当前存在群组加入 API | **没有明确选择加入的产品决策不得移植** |
+| 好友日志/状态/通知历史 | 旧版数据库服务 | 当前所有者范围实时 Feed、Friend Log 和通知管道覆盖更广 | **已覆盖；不移植** |
+| 头像本地历史 | 旧版 `avatarFavorites.js` | 当前存在感知所有者的头像仓库 | **已覆盖；不要复制旧版全局缓存删除** |
+| 已跟踪的非好友 | `f66d455c`、`trackedNonFriends` 服务/存储/UI | 无等价项；需要持久化、调度器和个人资料请求 | **复杂报告** |
+| 手动关系和图覆盖层 | `manualRelations.js`、`ManualRelationsDialog.vue` | 当前互惠图快照是只读观测数据，但没有手动边领域 | **复杂报告** |
+| 关系推荐 | `929db097`、`a95836c3`、`392365f0` | 无等价项；对私有历史使用启发式评分 | **复杂报告** |
+| Fake GameLog 记录注入 | `c4f1a461`、Previous Instances 对话框 | 存在通用类型化 GameLog 添加命令，但没有来源模型 | **复杂报告** |
+| 个人资料完善 / 批量历史记录 | `infoFetchCoordinator.js`、`ProfileCompletionDialog.vue` | 当前存在 Feed，但没有等价的批量后台扫描 | **复杂报告** |
+| 并发多账户 V4 | `733dab99`、`accountHub.js`、`accountSession.js`、设计文档 | 存在已保存账户切换；运行时刻意保持单一活动会话 | **复杂报告 / 不直接移植** |
+| 默认可见性、表格样式、玻璃样式 | 小型旧版提交 | 上游偏好设置/视觉行为 | **仅记录文档** |
 
-## Guardrails derived from the comparison
+## 从比较中得出的防护规则
 
-- A current user owns all historical/social data. New features must not revive
-  legacy global `dbVars` mutation or cross-account data leakage.
-- Observed Feed, GameLog and mutual-graph data remain immutable evidence.
-  User declarations and derived recommendations must be modeled separately.
-- Existing public repositories and typed Tauri commands are the integration
-  boundary. Direct SQL from the frontend and custom replacement Feed commands
-  are prohibited.
-- The legacy multi-account design is not a specification: its implementation
-  has incomplete/unsafe seams (for example, its aggregate view references hub
-  properties the hub does not expose).
-- Automatic joining, following, synthetic records, and bulk API scans have
-  side effects or privacy consequences; they require an explicit later
-  product decision.
+- 当前用户拥有所有历史/社交数据。新功能不得恢复旧版全局 `dbVars` 变更或跨账户数据泄漏。
+- 已观测的 Feed、GameLog 和互惠图数据仍是不可变证据。用户声明和派生推荐必须分开建模。
+- 现有公共仓库和类型化 Tauri 命令是集成边界。禁止前端直接执行 SQL 和自定义替代 Feed 命令。
+- 旧版多账户设计不是规范：其实现存在不完整/不安全的衔接（例如，其聚合视图引用了 hub 未公开的属性）。
+- 自动加入、关注、合成记录和批量 API 扫描具有副作用或隐私影响；需要之后作出明确的产品决策。

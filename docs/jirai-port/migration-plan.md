@@ -1,40 +1,36 @@
-# Jirai follow-up migration plan
+# Jirai 后续迁移计划
 
-## This round
+## 本轮
 
-1. Preserve current `main` as the upstream-compatible Jirai integration line.
-2. Complete the evidence-backed legacy inventory.
-3. Port only status-history distribution, because it reads the existing
-   current-account scoped `Status` Feed and requires neither schema nor backend
-   changes.
-4. Publish a preparation report for each complex feature.
-5. Validate and stop. No complex feature implementation, upstream merge,
-   release, or updater-signing work belongs to this round.
+1. 保留当前 `main` 作为与上游兼容的 Jirai 集成线。
+2. 完成有证据支持的旧版功能清单。
+3. 仅移植状态历史分布，因为它读取现有的
+   当前账户范围 `Status` Feed，既不需要架构也不需要后端变更。
+4. 为每个复杂功能发布准备报告。
+5. 验证并停止。本轮不进行复杂功能实现、上游合并、发布或更新器签名工作。
 
-## Implementation rules
+## 实现规则
 
-- Use React feature modules, repositories and generated Tauri bindings.
-- Query history through `feedRepository.queryFeedUserHistory()` with the
-  signed-in owner ID and displayed target user ID.
-- Keep the data source read-only. Do not add a Rust Feed command, write
-  directly to SQLite, add a Jirai database migration, or import legacy UI.
-- Treat an empty status history as a normal state. Ignore stale asynchronous
-  results when the owner or target user changes.
-- Test data transformation separately from dialog behavior.
+- 使用 React 功能模块、仓库和生成的 Tauri 绑定。
+- 通过 `feedRepository.queryFeedUserHistory()` 查询历史，传入已登录所有者 ID 和显示的目标用户 ID。
+- 保持数据源只读。不要添加 Rust Feed 命令、直接写入 SQLite、添加 Jirai 数据库迁移或导入旧版 UI。
+- 将空状态历史视为正常状态。当所有者或目标用户变化时，忽略过期的异步
+  结果。
+- 将数据转换与对话框行为分开测试。
 
-## Difficulty order
+## 难度顺序
 
-| Tier | Work | Rationale |
+| 层级 | 工作 | 理由 |
 | --- | --- | --- |
-| Implement now | Status-history distribution | Existing scoped Feed data and local UI aggregation only |
-| Later, small | Historical-Bio local search; image drop-to-gallery | Need current UX/API fit but no new social data model |
-| Later, product gated | Automatic follow; group auto-join | External effects, consent and cancellation semantics |
-| Investigation required | Manual relations; tracked non-friends; relationship recommendation | New owner-scoped persistence and sensitive inference policy |
-| Investigation required | Synthetic history records; profile completion | Evidence provenance, API rate limits, data integrity |
-| Architecture RFC | Concurrent multi-account | Multiple authenticated realtime sessions conflict with the current active-session runtime |
+| 立即实现 | 状态历史分布 | 仅需现有范围 Feed 数据和本地 UI 聚合 |
+| 稍后，小型 | 历史 Bio 本地搜索；图片拖放到 gallery | 需要适配当前 UX/API，但无需新的社交数据模型 |
+| 稍后，产品审批 | 自动关注；群组自动加入 | 外部影响、同意和取消语义 |
+| 需要调查 | 手动关系；已跟踪的非好友；关系推荐 | 新的所有者范围持久化和敏感推断策略 |
+| 需要调查 | 合成历史记录；个人资料完善 | 证据来源、API 速率限制、数据完整性 |
+| 架构 RFC | 并发多账户 | 多个已认证实时会话与当前活动会话运行时冲突 |
 
-## Verification
+## 验证
 
-Run focused Vitest coverage, `npm run typecheck`, `npm test`, and `npm run build`.
-A Windows graphical Tauri run remains a separate manual verification: it is
-not claimed by a successful web build or Rust check.
+运行针对性的 Vitest 覆盖、`npm run typecheck`、`npm test` 和 `npm run build`。
+Windows 图形化 Tauri 运行仍需单独手动验证：成功的 web 构建或 Rust 检查
+不代表已完成该验证。

@@ -1,40 +1,39 @@
-# Investigation: synthetic GameLog/history records
+# 调查：合成 GameLog/历史记录
 
-## Legacy behavior
+## 旧版行为
 
-The legacy Previous Instances dialog injects short synthetic
-`OnPlayerJoined`/`OnPlayerLeft` entries to make a record appear in history.
-Evidence: legacy commit `c4f1a461` and
-`PreviousInstancesInfoDialog.vue`. Current VRCX-0 has a generic typed
-`appGameLogEntriesAdd` command, but its normal use attaches records to the
-current owner and treats them as ordinary GameLog data.
+旧版 Previous Instances 对话框注入简短的合成
+`OnPlayerJoined`/`OnPlayerLeft` 条目，使记录出现在历史中。
+证据：旧版提交 `c4f1a461` 和
+`PreviousInstancesInfoDialog.vue`。当前 VRCX-0 具有通用的类型化
+`appGameLogEntriesAdd` 命令，但其通常用法会将记录附加到
+当前所有者，并将其视为普通的 GameLog 数据。
 
-## Data integrity problem
+## 数据完整性问题
 
-Using the generic command for UI-created records would make fabricated data
-indistinguishable from VRChat/log observations. It could silently affect
-instance history, relationship charts, future recommendations, exports, and
-user trust.
+对 UI 创建的记录使用通用命令，会使伪造数据
+无法与 VRChat/日志观测区分开来。这可能在不知不觉中影响
+实例历史、关系图表、未来推荐、导出内容以及
+用户信任。
 
-## Proposed migration design
+## 提议的迁移设计
 
-- Do not expose the generic write command directly to a Jirai UI.
-- If approved, introduce a dedicated command and schema contract with
-  `provenance = manual_synthetic`, author time, optional reason, and explicit
-  pair/instance fields. It must validate that only the active owner can create
-  or delete it.
-- Queries must intentionally choose whether synthetic rows are included;
-  default analytical and inference paths should exclude them or show a clear
-  filter/badge.
-- Require a confirmation dialog, visible badge, edit/delete action, audit
-  timestamp, export labeling and backup/cleanup behavior.
+- 不要将通用写入命令直接暴露给 Jirai UI。
+- 如果获批，引入专用命令和模式契约，其中包含
+  `provenance = manual_synthetic`、作者时间、可选原因以及明确的
+  配对/实例字段。必须验证只有当前所有者可以创建或删除它。
+- 查询必须有意选择是否包含合成行；
+  默认的分析和推理路径应排除这些行，或显示清晰的
+  筛选器/标记。
+- 要求确认对话框、可见标记、编辑/删除操作、审计
+  时间戳、导出标注以及备份/清理行为。
 
-## Required tests
+## 必需测试
 
-Cover command authorization, provenance persistence, owner isolation,
-delete/restore, query inclusion flags, chart/inference exclusion, import/export
-labels and UI confirmation/error states.
+覆盖命令授权、来源持久化、所有者隔离、
+删除/恢复、查询包含标志、图表/推理排除、导入/导出
+标签以及 UI 确认/错误状态。
 
-## Recommendation
+## 建议
 
-**Do not implement now.** It requires an integrity contract before any UI port.
+**暂不实现。** 在进行任何 UI 移植前，需要先建立完整性契约。

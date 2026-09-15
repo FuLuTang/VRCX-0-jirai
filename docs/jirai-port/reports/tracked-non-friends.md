@@ -1,50 +1,35 @@
-# Investigation: tracked non-friends
+# 调查：已跟踪的非好友
 
-## Legacy behavior
+## 旧版行为
 
-The legacy feature added owner-prefixed `*_tracked_nonfriends` storage, a
-sidebar list, profile/menu actions, and a periodic coordinator that refreshed
-non-friend profiles and produced Feed observations. Evidence: legacy commit
-`f66d455c`, `src/services/database/trackedNonFriends.js`,
-`src/stores/trackedNonFriends.js`, `src/coordinators/nonFriendCoordinator.js`,
-and `TrackedNonFriendsSidebar.vue`.
+旧版功能增加了所有者前缀的 `*_tracked_nonfriends` 存储、侧边栏列表、个人资料/菜单操作，以及定期刷新非好友个人资料并生成 Feed 观测的协调器。证据：旧版提交
+`f66d455c`、`src/services/database/trackedNonFriends.js`、
+`src/stores/trackedNonFriends.js`、`src/coordinators/nonFriendCoordinator.js` 和
+`TrackedNonFriendsSidebar.vue`。
 
-## Current fit
+## 当前适配性
 
-Current VRCX-0 models observed friend realtime data as current-owner data.
-There is no non-friend tracking domain. The current mutual graph is an
-observed snapshot (`crates/persistence/src/mutual_graph.rs`), not a generic
-watch list. Reusing it would incorrectly imply friendship and contaminate
-coverage information.
+当前 VRCX-0 将观测到的好友实时数据建模为当前所有者数据。
+不存在非好友跟踪领域。当前互惠图是观测快照
+（`crates/persistence/src/mutual_graph.rs`），不是通用关注列表。复用它会错误地暗示好友关系，并污染覆盖信息。
 
-## Proposed migration design
+## 拟议的迁移设计
 
-- Add a separate owner-scoped tracked-subject domain only after approval:
-  canonical `target_user_id`, optional display snapshot, enabled flag,
-  created/updated timestamps, and a source/version field.
-- Provide typed Rust CRUD commands/repository APIs; never expose frontend SQL.
-- Run refreshes in a bounded, cancellable application service with an explicit
-  per-user limit, persisted backoff, rate-limit handling, and no startup scan
-  by default.
-- Persist observations only through the existing Feed event path when their
-  provenance and retention policy are defined. A tracked person must be
-  visibly labeled in every UI, and removal must stop scheduling without
-  rewriting genuine historical observations.
+- 仅在获批后添加单独的、按所有者限定范围的已跟踪主体领域：
+  规范化的 `target_user_id`、可选的显示快照、启用标志、
+  创建/更新时间戳以及来源/版本字段。
+- 提供类型化 Rust CRUD 命令/仓库 API；绝不暴露前端 SQL。
+- 在有界、可取消的应用服务中运行刷新，明确每用户限制、持久化退避和速率限制处理，默认不进行启动扫描。
+- 仅当来源和保留策略已定义时，才通过现有 Feed 事件路径持久化观测。每个 UI 都必须明确标记被跟踪者，移除后必须停止调度，不得重写真实历史观测。
 
-## Risks and decisions needed
+## 所需的风险与决策
 
-This changes API traffic and collects history for people outside the friend
-list. Decide opt-in wording, maximum count, refresh cadence, retention,
-privacy warning, and whether each account owns an independent watch list.
+这会改变 API 流量，并收集好友列表之外人员的历史。需决定选择加入文案、最大数量、刷新频率、保留期限、隐私警告，以及每个账户是否拥有独立关注列表。
 
-## Required tests
+## 所需测试
 
-Rust owner isolation, canonical IDs, idempotent schema upgrade, limits and
-backoff; application cancellation/rate-limit tests; repository contract tests;
-React add/remove/empty/error accessibility tests; and an integration fixture
-showing no mutation of friend or mutual-graph data.
+Rust 所有者隔离、规范 ID、幂等架构升级、限制和退避；应用取消/速率限制测试；仓库契约测试；React 添加/移除/空/错误可访问性测试；以及证明不会修改好友或互惠图数据的集成装置。
 
-## Recommendation
+## 建议
 
-**Do not implement in this round.** It is a new persistence/scheduler feature,
-not a direct UI port.
+**本轮不要实现。** 这是新的持久化/调度器功能，而非直接 UI 移植。

@@ -1,37 +1,35 @@
-# VRCX-0-jirai clean port
+# VRCX-0-jirai 清洁移植
 
-This branch starts from `vrcx` commit `bd63532d4` (v2.28), rather than
-replaying the historical `vrcx-0-jirai` commits. The old `vrcx-jirai`
-repository remains a read-only implementation reference. Follow-up work uses
-an evidence-backed inventory: only selected low-risk features may be
-reimplemented against current VRCX-0, while complex legacy-only features need
-a separate investigation and migration decision first. See
-`docs/jirai-port/legacy-feature-inventory.md` and
-`docs/jirai-port/migration-plan.md`.
+此分支基于 `vrcx` 提交 `bd63532d4`（v2.28），而不是重放历史上的
+`vrcx-0-jirai` 提交。旧的 `vrcx-jirai` 仓库仍作为只读实现参考。后续工作依据
+有证据支持的清单：仅可针对当前 VRCX-0 重新实现选定的低风险功能，而复杂的仅旧版功能需要
+先进行单独调查并作出迁移决策。参见
+`docs/jirai-port/legacy-feature-inventory.md` 和
+`docs/jirai-port/migration-plan.md`。
 
-## Compatibility rules
+## 兼容性规则
 
-- Keep the `com.vrcx-0.app` bundle identifier, `vrcx-0` deep-link scheme,
-  preference keys, and data directory names. Existing local data must stay
-  discoverable after the application name changes.
-- Reuse the current `vrcx` Feed query API and its current-user scope. Do not
-  restore the former custom Feed Rust command or add a Jirai database
-  migration.
-- Reimplement user-facing features against current `vrcx` components and
-  routes. Do not copy removed registries or intermediate old architecture.
+- 保留 `com.vrcx-0.app` 包标识符、`vrcx-0` 深层链接方案、
+  偏好设置键和数据目录名称。应用名称更改后，现有本地数据仍必须
+  可被发现。
+- 复用当前 `vrcx` Feed 查询 API 及其当前用户范围。不要
+  恢复之前的自定义 Feed Rust 命令，也不要添加 Jirai 数据库
+  迁移。
+- 针对当前 `vrcx` 组件和路由重新实现面向用户的功能。不要复制
+  已删除的注册表或旧架构中的中间层。
 
-## Port scope
+## 移植范围
 
-1. VRCX-0-jirai branding and the icon set sourced from `vrcx-jirai`.
-2. User Bio history diff inside the existing user dialog.
-3. Two-person relationship history.
-4. Relationship timeline, preserving the original `vrcx-0-jirai` per-bucket
-   Top-N percentage algorithm and controls.
+1. VRCX-0-jirai 品牌和取自 `vrcx-jirai` 的图标集。
+2. 现有用户对话框中的用户 Bio 历史差异。
+3. 两人关系历史。
+4. 关系时间线，保留原始 `vrcx-0-jirai` 的每桶
+   Top-N 百分比算法和控件。
 
-## Release setup required before publishing
+## 发布前所需的发布设置
 
-The updater endpoints point at `FuLuTang/VRCX-0-jirai` so this build cannot
-silently update itself to `vrcx`. Before publishing the first updater-enabled
-release, generate a dedicated Tauri updater signing key and replace the
-`plugins.updater.pubkey` value in `src-tauri/tauri.conf.json`; the inherited
-public key only trusts release artifacts signed by `vrcx`.
+更新器端点指向 `FuLuTang/VRCX-0-jirai`，因此此构建不会
+静默更新到 `vrcx`。在发布首个启用更新器的版本前，生成专用的 Tauri 更新器
+签名密钥，并替换 `src-tauri/tauri.conf.json` 中的
+`plugins.updater.pubkey` 值；继承的公钥仅信任由 `vrcx` 签名的发布
+构件。

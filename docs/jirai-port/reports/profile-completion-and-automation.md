@@ -1,44 +1,44 @@
-# Investigation: profile completion and automatic actions
+# 调查：资料完善与自动操作
 
-## Legacy behavior
+## 旧有行为
 
-Jirai includes bulk profile completion/status recording through
-`infoFetchCoordinator.js`, progress UI and `ProfileCompletionDialog.vue`. It
-also contains selected-friend automatic follow and a configurable Jirai group
-join. These features make VRChat requests or actions outside a user click.
+Jirai 通过
+`infoFetchCoordinator.js`、进度 UI 和 `ProfileCompletionDialog.vue` 提供批量资料完善/状态记录功能。它
+还包含对选定好友的自动关注，以及可配置的 Jirai 群组加入功能。这些功能会在用户点击之外发起
+VRChat 请求或执行操作。
 
-## Current fit
+## 当前适配情况
 
-Current VRCX-0 already owns Feed persistence and has user/group repositories,
-but it has no equivalent background bulk profile scan or automatic follow.
-Current notification/preferences infrastructure should remain canonical; no
-Vue setting/local-storage pattern should be copied.
+当前 VRCX-0 已负责 Feed 持久化，并拥有用户/群组存储库，
+但没有等效的后台批量资料扫描或自动关注功能。
+当前的通知/偏好设置基础设施应继续作为规范来源；不应复制
+Vue 设置/本地存储模式。
 
-## Migration questions
+## 迁移问题
 
-- Which exact fields are fetched, when, and with what consent?
-- What is the maximum batch size, API-rate policy, retry/backoff, cancellation
-  behavior and visible progress?
-- Are profile snapshots recorded only for friends, or tracked non-friends too?
-- Does an automatic follow/join require confirmation each time, a per-feature
-  default-off preference, cooldown, stop control and failure reporting?
-- Should the hard-coded legacy developer-group ID ever be supported? The safe
-  default is **no automatic join**.
+- 具体会获取哪些字段、在何时获取，以及需要何种同意？
+- 最大批量大小、API 速率策略、重试/退避、取消
+  行为和可见进度应如何设计？
+- 资料快照是否只为好友记录，还是也要跟踪非好友？
+- 自动关注/加入是否需要每次确认、每项功能默认关闭的
+  偏好设置、冷却时间、停止控制和失败报告？
+- 是否应支持硬编码的旧有开发者群组 ID？安全的
+  默认设置是**不自动加入**。
 
-## Proposed architecture
+## 建议架构
 
-If approved, create an application service with typed progress events,
-cancellation and persisted rate-limit state. It calls public repository/API
-paths and emits normal provenance-aware Feed observations. Keep each automatic
-external action behind its own explicit, default-off preference and visible
-session state.
+如果获批，创建一个具备类型化进度事件、
+取消功能和持久化速率限制状态的应用服务。它调用公开的存储库/API
+路径，并发出带有正常来源信息的 Feed 观测记录。每项自动
+外部操作都应置于各自明确且默认关闭的偏好设置和可见的
+会话状态之后。
 
-## Required tests
+## 必需测试
 
-Rate limit/retry/cancel lifecycle, owner isolation, batch bounds, no duplicate
-observations, restart recovery, preference migration, confirmation/cooldown,
-and React progress/error/accessibility coverage.
+速率限制/重试/取消生命周期、所有者隔离、批量边界、不重复
+观测、重启恢复、偏好设置迁移、确认/冷却时间，
+以及 React 进度/错误/无障碍覆盖。
 
-## Recommendation
+## 建议
 
-**Product decision required; do not implement in this round.**
+**需要产品决策；本轮不要实现。**

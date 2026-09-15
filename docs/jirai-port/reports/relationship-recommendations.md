@@ -1,42 +1,35 @@
-# Investigation: relationship recommendations
+# 调查：关系推荐
 
-## Legacy behavior
+## 旧版行为
 
-The legacy `manualRelations` store computes pair scores from GameLog, GPS,
-online/offline Feed entries, and old mutual snapshots. It weights instance
-privacy/access, creator identity, overlap, the observer's absence, and prior
-manual relationships. Suggestions are session-only dismissals and can add
-manual edges. Evidence: legacy commits `929db097`, `a95836c3`, `392365f0` and
-`src/stores/manualRelations.js`.
+旧版 `manualRelations` 存储会根据 GameLog、GPS、online/offline Feed 条目以及旧的共
+同关系快照计算成对分数。它会对实例隐私/访问权限、创建者身份、重叠情况、观察者缺席以及之
+前的手动关系进行加权。建议的忽略操作仅在当前会话中有效，并且可以添加手动边。证据：
+旧版提交 `929db097`、`a95836c3`、`392365f0` 以及 `src/stores/manualRelations.js`。
 
-## Why it is not portable as-is
+## 为何无法直接移植
 
-The weights encode an unversioned privacy policy and are not a validated truth
-model. Its nested candidate loop can be expensive, and it depends on features
-not present in current VRCX-0 (tracked non-friends/manual edges/old snapshots).
-Current Feed and mutual graph data have different guarantees.
+这些权重编码了未经版本控制的隐私策略，并不是经过验证的真值模型。其中嵌套的候选者循环
+可能开销很大，而且依赖当前 VRCX-0 中不存在的功能（已跟踪的非好友/手动边/旧快照）。
+当前 Feed 和共同关系图数据具有不同的保证。
 
-## Required design before implementation
+## 实现前所需的设计
 
-1. Specify an explainable, opt-in recommendation policy with evidence labels,
-   confidence wording, exclusions, and a "do not infer" control.
-2. Define immutable owner-scoped inputs and a versioned derived-result cache;
-   raw Feed/GameLog/mutual data must never be changed.
-3. Make computation cancellable and bounded. Prefer indexed Rust queries and
-   deterministic aggregation to browser full-history pair scans.
-4. Define handling for private locations, missing observations, stale mutual
-   snapshots, manually declared pairs, and deletion/retention.
-5. Require a clear UI separation between recommendation, observation and a
-   user-declared manual relation.
+1. 制定可解释且需用户主动选择加入的推荐策略，并包含证据标签、置信度措辞、排除项以及
+   “不要推断”控制项。
+2. 定义不可变的、按所有者限定范围的输入和带版本的派生结果缓存；不得修改原始
+   Feed/GameLog/共同关系数据。
+3. 使计算可取消并有界。相较于在浏览器中扫描完整历史记录的成对数据，优先使用带索引的
+   Rust 查询和确定性聚合。
+4. 定义对私密位置、缺失的观测、过期的共同关系快照、手动声明的成对关系以及删除/保留的
+   处理方式。
+5. 要求在 UI 中明确区分推荐、观测和用户声明的手动关系。
 
-## Required tests
+## 所需测试
 
-Use fixed fixtures for overlap, access type, creator, absent observer,
-duplicates, invalid timestamps, disabled inputs and owner separation. Test
-performance bounds/cancellation, score-version invalidation, explanations and
-privacy-safe empty states.
+使用固定测试夹具覆盖重叠、访问类型、创建者、观察者缺席、重复项、无效时间戳、已禁用输入
+   以及所有者隔离。测试性能边界/取消、分数版本失效、解释信息以及隐私安全的空状态。
 
-## Recommendation
+## 建议
 
-**No implementation this round.** First complete the tracked-subject/manual
-edge decisions and approve a new recommendation specification.
+**本轮不实现。** 首先完成已跟踪主体/手动边的决策，并批准新的推荐规范。

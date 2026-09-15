@@ -1,41 +1,32 @@
-# Investigation: manual relationship declarations and graph overlay
+# 调查：手动关系声明和图覆盖层
 
-## Legacy behavior
+## 旧版行为
 
-Legacy Jirai stored canonicalized pairs in
-`{prefix}_manual_relations_MANUEL`, edited them through
-`ManualRelationsDialog.vue`, and rendered green edges in the mutual-friends
-graph. The relevant implementation is `src/services/database/manualRelations.js`
-and `src/stores/manualRelations.js`; graph integration appears in
-`MutualFriends.vue`.
+旧版 Jirai 将规范化配对存储在
+`{prefix}_manual_relations_MANUEL` 中，通过
+`ManualRelationsDialog.vue` 编辑，并在互惠好友图中渲染绿色边。相关实现位于
+`src/services/database/manualRelations.js` 和
+`src/stores/manualRelations.js`；图集成出现在
+`MutualFriends.vue` 中。
 
-## Current fit
+## 当前适配性
 
-Current VRCX-0 persists fetched mutual-graph snapshots in
-`{prefix}_mutual_graph_*` tables and renders them from
-`src/features/charts/mutual-friends/`. Those records are observed VRChat data.
-Manual declarations must be a separate overlay and must never mutate the
-observed graph snapshot or make an inferred relationship look authoritative.
+当前 VRCX-0 将获取的互惠图快照持久化到
+`{prefix}_mutual_graph_*` 表，并从
+`src/features/charts/mutual-friends/` 渲染。这些记录是观测到的 VRChat 数据。
+手动声明必须是单独的覆盖层，绝不能修改观测图快照，或让推断出的关系看起来具有权威性。
 
-## Proposed migration design
+## 拟议迁移设计
 
-- Create an owner-scoped manual-edge domain with a canonical sorted pair,
-  relation kind, optional user-authored note, creation/update times, and a
-  dedicated schema version.
-- Expose CRUD through a typed Tauri command/repository and return an overlay
-  model to the graph page. Merge at render time with an explicit legend and
-  accessibility label, rather than writing rows into mutual graph tables.
-- Enforce nonempty, distinct user IDs and stable ordering in Rust. Define
-  behavior when a user is no longer a friend or cache data is absent.
-- Provide deletion and export/backup semantics alongside other owner data.
+- 创建所有者范围的手动边领域，包含规范化排序配对、关系类型、可选用户备注、创建/更新时间和专用架构版本。
+- 通过类型化 Tauri 命令/仓库暴露 CRUD，并向图页面返回覆盖层模型。在渲染时合并，配以明确图例和可访问性标签，而不是向互惠图表写入行。
+- 在 Rust 中强制用户 ID 非空、不同且顺序稳定。定义用户不再是好友或缓存数据缺失时的行为。
+- 与其他所有者数据一并提供删除和导出/备份语义。
 
-## Risks and tests
+## 风险与测试
 
-Schema ownership, pair uniqueness, account switching, deletion, stale labels,
-and accidental confusion with VRChat mutual edges are the main risks. Test
-canonical-pair CRUD and owner isolation in Rust; contract tests at the binding;
-and React graph overlay, legend, no-data and deletion tests.
+架构所有权、配对唯一性、账户切换、删除、过时标签以及与 VRChat 互惠边的意外混淆是主要风险。在 Rust 中测试规范配对 CRUD 和所有者隔离；在绑定层进行契约测试；并测试 React 图覆盖层、图例、无数据和删除。
 
-## Recommendation
+## 建议
 
-**Investigate after a user-facing data-model decision; do not implement now.**
+**在面向用户的数据模型决策后再调查；当前不要实现。**
