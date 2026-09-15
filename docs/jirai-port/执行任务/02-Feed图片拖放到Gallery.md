@@ -1,7 +1,7 @@
 # 02：Feed 图片拖放到 Gallery
 
 ## 目标
-在当前 Feed 页面拖入图片时展示旧 Jirai 的五个目标区（Gallery、Icons、Emojis、Stickers、Prints）；点击/投放目标后跳转当前 Gallery，并把文件与目标 tab 交给现有裁剪/上传流程。
+在当前 Feed 页面拖入单个图片时展示旧 Jirai 的五个目标区（Gallery、Icons、Emojis、Stickers、Prints）；将文件**投放**到命中的目标区后跳转当前 Gallery，并把文件与目标 tab 交给现有裁剪/上传流程。旧实现只有投放命中，不额外新增“先保存文件、再点击目标”的状态机。
 
 ## 依赖与边界
 无数据模型或 Rust 改动。必须复用当前 `src/features/tools/GalleryPage.tsx`、`useGalleryPageController.ts`、`useGalleryAssetActions.ts` 和 `vrchatMediaRepository.ts`；不得复制旧 Vue 上传 API。

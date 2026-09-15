@@ -13,6 +13,7 @@ function createActions(overrides: Partial<GalleryAssetActionDeps> = {}) {
             click: vi.fn()
         }
     };
+    const setCropRequest = vi.fn();
     const toast = {
         error: vi.fn(),
         success: vi.fn(),
@@ -69,7 +70,7 @@ function createActions(overrides: Partial<GalleryAssetActionDeps> = {}) {
         parseEmojiUploadSettings: vi.fn(),
         readFileAsBase64: vi.fn().mockResolvedValue('base64-body'),
         setAssets: vi.fn(),
-        setCropRequest: vi.fn(),
+        setCropRequest,
         setEmojiAnimFps: vi.fn(),
         setEmojiAnimFrameCount: vi.fn(),
         setEmojiAnimLoopPingPong: vi.fn(),
@@ -87,13 +88,14 @@ function createActions(overrides: Partial<GalleryAssetActionDeps> = {}) {
         uploadTargetRef: {
             current: null
         },
-        validateImageFile: vi.fn(),
+        validateImageFile: vi.fn().mockReturnValue(true),
         withUploadTimeout: <T>(promise: Promise<T>) => promise,
         ...overrides
     });
 
     return {
         actions,
+        setCropRequest,
         toast,
         uploadAssetImage,
         uploadInputRef

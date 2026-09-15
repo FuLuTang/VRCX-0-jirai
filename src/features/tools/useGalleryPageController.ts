@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useLocation, useNavigate, useSearchParams } from 'react-router';
 
 import {
     EMPTY_ASSETS,
     sanitizeGalleryTab,
     TAB_ORDER,
+    type GalleryTab,
     type GalleryUploadTarget
 } from './galleryConstants';
 import {
@@ -15,13 +16,38 @@ import {
 import type {
     GalleryAuthTarget,
     GalleryControllerDeps,
-    GalleryCropRequest
+    GalleryCropRequest,
+    GalleryPendingUpload
 } from './galleryTypes';
 import { useGalleryActions } from './useGalleryActions';
 import { useGalleryBulkActions } from './useGalleryBulkActions';
 import { useGalleryRuntimeState } from './useGalleryRuntimeState';
 
 const GALLERY_GRID_DENSITY_STORAGE_KEY = 'VRCX_GalleryGridDensity';
+
+function readFeedImageDrop(state: unknown): GalleryPendingUpload | null {
+    if (!state || typeof state !== 'object') {
+        return null;
+    }
+    const drop = (state as { feedImageDrop?: unknown }).feedImageDrop;
+    if (!drop || typeof drop !== 'object') {
+        return null;
+    }
+    const { file, target } = drop as Partial<GalleryPendingUpload>;
+    if (
+        !file ||
+        !['gallery', 'icons', 'emojis', 'stickers', 'prints'].includes(
+            target || ''
+        )
+    ) {
+        return null;
+    }
+    return { file, target: target as GalleryUploadTarget };
+}
+
+function isGalleryTab(target: GalleryUploadTarget): target is GalleryTab {
+    return target === 'gallery' || target === 'icons' || target === 'prints';
+}
 
 function readGalleryGridDensityPreference() {
     if (typeof window === 'undefined') {
@@ -50,10 +76,12 @@ function writeGalleryGridDensityPreference(value: GalleryGridDensity) {
 }
 
 export function useGalleryPageController() {
+    const location = useLocation();
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const uploadInputRef = useRef<HTMLInputElement | null>(null);
     const uploadTargetRef = useRef<GalleryUploadTarget>('gallery');
+    const processedFeedDropFileRef = useRef<File | null>(null);
     const uploadAuthTargetRef = useRef<GalleryAuthTarget | null>(null);
     const {
         currentEndpoint,
@@ -100,6 +128,7 @@ export function useGalleryPageController() {
         refreshTab,
         refreshAll,
         beginUpload,
+        prepareUploadFile,
         uploadSelectedFile,
         confirmCroppedUpload,
         deleteFileAsset,
@@ -135,10 +164,28 @@ export function useGalleryPageController() {
     } satisfies GalleryControllerDeps);
     const { bulkRunning, deleteSelection, setFavoriteSelection } =
         useGalleryBulkActions({ setAssets });
+    const pendingFeedDrop = useMemo(
+        () => readFeedImageDrop(location.state),
+        [location.state]
+    );
     const refreshAllRef = useRef(refreshAll);
     useEffect(() => {
         refreshAllRef.current = refreshAll;
     }, [refreshAll]);
+
+    useEffect(() => {
+        if (
+            !pendingFeedDrop ||
+            processedFeedDropFileRef.current === pendingFeedDrop.file
+        ) {
+            return;
+        }
+        processedFeedDropFileRef.current = pendingFeedDrop.file;
+        if (isGalleryTab(pendingFeedDrop.target)) {
+            setActiveTab(pendingFeedDrop.target);
+        }
+        prepareUploadFile(pendingFeedDrop.file, pendingFeedDrop.target);
+    }, [pendingFeedDrop, prepareUploadFile]);
 
     useEffect(() => {
         if (!currentUserId) {
