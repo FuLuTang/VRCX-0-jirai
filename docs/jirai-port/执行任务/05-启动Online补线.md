@@ -6,6 +6,13 @@
 ## 依赖与边界
 依赖 04；仅处理好友，06 完成后才扩展至 tracked nonfriends。记录作为普通 Feed 历史参与统计，不实现 Previous Instances 的手动假实例记录。
 
+## 原始代码绝对路径
+
+- `/home/fulutang/Documents/Github/VRCX-jirai/src/coordinators/friendSyncCoordinator.js`
+- `/home/fulutang/Documents/Github/VRCX-jirai/src/coordinators/friendPresenceCoordinator.js`
+- `/home/fulutang/Documents/Github/VRCX-jirai/src/coordinators/userCoordinator.js`
+- `/home/fulutang/Documents/Github/VRCX-0-jirai/crates/persistence/src/realtime/write.rs`
+
 ## 旧代码可复用分析
 旧 `friendSyncCoordinator.js:20-33,39-80` 在初始化和每小时好友刷新后调用 `runSilentInfoFetch()`；旧在线写入的形状在 `friendPresenceCoordinator.js`，以及 `userCoordinator.js:302-317`。直接复用决策顺序：先拿当前好友投影、查询最后 online/offline，再写 Online；不能复制 Vue coordinator。
 

@@ -6,6 +6,14 @@
 ## 依赖与边界
 无数据模型或 Rust 改动。必须复用当前 `src/features/tools/GalleryPage.tsx`、`useGalleryPageController.ts`、`useGalleryAssetActions.ts` 和 `vrchatMediaRepository.ts`；不得复制旧 Vue 上传 API。
 
+## 原始代码绝对路径
+
+- `/home/fulutang/Documents/Github/VRCX-jirai/src/views/Feed/Feed.vue`
+- `/home/fulutang/Documents/Github/VRCX-jirai/src/views/Tools/Gallery.vue`
+- `/home/fulutang/Documents/Github/VRCX-0-jirai/src/features/tools/GalleryPage.tsx`
+- `/home/fulutang/Documents/Github/VRCX-0-jirai/src/features/tools/useGalleryPageController.ts`
+- `/home/fulutang/Documents/Github/VRCX-0-jirai/src/features/tools/useGalleryAssetActions.ts`
+
 ## 旧代码可复用分析
 优先逐行参考旧 `src/views/Feed/Feed.vue:1-21,150-219`：`dragEnterCount` 防闪烁、`dropZones`、`pendingDrop={file,tab}`、导航到 Gallery。再参考 `src/views/Tools/Gallery.vue:743-760,872-925,1342-1378`：消费 pending drop、裁剪、tab handler。可直接搬迁的是目标列表、进入/离开计数和投放选择逻辑；Vue ref/watch/event 模板必须重写为 React hook。
 

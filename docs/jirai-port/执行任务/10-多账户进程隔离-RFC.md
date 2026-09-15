@@ -6,6 +6,16 @@
 ## 依赖与边界
 无功能依赖，可与所有任务并行；仅调研/原型，不进主功能。绝不移植旧 V4 的全局 Store/DB prefix 热切换。
 
+## 原始代码绝对路径
+
+- `/home/fulutang/Documents/Github/VRCX-jirai/src/services/accountHub.js`
+- `/home/fulutang/Documents/Github/VRCX-jirai/src/services/accountSession.js`
+- `/home/fulutang/Documents/Github/VRCX-jirai/src/services/aggregatedView.js`
+- `/home/fulutang/Documents/Github/VRCX-jirai/docs/MULTI_ACCOUNT_V4_DETAIL_DESIGN.md`
+- `/home/fulutang/Documents/Github/VRCX-0-jirai/src-tauri/src/single_instance_gate.rs`
+- `/home/fulutang/Documents/Github/VRCX-0-jirai/crates/platform/src/app_paths.rs`
+- `/home/fulutang/Documents/Github/VRCX-0-jirai/crates/composition/src/state/runtime_host_state.rs`
+
 ## 旧代码可复用分析
 旧 `accountHub.js`、`accountSession.js`、`aggregatedView.js` 仅可借鉴需求：每账号隔离、聚合来源标识、操作路由；其 `dbVars` 热切换、secondary HttpClient 与手拼 UNION 不可抄。当前 `--data-dir`、per-profile `runtime.lock` 是 process isolation 可复用基础；Windows mutex 与 single-instance gate 是必须研究的阻碍。
 

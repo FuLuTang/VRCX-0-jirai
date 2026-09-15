@@ -6,6 +6,13 @@
 ## 依赖与边界
 依赖 01 的来源审计；不在本任务实现非好友表、推荐算法或资料抓取。必须是可取消、可重入安全的当前账户 workflow，不复刻旧 Vue reactive 全局对象。
 
+## 原始代码绝对路径
+
+- `/home/fulutang/Documents/Github/VRCX-0-jirai/docs/jirai-port/workflowUI示意图.png`
+- `/home/fulutang/Documents/Github/VRCX-jirai/src/coordinators/infoFetchCoordinator.js`
+- `/home/fulutang/Documents/Github/VRCX-jirai/src/views/Tools/dialogs/ProfileCompletionDialog.vue`
+- `/home/fulutang/Documents/Github/VRCX-jirai/src/components/StatusBar.vue`
+
 ## 旧代码可复用分析
 旧 `infoFetchCoordinator.js:10-19,86-196` 提供状态、计数、取消和串行循环；`ProfileCompletionDialog.vue:11-104` 提供两阶段进度呈现；`StatusBar.vue:322-353,746-758` 提供状态栏同步指示器。可复用的是状态枚举、进度/取消语义和“完成后进入下一步”；UI 外观以 `workflowUI示意图.png` 为优先参考。
 
