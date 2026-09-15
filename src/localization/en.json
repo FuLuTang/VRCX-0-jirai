@@ -65,6 +65,44 @@
         "context_rules_title": "No instance rules yet",
         "context_rules_description": "Add a rule to change your status based on the instance, world, or friends around you."
     },
+    "workflow": {
+        "title": "Account sync workflow",
+        "tools_description": "Run available account synchronization tasks and review skipped dependencies.",
+        "description": "Tasks run for the current account: {{account}}.",
+        "action_list": "Synchronization tasks",
+        "account_unavailable": "No current account",
+        "ready": "Ready to run a new workflow.",
+        "run": "Run workflow",
+        "running": "Workflow running",
+        "cancel_current": "Cancel current task",
+        "progress_bar": "Workflow progress",
+        "skip_reason": "Skip reason",
+        "summary": "Progress {{progress}}/{{total}} · Completed {{completed}} · Skipped {{skipped}} · Errors {{error}} · Running {{running}}",
+        "status": {
+            "completed": "Completed",
+            "skipped": "Skipped",
+            "error": "Error",
+            "running": "Running",
+            "pending": "Pending"
+        },
+        "actions": {
+            "startup_online_backfill": "05 · Startup online backfill",
+            "tracked_non_friends_sync": "06 · Tracked non-friends",
+            "manual_relations_sync": "07 · Manual relationships",
+            "automatic_profile_fetch": "08 · Automatic profile fetch",
+            "relationship_recommendations": "09 · Relationship recommendations"
+        },
+        "skip": {
+            "not_implemented": "Not implemented.",
+            "account_required": "A current account is required before this workflow can run.",
+            "cancelled_by_user": "Cancelled by user.",
+            "cancelled_before_execution": "Cancelled before execution.",
+            "tracked_non_friends_dependency": "The tracked non-friends dependency is not available.",
+            "manual_relations_dependency": "The manual relationships dependency is not available.",
+            "automatic_profile_fetch_dependency": "The automatic profile fetch executor is not available.",
+            "relationship_recommendations_dependency": "The relationship recommendations dependency is not available."
+        }
+    },
     "browse_history": {
         "title": "View history",
         "description": "Recently viewed users, worlds, avatars, and groups.",

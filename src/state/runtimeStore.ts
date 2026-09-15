@@ -594,7 +594,8 @@ const initialState: RuntimeStoreState = {
         exportAvatarsListOpen: false,
         editInviteMessagesOpen: false,
         llmEndpointsOpen: false,
-        profileBackupOpen: false
+        profileBackupOpen: false,
+        syncWorkflowOpen: false
     },
     changelogTargetVersion: '',
     databaseUpgrade: {

@@ -27,7 +27,8 @@ export type ToolDialogKey =
     | 'export-avatars-list'
     | 'edit-invite-messages'
     | 'llm-endpoints'
-    | 'profile-backup';
+    | 'profile-backup'
+    | 'sync-workflow';
 
 type ToolHostCapabilityKey =
     | 'gameLaunch'
@@ -285,6 +286,16 @@ const toolDefinitions: ToolDefinition[] = [
             target: 'launch',
             method: 'showLaunchOptions'
         }
+    },
+    {
+        key: 'sync-workflow',
+        category: 'automation',
+        iconKey: 'list-checks',
+        navIcon: 'lucide:ListChecks',
+        titleKey: 'workflow.title',
+        descriptionKey: 'workflow.tools_description',
+        navEligible: true,
+        action: { type: 'dialog', dialogKey: 'sync-workflow' }
     },
     {
         key: 'app-launcher',

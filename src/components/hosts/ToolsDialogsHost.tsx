@@ -70,6 +70,11 @@ const ProfileBackupDialog = lazy(() =>
         default: module.ProfileBackupDialog
     }))
 );
+const SyncWorkflowDialog = lazy(() =>
+    import('@/features/workflows/SyncWorkflowDialog').then((module) => ({
+        default: module.SyncWorkflowDialog
+    }))
+);
 
 export function ToolsDialogsHost() {
     const presenceScheduleOpen = useRuntimeStore(
@@ -107,6 +112,16 @@ export function ToolsDialogsHost() {
     );
     const profileBackupOpen = useRuntimeStore(
         (state) => state.systemHosts.profileBackupOpen
+    );
+    const syncWorkflowOpen = useRuntimeStore(
+        (state) => state.systemHosts.syncWorkflowOpen
+    );
+    const accountId = useRuntimeStore(
+        (state) => state.auth.currentUserId ?? ''
+    );
+    const accountLabel = useRuntimeStore(
+        (state) =>
+            state.auth.currentUserDisplayName || state.auth.currentUserId || ''
     );
     const setSystemHostOpen = useRuntimeStore(
         (state) => state.setSystemHostOpen
@@ -210,6 +225,16 @@ export function ToolsDialogsHost() {
                     onOpenChange={(open) =>
                         setSystemHostOpen('profileBackupOpen', open)
                     }
+                />
+            </MountOnFirstOpen>
+            <MountOnFirstOpen open={syncWorkflowOpen}>
+                <SyncWorkflowDialog
+                    open={syncWorkflowOpen}
+                    onOpenChange={(open) =>
+                        setSystemHostOpen('syncWorkflowOpen', open)
+                    }
+                    accountId={accountId}
+                    accountLabel={accountLabel}
                 />
             </MountOnFirstOpen>
         </>
