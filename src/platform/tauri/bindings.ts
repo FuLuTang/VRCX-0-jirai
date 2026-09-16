@@ -883,6 +883,13 @@ const generatedCommands = {
             cutoffDate
         });
     },
+    async appStartupOnlineBackfillInsert(
+        input: StartupOnlineBackfillInput
+    ): Promise<StartupOnlineBackfillOutput> {
+        return await TAURI_INVOKE('app__startup_online_backfill_insert', {
+            input
+        });
+    },
     async appFeedLatestQuery(
         query: FeedLatestQueryInput
     ): Promise<FeedReadModelOutput> {
@@ -3971,6 +3978,11 @@ export type FeedFilter =
     | 'Avatar'
     | 'Online'
     | 'Offline';
+export type StartupOnlineBackfillInput = {
+    targetUserId: string;
+    displayName: string;
+};
+export type StartupOnlineBackfillOutput = { inserted: boolean };
 export type FeedLatestQueryInput = {
     userId: string;
     filters?: FeedFilter[];

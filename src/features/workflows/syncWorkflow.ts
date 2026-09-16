@@ -6,7 +6,7 @@ export type SyncWorkflowActionStatus =
     | 'pending';
 
 export type SyncWorkflowActionOutcome =
-    | { status: 'completed' }
+    | { status: 'completed'; result?: unknown }
     | { status: 'skipped'; skipReason: string };
 
 export type SyncWorkflowActionContext = {

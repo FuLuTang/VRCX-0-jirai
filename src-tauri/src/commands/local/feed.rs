@@ -6,7 +6,7 @@ use tauri::State;
 
 use vrcx_0_runtime_host_desktop::local_data::{
     FeedLatestQueryInput, FeedReadModelOutput, FeedRowOutput, FeedRowsQueryInput,
-    FeedSearchQueryInput,
+    FeedSearchQueryInput, StartupOnlineBackfillInput, StartupOnlineBackfillOutput,
 };
 
 #[tauri::command(async)]
@@ -48,6 +48,19 @@ pub async fn app__avatar_feed_history_cleanup(
     .await
     .map_err(|error| AppError::Custom(format!("avatar feed cleanup task: {error}")))?
     .map_err(AppError::from)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__startup_online_backfill_insert(
+    state: State<'_, AppState>,
+    input: StartupOnlineBackfillInput,
+) -> Result<StartupOnlineBackfillOutput, AppError> {
+    let local_data = state.runtime_host().local_data().clone();
+    tauri::async_runtime::spawn_blocking(move || local_data.startup_online_backfill_insert(input))
+        .await
+        .map_err(|error| AppError::Custom(format!("startup online backfill task: {error}")))?
+        .map_err(AppError::from)
 }
 
 #[tauri::command]

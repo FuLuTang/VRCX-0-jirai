@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+    createStartupOnlineBackfillExecutor,
+    startupOnlineBackfillExecutor
+} from './startupOnlineBackfillExecutor';
+import {
     createSyncWorkflowRunner,
     type SyncWorkflowAction
 } from './syncWorkflow';
@@ -159,7 +163,7 @@ describe('SyncWorkflowRunner', () => {
 });
 
 describe('createSyncWorkflowActions', () => {
-    it('keeps the supported action ids stable and defaults task 05 to skipped', async () => {
+    it('keeps the supported action ids stable and registers task 05', async () => {
         const actions = createSyncWorkflowActions({
             translate: (key) => key
         });
@@ -170,12 +174,104 @@ describe('createSyncWorkflowActions', () => {
             'automatic-profile-fetch',
             'relationship-recommendations'
         ]);
+        expect(actions[0].run).toBe(startupOnlineBackfillExecutor);
 
         const runner = createSyncWorkflowRunner();
         const snapshot = await runner.run(actions, context);
         expect(snapshot.actions[0]).toMatchObject({
             status: 'skipped',
-            skipReason: 'workflow.skip.not_implemented'
+            skipReason: 'workflow.skip.startup_online_backfill_unavailable'
         });
+    });
+});
+
+describe('startup online backfill executor', () => {
+    function readyRoster(friendsById: Record<string, unknown>) {
+        return {
+            currentUserId: 'usr_current',
+            loadStatus: 'ready',
+            friendsById,
+            orderedFriendIds: [],
+            onlineIds: [],
+            activeIds: [],
+            offlineIds: [],
+            detail: '',
+            lastLoadedAt: null
+        } as never;
+    }
+
+    it('writes only online friends and reports unavailable states as skipped', async () => {
+        const insertObservedOnline = vi
+            .fn()
+            .mockResolvedValue({ inserted: true });
+        const executor = createStartupOnlineBackfillExecutor({
+            getRoster: () =>
+                readyRoster({
+                    first: {
+                        id: 'usr_online',
+                        displayName: 'Online',
+                        state: 'online'
+                    },
+                    duplicate: {
+                        id: 'usr_online',
+                        displayName: 'Online',
+                        state: 'online'
+                    },
+                    offline: {
+                        id: 'usr_offline',
+                        displayName: 'Offline',
+                        state: 'offline'
+                    },
+                    unknown: {
+                        id: 'usr_unknown',
+                        displayName: 'Unknown',
+                        state: 'unknown'
+                    }
+                }),
+            insertObservedOnline
+        });
+
+        const outcome = await executor({
+            ...context,
+            signal: new AbortController().signal
+        });
+
+        expect(insertObservedOnline).toHaveBeenCalledTimes(1);
+        expect(insertObservedOnline).toHaveBeenCalledWith({
+            targetUserId: 'usr_online',
+            displayName: 'Online'
+        });
+        expect(outcome).toEqual({
+            status: 'completed',
+            result: {
+                onlineFriendsProcessed: 1,
+                inserted: 1,
+                alreadyOnline: 0,
+                skippedOffline: 1,
+                skippedUnavailableState: 1,
+                skippedDuplicate: 1
+            }
+        });
+    });
+
+    it('does not process a later friend after cancellation', async () => {
+        const controller = new AbortController();
+        const insertObservedOnline = vi.fn(async () => {
+            controller.abort();
+            return { inserted: true };
+        });
+        const executor = createStartupOnlineBackfillExecutor({
+            getRoster: () =>
+                readyRoster({
+                    first: { id: 'usr_first', state: 'online' },
+                    second: { id: 'usr_second', state: 'online' }
+                }),
+            insertObservedOnline
+        });
+
+        await expect(
+            executor({ ...context, signal: controller.signal })
+        ).rejects.toMatchObject({ name: 'AbortError' });
+        expect(insertObservedOnline).toHaveBeenCalledTimes(1);
     });
 });

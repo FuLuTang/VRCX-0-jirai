@@ -94,6 +94,21 @@ pub struct WorldGetInput {
     pub full: bool,
 }
 
+/// A renderer request for an observed online friend. The host independently
+/// verifies the current realtime friend record and creates the timestamp.
+#[derive(Debug, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct StartupOnlineBackfillInput {
+    pub target_user_id: String,
+    pub display_name: String,
+}
+
+#[derive(Debug, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct StartupOnlineBackfillOutput {
+    pub inserted: bool,
+}
+
 #[derive(Clone)]
 pub struct LocalDataRuntime {
     db: Arc<DatabaseService>,
@@ -226,6 +241,37 @@ impl LocalDataRuntime {
 
     pub fn set_avatar_feed_persistence_disabled(&self, disabled: bool) -> Result<()> {
         self.realtime.set_avatar_feed_persistence_disabled(disabled)
+    }
+
+    /// Atomically appends an observed-now Online edge if this owner's latest
+    /// Online/Offline Feed state is absent or Offline.
+    pub fn startup_online_backfill_insert(
+        &self,
+        input: StartupOnlineBackfillInput,
+    ) -> Result<StartupOnlineBackfillOutput> {
+        let current_owner = self.current_owner();
+        let target_user_id = input.target_user_id.trim();
+        let realtime_friend = self
+            .realtime
+            .friend_snapshot()
+            .filter(|snapshot| snapshot.current_user_id == current_owner.as_str())
+            .and_then(|snapshot| snapshot.friends_by_id.get(target_user_id).cloned());
+        if current_owner.is_empty()
+            || !realtime_friend
+                .is_some_and(|friend| friend.state.as_str().eq_ignore_ascii_case("online"))
+        {
+            return Err(vrcx_0_composition::Error::PersistenceInvalidData(
+                "Startup online backfill target is not a current online friend.".into(),
+            ));
+        }
+
+        let inserted = vrcx_0_persistence::realtime::insert_startup_online_backfill(
+            self.db.as_ref(),
+            &current_owner,
+            target_user_id,
+            &input.display_name,
+        )?;
+        Ok(StartupOnlineBackfillOutput { inserted })
     }
 
     pub fn query_feed_latest(&self, query: FeedLatestQueryInput) -> Result<FeedReadModelOutput> {

@@ -1,3 +1,4 @@
+import { startupOnlineBackfillExecutor } from '@/features/workflows/startupOnlineBackfillExecutor';
 import type {
     AuthenticatedRuntimePhaseSnapshot,
     RealtimeWsStatusPayload,
@@ -25,6 +26,33 @@ let initializedTransportKey = '';
 let friendStepKey = '';
 let favoritesStepKey = '';
 let pendingRealtimeStatus: RealtimeWsStatusPayload | null = null;
+let startupOnlineBackfillController: AbortController | null = null;
+
+function startStartupOnlineBackfill(accountId: string): void {
+    // The authenticated-runtime mirror is also exercised by Node tests and
+    // non-WebView tooling. Only a Tauri WebView can execute this native write.
+    if (typeof window === 'undefined') {
+        return;
+    }
+    startupOnlineBackfillController?.abort();
+    const controller = new AbortController();
+    startupOnlineBackfillController = controller;
+    void startupOnlineBackfillExecutor({
+        accountId,
+        signal: controller.signal,
+        translate: (key) => key
+    })
+        .catch((error: unknown) => {
+            if (!controller.signal.aborted) {
+                console.warn('Startup online backfill failed:', error);
+            }
+        })
+        .finally(() => {
+            if (startupOnlineBackfillController === controller) {
+                startupOnlineBackfillController = null;
+            }
+        });
+}
 
 function matchesCurrentSession(
     snapshot: AuthenticatedRuntimePhaseSnapshot
@@ -105,6 +133,10 @@ function applyFriendStep(snapshot: AuthenticatedRuntimePhaseSnapshot): void {
         detail: output?.detail || snapshot.friends.detail
     });
     useSessionStore.getState().setFriendsLoaded(true);
+    // The completed baseline is the first reliable full friend-state snapshot.
+    // This starts task 05 once per baseline revision; a replacement baseline
+    // aborts the prior loop before it can process more friends.
+    startStartupOnlineBackfill(snapshot.userId);
     if (output?.friendLogChanged) {
         signalFriendLogChanged();
     }
@@ -350,6 +382,8 @@ export function currentRealtimeTransportGeneration(): number | null {
 }
 
 export function resetAuthenticatedRuntimeMirror(): void {
+    startupOnlineBackfillController?.abort();
+    startupOnlineBackfillController = null;
     latestSnapshot = null;
     appliedFriendBaselineKey = '';
     appliedFavoritesRunId = 0;
