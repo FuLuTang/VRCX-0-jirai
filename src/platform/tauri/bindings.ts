@@ -1049,6 +1049,11 @@ const generatedCommands = {
             userIdB
         });
     },
+    async appProfileFeedReconcile(
+        input: ProfileFeedReconcileInput
+    ): Promise<ProfileFeedReconcileOutput> {
+        return await TAURI_INVOKE('app__profile_feed_reconcile', { input });
+    },
     async appMutualGraphFetchStatusGet(): Promise<MutualGraphFetchStatus> {
         return await TAURI_INVOKE('app__mutual_graph_fetch_status_get');
     },
@@ -5727,6 +5732,17 @@ export type ProfileBackupSettings = {
     lastAutoAt: string | null;
 };
 export type ProfileBackupState = 'idle' | 'running' | 'retryable' | 'error';
+export type ProfileFeedReconcileInput = {
+    userId: string;
+    displayName: string;
+    bio: string;
+    status: string;
+    statusDescription: string;
+};
+export type ProfileFeedReconcileOutput = {
+    bioUpdated: boolean;
+    statusUpdated: boolean;
+};
 export type ProfileBackupStatus = {
     revision: number;
     state: ProfileBackupState;

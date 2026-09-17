@@ -8,7 +8,8 @@ use crate::game_log::{GameLogLocationEntry, GameLogLocationTimeUpdate};
 use crate::realtime::ensure_realtime_tables;
 
 use super::{
-    insert_startup_online_backfill, normalize_user_table_prefix, write_realtime_batch,
+    insert_startup_online_backfill, normalize_user_table_prefix, profile_feed_reconcile,
+    write_realtime_batch, ProfileFeedReconcileInput,
     FriendLogDelete, FriendLogUpsert, NotificationV2Update, RealtimePersistenceBatch,
     SelfProfileField, SelfProfileLogEntry,
 };
@@ -1133,5 +1134,41 @@ fn startup_online_backfill_writes_only_current_friends_with_native_now() -> Resu
         "usr_missing",
         "Missing History",
     )?);
+    Ok(())
+}
+
+#[test]
+fn profile_feed_reconcile_records_only_owner_scoped_changes() -> Result<(), crate::Error> {
+    let dir = TestDir::new("profile-feed-reconcile");
+    let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3"))?;
+    let owner = OwnerId::new("usr_self");
+    let input = || ProfileFeedReconcileInput {
+        user_id: "usr_friend".into(),
+        display_name: "Friend".into(),
+        bio: String::new(),
+        status: "active".into(),
+        status_description: "first".into(),
+    };
+    let first = profile_feed_reconcile(&db, &owner, input())?;
+    assert!(first.bio_updated && first.status_updated);
+    let repeated = profile_feed_reconcile(&db, &owner, input())?;
+    assert!(!repeated.bio_updated && !repeated.status_updated);
+    let description_changed = profile_feed_reconcile(&db, &owner, ProfileFeedReconcileInput {
+        status_description: "changed".into(), ..input()
+    })?;
+    assert!(!description_changed.bio_updated && description_changed.status_updated);
+    let disallowed = profile_feed_reconcile(&db, &owner, ProfileFeedReconcileInput {
+        status: "offline".into(), status_description: "ignored".into(), ..input()
+    })?;
+    assert!(!disallowed.status_updated);
+
+    let other = OwnerId::new("usr_other");
+    assert!(profile_feed_reconcile(&db, &other, input())?.bio_updated);
+    let self_bio = db.execute("SELECT COUNT(*) FROM usrself_feed_bio", &ParamsBuilder::new().build())?;
+    let other_bio = db.execute("SELECT COUNT(*) FROM usrother_feed_bio", &ParamsBuilder::new().build())?;
+    let self_status = db.execute("SELECT COUNT(*) FROM usrself_feed_status", &ParamsBuilder::new().build())?;
+    assert_eq!(self_bio[0][0].as_i64(), Some(1));
+    assert_eq!(other_bio[0][0].as_i64(), Some(1));
+    assert_eq!(self_status[0][0].as_i64(), Some(2));
     Ok(())
 }

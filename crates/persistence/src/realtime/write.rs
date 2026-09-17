@@ -109,6 +109,70 @@ pub fn insert_startup_online_backfill(
     })
 }
 
+#[derive(Debug, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileFeedReconcileInput {
+    pub user_id: String,
+    pub display_name: String,
+    #[serde(default)]
+    pub bio: String,
+    #[serde(default)]
+    pub status: String,
+    #[serde(default)]
+    pub status_description: String,
+}
+
+#[derive(Debug, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileFeedReconcileOutput {
+    pub bio_updated: bool,
+    pub status_updated: bool,
+}
+
+pub fn profile_feed_reconcile(
+    db: &DatabaseService,
+    owner_user_id: &OwnerId,
+    input: ProfileFeedReconcileInput,
+) -> Result<ProfileFeedReconcileOutput, Error> {
+    let owner_user_id = OwnerId::new(normalize_user_id(owner_user_id.as_str()));
+    if owner_user_id.is_empty() {
+        return Err(Error::Database("Profile feed reconciliation requires a current user id.".into()));
+    }
+    let user_id = normalize_user_id(&input.user_id);
+    if user_id.is_empty() {
+        return Err(Error::InvalidData("Profile feed reconciliation requires a user id.".into()));
+    }
+    let user_prefix = normalize_user_table_prefix(owner_user_id.as_str())?;
+    ensure_realtime_tables(db, &user_prefix)?;
+    db.write_transaction(|tx| {
+        let bio_rows = tx.execute(
+            &format!("SELECT bio FROM {user_prefix}_feed_bio WHERE user_id = @user_id ORDER BY created_at DESC, id DESC LIMIT 1"),
+            &ParamsBuilder::new().set("user_id", user_id.clone()).build(),
+        )?;
+        let has_bio = !bio_rows.is_empty();
+        let previous_bio = bio_rows.first().and_then(|row| row.first()).and_then(Value::as_str).unwrap_or("").to_string();
+        let status_rows = tx.execute(
+            &format!("SELECT status, status_description FROM {user_prefix}_feed_status WHERE user_id = @user_id ORDER BY created_at DESC, id DESC LIMIT 1"),
+            &ParamsBuilder::new().set("user_id", user_id.clone()).build(),
+        )?;
+        let has_status = !status_rows.is_empty();
+        let previous_status = status_rows.first().and_then(|row| row.first()).and_then(Value::as_str).unwrap_or("").to_string();
+        let previous_status_description = status_rows.first().and_then(|row| row.get(1)).and_then(Value::as_str).unwrap_or("").to_string();
+        let status = input.status.trim().to_lowercase();
+        let bio_updated = !has_bio || previous_bio != input.bio;
+        let status_updated = ["join me", "active", "ask me", "busy"].contains(&status.as_str())
+            && (!has_status || previous_status != status || previous_status_description != input.status_description);
+        let created_at = vrcx_0_core::time::now_iso();
+        if bio_updated {
+            insert_feed_entry(tx, &user_prefix, &FeedLiveEntry::Bio { created_at: created_at.clone(), user_id: user_id.clone(), display_name: input.display_name.clone(), bio: input.bio.clone(), previous_bio, owner_user_id: owner_user_id.as_str().to_string() })?;
+        }
+        if status_updated {
+            insert_feed_entry(tx, &user_prefix, &FeedLiveEntry::Status { created_at, user_id: user_id.clone(), display_name: input.display_name.clone(), status, status_description: input.status_description.clone(), previous_status, previous_status_description, owner_user_id: owner_user_id.as_str().to_string() })?;
+        }
+        Ok(ProfileFeedReconcileOutput { bio_updated, status_updated })
+    })
+}
+
 pub fn write_realtime_batch(
     db: &DatabaseService,
     owner_user_id: &OwnerId,

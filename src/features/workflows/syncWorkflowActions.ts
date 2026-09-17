@@ -23,6 +23,23 @@ const defaultStartupOnlineBackfillExecutor: StartupOnlineBackfillExecutor =
 let startupOnlineBackfillExecutor: StartupOnlineBackfillExecutor =
     defaultStartupOnlineBackfillExecutor;
 
+export type ProfileFetchExecutor = (
+    context: SyncWorkflowActionContext
+) => Promise<SyncWorkflowActionOutcome | void>;
+const defaultProfileFetchExecutor: ProfileFetchExecutor = async (context) => ({
+    status: 'skipped',
+    skipReason: context.translate('workflow.skip.not_implemented')
+});
+let profileFetchExecutor: ProfileFetchExecutor = defaultProfileFetchExecutor;
+export function registerProfileFetchExecutor(
+    executor: ProfileFetchExecutor
+): () => void {
+    profileFetchExecutor = executor;
+    return () => {
+        profileFetchExecutor = defaultProfileFetchExecutor;
+    };
+}
+
 export type TrackedNonfriendsRefreshExecutor = (
     context: SyncWorkflowActionContext
 ) => Promise<SyncWorkflowActionOutcome | void>;
@@ -59,6 +76,7 @@ type CreateSyncWorkflowActionsOptions = {
     translate: WorkflowTranslate;
     startupOnlineBackfill?: StartupOnlineBackfillExecutor;
     trackedNonfriendsRefresh?: TrackedNonfriendsRefreshExecutor;
+    profileFetch?: ProfileFetchExecutor;
 };
 
 function skippedAction(
@@ -82,7 +100,8 @@ function skippedAction(
 export function createSyncWorkflowActions({
     translate,
     startupOnlineBackfill = startupOnlineBackfillExecutor,
-    trackedNonfriendsRefresh = trackedNonfriendsRefreshExecutor
+    trackedNonfriendsRefresh = trackedNonfriendsRefreshExecutor,
+    profileFetch = profileFetchExecutor
 }: CreateSyncWorkflowActionsOptions): SyncWorkflowAction[] {
     return [
         {
@@ -104,11 +123,13 @@ export function createSyncWorkflowActions({
             translate('workflow.actions.manual_relations_sync'),
             translate('workflow.skip.manual_relations_dependency')
         ),
-        skippedAction(
-            'automatic-profile-fetch',
-            translate('workflow.actions.automatic_profile_fetch'),
-            translate('workflow.skip.automatic_profile_fetch_dependency')
-        ),
+        {
+            id: 'automatic-profile-fetch',
+            label: translate('workflow.actions.automatic_profile_fetch'),
+            status: 'pending',
+            run: profileFetch,
+            cancel: () => {}
+        },
         skippedAction(
             'relationship-recommendations',
             translate('workflow.actions.relationship_recommendations'),

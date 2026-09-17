@@ -71,6 +71,9 @@ pub use vrcx_0_persistence::notifications::{
     NotificationListItemOutput, NotificationListQueryInput,
 };
 pub use vrcx_0_persistence::player_list::InstanceActivityRowOutput;
+pub use vrcx_0_persistence::realtime::{
+    ProfileFeedReconcileInput, ProfileFeedReconcileOutput,
+};
 pub use vrcx_0_persistence::social_aggregates::{WorldFriendVisitRow, WorldFriendVisitsOutput};
 pub use vrcx_0_persistence::tracked_nonfriends::{
     TrackedNonFriendAddInput, TrackedNonFriendOutput, TrackedNonFriendUpdateNameInput,
@@ -276,6 +279,17 @@ impl LocalDataRuntime {
             &input.display_name,
         )?;
         Ok(StartupOnlineBackfillOutput { inserted })
+    }
+
+    pub fn profile_feed_reconcile(
+        &self,
+        input: ProfileFeedReconcileInput,
+    ) -> Result<ProfileFeedReconcileOutput> {
+        Ok(vrcx_0_persistence::realtime::profile_feed_reconcile(
+            self.db.as_ref(),
+            &self.current_owner(),
+            input,
+        )?)
     }
 
     pub fn query_feed_latest(&self, query: FeedLatestQueryInput) -> Result<FeedReadModelOutput> {

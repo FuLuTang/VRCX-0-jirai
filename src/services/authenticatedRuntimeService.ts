@@ -1,3 +1,4 @@
+import { profileFetchExecutor } from '@/features/workflows/profileFetchExecutor';
 import { startupOnlineBackfillExecutor } from '@/features/workflows/startupOnlineBackfillExecutor';
 import '@/features/workflows/trackedNonfriendsRefreshExecutor';
 import type {
@@ -28,6 +29,8 @@ let friendStepKey = '';
 let favoritesStepKey = '';
 let pendingRealtimeStatus: RealtimeWsStatusPayload | null = null;
 let startupOnlineBackfillController: AbortController | null = null;
+let profileFetchController: AbortController | null = null;
+let profileFetchAccountId = '';
 
 function startStartupOnlineBackfill(accountId: string): void {
     // The authenticated-runtime mirror is also exercised by Node tests and
@@ -51,6 +54,30 @@ function startStartupOnlineBackfill(accountId: string): void {
         .finally(() => {
             if (startupOnlineBackfillController === controller) {
                 startupOnlineBackfillController = null;
+            }
+        });
+}
+
+function startProfileFetch(accountId: string): void {
+    if (typeof window === 'undefined') return;
+    if (profileFetchController && profileFetchAccountId === accountId) return;
+    profileFetchController?.abort();
+    const controller = new AbortController();
+    profileFetchController = controller;
+    profileFetchAccountId = accountId;
+    void profileFetchExecutor({
+        accountId,
+        signal: controller.signal,
+        translate: (key) => key
+    })
+        .catch((error: unknown) => {
+            if (!controller.signal.aborted)
+                console.warn('Profile fetch failed:', error);
+        })
+        .finally(() => {
+            if (profileFetchController === controller) {
+                profileFetchController = null;
+                profileFetchAccountId = '';
             }
         });
 }
@@ -138,6 +165,7 @@ function applyFriendStep(snapshot: AuthenticatedRuntimePhaseSnapshot): void {
     // This starts task 05 once per baseline revision; a replacement baseline
     // aborts the prior loop before it can process more friends.
     startStartupOnlineBackfill(snapshot.userId);
+    startProfileFetch(snapshot.userId);
     if (output?.friendLogChanged) {
         signalFriendLogChanged();
     }
@@ -314,6 +342,7 @@ function applyRealtimeStatus(
             sessionStore.setTransportStatus('pipeline-connecting');
             break;
         case 'connected':
+            startProfileFetch(snapshot.userId);
             runtimeStore.setTransportState({
                 websocketConnected: true,
                 websocketDomain,
@@ -385,6 +414,9 @@ export function currentRealtimeTransportGeneration(): number | null {
 export function resetAuthenticatedRuntimeMirror(): void {
     startupOnlineBackfillController?.abort();
     startupOnlineBackfillController = null;
+    profileFetchController?.abort();
+    profileFetchController = null;
+    profileFetchAccountId = '';
     latestSnapshot = null;
     appliedFriendBaselineKey = '';
     appliedFavoritesRunId = 0;

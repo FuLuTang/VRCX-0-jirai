@@ -6,7 +6,8 @@ use tauri::State;
 
 use vrcx_0_runtime_host_desktop::local_data::{
     FeedLatestQueryInput, FeedReadModelOutput, FeedRowOutput, FeedRowsQueryInput,
-    FeedSearchQueryInput, StartupOnlineBackfillInput, StartupOnlineBackfillOutput,
+    FeedSearchQueryInput, ProfileFeedReconcileInput, ProfileFeedReconcileOutput,
+    StartupOnlineBackfillInput, StartupOnlineBackfillOutput,
 };
 
 #[tauri::command(async)]
@@ -60,6 +61,19 @@ pub async fn app__startup_online_backfill_insert(
     tauri::async_runtime::spawn_blocking(move || local_data.startup_online_backfill_insert(input))
         .await
         .map_err(|error| AppError::Custom(format!("startup online backfill task: {error}")))?
+        .map_err(AppError::from)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__profile_feed_reconcile(
+    state: State<'_, AppState>,
+    input: ProfileFeedReconcileInput,
+) -> Result<ProfileFeedReconcileOutput, AppError> {
+    let local_data = state.runtime_host().local_data().clone();
+    tauri::async_runtime::spawn_blocking(move || local_data.profile_feed_reconcile(input))
+        .await
+        .map_err(|error| AppError::Custom(format!("profile feed reconcile task: {error}")))?
         .map_err(AppError::from)
 }
 
