@@ -3,6 +3,7 @@ import {
     PlusIcon,
     SearchIcon,
     SlidersHorizontalIcon,
+    UserSearchIcon,
     XIcon
 } from 'lucide-react';
 import { forwardRef, useEffect, useState, type CSSProperties } from 'react';
@@ -53,6 +54,7 @@ import type {
     SidePanelSortMethod
 } from './side-panel/sidePanelTypes';
 import { useSidePanelActiveTab } from './side-panel/useSidePanelActiveTab';
+import { TrackedNonfriendsSidebar } from './TrackedNonfriendsSidebar';
 import { useSidePanelSettingsState } from './useSidePanelSettingsState';
 import { useSidePanelTabData } from './useSidePanelTabData';
 
@@ -131,7 +133,9 @@ export const SidePanel = forwardRef<HTMLElement, SidePanelProps>(
         const filterPlaceholder =
             activeTab === 'groups'
                 ? t('side_panel.filter_groups')
-                : t('side_panel.filter_friends');
+                : activeTab === 'tracked-nonfriends'
+                  ? t('tracked_nonfriends.filter')
+                  : t('side_panel.filter_friends');
 
         function selectTab(nextTab: string) {
             setFilterQuery('');
@@ -420,6 +424,14 @@ export const SidePanel = forwardRef<HTMLElement, SidePanelProps>(
                                 <GroupsSidebar filterQuery={filterQuery} />
                             </TabsContent>
                         ) : null}
+                        <TabsContent
+                            value="tracked-nonfriends"
+                            className="min-h-0 flex-1 overflow-hidden data-hidden:hidden"
+                        >
+                            <TrackedNonfriendsSidebar
+                                filterQuery={filterQuery}
+                            />
+                        </TabsContent>
                         {visibleTabLayout
                             .filter(
                                 (
@@ -446,6 +458,33 @@ export const SidePanel = forwardRef<HTMLElement, SidePanelProps>(
                             variant="underline"
                             className="w-full flex-col gap-0.5 p-0 [&>[data-slot=tab-indicator]]:hidden"
                         >
+                            <Tooltip>
+                                <TooltipTrigger
+                                    render={
+                                        <TabsTrigger
+                                            value="tracked-nonfriends"
+                                            data-active={
+                                                activeTab ===
+                                                'tracked-nonfriends'
+                                                    ? ''
+                                                    : undefined
+                                            }
+                                            className="data-active:bg-secondary h-auto w-full flex-col justify-center gap-0.5 px-0 py-1.5 sm:h-auto"
+                                        />
+                                    }
+                                >
+                                    <UserSearchIcon
+                                        className="size-4.5"
+                                        data-icon="icon"
+                                    />
+                                    <span className="sr-only">
+                                        {t('tracked_nonfriends.title')}
+                                    </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="left">
+                                    {t('tracked_nonfriends.title')}
+                                </TooltipContent>
+                            </Tooltip>
                             {tabItems.map((item) => {
                                 const Icon = getNavIconComponent(
                                     item.icon,

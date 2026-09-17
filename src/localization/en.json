@@ -973,6 +973,15 @@
             "no_authenticated_user_snapshot_is_available": "Sign in before refreshing friends"
         }
     },
+    "tracked_nonfriends": {
+        "title": "Tracked users",
+        "filter": "Filter tracked users",
+        "add_user": "Track user",
+        "remove_user": "Stop tracking user",
+        "empty": "No tracked users",
+        "load_error": "Could not load tracked users",
+        "mutation_error": "Could not update tracked users"
+    },
     "support_vrcx": {
         "title": "Support VRCX-0",
         "description": "Support future VRCX-0 development through GitHub Sponsors or Ko-fi."

@@ -71,6 +71,9 @@ pub use vrcx_0_persistence::notifications::{
 };
 pub use vrcx_0_persistence::player_list::InstanceActivityRowOutput;
 pub use vrcx_0_persistence::social_aggregates::{WorldFriendVisitRow, WorldFriendVisitsOutput};
+pub use vrcx_0_persistence::tracked_nonfriends::{
+    TrackedNonFriendAddInput, TrackedNonFriendOutput, TrackedNonFriendUpdateNameInput,
+};
 pub use vrcx_0_persistence::worlds::WorldSummaryOutput;
 
 #[derive(Debug, serde::Deserialize, specta::Type)]
@@ -698,6 +701,48 @@ impl LocalDataRuntime {
         Ok(vrcx_0_persistence::friends::friend_log_current_list(
             self.db.as_ref(),
             user_id,
+        )?)
+    }
+
+    pub fn tracked_nonfriends_list(&self) -> Result<Vec<TrackedNonFriendOutput>> {
+        Ok(vrcx_0_persistence::tracked_nonfriends::tracked_nonfriends_list(
+            self.db.as_ref(),
+            &self.current_owner(),
+        )?)
+    }
+
+    pub fn tracked_nonfriends_add(&self, input: TrackedNonFriendAddInput) -> Result<bool> {
+        Ok(vrcx_0_persistence::tracked_nonfriends::tracked_nonfriends_add(
+            self.db.as_ref(),
+            &self.current_owner(),
+            input,
+        )?)
+    }
+
+    pub fn tracked_nonfriends_remove(&self, user_id: String) -> Result<bool> {
+        Ok(vrcx_0_persistence::tracked_nonfriends::tracked_nonfriends_remove(
+            self.db.as_ref(),
+            &self.current_owner(),
+            user_id,
+        )?)
+    }
+
+    pub fn tracked_nonfriends_is_tracked(&self, user_id: String) -> Result<bool> {
+        Ok(vrcx_0_persistence::tracked_nonfriends::tracked_nonfriends_is_tracked(
+            self.db.as_ref(),
+            &self.current_owner(),
+            user_id,
+        )?)
+    }
+
+    pub fn tracked_nonfriends_update_name(
+        &self,
+        input: TrackedNonFriendUpdateNameInput,
+    ) -> Result<bool> {
+        Ok(vrcx_0_persistence::tracked_nonfriends::tracked_nonfriends_update_name(
+            self.db.as_ref(),
+            &self.current_owner(),
+            input,
         )?)
     }
 

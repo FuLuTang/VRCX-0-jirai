@@ -31,6 +31,7 @@ pub mod screenshot_cache;
 pub mod secrets;
 pub mod social_aggregates;
 pub mod storage;
+pub mod tracked_nonfriends;
 pub mod worlds;
 
 pub mod maintenance {

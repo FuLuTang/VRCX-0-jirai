@@ -1145,6 +1145,29 @@ const generatedCommands = {
             entry
         });
     },
+    async appTrackedNonfriendsList(): Promise<TrackedNonFriendOutput[]> {
+        return await TAURI_INVOKE('app__tracked_nonfriends_list');
+    },
+    async appTrackedNonfriendsAdd(
+        input: TrackedNonFriendAddInput
+    ): Promise<boolean> {
+        return await TAURI_INVOKE('app__tracked_nonfriends_add', { input });
+    },
+    async appTrackedNonfriendsRemove(userId: string): Promise<boolean> {
+        return await TAURI_INVOKE('app__tracked_nonfriends_remove', { userId });
+    },
+    async appTrackedNonfriendsIsTracked(userId: string): Promise<boolean> {
+        return await TAURI_INVOKE('app__tracked_nonfriends_is_tracked', {
+            userId
+        });
+    },
+    async appTrackedNonfriendsUpdateName(
+        input: TrackedNonFriendUpdateNameInput
+    ): Promise<boolean> {
+        return await TAURI_INVOKE('app__tracked_nonfriends_update_name', {
+            input
+        });
+    },
     async appNotificationListQuery(
         query: NotificationListQueryInput
     ): Promise<NotificationListItemOutput[]> {
@@ -4228,6 +4251,19 @@ export type FriendLogHistoryQueryInput = {
 export type FriendLogNameResolutionInput = {
     requestId: string;
     userIds?: string[];
+};
+export type TrackedNonFriendAddInput = {
+    userId: string;
+    displayName?: string;
+};
+export type TrackedNonFriendOutput = {
+    userId: string;
+    displayName: string;
+    addedAt: string;
+};
+export type TrackedNonFriendUpdateNameInput = {
+    userId: string;
+    displayName?: string;
 };
 export type FriendProfileBulkLoadStatus =
     | 'idle'

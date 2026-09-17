@@ -175,6 +175,14 @@ describe('createSyncWorkflowActions', () => {
             'relationship-recommendations'
         ]);
         expect(actions[0].run).toBe(startupOnlineBackfillExecutor);
+        const trackedNonfriendsRefresh = vi.fn(async () => ({
+            status: 'completed' as const
+        }));
+        const actionsWithTrackedRefresh = createSyncWorkflowActions({
+            translate: (key) => key,
+            trackedNonfriendsRefresh
+        });
+        expect(actionsWithTrackedRefresh[1].run).toBe(trackedNonfriendsRefresh);
 
         const runner = createSyncWorkflowRunner();
         const snapshot = await runner.run(actions, context);

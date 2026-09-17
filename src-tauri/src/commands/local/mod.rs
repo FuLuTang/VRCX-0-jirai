@@ -13,4 +13,5 @@ pub mod memos;
 pub mod mutual_graph;
 pub mod notifications;
 pub mod player_list;
+pub mod tracked_nonfriends;
 pub mod worlds;

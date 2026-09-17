@@ -1,4 +1,5 @@
 import { startupOnlineBackfillExecutor } from '@/features/workflows/startupOnlineBackfillExecutor';
+import '@/features/workflows/trackedNonfriendsRefreshExecutor';
 import type {
     AuthenticatedRuntimePhaseSnapshot,
     RealtimeWsStatusPayload,

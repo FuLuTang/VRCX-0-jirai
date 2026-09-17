@@ -23,6 +23,19 @@ const defaultStartupOnlineBackfillExecutor: StartupOnlineBackfillExecutor =
 let startupOnlineBackfillExecutor: StartupOnlineBackfillExecutor =
     defaultStartupOnlineBackfillExecutor;
 
+export type TrackedNonfriendsRefreshExecutor = (
+    context: SyncWorkflowActionContext
+) => Promise<SyncWorkflowActionOutcome | void>;
+
+const defaultTrackedNonfriendsRefreshExecutor: TrackedNonfriendsRefreshExecutor =
+    async (context) => ({
+        status: 'skipped',
+        skipReason: context.translate('workflow.skip.not_implemented')
+    });
+
+let trackedNonfriendsRefreshExecutor: TrackedNonfriendsRefreshExecutor =
+    defaultTrackedNonfriendsRefreshExecutor;
+
 export function registerStartupOnlineBackfillExecutor(
     executor: StartupOnlineBackfillExecutor
 ): () => void {
@@ -32,9 +45,20 @@ export function registerStartupOnlineBackfillExecutor(
     };
 }
 
+export function registerTrackedNonfriendsRefreshExecutor(
+    executor: TrackedNonfriendsRefreshExecutor
+): () => void {
+    trackedNonfriendsRefreshExecutor = executor;
+    return () => {
+        trackedNonfriendsRefreshExecutor =
+            defaultTrackedNonfriendsRefreshExecutor;
+    };
+}
+
 type CreateSyncWorkflowActionsOptions = {
     translate: WorkflowTranslate;
     startupOnlineBackfill?: StartupOnlineBackfillExecutor;
+    trackedNonfriendsRefresh?: TrackedNonfriendsRefreshExecutor;
 };
 
 function skippedAction(
@@ -57,7 +81,8 @@ function skippedAction(
  */
 export function createSyncWorkflowActions({
     translate,
-    startupOnlineBackfill = startupOnlineBackfillExecutor
+    startupOnlineBackfill = startupOnlineBackfillExecutor,
+    trackedNonfriendsRefresh = trackedNonfriendsRefreshExecutor
 }: CreateSyncWorkflowActionsOptions): SyncWorkflowAction[] {
     return [
         {
@@ -67,11 +92,13 @@ export function createSyncWorkflowActions({
             run: startupOnlineBackfill,
             cancel: () => {}
         },
-        skippedAction(
-            'tracked-non-friends-sync',
-            translate('workflow.actions.tracked_non_friends_sync'),
-            translate('workflow.skip.tracked_non_friends_dependency')
-        ),
+        {
+            id: 'tracked-non-friends-sync',
+            label: translate('workflow.actions.tracked_non_friends_sync'),
+            status: 'pending',
+            run: trackedNonfriendsRefresh,
+            cancel: () => {}
+        },
         skippedAction(
             'manual-relations-sync',
             translate('workflow.actions.manual_relations_sync'),
