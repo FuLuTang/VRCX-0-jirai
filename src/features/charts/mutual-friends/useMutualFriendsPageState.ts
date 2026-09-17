@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { commands } from '@/platform/tauri/bindings';
 import { openUserDialog } from '@/services/dialogService';
 import { toast } from '@/services/toastService';
+import { useManualRelationsStore } from '@/state/manualRelationsStore';
 import { useModalStore } from '@/state/modalStore';
 import { useMutualGraphRevisionStore } from '@/state/mutualGraphRevisionStore';
 
@@ -15,7 +16,8 @@ import {
 } from './mutualFriendsFilters';
 import {
     buildMutualFriendsBaseGraph,
-    buildMutualFriendsCoverage
+    buildMutualFriendsCoverage,
+    overlayManualRelations
 } from './mutualFriendsGraphData';
 import {
     mutualFriendsCommunityPalette,
@@ -60,6 +62,20 @@ export function useMutualFriendsPageState() {
     const backfillRevision = useMutualGraphRevisionStore((state) =>
         state.ownerUserId === currentUserId ? state.revision : 0
     );
+    const manualRelations = useManualRelationsStore((state) =>
+        state.ownerUserId === currentUserId ? state.relations : []
+    );
+    const manualRelationsLoading = useManualRelationsStore(
+        (state) => state.ownerUserId === currentUserId && state.isLoading
+    );
+    const manualRelationsError = useManualRelationsStore((state) =>
+        state.ownerUserId === currentUserId ? state.error : ''
+    );
+    const loadManualRelations = useManualRelationsStore((state) => state.load);
+    const addManualRelation = useManualRelationsStore((state) => state.add);
+    const removeManualRelation = useManualRelationsStore(
+        (state) => state.remove
+    );
     const { layoutSettings, resetLayoutSettings, setLayoutSetting } =
         useMutualFriendsLayoutSettings();
     const {
@@ -86,7 +102,11 @@ export function useMutualFriendsPageState() {
         writeExcludedMutualFriendIds(excludedFriendIds);
     }, [excludedFriendIds]);
 
-    const baseGraph = useMemo(
+    useEffect(() => {
+        void loadManualRelations(currentUserId);
+    }, [currentUserId, loadManualRelations]);
+
+    const observedGraph = useMemo(
         () =>
             buildMutualFriendsBaseGraph(
                 snapshot.snapshotData.snapshot,
@@ -100,6 +120,16 @@ export function useMutualFriendsPageState() {
             snapshot.snapshotData.meta,
             snapshot.snapshotData.snapshot
         ]
+    );
+    const baseGraph = useMemo(
+        () =>
+            overlayManualRelations(
+                observedGraph,
+                manualRelations,
+                friendLabelsById,
+                excludedFriendIds
+            ),
+        [excludedFriendIds, friendLabelsById, manualRelations, observedGraph]
     );
 
     const communityPalette = useMemo(
@@ -314,6 +344,32 @@ export function useMutualFriendsPageState() {
         clearFilters();
     }
 
+    async function handleAddManualRelation(userIdA: string, userIdB: string) {
+        if (!currentUserId) {
+            return;
+        }
+        await addManualRelation({
+            ownerUserId: currentUserId,
+            userIdA,
+            userIdB,
+            relationType: 'friend'
+        });
+    }
+
+    async function handleRemoveManualRelation(
+        userIdA: string,
+        userIdB: string
+    ) {
+        if (!currentUserId) {
+            return;
+        }
+        await removeManualRelation({
+            ownerUserId: currentUserId,
+            userIdA,
+            userIdB
+        });
+    }
+
     return {
         actions: {
             cancelFetch: handleCancelFetch,
@@ -349,6 +405,7 @@ export function useMutualFriendsPageState() {
             detail: snapshot.detail,
             edgeCount: filteredGraph.links.length,
             friendCount: orderedFriendIds.length,
+            friendLabelsById,
             isolatedCounts: countIsolatedMutualFriendNodes(baseGraph),
             unknownCount: countUnknownMutualFriendNodes(baseGraph),
             isLayoutRunning: sigma.isLayoutRunning,
@@ -359,6 +416,13 @@ export function useMutualFriendsPageState() {
         layout: {
             layoutSettings,
             setLayoutSetting
+        },
+        manualRelations: {
+            error: manualRelationsError,
+            isLoading: manualRelationsLoading,
+            relations: manualRelations,
+            add: handleAddManualRelation,
+            remove: handleRemoveManualRelation
         },
         selection: {
             communityIndex: selectedNode

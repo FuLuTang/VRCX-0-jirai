@@ -6,7 +6,9 @@ use vrcx_0_application::social::{
     MutualGraphFriendRefreshInput, MutualGraphFriendRefreshOutput, UserMutualFriendsListInput,
     UserMutualFriendsListOutput,
 };
-use vrcx_0_runtime_host_desktop::local_data::MutualGraphSnapshotOutput;
+use vrcx_0_runtime_host_desktop::local_data::{
+    ManualRelationOutput, MutualGraphSnapshotOutput,
+};
 
 use crate::commands::blocking::run_blocking;
 use crate::error::AppError;
@@ -21,6 +23,57 @@ pub async fn app__mutual_graph_snapshot_get(
     let local_data = state.runtime_host().local_data().clone();
     run_blocking("mutual graph snapshot", move || {
         local_data.mutual_graph_snapshot_get(user_id)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__manual_relations_list(
+    state: State<'_, AppState>,
+) -> Result<Vec<ManualRelationOutput>, AppError> {
+    let local_data = state.runtime_host().local_data().clone();
+    run_blocking("manual relations list", move || local_data.manual_relations_list()).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__manual_relations_for_user(
+    state: State<'_, AppState>,
+    user_id: String,
+) -> Result<Vec<ManualRelationOutput>, AppError> {
+    let local_data = state.runtime_host().local_data().clone();
+    run_blocking("manual relations for user", move || {
+        local_data.manual_relations_for_user(user_id)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__manual_relation_add(
+    state: State<'_, AppState>,
+    user_id_a: String,
+    user_id_b: String,
+    relation_type: String,
+) -> Result<(), AppError> {
+    let local_data = state.runtime_host().local_data().clone();
+    run_blocking("manual relation add", move || {
+        local_data.manual_relation_add(user_id_a, user_id_b, relation_type)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__manual_relation_remove(
+    state: State<'_, AppState>,
+    user_id_a: String,
+    user_id_b: String,
+) -> Result<(), AppError> {
+    let local_data = state.runtime_host().local_data().clone();
+    run_blocking("manual relation remove", move || {
+        local_data.manual_relation_remove(user_id_a, user_id_b)
     })
     .await
 }

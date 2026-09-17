@@ -1019,6 +1019,36 @@ const generatedCommands = {
     ): Promise<MutualGraphSnapshotOutput> {
         return await TAURI_INVOKE('app__mutual_graph_snapshot_get', { userId });
     },
+    async appManualRelationsList(): Promise<ManualRelationOutput[]> {
+        return await TAURI_INVOKE('app__manual_relations_list');
+    },
+    async appManualRelationsForUser(
+        userId: string
+    ): Promise<ManualRelationOutput[]> {
+        return await TAURI_INVOKE('app__manual_relations_for_user', {
+            userId
+        });
+    },
+    async appManualRelationAdd(
+        userIdA: string,
+        userIdB: string,
+        relationType: string
+    ): Promise<void> {
+        await TAURI_INVOKE('app__manual_relation_add', {
+            userIdA,
+            userIdB,
+            relationType
+        });
+    },
+    async appManualRelationRemove(
+        userIdA: string,
+        userIdB: string
+    ): Promise<void> {
+        await TAURI_INVOKE('app__manual_relation_remove', {
+            userIdA,
+            userIdB
+        });
+    },
     async appMutualGraphFetchStatusGet(): Promise<MutualGraphFetchStatus> {
         return await TAURI_INVOKE('app__mutual_graph_fetch_status_get');
     },
@@ -5257,6 +5287,12 @@ export type ModerationSyncRefreshOutput = {
     remoteCount: number;
     localCount: number;
     rows: RemoteModerationRow[];
+};
+export type ManualRelationOutput = {
+    userIdA: string;
+    userIdB: string;
+    relationType: string;
+    addedAt: string;
 };
 export type MutualGraphFetchCancelInput = { ownerUserId?: OwnerId };
 export type MutualGraphFetchStartInput = {

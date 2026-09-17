@@ -13,6 +13,10 @@ vi.mock('@/components/layout/PageScaffold', () => ({
     )
 }));
 
+vi.mock('./components/mutual-friends/ManualRelationsControl', () => ({
+    ManualRelationsControl: () => null
+}));
+
 vi.mock('./components/mutual-friends/MutualFriendsHud', () => ({
     MutualFriendsHud: (props: { canFetch: boolean }) => {
         mocks.hud(props);
@@ -90,6 +94,7 @@ function controllerValue(currentUserId: string, friendCount: number) {
             detail: '',
             edgeCount: 0,
             friendCount,
+            friendLabelsById: {},
             isolatedCounts: { noConnections: 0, unavailable: 0 },
             unknownCount: 0,
             isLayoutRunning: false,
@@ -100,6 +105,13 @@ function controllerValue(currentUserId: string, friendCount: number) {
         layout: {
             layoutSettings: {},
             setLayoutSetting: noop
+        },
+        manualRelations: {
+            add: noop,
+            error: '',
+            isLoading: false,
+            relations: [],
+            remove: noop
         },
         selection: {
             communityIndex: null,

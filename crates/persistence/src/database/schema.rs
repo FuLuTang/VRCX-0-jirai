@@ -297,6 +297,15 @@ pub(crate) fn ensure_user_store_tables(
         format!(
             "CREATE TABLE IF NOT EXISTS {user_prefix}_mutual_graph_meta (friend_id TEXT PRIMARY KEY, last_fetched_at TEXT, opted_out INTEGER DEFAULT 0, total_count INTEGER)"
         ),
+        format!(
+            "CREATE TABLE IF NOT EXISTS {user_prefix}_manual_relations_MANUEL (user_id_a TEXT NOT NULL, user_id_b TEXT NOT NULL, relation_type TEXT NOT NULL DEFAULT 'friend', added_at TEXT NOT NULL, PRIMARY KEY(user_id_a, user_id_b))"
+        ),
+        format!(
+            "CREATE INDEX IF NOT EXISTS {user_prefix}_manual_relations_MANUEL_user_a_idx ON {user_prefix}_manual_relations_MANUEL (user_id_a, added_at DESC)"
+        ),
+        format!(
+            "CREATE INDEX IF NOT EXISTS {user_prefix}_manual_relations_MANUEL_user_b_idx ON {user_prefix}_manual_relations_MANUEL (user_id_b, added_at DESC)"
+        ),
     ] {
         db.execute_non_query(&sql, &Default::default())?;
     }

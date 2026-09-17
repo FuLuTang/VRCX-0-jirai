@@ -1,5 +1,6 @@
 import { PageScaffold } from '@/components/layout/PageScaffold';
 
+import { ManualRelationsControl } from './components/mutual-friends/ManualRelationsControl';
 import { MutualFriendsHud } from './components/mutual-friends/MutualFriendsHud';
 import { MutualFriendsLegend } from './components/mutual-friends/MutualFriendsLegend';
 import { MutualFriendsNodeCard } from './components/mutual-friends/MutualFriendsNodeCard';
@@ -11,8 +12,16 @@ import {
 import { useMutualFriendsPageState } from './mutual-friends/useMutualFriendsPageState';
 
 export function MutualFriendsPage() {
-    const { actions, exclusions, fetch, graph, layout, selection, view } =
-        useMutualFriendsPageState();
+    const {
+        actions,
+        exclusions,
+        fetch,
+        graph,
+        layout,
+        manualRelations,
+        selection,
+        view
+    } = useMutualFriendsPageState();
 
     const hasActiveFilters = Boolean(
         view.filters.searchQuery ||
@@ -47,6 +56,17 @@ export function MutualFriendsPage() {
                     onRefreshPage={actions.refreshPage}
                     onSearchQueryChange={actions.setSearchQuery}
                     searchQuery={view.filters.searchQuery}
+                    manualRelationsSlot={
+                        <ManualRelationsControl
+                            ownerUserId={graph.currentUserId}
+                            relations={manualRelations.relations}
+                            labelsById={graph.friendLabelsById}
+                            isLoading={manualRelations.isLoading}
+                            error={manualRelations.error}
+                            onAdd={manualRelations.add}
+                            onRemove={manualRelations.remove}
+                        />
+                    }
                     settingsSlot={
                         <MutualFriendsSettingsSheet
                             edgeCount={graph.edgeCount}

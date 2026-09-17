@@ -12,6 +12,8 @@ export interface MutualFriendNode {
 export interface MutualFriendLink {
     source: string;
     target: string;
+    kind?: 'manual';
+    addedAt?: string;
 }
 
 export interface MutualFriendGraph {

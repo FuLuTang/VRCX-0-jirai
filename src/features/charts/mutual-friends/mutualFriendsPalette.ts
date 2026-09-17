@@ -33,6 +33,7 @@ export interface MutualFriendsGraphTheme {
     backgroundColor: string;
     edgeColor: string;
     edgeCrossColor: string;
+    edgeManualColor: string;
     edgeActiveColor: string;
     labelColor: string;
     hoverCardBackground: string;
@@ -88,6 +89,7 @@ export function buildMutualFriendsGraphTheme(
         backgroundColor: isDarkMode ? '#0a0a0a' : '#ffffff',
         edgeColor: isDarkMode ? '#242c37' : '#dfe4ea',
         edgeCrossColor: isDarkMode ? '#4d5f78' : '#a3b0c2',
+        edgeManualColor: isDarkMode ? '#4ade80' : '#15803d',
         edgeActiveColor: isDarkMode ? '#8fa3bd' : '#64748b',
         labelColor: isDarkMode ? '#e2e8f0' : '#111827',
         hoverCardBackground: readCssColor(

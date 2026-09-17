@@ -117,6 +117,18 @@ export function MutualFriendsLegend({
                         )}
                     </li>
                 ) : null}
+                <li
+                    className="flex items-center gap-2"
+                    aria-label="Manual relationship edge"
+                >
+                    <span
+                        className="flex w-4 shrink-0 items-center justify-center"
+                        aria-hidden="true"
+                    >
+                        <span className="h-0.5 w-3.5 rounded-full bg-green-600 dark:bg-green-400" />
+                    </span>
+                    <span>Manual relationship</span>
+                </li>
                 <li>
                     <Tooltip>
                         <TooltipTrigger

@@ -1,4 +1,5 @@
 import type { FriendRecord } from '@/domain/friends/types';
+import type { ManualRelation } from '@/repositories/manualRelationsRepository';
 
 import {
     isValidMutualFriendId,
@@ -132,6 +133,89 @@ export function buildMutualFriendsBaseGraph(
 
     for (const node of nodeMap.values()) {
         node.mutualCount = totalCountById.get(node.id) ?? node.degree;
+    }
+
+    return {
+        nodes: Array.from(nodeMap.values()).sort(
+            (left, right) => right.degree - left.degree
+        ),
+        links: Array.from(edgeMap.values())
+    };
+}
+
+/**
+ * Derive a display-only graph overlay from persisted manual relations. This
+ * deliberately clones the observed graph and never alters the mutual snapshot
+ * or its metadata/counts.
+ */
+export function overlayManualRelations(
+    observedGraph: MutualFriendGraph,
+    relations: readonly ManualRelation[] | null | undefined,
+    friendLabelsById: Readonly<Record<string, string>> | null | undefined,
+    excludedFriendIds: readonly string[] = []
+): MutualFriendGraph {
+    const excluded = new Set(
+        excludedFriendIds.map(normalizeMutualFriendId).filter(Boolean)
+    );
+    const nodeMap = new Map<string, MutualFriendNode>();
+    const edgeMap = new Map<string, MutualFriendLink>();
+
+    for (const node of observedGraph.nodes) {
+        nodeMap.set(node.id, { ...node, degree: 0 });
+    }
+    for (const link of observedGraph.links) {
+        const key = [link.source, link.target].sort().join('__');
+        edgeMap.set(key, { ...link });
+    }
+
+    function ensureManualNode(id: string) {
+        const normalizedId = normalizeMutualFriendId(id);
+        if (
+            !isValidMutualFriendId(normalizedId) ||
+            excluded.has(normalizedId)
+        ) {
+            return null;
+        }
+        const existing = nodeMap.get(normalizedId);
+        if (existing) {
+            return existing;
+        }
+        const node: MutualFriendNode = {
+            id: normalizedId,
+            label: friendLabelsById?.[normalizedId] || normalizedId,
+            lastFetchedAt: null,
+            optedOut: false,
+            degree: 0,
+            mutualCount: 0
+        };
+        nodeMap.set(normalizedId, node);
+        return node;
+    }
+
+    for (const relation of relations ?? []) {
+        const source = ensureManualNode(relation.userIdA);
+        const target = ensureManualNode(relation.userIdB);
+        if (!source || !target || source.id === target.id) {
+            continue;
+        }
+        const [sourceId, targetId] = [source.id, target.id].sort();
+        edgeMap.set(`${sourceId}__${targetId}`, {
+            source: sourceId,
+            target: targetId,
+            kind: 'manual',
+            addedAt: relation.addedAt
+        });
+    }
+
+    for (const edge of edgeMap.values()) {
+        const source = nodeMap.get(edge.source);
+        const target = nodeMap.get(edge.target);
+        if (source) {
+            source.degree += 1;
+        }
+        if (target) {
+            target.degree += 1;
+        }
     }
 
     return {

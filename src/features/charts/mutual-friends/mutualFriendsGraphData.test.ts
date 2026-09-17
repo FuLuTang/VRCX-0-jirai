@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
     buildMutualFriendsBaseGraph,
-    buildMutualFriendsCoverage
+    buildMutualFriendsCoverage,
+    overlayManualRelations
 } from './mutualFriendsGraphData';
 import { MUTUAL_GRAPH_EMPTY_USER_ID } from './mutualFriendsSettings';
 
@@ -86,6 +87,60 @@ describe('mutualFriendsGraphData', () => {
             ['usr_b', 'usr_b', 1]
         ]);
         expect(graph.links).toEqual([{ source: 'usr_a', target: 'usr_b' }]);
+    });
+
+    it('derives green manual edges without mutating the observed snapshot graph', () => {
+        const snapshot = new Map([['usr_a', ['usr_b']]]);
+        const observedGraph = buildMutualFriendsBaseGraph(snapshot, new Map(), {
+            usr_a: 'Ava',
+            usr_b: 'Bea',
+            usr_c: 'Cora'
+        });
+        const observedBefore = structuredClone(observedGraph);
+
+        const overlaidGraph = overlayManualRelations(
+            observedGraph,
+            [
+                {
+                    userIdA: 'usr_a',
+                    userIdB: 'usr_b',
+                    relationType: 'friend',
+                    addedAt: '2026-09-03T10:00:00.000Z'
+                },
+                {
+                    userIdA: 'usr_c',
+                    userIdB: 'usr_a',
+                    relationType: 'friend',
+                    addedAt: '2026-09-04T10:00:00.000Z'
+                }
+            ],
+            { usr_a: 'Ava', usr_b: 'Bea', usr_c: 'Cora' }
+        );
+
+        expect(observedGraph).toEqual(observedBefore);
+        expect(snapshot).toEqual(new Map([['usr_a', ['usr_b']]]));
+        expect(observedGraph.links).toEqual([
+            { source: 'usr_a', target: 'usr_b' }
+        ]);
+        expect(overlaidGraph.links).toContainEqual({
+            source: 'usr_a',
+            target: 'usr_b',
+            kind: 'manual',
+            addedAt: '2026-09-03T10:00:00.000Z'
+        });
+        expect(overlaidGraph.links).toContainEqual({
+            source: 'usr_a',
+            target: 'usr_c',
+            kind: 'manual',
+            addedAt: '2026-09-04T10:00:00.000Z'
+        });
+        expect(
+            overlaidGraph.nodes.find((node) => node.id === 'usr_c')
+        ).toMatchObject({
+            label: 'Cora',
+            degree: 1,
+            mutualCount: 0
+        });
     });
 });
 

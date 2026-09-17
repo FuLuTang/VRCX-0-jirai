@@ -59,6 +59,7 @@ pub use vrcx_0_persistence::game_log::{
     GameLogQuery, GameLogQueryOutput, GameLogWriteKind,
 };
 pub use vrcx_0_persistence::local_moderation::LocalModerationOutput;
+pub use vrcx_0_persistence::manual_relations::ManualRelationOutput;
 pub use vrcx_0_persistence::maintenance::{
     BrokenGameLogDisplayNameOutput, MaintenanceTableSizesOutput, UserTableContextOutput,
 };
@@ -887,6 +888,48 @@ impl LocalDataRuntime {
         Ok(vrcx_0_persistence::mutual_graph::mutual_graph_snapshot_get(
             self.db.as_ref(),
             user_id,
+        )?)
+    }
+
+    pub fn manual_relations_list(&self) -> Result<Vec<ManualRelationOutput>> {
+        Ok(vrcx_0_persistence::manual_relations::manual_relations_list(
+            self.db.as_ref(),
+            self.current_owner(),
+        )?)
+    }
+
+    pub fn manual_relations_for_user(
+        &self,
+        user_id: String,
+    ) -> Result<Vec<ManualRelationOutput>> {
+        Ok(vrcx_0_persistence::manual_relations::manual_relations_for_user(
+            self.db.as_ref(),
+            self.current_owner(),
+            user_id,
+        )?)
+    }
+
+    pub fn manual_relation_add(
+        &self,
+        user_id_a: String,
+        user_id_b: String,
+        relation_type: String,
+    ) -> Result<()> {
+        Ok(vrcx_0_persistence::manual_relations::manual_relation_add(
+            self.db.as_ref(),
+            self.current_owner(),
+            user_id_a,
+            user_id_b,
+            relation_type,
+        )?)
+    }
+
+    pub fn manual_relation_remove(&self, user_id_a: String, user_id_b: String) -> Result<()> {
+        Ok(vrcx_0_persistence::manual_relations::manual_relation_remove(
+            self.db.as_ref(),
+            self.current_owner(),
+            user_id_a,
+            user_id_b,
         )?)
     }
 
