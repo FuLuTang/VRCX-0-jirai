@@ -267,7 +267,7 @@ impl LocalDataRuntime {
             || !realtime_friend
                 .is_some_and(|friend| friend.state.as_str().eq_ignore_ascii_case("online"))
         {
-            return Err(vrcx_0_composition::Error::PersistenceInvalidData(
+            return Err(vrcx_0_application_core::Error::PersistenceInvalidData(
                 "Startup online backfill target is not a current online friend.".into(),
             ));
         }
