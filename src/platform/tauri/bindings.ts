@@ -1033,8 +1033,8 @@ const generatedCommands = {
         userIdA: string,
         userIdB: string,
         relationType: string
-    ): Promise<void> {
-        await TAURI_INVOKE('app__manual_relation_add', {
+    ): Promise<null> {
+        return await TAURI_INVOKE('app__manual_relation_add', {
             userIdA,
             userIdB,
             relationType
@@ -1043,8 +1043,8 @@ const generatedCommands = {
     async appManualRelationRemove(
         userIdA: string,
         userIdB: string
-    ): Promise<void> {
-        await TAURI_INVOKE('app__manual_relation_remove', {
+    ): Promise<null> {
+        return await TAURI_INVOKE('app__manual_relation_remove', {
             userIdA,
             userIdB
         });
@@ -5735,9 +5735,9 @@ export type ProfileBackupState = 'idle' | 'running' | 'retryable' | 'error';
 export type ProfileFeedReconcileInput = {
     userId: string;
     displayName: string;
-    bio: string;
-    status: string;
-    statusDescription: string;
+    bio?: string;
+    status?: string;
+    statusDescription?: string;
 };
 export type ProfileFeedReconcileOutput = {
     bioUpdated: boolean;
