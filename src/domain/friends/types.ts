@@ -36,11 +36,8 @@ export type FriendProfileFields = {
     friendKey?: string | null;
     iconFrame?: string | null;
     iconUrl?: string | null;
-    profilePicOverride?: string | null;
-    profilePicOverrideThumbnail?: string | null;
     status?: string | null;
     statusDescription?: string | null;
-    userIcon?: string | null;
 };
 
 export type FriendRecordInput = Record<string, unknown> & {

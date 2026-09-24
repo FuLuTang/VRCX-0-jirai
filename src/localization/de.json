@@ -496,6 +496,7 @@
         "tray": {
             "open": "VRCX-0 öffnen",
             "backgroundMode": "Hintergrundmodus",
+            "lock": "Sperren",
             "doNotDisturb": "Nicht stören",
             "doNotDisturbOneHour": "1 Stunde",
             "doNotDisturbThreeHours": "3 Stunden",
@@ -790,6 +791,63 @@
         "toggle_details": "Details ein-/ausblenden",
         "clear_selection": "Auswahl aufheben"
     },
+    "privacy_lock": {
+        "locked_title": "Gesperrt",
+        "field": {
+            "password": "Sperrpasswort",
+            "current_password": "Aktuelles Sperrpasswort",
+            "new_password": "Neues Sperrpasswort",
+            "confirm_password": "Neues Sperrpasswort bestätigen",
+            "account_password": "VRChat-Kontopasswort"
+        },
+        "action": {
+            "lock": "Sperren",
+            "unlock": "Entsperren",
+            "forgot": "Sperrpasswort vergessen?",
+            "back": "Zurück",
+            "set": "Passwort festlegen",
+            "change": "Passwort ändern",
+            "clear": "Passwort entfernen",
+            "clear_link": "Sperrpasswort entfernen",
+            "clear_and_unlock": "Sperre entfernen",
+            "background_mode": "Hintergrundmodus",
+            "logout": "Abmelden"
+        },
+        "setup": {
+            "create_title": "Sperrpasswort festlegen",
+            "create_description": "Die Sperre verbirgt VRCX-0 hinter diesem 4-stelligen Code, während weiter aufgezeichnet wird. Das ist keine Verschlüsselung – es hindert nur andere am PC daran, sich umzusehen.",
+            "change_title": "Sperrpasswort ändern",
+            "change_description": "Gib dein aktuelles Sperrpasswort ein und wähle dann ein neues.",
+            "clear_title": "Sperrpasswort entfernen",
+            "clear_description": "Gib dein VRChat-Kontopasswort ein, um den Sperrcode zu entfernen. Es wird nur mit dem lokal in VRCX-0 gespeicherten Passwort verglichen; nichts wird an die VRChat-Server gesendet."
+        },
+        "recover": {
+            "description": "Gib dein VRChat-Kontopasswort ein, um die Sperre zu entfernen. Es wird nur mit dem lokal in VRCX-0 gespeicherten Passwort verglichen; nichts wird an die VRChat-Server gesendet."
+        },
+        "settings": {
+            "label": "Privatsphäre-Sperre",
+            "description": "Verbirgt das Fenster hinter einem Sperrpasswort, während VRCX-0 weiter aufzeichnet. Sperren über das Tray-Menü oder das Kontomenü in der Seitenleiste.",
+            "status_set": "Passwort festgelegt",
+            "status_unset": "Kein Passwort"
+        },
+        "toast": {
+            "set": "Sperrpasswort festgelegt",
+            "changed": "Sperrpasswort geändert",
+            "cleared": "Sperrpasswort entfernt"
+        },
+        "error": {
+            "wrong_password": "Falsches Passwort",
+            "incomplete": "Alle {count} Ziffern eingeben",
+            "mismatch": "Die Passwörter stimmen nicht überein",
+            "current_required": "Gib dein aktuelles Sperrpasswort ein",
+            "account_password_required": "Gib dein VRChat-Kontopasswort ein",
+            "account_password_unavailable": "Für dieses Konto ist kein Passwort gespeichert, daher kann die Sperre hier nicht entfernt werden. Entferne sie manuell aus den App-Daten.",
+            "password_not_set": "Es ist kein Sperrpasswort festgelegt",
+            "password_already_set": "Es ist bereits ein Sperrpasswort festgelegt",
+            "no_session": "Melde dich an, bevor du die Sperre verwendest",
+            "failed": "Der Sperrvorgang ist fehlgeschlagen"
+        }
+    },
     "side_panel": {
         "search_placeholder": "Schnellsuche...",
         "search_input_placeholder": "Suchen oder zu einer Seite springen…",
@@ -855,7 +913,6 @@
             "favorites_section": "Favoriten",
             "group_by_instance": "Nach Instanz gruppieren",
             "split_favorite_friends": "Favoritengruppen anzeigen",
-            "show_grouped_friends": "Gruppierte Freunde anzeigen",
             "same_instance_above_favorites": "Gleiche Instanz priorisieren",
             "sort_secondary": "Dann nach",
             "sort_tertiary": "Dann nach",
@@ -1858,7 +1915,8 @@
                 "last_backup": "Gesichert {date}",
                 "connections_configured": "{count} Verbindungen",
                 "apps_count": "{count} Apps",
-                "automatic_backup": "Auto-Backup"
+                "automatic_backup": "Auto-Backup",
+                "show_details": "Details anzeigen"
             },
             "quick_access": {
                 "header": "Schnellzugriff",
@@ -2217,14 +2275,15 @@
             },
             "feedback": {
                 "title": "Feedback senden",
-                "description": "Feedback wird standardmäßig anonym gesendet. Wir lesen jede Nachricht. Wenn du eine Antwort möchtest, gib bitte deine E-Mail-Adresse im Feedback an.",
+                "description": "Feedback wird standardmäßig anonym gesendet. Wir lesen jede Nachricht.",
                 "privacy_note": "Es werden keine Kontodaten übermittelt.",
                 "placeholder": "Erzähl uns, was gut läuft, was nicht, oder was du dir wünschst…",
                 "submit": "Senden",
                 "submitting": "Wird gesendet…",
                 "thanks": "Danke für dein Feedback!",
                 "cooldown": "In {{seconds}} s kannst du erneut senden",
-                "more_help": "Du brauchst eine Antwort oder möchtest Logs anhängen?",
+                "reply_note": "Wenn du eine Antwort möchtest, gib deine E-Mail-Adresse im Feedback an.",
+                "more_help": "Du kannst uns auch hier kontaktieren oder Logs anhängen:",
                 "error_generic": "Feedback konnte nicht gesendet werden. Bitte versuche es später erneut."
             },
             "ai": {
@@ -2485,8 +2544,6 @@
                     "theme_mode_pink": "Pink",
                     "theme_mode_material3": "Material 3",
                     "zoom": "Zoom",
-                    "vrcplus_profile_icons": "Profilsymbole",
-                    "vrcplus_profile_icons_description": "Profilsymbole als Benutzerbild verwenden, sofern verfügbar.",
                     "show_instance_id": "Instanz-ID anzeigen",
                     "age_gated_instances": "Altersbeschränkte Instanzen anzeigen",
                     "age_gated_instances_description": "Zeigt altersbeschränkte Instanzen an. Wenn deaktiviert, werden diese Instanzen ausgeblendet und als eingeschränkt angezeigt.",
@@ -3066,6 +3123,12 @@
             }
         },
         "player_list": {
+            "group_roles": {
+                "automatic": "Instanzgruppe (automatisch)",
+                "group": "Gruppe für Rollen",
+                "placeholder": "Gruppen suchen oder Gruppen-ID eingeben",
+                "refresh": "Gruppenrollen aktualisieren"
+            },
             "success": {
                 "last_updated": "Zuletzt aktualisiert",
                 "created": "Erstellt"
@@ -3702,7 +3765,6 @@
                 "note": "Notiz",
                 "memo": "Lokale Notiz",
                 "avatar_info": "Avatar-Info",
-                "avatar_info_last_seen": "Avatar-Info zuletzt gesehen",
                 "unknown_avatar": "Unbekannter Avatar",
                 "represented_group": "Vertretene Gruppe",
                 "bio": "Bio",
@@ -4099,7 +4161,6 @@
                 "role_ids": "Rollen-IDs",
                 "queue_enabled": "Warteschlange aktiviert",
                 "age_gate": "Altersbeschränkung",
-                "display_name": "Anzeigename",
                 "user_id": "Benutzer-ID",
                 "strict": "Strikt",
                 "location": "Standort",
@@ -4459,20 +4520,26 @@
                 "edited_by": "Bearbeitet von:",
                 "search_placeholder": "Suchen"
             },
+            "role_name": {
+                "group_owner": "Gruppenbesitzer",
+                "everyone": "Alle",
+                "member": "Mitglied"
+            },
             "members": {
                 "header": "Mitglieder",
                 "sorting": {
                     "joined_at_asc": "Beigetreten am (aufsteigend)",
                     "joined_at_desc": "Beigetreten am (absteigend)"
                 },
-                "filter": "Filter:",
-                "filters": {
-                    "everyone": "Alle",
-                    "users_with_no_role": "Nutzer ohne Rolle"
-                },
                 "unsubscribed_announcements": "Ankündigungen abbestellt",
                 "representing": "Repräsentiert",
-                "search": "Suchen"
+                "view_all": "Alle",
+                "friends": "Freunde",
+                "search": "Suchen",
+                "loaded_of_total": "{loaded} von {total} geladen",
+                "search_results": "{count} Treffer",
+                "export_loaded": "Geladene exportieren ({count})",
+                "export_all": "Alle exportieren ({count})"
             },
             "gallery": {
                 "header": "Fotos"
@@ -4524,15 +4591,12 @@
                 "group_join_request_cancelled": "Beitrittsanfrage abgebrochen",
                 "group_refreshed": "Gruppe aktualisiert",
                 "group_invite_sent": "Gruppeneinladung gesendet",
-                "group_post_deleted": "Gruppenbeitrag gelöscht",
-                "joined_newest": "Neueste zuerst beigetreten",
-                "joined_oldest": "Älteste zuerst beigetreten"
+                "group_post_deleted": "Gruppenbeitrag gelöscht"
             },
             "action": {
                 "refresh_to_load_gallery_images": "Aktualisieren, um Galeriebilder zu laden",
                 "open_group_owner_profile": "Profil des Gruppenbesitzers öffnen",
-                "join_state": "Beitrittsstatus",
-                "load_all": "Alle laden"
+                "join_state": "Beitrittsstatus"
             },
             "toast": {
                 "failed_to_join_group": "Gruppe konnte nicht beigetreten werden",
@@ -4618,12 +4682,15 @@
             "ageGate": "Altersgrenze",
             "normal": "Normal",
             "group": "Gruppe",
-            "legacy": "Legacy"
+            "legacy": "Legacy",
+            "display_name": "Instanzname"
         },
         "launch": {
             "header": "Starten",
             "short_url": "Kurz-URL",
-            "location": "Standort",
+            "share": "Teilen",
+            "share_description": "VRCX-0-Freigabelink kopieren. Wer ihn öffnet, sieht eine Vorschau und kann die Instanz im Client öffnen.",
+            "more_copy_options": "Weitere Kopieroptionen",
             "invite": "Einladen",
             "open_ingame": "Im Spiel öffnen",
             "self_invite": "Selbsteinladung",
@@ -4638,7 +4705,8 @@
                 "game_not_running": "VRChat läuft nicht"
             },
             "copy": {
-                "link": "Link",
+                "vrchat_link": "VRChat-Link",
+                "instance_id": "Instanz-ID",
                 "failed": "Kopieren fehlgeschlagen"
             }
         },
@@ -5819,6 +5887,7 @@
             "action": "Aktion"
         },
         "playerList": {
+            "groupRoles": "Gruppenrollen",
             "avatar": "Avatar",
             "timer": "Timer",
             "icon": "Symbole",

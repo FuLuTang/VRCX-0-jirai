@@ -1,10 +1,10 @@
+import { createInstanceUserRow as createLocationUserRow } from '@/domain/instances/instanceRoster';
 import groupProfileRepository from '@/repositories/groupProfileRepository';
 import userProfileRepository from '@/repositories/userProfileRepository';
 import { hasGroupIdPrefix } from '@/shared/constants/vrchatIds';
 
 import {
     createLocationGroupRow,
-    createLocationUserRow,
     groupSeed,
     hasGroupProfileDetails
 } from './userDialogContentHelpers';
@@ -159,7 +159,9 @@ export async function loadLocationOwner({
 
     if (ownerSeed) {
         return {
-            ownerUser: createLocationUserRow(ownerSeed),
+            ownerUser: createLocationUserRow(
+                typeof ownerSeed === 'string' ? ownerSeed : record(ownerSeed)
+            ),
             ownerGroup: null
         };
     }

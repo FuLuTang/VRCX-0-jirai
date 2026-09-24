@@ -12,6 +12,7 @@ import type {
     HostCapabilities,
     MutualGraphFetchStatus,
     NotificationDoNotDisturbSnapshot,
+    PrivacyLockSnapshot,
     RuntimeOperationStatus,
     SavedAuthAutoLoginStatus,
     RuntimeGroupInstancesStatus,
@@ -101,6 +102,7 @@ export type CurrentUserSnapshotState = Record<string, unknown> & {
     currentAvatarThumbnailImageUrl?: string;
     currentAvatarName?: string;
     profilePicOverride?: string;
+    iconUrl?: string;
     userIcon?: string;
     homeLocation?: string | null;
     location?: string;
@@ -219,6 +221,7 @@ type RuntimeStore = {
     runtimeEvents: Record<string, RuntimeEventState>;
     backendRuntime: BackendRuntimeSnapshot | null;
     notificationDoNotDisturb: NotificationDoNotDisturbSnapshot;
+    privacyLock: PrivacyLockSnapshot;
     authenticatedSession: AuthenticatedSessionProjection;
     shell: {
         backendRuntimeSnapshotHydrated: boolean;
@@ -242,6 +245,7 @@ type RuntimeStore = {
     setNotificationDoNotDisturb(
         snapshot: NotificationDoNotDisturbSnapshot
     ): void;
+    setPrivacyLock(snapshot: PrivacyLockSnapshot): void;
     setAuthenticatedSessionProjection(
         projection: AuthenticatedSessionProjection
     ): boolean;
@@ -486,6 +490,7 @@ type RuntimeStoreState = Omit<
     | 'setGameState'
     | 'setBackendRuntimeSnapshot'
     | 'setNotificationDoNotDisturb'
+    | 'setPrivacyLock'
     | 'setAuthenticatedSessionProjection'
     | 'setShellState'
     | 'setNowPlayingState'
@@ -619,6 +624,12 @@ const initialState: RuntimeStoreState = {
         revision: 0,
         mode: 'off',
         endsAt: null
+    },
+    privacyLock: {
+        revision: 0,
+        userId: '',
+        locked: false,
+        hasPassword: false
     },
     authenticatedSession: {
         revision: 0,
@@ -770,6 +781,12 @@ export const useRuntimeStore = create<RuntimeStore>((set, get) => ({
             return;
         }
         set({ notificationDoNotDisturb: snapshot });
+    },
+    setPrivacyLock(snapshot: PrivacyLockSnapshot) {
+        if (snapshot.revision < get().privacyLock.revision) {
+            return;
+        }
+        set({ privacyLock: snapshot });
     },
     setAuthenticatedSessionProjection(projection) {
         if (projection.revision < get().authenticatedSession.revision) {

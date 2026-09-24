@@ -83,11 +83,49 @@ function normalizeOptionalLocationProjection(
     return isRecord(value) ? { ...value } : undefined;
 }
 
+const FRIEND_PROFILE_STRING_FIELDS = [
+    '$previousLocation',
+    '$travelingToTime',
+    'ageVerificationStatus',
+    'bannerColor',
+    'bannerType',
+    'bannerUrl',
+    'bio',
+    'currentAvatarAuthorId',
+    'currentAvatarImageUrl',
+    'currentAvatarName',
+    'currentAvatarThumbnailImageUrl',
+    'discordId',
+    'friendKey',
+    'iconFrame',
+    'iconUrl',
+    'status',
+    'statusDescription'
+] as const;
+
+const FRIEND_PROFILE_BOOLEAN_FIELDS = [
+    'ageVerified',
+    'allowAvatarCopying'
+] as const;
+
 function normalizeFriendProfileFields(
     source: FriendRecordInput,
     previous?: FriendRecord | null
 ): FriendProfileFields {
     const profile: FriendProfileFields = {};
+
+    for (const field of FRIEND_PROFILE_STRING_FIELDS) {
+        const value = normalizeOptionalString(source[field]);
+        if (value !== undefined) {
+            profile[field] = value;
+        }
+    }
+    for (const field of FRIEND_PROFILE_BOOLEAN_FIELDS) {
+        const value = normalizeOptionalBoolean(source[field]);
+        if (value !== undefined) {
+            profile[field] = value;
+        }
+    }
 
     const location = normalizeOptionalLocationProjection(
         source.$location,
@@ -99,10 +137,6 @@ function normalizeFriendProfileFields(
     const locationAt = normalizeOptionalTimestamp(source.$location_at);
     if (locationAt !== undefined) {
         profile.$location_at = locationAt;
-    }
-    const previousLocation = normalizeOptionalString(source.$previousLocation);
-    if (previousLocation !== undefined) {
-        profile.$previousLocation = previousLocation;
     }
     const previousLocationAt = normalizeOptionalTimestamp(
         source.$previousLocation_at
@@ -117,45 +151,9 @@ function normalizeFriendProfileFields(
     if (travelingToLocation !== undefined) {
         profile.$travelingToLocation = travelingToLocation;
     }
-    const travelingToTime = normalizeOptionalString(source.$travelingToTime);
-    if (travelingToTime !== undefined) {
-        profile.$travelingToTime = travelingToTime;
-    }
-    const ageVerificationStatus = normalizeOptionalString(
-        source.ageVerificationStatus
-    );
-    if (ageVerificationStatus !== undefined) {
-        profile.ageVerificationStatus = ageVerificationStatus;
-    }
-    const ageVerified = normalizeOptionalBoolean(source.ageVerified);
-    if (ageVerified !== undefined) {
-        profile.ageVerified = ageVerified;
-    }
-    const allowAvatarCopying = normalizeOptionalBoolean(
-        source.allowAvatarCopying
-    );
-    if (allowAvatarCopying !== undefined) {
-        profile.allowAvatarCopying = allowAvatarCopying;
-    }
     const badges = normalizeOptionalArray(source.badges, previous?.badges);
     if (badges !== undefined) {
         profile.badges = badges;
-    }
-    const bannerColor = normalizeOptionalString(source.bannerColor);
-    if (bannerColor !== undefined) {
-        profile.bannerColor = bannerColor;
-    }
-    const bannerType = normalizeOptionalString(source.bannerType);
-    if (bannerType !== undefined) {
-        profile.bannerType = bannerType;
-    }
-    const bannerUrl = normalizeOptionalString(source.bannerUrl);
-    if (bannerUrl !== undefined) {
-        profile.bannerUrl = bannerUrl;
-    }
-    const bio = normalizeOptionalString(source.bio);
-    if (bio !== undefined) {
-        profile.bio = bio;
     }
     const bioLinks = normalizeOptionalStringArray(
         source.bioLinks,
@@ -164,74 +162,12 @@ function normalizeFriendProfileFields(
     if (bioLinks !== undefined) {
         profile.bioLinks = bioLinks;
     }
-    const currentAvatarAuthorId = normalizeOptionalString(
-        source.currentAvatarAuthorId
-    );
-    if (currentAvatarAuthorId !== undefined) {
-        profile.currentAvatarAuthorId = currentAvatarAuthorId;
-    }
-    const currentAvatarImageUrl = normalizeOptionalString(
-        source.currentAvatarImageUrl
-    );
-    if (currentAvatarImageUrl !== undefined) {
-        profile.currentAvatarImageUrl = currentAvatarImageUrl;
-    }
-    const currentAvatarName = normalizeOptionalString(source.currentAvatarName);
-    if (currentAvatarName !== undefined) {
-        profile.currentAvatarName = currentAvatarName;
-    }
     const currentAvatarTags = normalizeOptionalStringArray(
         source.currentAvatarTags,
         previous?.currentAvatarTags
     );
     if (currentAvatarTags !== undefined) {
         profile.currentAvatarTags = currentAvatarTags;
-    }
-    const currentAvatarThumbnailImageUrl = normalizeOptionalString(
-        source.currentAvatarThumbnailImageUrl
-    );
-    if (currentAvatarThumbnailImageUrl !== undefined) {
-        profile.currentAvatarThumbnailImageUrl = currentAvatarThumbnailImageUrl;
-    }
-    const discordId = normalizeOptionalString(source.discordId);
-    if (discordId !== undefined) {
-        profile.discordId = discordId;
-    }
-    const friendKey = normalizeOptionalString(source.friendKey);
-    if (friendKey !== undefined) {
-        profile.friendKey = friendKey;
-    }
-    const iconFrame = normalizeOptionalString(source.iconFrame);
-    if (iconFrame !== undefined) {
-        profile.iconFrame = iconFrame;
-    }
-    const iconUrl = normalizeOptionalString(source.iconUrl);
-    if (iconUrl !== undefined) {
-        profile.iconUrl = iconUrl;
-    }
-    const profilePicOverride = normalizeOptionalString(
-        source.profilePicOverride
-    );
-    if (profilePicOverride !== undefined) {
-        profile.profilePicOverride = profilePicOverride;
-    }
-    const profilePicOverrideThumbnail = normalizeOptionalString(
-        source.profilePicOverrideThumbnail
-    );
-    if (profilePicOverrideThumbnail !== undefined) {
-        profile.profilePicOverrideThumbnail = profilePicOverrideThumbnail;
-    }
-    const status = normalizeOptionalString(source.status);
-    if (status !== undefined) {
-        profile.status = status;
-    }
-    const statusDescription = normalizeOptionalString(source.statusDescription);
-    if (statusDescription !== undefined) {
-        profile.statusDescription = statusDescription;
-    }
-    const userIcon = normalizeOptionalString(source.userIcon);
-    if (userIcon !== undefined) {
-        profile.userIcon = userIcon;
     }
 
     return profile;

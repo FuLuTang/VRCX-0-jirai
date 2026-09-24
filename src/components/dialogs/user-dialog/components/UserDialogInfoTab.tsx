@@ -165,9 +165,12 @@ function InfoPanel({
     return (
         <Card
             size="sm"
-            className={cn('min-w-0 border shadow-none ring-0', className)}
+            className={cn(
+                'ring-stroke-subtle min-w-0 border-0 shadow-none',
+                className
+            )}
         >
-            <CardHeader className="border-b pb-3">
+            <CardHeader className="border-stroke-subtle border-b pb-3">
                 <CardTitle className="min-w-0 truncate text-sm">
                     {title}
                 </CardTitle>
@@ -518,12 +521,7 @@ function UserDialogProfileLinksPanel({
     visibleHomeLocationTarget
 }: UserDialogProfileLinksSectionProps) {
     const { t } = useTranslation();
-    const avatarInfoTitle =
-        !isCurrentUser &&
-        profile?.profilePicOverride &&
-        profile?.currentAvatarImageUrl
-            ? t('dialog.user.info.avatar_info_last_seen')
-            : t('dialog.user.info.avatar_info');
+    const avatarInfoTitle = t('dialog.user.info.avatar_info');
     const currentAvatarImageUrl =
         profile?.currentAvatarImageUrl ||
         profile?.currentAvatarThumbnailImageUrl;

@@ -496,6 +496,7 @@
         "tray": {
             "open": "VRCX-0 を開く",
             "backgroundMode": "バックグラウンドモード",
+            "lock": "ロック",
             "doNotDisturb": "通知を一時停止",
             "doNotDisturbOneHour": "1時間",
             "doNotDisturbThreeHours": "3時間",
@@ -790,6 +791,63 @@
         "toggle_details": "詳細の表示／非表示",
         "clear_selection": "選択を解除"
     },
+    "privacy_lock": {
+        "locked_title": "ロック中",
+        "field": {
+            "password": "ロックパスワード",
+            "current_password": "現在のロックパスワード",
+            "new_password": "新しいロックパスワード",
+            "confirm_password": "新しいロックパスワード（確認）",
+            "account_password": "VRChat アカウントのパスワード"
+        },
+        "action": {
+            "lock": "ロック",
+            "unlock": "ロック解除",
+            "forgot": "ロックパスワードを忘れた場合",
+            "back": "戻る",
+            "set": "パスワードを設定",
+            "change": "パスワードを変更",
+            "clear": "パスワードを削除",
+            "clear_link": "ロックパスワードを削除",
+            "clear_and_unlock": "ロックを解除して削除",
+            "background_mode": "バックグラウンドモード",
+            "logout": "ログアウト"
+        },
+        "setup": {
+            "create_title": "ロックパスワードを設定",
+            "create_description": "ロック中は VRCX-0 がこの 4 桁のコードで隠され、記録はそのまま続きます。暗号化ではなく、PC を使う他の人にのぞかれないようにするための機能です。",
+            "change_title": "ロックパスワードを変更",
+            "change_description": "現在のロックパスワードを入力してから、新しいパスワードを設定します。",
+            "clear_title": "ロックパスワードを削除",
+            "clear_description": "VRChat アカウントのパスワードを入力するとロックコードを削除できます。ローカルに保存されたパスワードとだけ照合し、VRChat のサーバーには接続しません。"
+        },
+        "recover": {
+            "description": "VRChat アカウントのパスワードを入力するとロックを解除できます。ローカルに保存されたパスワードとだけ照合し、VRChat のサーバーには接続しません。"
+        },
+        "settings": {
+            "label": "プライバシーロック",
+            "description": "VRCX-0 が記録を続けたまま、ウィンドウをロックパスワードで隠します。トレイメニューかサイドバーのアカウントメニューからロックできます。",
+            "status_set": "パスワード設定済み",
+            "status_unset": "パスワード未設定"
+        },
+        "toast": {
+            "set": "ロックパスワードを設定しました",
+            "changed": "ロックパスワードを変更しました",
+            "cleared": "ロックパスワードを削除しました"
+        },
+        "error": {
+            "wrong_password": "パスワードが違います",
+            "incomplete": "{count} 桁すべてを入力してください",
+            "mismatch": "パスワードが一致しません",
+            "current_required": "現在のロックパスワードを入力してください",
+            "account_password_required": "VRChat アカウントのパスワードを入力してください",
+            "account_password_unavailable": "このアカウントはパスワードが保存されていないため、ここではロックを解除できません。アプリデータから手動で削除してください。",
+            "password_not_set": "ロックパスワードが設定されていません",
+            "password_already_set": "ロックパスワードはすでに設定されています",
+            "no_session": "ロックを使うには先にログインしてください",
+            "failed": "ロックの操作に失敗しました"
+        }
+    },
     "side_panel": {
         "search_placeholder": "検索...",
         "search_input_placeholder": "検索またはページへ移動…",
@@ -855,7 +913,6 @@
             "favorites_section": "お気に入り",
             "group_by_instance": "インスタンスでグループ化",
             "split_favorite_friends": "お気に入りのグループを表示",
-            "show_grouped_friends": "グループ化されたフレンドを表示",
             "same_instance_above_favorites": "同じインスタンスを優先",
             "sort_secondary": "次のソート基準",
             "sort_tertiary": "さらに次のソート基準",
@@ -1854,7 +1911,8 @@
                 "last_backup": "最終バックアップ {date}",
                 "connections_configured": "接続 {count} 件",
                 "apps_count": "アプリ {count} 件",
-                "automatic_backup": "自動バックアップ"
+                "automatic_backup": "自動バックアップ",
+                "show_details": "詳細を表示"
             },
             "quick_access": {
                 "header": "クイックアクセス",
@@ -2213,14 +2271,15 @@
             },
             "feedback": {
                 "title": "フィードバックを送信",
-                "description": "フィードバックは匿名で送信されます。すべてのメッセージに目を通しています。返信が必要な場合は、メールアドレスも書いてください。",
+                "description": "フィードバックは匿名で送信されます。すべてのメッセージに目を通しています。",
                 "privacy_note": "アカウント情報は含まれません。",
                 "placeholder": "使い心地、改善してほしい点、ほしい機能などを教えてください…",
                 "submit": "送信",
                 "submitting": "送信中…",
                 "thanks": "フィードバックありがとうございます！",
                 "cooldown": "{{seconds}} 秒後にもう一度送信できます",
-                "more_help": "返信が必要な場合や、ログを添えたい場合は",
+                "reply_note": "返信をご希望の場合は、フィードバックにメールアドレスをご記入ください。",
+                "more_help": "お問い合わせやログの添付には、以下もご利用いただけます：",
                 "error_generic": "フィードバックを送信できませんでした。あとでもう一度お試しください。"
             },
             "ai": {
@@ -2481,8 +2540,6 @@
                     "theme_mode_pink": "ピンク",
                     "theme_mode_material3": "Material 3",
                     "zoom": "ズーム",
-                    "vrcplus_profile_icons": "プロフィールのアイコン画像",
-                    "vrcplus_profile_icons_description": "設定されている場合、ユーザー画像として優先して表示します。",
                     "show_instance_id": "インスタンス名を表示",
                     "age_gated_instances": "年齢制限付きインスタンス",
                     "age_gated_instances_description": "年齢制限付きインスタンスを表示します。無効にすると、これらのインスタンスは非表示になり、制限付きとして表示されます。",
@@ -3062,6 +3119,12 @@
             }
         },
         "player_list": {
+            "group_roles": {
+                "automatic": "現在のインスタンスのグループ（自動）",
+                "group": "ロールを表示するグループ",
+                "placeholder": "グループを検索、またはグループ ID を入力",
+                "refresh": "グループロールを更新"
+            },
             "success": {
                 "last_updated": "最終更新",
                 "created": "作成日"
@@ -3697,7 +3760,6 @@
                 "note": "ノート",
                 "memo": "ローカルノート",
                 "avatar_info": "アバター情報",
-                "avatar_info_last_seen": "最後に見たアバター情報",
                 "unknown_avatar": "不明なアバター",
                 "represented_group": "ネームプレートに掲示中のグループ",
                 "bio": "自己紹介",
@@ -4094,7 +4156,6 @@
                 "role_ids": "ロール ID",
                 "queue_enabled": "キュー有効",
                 "age_gate": "年齢制限",
-                "display_name": "表示名",
                 "user_id": "ユーザーID",
                 "strict": "厳格",
                 "location": "場所",
@@ -4489,20 +4550,26 @@
                 "edited_by": "編集者:",
                 "search_placeholder": "検索..."
             },
+            "role_name": {
+                "group_owner": "グループ所有者",
+                "everyone": "全員",
+                "member": "メンバー"
+            },
             "members": {
                 "header": "メンバー",
                 "sorting": {
                     "joined_at_asc": "参加順 (昇順)",
                     "joined_at_desc": "参加順 (降順)"
                 },
-                "filter": "フィルター:",
-                "filters": {
-                    "everyone": "全員",
-                    "users_with_no_role": "ロールなしユーザー"
-                },
                 "unsubscribed_announcements": "お知らせ受信停止中",
                 "representing": "ネームプレート表示中",
-                "search": "検索"
+                "view_all": "すべて",
+                "friends": "フレンド",
+                "search": "検索",
+                "loaded_of_total": "{total} 件中 {loaded} 件を読み込み済み",
+                "search_results": "{count} 件",
+                "export_loaded": "読み込み済みを書き出し（{count}）",
+                "export_all": "すべて書き出し（{count}）"
             },
             "gallery": {
                 "header": "写真"
@@ -4554,15 +4621,12 @@
                 "group_join_request_cancelled": "グループ参加リクエストをキャンセルしました",
                 "group_refreshed": "グループを更新しました",
                 "group_invite_sent": "グループ招待を送信しました",
-                "group_post_deleted": "グループ投稿を削除しました",
-                "joined_newest": "参加が新しい順",
-                "joined_oldest": "参加が古い順"
+                "group_post_deleted": "グループ投稿を削除しました"
             },
             "action": {
                 "refresh_to_load_gallery_images": "更新してギャラリー画像を読み込みます",
                 "open_group_owner_profile": "グループ所有者のプロフィールを開く",
-                "join_state": "参加状態",
-                "load_all": "すべて読み込む"
+                "join_state": "参加状態"
             },
             "toast": {
                 "failed_to_join_group": "グループに参加できませんでした",
@@ -4648,12 +4712,15 @@
             "ageGate": "年齢制限あり",
             "normal": "通常",
             "group": "グループ",
-            "legacy": "レガシー"
+            "legacy": "レガシー",
+            "display_name": "インスタンス名"
         },
         "launch": {
             "header": "起動",
             "short_url": "短縮 URL",
-            "location": "場所",
+            "share": "共有",
+            "share_description": "VRCX-0 の共有リンクをコピーします。開いた相手はプレビューを確認してクライアントで開けます",
+            "more_copy_options": "その他のコピー",
             "invite": "招待",
             "open_ingame": "ゲーム内で開く",
             "self_invite": "自分を招待",
@@ -4668,7 +4735,8 @@
                 "game_not_running": "VRChat 未起動"
             },
             "copy": {
-                "link": "リンク",
+                "vrchat_link": "VRChat リンク",
+                "instance_id": "インスタンス ID",
                 "failed": "コピーできませんでした"
             }
         },
@@ -5851,6 +5919,7 @@
             "action": "アクション"
         },
         "playerList": {
+            "groupRoles": "グループロール",
             "avatar": "アバター",
             "timer": "時間",
             "icon": "アイコン",

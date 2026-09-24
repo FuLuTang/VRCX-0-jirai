@@ -147,6 +147,38 @@ const generatedCommands = {
     async appEnsureMainWindow(): Promise<null> {
         return await TAURI_INVOKE('app__ensure_main_window');
     },
+    async appPrivacyLockSetupRequestTake(): Promise<boolean> {
+        return await TAURI_INVOKE('app__privacy_lock_setup_request_take');
+    },
+    async appPrivacyLockEngage(): Promise<PrivacyLockOutcome> {
+        return await TAURI_INVOKE('app__privacy_lock_engage');
+    },
+    async appPrivacyLockUnlock(password: string): Promise<PrivacyLockOutcome> {
+        return await TAURI_INVOKE('app__privacy_lock_unlock', { password });
+    },
+    async appPrivacyLockPasswordSet(
+        password: string
+    ): Promise<PrivacyLockOutcome> {
+        return await TAURI_INVOKE('app__privacy_lock_password_set', {
+            password
+        });
+    },
+    async appPrivacyLockPasswordChange(
+        currentPassword: string,
+        newPassword: string
+    ): Promise<PrivacyLockOutcome> {
+        return await TAURI_INVOKE('app__privacy_lock_password_change', {
+            currentPassword,
+            newPassword
+        });
+    },
+    async appPrivacyLockPasswordClear(
+        accountPassword: string
+    ): Promise<PrivacyLockOutcome> {
+        return await TAURI_INVOKE('app__privacy_lock_password_clear', {
+            accountPassword
+        });
+    },
     async appDrainPendingDeepLinks(): Promise<DeepLinkAction[]> {
         return await TAURI_INVOKE('app__drain_pending_deep_links');
     },
@@ -1012,9 +1044,6 @@ const generatedCommands = {
     ): Promise<MutualGraphSnapshotOutput> {
         return await TAURI_INVOKE('app__mutual_graph_snapshot_get', { userId });
     },
-    async appMutualGraphFetchStatusGet(): Promise<MutualGraphFetchStatus> {
-        return await TAURI_INVOKE('app__mutual_graph_fetch_status_get');
-    },
     async appMutualGraphFetchCancel(
         input: MutualGraphFetchCancelInput
     ): Promise<MutualGraphFetchStatus> {
@@ -1524,6 +1553,11 @@ const generatedCommands = {
         input: VrchatGroupProfileInput
     ): Promise<HttpApiExecuteResponse> {
         return await TAURI_INVOKE('app__vrchat_group_get', { input });
+    },
+    async appVrchatGroupMemberGet(
+        input: VrchatGroupUserInput
+    ): Promise<HttpApiExecuteResponse> {
+        return await TAURI_INVOKE('app__vrchat_group_member_get', { input });
     },
     async appVrchatGroupInviteDelete(
         input: VrchatGroupUserInput
@@ -2865,6 +2899,7 @@ export type AncillaryRuntimeSnapshot = {
     nowPlaying: NowPlayingSnapshot;
     backgroundImageState: BackgroundImageProjection;
     notificationDoNotDisturbState: NotificationDoNotDisturbSnapshot;
+    privacyLockState: PrivacyLockSnapshot;
 };
 export type AppDataDirSource = 'cli' | 'persisted' | 'default';
 export type AppDataDirState = {
@@ -3255,6 +3290,7 @@ export type BackendRuntimeEventPayloadMap = {
     updateIsGameRunning: HostSessionProjection;
     integrationApiStartFailed: IntegrationApiStartFailedPayload;
     notificationDoNotDisturbState: NotificationDoNotDisturbSnapshot;
+    privacyLockState: PrivacyLockSnapshot;
 };
 export type BackendRuntimeGameLogStatus =
     | 'idle'
@@ -3689,6 +3725,13 @@ export type DebugLoggingOutcomeKind =
     | 'needsUserAction';
 export type DeepLinkAction =
     | { type: 'openWorld'; worldId: string }
+    | {
+          type: 'openInstance';
+          worldId: string;
+          instanceId: string;
+          shortName: string;
+          launchToken: string;
+      }
     | { type: 'openAvatar'; avatarId: string }
     | { type: 'importCollection'; collectionId: string };
 export type DesktopNotificationActivation = {
@@ -4268,6 +4311,7 @@ export type FriendRecord = Partial<{
     status?: string;
     statusDescription?: string;
     bio?: string;
+    iconUrl?: string;
     currentAvatarImageUrl?: string;
     currentAvatarThumbnailImageUrl?: string;
     currentAvatarAuthorId?: string;
@@ -5602,6 +5646,19 @@ export type PrintFavoriteState = {
     warning: CleanupWarning | null;
 };
 export type PrintUploadParams = { note: string; timestamp: string };
+export type PrivacyLockOutcome =
+    | { status: 'ok'; snapshot: PrivacyLockSnapshot }
+    | { status: 'noActiveSession' }
+    | { status: 'passwordNotSet' }
+    | { status: 'passwordAlreadySet' }
+    | { status: 'wrongPassword' }
+    | { status: 'accountPasswordUnavailable' };
+export type PrivacyLockSnapshot = {
+    revision: number;
+    userId: string;
+    locked: boolean;
+    hasPassword: boolean;
+};
 export type ProfileBackupActionOutcome = {
     accepted: boolean;
     status: ProfileBackupStatus;
@@ -5968,12 +6025,7 @@ export type SavedCredentialUser = {
     id: string;
     displayName?: string | null;
     username?: string | null;
-    userIcon?: string | null;
-    profilePicOverrideThumbnail?: string | null;
-    profilePicOverride?: string | null;
-    thumbnailUrl?: string | null;
-    currentAvatarThumbnailImageUrl?: string | null;
-    currentAvatarImageUrl?: string | null;
+    iconUrl?: string | null;
 };
 export type SavedGroupCollection = {
     id: string;

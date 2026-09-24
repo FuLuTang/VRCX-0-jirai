@@ -496,6 +496,7 @@
         "tray": {
             "open": "Otevřít VRCX-0",
             "backgroundMode": "Režim na pozadí",
+            "lock": "Zamknout",
             "doNotDisturb": "Nerušit",
             "doNotDisturbOneHour": "1 hodina",
             "doNotDisturbThreeHours": "3 hodiny",
@@ -790,6 +791,63 @@
         "toggle_details": "Zobrazit / skrýt podrobnosti",
         "clear_selection": "Zrušit výběr"
     },
+    "privacy_lock": {
+        "locked_title": "Zamčeno",
+        "field": {
+            "password": "Heslo zámku",
+            "current_password": "Aktuální heslo zámku",
+            "new_password": "Nové heslo zámku",
+            "confirm_password": "Potvrzení nového hesla zámku",
+            "account_password": "Heslo k účtu VRChat"
+        },
+        "action": {
+            "lock": "Zamknout",
+            "unlock": "Odemknout",
+            "forgot": "Zapomněli jste heslo zámku?",
+            "back": "Zpět",
+            "set": "Nastavit heslo",
+            "change": "Změnit heslo",
+            "clear": "Odebrat heslo",
+            "clear_link": "Odebrat heslo zámku",
+            "clear_and_unlock": "Odebrat zámek",
+            "background_mode": "Režim na pozadí",
+            "logout": "Odhlásit se"
+        },
+        "setup": {
+            "create_title": "Nastavit heslo zámku",
+            "create_description": "Zámek skryje VRCX-0 za tento 4místný kód, zatímco záznam pokračuje. Nejde o šifrování – jen zabrání někomu u vašeho PC, aby se v aplikaci hrabal.",
+            "change_title": "Změnit heslo zámku",
+            "change_description": "Zadejte aktuální heslo zámku a poté zvolte nové.",
+            "clear_title": "Odebrat heslo zámku",
+            "clear_description": "Zadejte heslo k účtu VRChat, aby se kód zámku odebral. Porovnává se pouze s heslem uloženým lokálně ve VRCX-0; na servery VRChat se nic neposílá."
+        },
+        "recover": {
+            "description": "Zadejte heslo k účtu VRChat, aby se zámek odebral. Porovnává se pouze s heslem uloženým lokálně ve VRCX-0; na servery VRChat se nic neposílá."
+        },
+        "settings": {
+            "label": "Zámek soukromí",
+            "description": "Skryje okno za heslo zámku, zatímco VRCX-0 dál zaznamenává. Zamknout lze z nabídky v oznamovací oblasti nebo z nabídky účtu v postranním panelu.",
+            "status_set": "Heslo nastaveno",
+            "status_unset": "Bez hesla"
+        },
+        "toast": {
+            "set": "Heslo zámku nastaveno",
+            "changed": "Heslo zámku změněno",
+            "cleared": "Heslo zámku odebráno"
+        },
+        "error": {
+            "wrong_password": "Nesprávné heslo",
+            "incomplete": "Zadejte všech {count} číslic",
+            "mismatch": "Hesla se neshodují",
+            "current_required": "Zadejte aktuální heslo zámku",
+            "account_password_required": "Zadejte heslo k účtu VRChat",
+            "account_password_unavailable": "Tento účet nemá uložené heslo, takže zámek zde nelze odebrat. Odeberte ho ručně z dat aplikace.",
+            "password_not_set": "Heslo zámku není nastaveno",
+            "password_already_set": "Heslo zámku už je nastaveno",
+            "no_session": "Před použitím zámku se přihlaste",
+            "failed": "Operace zámku selhala"
+        }
+    },
     "side_panel": {
         "search_placeholder": "Search",
         "search_input_placeholder": "Hledat nebo přejít na stránku…",
@@ -855,7 +913,6 @@
             "favorites_section": "Oblíbené",
             "group_by_instance": "Seskupit podle instance",
             "split_favorite_friends": "Zobrazit oblíbené skupiny",
-            "show_grouped_friends": "Zobrazit seskupené přátele",
             "same_instance_above_favorites": "Upřednostnit stejnou instanci",
             "sort_secondary": "Poté podle",
             "sort_tertiary": "Poté podle",
@@ -1860,7 +1917,8 @@
                 "last_backup": "Záloha {date}",
                 "connections_configured": "{count} připojení",
                 "apps_count": "{count} aplikací",
-                "automatic_backup": "Auto záloha"
+                "automatic_backup": "Auto záloha",
+                "show_details": "Zobrazit podrobnosti"
             },
             "quick_access": {
                 "header": "Rychlý přístup",
@@ -2219,14 +2277,15 @@
             },
             "feedback": {
                 "title": "Odeslat zpětnou vazbu",
-                "description": "Zpětná vazba se ve výchozím nastavení odesílá anonymně. Každou zprávu čteme. Pokud potřebujete odpověď, uveďte ve zprávě svou e-mailovou adresu.",
+                "description": "Zpětná vazba se ve výchozím nastavení odesílá anonymně. Každou zprávu čteme.",
                 "privacy_note": "Nepřipojují se žádné údaje o účtu.",
                 "placeholder": "Řekněte nám, co funguje, co ne, nebo co byste chtěli vidět…",
                 "submit": "Odeslat",
                 "submitting": "Odesílání…",
                 "thanks": "Děkujeme za zpětnou vazbu!",
                 "cooldown": "Znovu odeslat můžete za {{seconds}} s",
-                "more_help": "Potřebujete odpověď nebo chcete přiložit logy?",
+                "reply_note": "Chcete odpověď? Uveďte ve zprávě svou e-mailovou adresu.",
+                "more_help": "Kontaktovat nás nebo přiložit logy můžete také zde:",
                 "error_generic": "Zpětnou vazbu se nepodařilo odeslat. Zkuste to prosím později."
             },
             "ai": {
@@ -2487,8 +2546,6 @@
                     "theme_mode_pink": "Růžový",
                     "theme_mode_material3": "Material 3",
                     "zoom": "Přiblížení",
-                    "vrcplus_profile_icons": "Profilové ikony",
-                    "vrcplus_profile_icons_description": "Použít profilovou ikonu jako obrázek uživatele, pokud je k dispozici.",
                     "show_instance_id": "Zobrazit ID instance",
                     "age_gated_instances": "Zobrazit věkově omezené instance",
                     "age_gated_instances_description": "Zobrazí věkově omezené instance. Když je vypnuto, jsou tyto instance skryty a zobrazeny jako omezené.",
@@ -3068,6 +3125,12 @@
             }
         },
         "player_list": {
+            "group_roles": {
+                "automatic": "Skupina instance (automaticky)",
+                "group": "Skupina pro role",
+                "placeholder": "Hledat skupiny nebo zadat ID skupiny",
+                "refresh": "Obnovit role ve skupině"
+            },
             "success": {
                 "last_updated": "Naposledy aktualizováno",
                 "created": "Vytvořeno"
@@ -3704,7 +3767,6 @@
                 "note": "Poznámka",
                 "memo": "Memo",
                 "avatar_info": "Info o avatarovi",
-                "avatar_info_last_seen": "Naposledy viděná info o avatarovi",
                 "unknown_avatar": "Neznámý avatar",
                 "represented_group": "Reprezentovaná skupina",
                 "bio": "Bio",
@@ -4103,7 +4165,6 @@
                 "role_ids": "ID rolí",
                 "queue_enabled": "Fronta povolena",
                 "age_gate": "Ověření věku",
-                "display_name": "Zobrazované jméno",
                 "user_id": "ID uživatele",
                 "strict": "Přísný režim",
                 "location": "Lokace",
@@ -4463,20 +4524,26 @@
                 "edited_by": "Upravil(a):",
                 "search_placeholder": "Hledat"
             },
+            "role_name": {
+                "group_owner": "Vlastník skupiny",
+                "everyone": "Všichni",
+                "member": "Člen"
+            },
             "members": {
                 "header": "Členové",
                 "sorting": {
                     "joined_at_asc": "Datum vstupu (vzestupně)",
                     "joined_at_desc": "Datum vstupu (sestupně)"
                 },
-                "filter": "Filtr:",
-                "filters": {
-                    "everyone": "Všichni",
-                    "users_with_no_role": "Uživatelé bez role"
-                },
                 "unsubscribed_announcements": "Odhlášeno z odběru oznámení",
                 "representing": "Reprezentuje",
-                "search": "Hledat"
+                "view_all": "Vše",
+                "friends": "Přátelé",
+                "search": "Hledat",
+                "loaded_of_total": "Načteno {loaded} z {total}",
+                "search_results": "{count} výsledků",
+                "export_loaded": "Exportovat načtené ({count})",
+                "export_all": "Exportovat vše ({count})"
             },
             "gallery": {
                 "header": "Fotografie"
@@ -4528,15 +4595,12 @@
                 "group_join_request_cancelled": "Žádost o vstup do skupiny zrušena",
                 "group_refreshed": "Skupina obnovena",
                 "group_invite_sent": "Pozvánka do skupiny odeslána",
-                "group_post_deleted": "Příspěvek skupiny smazán",
-                "joined_newest": "Vstoupil(a) nejnovější",
-                "joined_oldest": "Vstoupil(a) nejstarší"
+                "group_post_deleted": "Příspěvek skupiny smazán"
             },
             "action": {
                 "refresh_to_load_gallery_images": "Obnovte pro načtení obrázků galerie",
                 "open_group_owner_profile": "Otevřít profil vlastníka skupiny",
-                "join_state": "Stav vstupu",
-                "load_all": "Načíst vše"
+                "join_state": "Stav vstupu"
             },
             "toast": {
                 "failed_to_join_group": "Nepodařilo se vstoupit do skupiny",
@@ -4622,12 +4686,15 @@
             "ageGate": "Věkové omezení",
             "normal": "Normální",
             "group": "Skupina",
-            "legacy": "Zastaralé"
+            "legacy": "Zastaralé",
+            "display_name": "Název instance"
         },
         "launch": {
             "header": "Spustit",
             "short_url": "Krátká URL",
-            "location": "Lokace",
+            "share": "Sdílet",
+            "share_description": "Zkopíruje odkaz VRCX-0. Kdo ho otevře, uvidí náhled a může instanci otevřít v klientu.",
+            "more_copy_options": "Další možnosti kopírování",
             "invite": "Pozvat",
             "open_ingame": "Otevřít ve hře",
             "self_invite": "Pozvat sám sebe",
@@ -4642,7 +4709,8 @@
                 "game_not_running": "VRChat neběží"
             },
             "copy": {
-                "link": "Odkaz",
+                "vrchat_link": "Odkaz VRChat",
+                "instance_id": "ID instance",
                 "failed": "Kopírování se nezdařilo"
             }
         },
@@ -5823,6 +5891,7 @@
             "action": "Akce"
         },
         "playerList": {
+            "groupRoles": "Role ve skupině",
             "avatar": "Avatar",
             "timer": "Časovač",
             "icon": "Ikony",

@@ -496,6 +496,7 @@
         "tray": {
             "open": "Abrir VRCX-0",
             "backgroundMode": "Modo en segundo plano",
+            "lock": "Bloquear",
             "doNotDisturb": "No molestar",
             "doNotDisturbOneHour": "1 hora",
             "doNotDisturbThreeHours": "3 horas",
@@ -790,6 +791,63 @@
         "toggle_details": "Mostrar / ocultar detalles",
         "clear_selection": "Borrar selección"
     },
+    "privacy_lock": {
+        "locked_title": "Bloqueado",
+        "field": {
+            "password": "Contraseña de bloqueo",
+            "current_password": "Contraseña de bloqueo actual",
+            "new_password": "Nueva contraseña de bloqueo",
+            "confirm_password": "Confirmar la nueva contraseña de bloqueo",
+            "account_password": "Contraseña de la cuenta de VRChat"
+        },
+        "action": {
+            "lock": "Bloquear",
+            "unlock": "Desbloquear",
+            "forgot": "¿Olvidaste la contraseña de bloqueo?",
+            "back": "Volver",
+            "set": "Establecer contraseña",
+            "change": "Cambiar contraseña",
+            "clear": "Quitar contraseña",
+            "clear_link": "Quitar la contraseña de bloqueo",
+            "clear_and_unlock": "Quitar bloqueo",
+            "background_mode": "Modo en segundo plano",
+            "logout": "Cerrar sesión"
+        },
+        "setup": {
+            "create_title": "Establecer una contraseña de bloqueo",
+            "create_description": "El bloqueo oculta VRCX-0 tras este código de 4 dígitos mientras sigue registrando. No es cifrado: solo evita que alguien en tu PC curiosee.",
+            "change_title": "Cambiar la contraseña de bloqueo",
+            "change_description": "Introduce tu contraseña de bloqueo actual y elige una nueva.",
+            "clear_title": "Quitar la contraseña de bloqueo",
+            "clear_description": "Introduce la contraseña de tu cuenta de VRChat para quitar el código de bloqueo. Solo se compara con la contraseña guardada localmente en VRCX-0; no se envía nada a los servidores de VRChat."
+        },
+        "recover": {
+            "description": "Introduce la contraseña de tu cuenta de VRChat para quitar el bloqueo. Solo se compara con la contraseña guardada localmente en VRCX-0; no se envía nada a los servidores de VRChat."
+        },
+        "settings": {
+            "label": "Bloqueo de privacidad",
+            "description": "Oculta la ventana tras una contraseña de bloqueo mientras VRCX-0 sigue registrando. Bloquea desde el menú de la bandeja o el menú de cuenta de la barra lateral.",
+            "status_set": "Contraseña establecida",
+            "status_unset": "Sin contraseña"
+        },
+        "toast": {
+            "set": "Contraseña de bloqueo establecida",
+            "changed": "Contraseña de bloqueo cambiada",
+            "cleared": "Contraseña de bloqueo eliminada"
+        },
+        "error": {
+            "wrong_password": "Contraseña incorrecta",
+            "incomplete": "Introduce los {count} dígitos",
+            "mismatch": "Las contraseñas no coinciden",
+            "current_required": "Introduce tu contraseña de bloqueo actual",
+            "account_password_required": "Introduce la contraseña de tu cuenta de VRChat",
+            "account_password_unavailable": "Esta cuenta no tiene contraseña guardada, así que el bloqueo no se puede quitar desde aquí. Elimínalo manualmente de los datos de la aplicación.",
+            "password_not_set": "No hay contraseña de bloqueo establecida",
+            "password_already_set": "Ya hay una contraseña de bloqueo establecida",
+            "no_session": "Inicia sesión antes de usar el bloqueo",
+            "failed": "La operación de bloqueo falló"
+        }
+    },
     "side_panel": {
         "search_placeholder": "Buscar",
         "search_input_placeholder": "Buscar o ir a una página…",
@@ -855,7 +913,6 @@
             "favorites_section": "Favoritos",
             "group_by_instance": "Agrupar por instancia",
             "split_favorite_friends": "Mostrar grupos de favoritos",
-            "show_grouped_friends": "Mostrar amigos agrupados",
             "same_instance_above_favorites": "Priorizar misma instancia",
             "sort_secondary": "Luego por",
             "sort_tertiary": "Luego por",
@@ -1858,7 +1915,8 @@
                 "last_backup": "Copia {date}",
                 "connections_configured": "{count} conexiones",
                 "apps_count": "{count} apps",
-                "automatic_backup": "Copia automática"
+                "automatic_backup": "Copia automática",
+                "show_details": "Mostrar detalles"
             },
             "quick_access": {
                 "header": "Acceso rápido",
@@ -2217,14 +2275,15 @@
             },
             "feedback": {
                 "title": "Enviar comentarios",
-                "description": "Los comentarios se envían de forma anónima por defecto. Leemos todos los mensajes. Si necesitas una respuesta, incluye tu dirección de correo electrónico en el comentario.",
+                "description": "Los comentarios se envían de forma anónima por defecto. Leemos todos los mensajes.",
                 "privacy_note": "No se adjuntan datos de la cuenta.",
                 "placeholder": "Cuéntanos qué funciona, qué no, o qué te gustaría ver…",
                 "submit": "Enviar",
                 "submitting": "Enviando…",
                 "thanks": "¡Gracias por tu opinión!",
                 "cooldown": "Podrás enviar otro en {{seconds}} s",
-                "more_help": "¿Necesitas respuesta o quieres adjuntar registros?",
+                "reply_note": "Si necesitas una respuesta, incluye tu correo electrónico en el comentario.",
+                "more_help": "También puedes contactarnos o adjuntar registros aquí:",
                 "error_generic": "No se pudieron enviar los comentarios. Inténtalo de nuevo más tarde."
             },
             "ai": {
@@ -2485,8 +2544,6 @@
                     "theme_mode_pink": "Rosa",
                     "theme_mode_material3": "Material 3",
                     "zoom": "Zoom",
-                    "vrcplus_profile_icons": "Iconos de perfil",
-                    "vrcplus_profile_icons_description": "Usa el icono de perfil como imagen del usuario cuando esté disponible.",
                     "show_instance_id": "Mostrar ID de instancia",
                     "age_gated_instances": "Mostrar instancias con restricción de edad",
                     "age_gated_instances_description": "Muestra las instancias con restricción de edad. Cuando está desactivado, estas instancias se ocultan y se muestran como restringidas.",
@@ -3066,6 +3123,12 @@
             }
         },
         "player_list": {
+            "group_roles": {
+                "automatic": "Grupo de la instancia (automático)",
+                "group": "Grupo de los roles",
+                "placeholder": "Buscar grupos o introducir un ID de grupo",
+                "refresh": "Actualizar roles del grupo"
+            },
             "success": {
                 "last_updated": "Última actualización",
                 "created": "Creado"
@@ -3702,7 +3765,6 @@
                 "note": "Nota",
                 "memo": "Memo",
                 "avatar_info": "Información del avatar",
-                "avatar_info_last_seen": "Avatar visto por última vez",
                 "unknown_avatar": "Avatar desconocido",
                 "represented_group": "Grupo Representado",
                 "bio": "Biografía",
@@ -4099,7 +4161,6 @@
                 "role_ids": "ID de roles",
                 "queue_enabled": "Cola activada",
                 "age_gate": "Restricción por edad",
-                "display_name": "Nombre visible",
                 "user_id": "ID de usuario",
                 "strict": "Estricto",
                 "location": "Ubicación",
@@ -4459,20 +4520,26 @@
                 "edited_by": "Editado por:",
                 "search_placeholder": "Buscar"
             },
+            "role_name": {
+                "group_owner": "Propietario del grupo",
+                "everyone": "Todos",
+                "member": "Miembro"
+            },
             "members": {
                 "header": "Miembros",
                 "sorting": {
                     "joined_at_asc": "Unido el (Ascendente)",
                     "joined_at_desc": "Unido el (Descendente)"
                 },
-                "filter": "Filtrar:",
-                "filters": {
-                    "everyone": "Todos",
-                    "users_with_no_role": "Usuarios Sin Rol"
-                },
                 "unsubscribed_announcements": "Dado de baja de los anuncios",
                 "representing": "Representando",
-                "search": "Buscar"
+                "view_all": "Todos",
+                "friends": "Amigos",
+                "search": "Buscar",
+                "loaded_of_total": "{loaded} de {total} cargados",
+                "search_results": "{count} resultados",
+                "export_loaded": "Exportar cargados ({count})",
+                "export_all": "Exportar todos ({count})"
             },
             "gallery": {
                 "header": "Fotos"
@@ -4524,15 +4591,12 @@
                 "group_join_request_cancelled": "Solicitud de ingreso al grupo cancelada",
                 "group_refreshed": "Grupo actualizado",
                 "group_invite_sent": "Invitación al grupo enviada",
-                "group_post_deleted": "Publicación del grupo eliminada",
-                "joined_newest": "Ingreso más reciente",
-                "joined_oldest": "Ingreso más antiguo"
+                "group_post_deleted": "Publicación del grupo eliminada"
             },
             "action": {
                 "refresh_to_load_gallery_images": "Actualiza para cargar las imágenes de la galería",
                 "open_group_owner_profile": "Abrir el perfil del propietario del grupo",
-                "join_state": "Estado de ingreso",
-                "load_all": "Cargar todo"
+                "join_state": "Estado de ingreso"
             },
             "toast": {
                 "failed_to_join_group": "No se pudo unir al grupo",
@@ -4618,12 +4682,15 @@
             "ageGate": "Restricción de Edad",
             "normal": "Normal",
             "group": "Grupo",
-            "legacy": "Legado"
+            "legacy": "Legado",
+            "display_name": "Nombre de la instancia"
         },
         "launch": {
             "header": "Lanzar",
             "short_url": "URL Corta",
-            "location": "Ubicación",
+            "share": "Compartir",
+            "share_description": "Copia el enlace de VRCX-0. Quien lo abra verá una vista previa y podrá abrir la instancia en el cliente.",
+            "more_copy_options": "Más opciones de copia",
             "invite": "Invitar",
             "open_ingame": "Abrir en el juego",
             "self_invite": "Autoinvitación",
@@ -4638,7 +4705,8 @@
                 "game_not_running": "VRChat no está abierto"
             },
             "copy": {
-                "link": "Enlace",
+                "vrchat_link": "Enlace de VRChat",
+                "instance_id": "ID de instancia",
                 "failed": "No se pudo copiar"
             }
         },
@@ -5819,6 +5887,7 @@
             "action": "Acción"
         },
         "playerList": {
+            "groupRoles": "Roles del grupo",
             "avatar": "Avatar",
             "timer": "Temporizador",
             "icon": "Iconos",

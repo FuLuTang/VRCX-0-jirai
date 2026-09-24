@@ -9,11 +9,6 @@ import type {
     VrchatWorldListByUserInput
 } from '@/platform/tauri/bindings';
 import { MINUTE_MS, SECOND_MS } from '@/shared/constants/time';
-import {
-    hasAvatarIdPrefix,
-    hasGroupIdPrefix,
-    hasUserIdPrefix
-} from '@/shared/constants/vrchatIds';
 import { normalizeVrchatEndpointKey } from '@/shared/vrchatEndpoint';
 
 type EntityQueryPolicy = Readonly<{
@@ -332,30 +327,4 @@ export function invalidateEntityQueries(queryKey: QueryKey) {
 export async function clearEntityQueryCache() {
     await queryClient.cancelQueries();
     queryClient.clear();
-}
-
-export function getEntityQueryCacheStats() {
-    const users = new Set<string>();
-    const avatars = new Set<string>();
-    const groups = new Set<string>();
-
-    for (const query of queryClient.getQueryCache().getAll()) {
-        const [kind, id] = Array.isArray(query.queryKey) ? query.queryKey : [];
-        if (typeof id !== 'string') {
-            continue;
-        }
-        if (kind === 'user' && hasUserIdPrefix(id)) {
-            users.add(id);
-        } else if (kind === 'avatar' && hasAvatarIdPrefix(id)) {
-            avatars.add(id);
-        } else if (kind === 'group' && hasGroupIdPrefix(id)) {
-            groups.add(id);
-        }
-    }
-
-    return {
-        users: users.size,
-        avatars: avatars.size,
-        groups: groups.size
-    };
 }
