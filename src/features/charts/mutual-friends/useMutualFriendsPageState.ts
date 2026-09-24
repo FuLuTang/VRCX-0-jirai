@@ -88,11 +88,13 @@ export function useMutualFriendsPageState() {
                 snapshot.snapshotData.snapshot,
                 snapshot.snapshotData.meta,
                 friendLabelsById,
-                excludedFriendIds
+                excludedFriendIds,
+                snapshot.snapshotData.historicalLinks
             ),
         [
             excludedFriendIds,
             friendLabelsById,
+            snapshot.snapshotData.historicalLinks,
             snapshot.snapshotData.meta,
             snapshot.snapshotData.snapshot
         ]

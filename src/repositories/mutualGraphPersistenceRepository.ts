@@ -8,16 +8,19 @@ type MutualGraphMeta = {
 
 async function getSnapshot(userId: string): Promise<{
     snapshot: Map<string, string[]>;
+    historicalLinks: Map<string, string>;
     meta: Map<string, MutualGraphMeta>;
 }> {
     const {
         friendIds,
         links,
+        historicalLinks: historicalLinkRows,
         meta: metaRows
     } = await commands.appMutualGraphSnapshotGet(userId.trim());
 
     const snapshot = new Map<string, string[]>();
     const meta = new Map<string, MutualGraphMeta>();
+    const historicalLinks = new Map<string, string>();
 
     for (const friendId of friendIds) {
         if (friendId && !snapshot.has(friendId)) {
@@ -37,6 +40,14 @@ async function getSnapshot(userId: string): Promise<{
         snapshot.set(friendId, mutualIds);
     }
 
+    for (const row of historicalLinkRows) {
+        if (!row.friendId || !row.mutualId) {
+            continue;
+        }
+        const key = [row.friendId, row.mutualId].sort().join('__');
+        historicalLinks.set(key, row.date);
+    }
+
     for (const row of metaRows) {
         const friendId = row.friendId;
         if (!friendId) {
@@ -52,6 +63,7 @@ async function getSnapshot(userId: string): Promise<{
 
     return {
         snapshot,
+        historicalLinks,
         meta
     };
 }

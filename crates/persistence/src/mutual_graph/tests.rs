@@ -133,3 +133,27 @@ fn friend_refresh_replaces_links_and_opt_out_preserves_the_last_snapshot() {
     assert!(!snapshot.meta[0].last_fetched_at.is_empty());
     assert_eq!(snapshot.meta[0].total_count, Some(2));
 }
+
+#[test]
+fn snapshot_includes_legacy_relationship_edges_for_the_requested_owner_only() {
+    let dir = TestDir::new("legacy-links");
+    let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3")).unwrap();
+    let owner_prefix = normalize_user_table_prefix("usr_owner").unwrap();
+    let other_prefix = normalize_user_table_prefix("usr_other").unwrap();
+    ensure_user_store_tables(&db, &owner_prefix).unwrap();
+    ensure_user_store_tables(&db, &other_prefix).unwrap();
+    db.execute_non_query(
+        &format!("INSERT INTO {owner_prefix}_mutual_graph_links_old (friend_id, mutual_id, date) VALUES ('usr_a', 'usr_b', '2024-01-02')"),
+        &Default::default(),
+    ).unwrap();
+    db.execute_non_query(
+        &format!("INSERT INTO {other_prefix}_mutual_graph_links_old (friend_id, mutual_id, date) VALUES ('usr_x', 'usr_y', '2024-02-03')"),
+        &Default::default(),
+    ).unwrap();
+
+    let snapshot = mutual_graph_snapshot_get(&db, "usr_owner".into()).unwrap();
+    assert_eq!(snapshot.historical_links.len(), 1);
+    assert_eq!(snapshot.historical_links[0].friend_id, "usr_a");
+    assert_eq!(snapshot.historical_links[0].mutual_id, "usr_b");
+    assert_eq!(snapshot.historical_links[0].date, "2024-01-02");
+}

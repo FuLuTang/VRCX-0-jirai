@@ -67,6 +67,7 @@ type MutualFriendsEdgeAttributes = Record<string, unknown> & {
     color?: string;
     crossCommunity: boolean;
     curvature?: number;
+    historical?: boolean;
     size: number;
     type?: string;
     zIndex?: number;
@@ -370,6 +371,7 @@ export async function buildSigmaGraph({
                 graph.getNodeAttribute(link.target, 'community');
             graph.addEdgeWithKey(key, link.source, link.target, {
                 crossCommunity,
+                historical: link.historical === true,
                 size: crossCommunity
                     ? CROSS_COMMUNITY_EDGE_SIZE
                     : INTRA_COMMUNITY_EDGE_SIZE
@@ -575,7 +577,10 @@ export function renderSigmaGraph({
         const theme = themeRef.current;
         const dim = hoverTransition.value;
         const isCross = data.crossCommunity === true;
-        const baseColor = isCross ? theme.edgeCrossColor : theme.edgeColor;
+        const originalColor = isCross ? theme.edgeCrossColor : theme.edgeColor;
+        const baseColor = data.historical
+            ? mixGraphColors(originalColor, theme.backgroundColor, 0.62)
+            : originalColor;
         const restingColor =
             crossCommunityOnlyRef.current && !isCross
                 ? mixGraphColors(

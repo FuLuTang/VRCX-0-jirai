@@ -38,6 +38,14 @@ pub struct MutualGraphLinkOutput {
 
 #[derive(Debug, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
+pub struct MutualGraphHistoricalLinkOutput {
+    pub friend_id: String,
+    pub mutual_id: String,
+    pub date: String,
+}
+
+#[derive(Debug, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
 pub struct MutualGraphMetaOutput {
     pub friend_id: String,
     pub last_fetched_at: String,
@@ -50,6 +58,7 @@ pub struct MutualGraphMetaOutput {
 pub struct MutualGraphSnapshotOutput {
     pub friend_ids: Vec<String>,
     pub links: Vec<MutualGraphLinkOutput>,
+    pub historical_links: Vec<MutualGraphHistoricalLinkOutput>,
     pub meta: Vec<MutualGraphMetaOutput>,
 }
 
@@ -89,6 +98,26 @@ pub fn mutual_graph_snapshot_get(
             }
         })
         .collect();
+    let historical_links = db
+        .execute(
+            &format!("SELECT friend_id, mutual_id, date FROM {user_prefix}_mutual_graph_links_old"),
+            &Default::default(),
+        )?
+        .into_iter()
+        .filter_map(|row| {
+            let friend_id = row_string(&row, 0);
+            let mutual_id = row_string(&row, 1);
+            if friend_id.is_empty() || mutual_id.is_empty() {
+                None
+            } else {
+                Some(MutualGraphHistoricalLinkOutput {
+                    friend_id,
+                    mutual_id,
+                    date: row_string(&row, 2),
+                })
+            }
+        })
+        .collect();
     let meta = db
         .execute(
             &format!(
@@ -117,6 +146,7 @@ pub fn mutual_graph_snapshot_get(
     Ok(MutualGraphSnapshotOutput {
         friend_ids,
         links,
+        historical_links,
         meta,
     })
 }

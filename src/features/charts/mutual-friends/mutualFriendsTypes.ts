@@ -12,6 +12,8 @@ export interface MutualFriendNode {
 export interface MutualFriendLink {
     source: string;
     target: string;
+    historical?: boolean;
+    lastObservedAt?: string;
 }
 
 export interface MutualFriendGraph {

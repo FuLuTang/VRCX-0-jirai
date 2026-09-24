@@ -62,7 +62,8 @@ export function buildMutualFriendsBaseGraph(
     snapshot: MutualFriendSnapshot | null | undefined,
     meta: MutualFriendMeta | null | undefined,
     friendLabelsById: Readonly<Record<string, string>> | null | undefined,
-    excludedFriendIds: readonly string[] = []
+    excludedFriendIds: readonly string[] = [],
+    historicalLinks: ReadonlyMap<string, string> | null | undefined = null
 ): MutualFriendGraph {
     const nodeMap = new Map<string, MutualFriendNode>();
     const totalCountById = new Map<string, number>();
@@ -100,6 +101,24 @@ export function buildMutualFriendsBaseGraph(
         return node;
     }
 
+    historicalLinks?.forEach((date, key) => {
+        const [friendId, mutualId] = key.split('__');
+        if (!friendId || !mutualId) {
+            return;
+        }
+        const source = ensureNode(friendId);
+        const target = ensureNode(mutualId);
+        if (!source || !target || source.id === target.id) {
+            return;
+        }
+        edgeMap.set([source.id, target.id].sort().join('__'), {
+            source: source.id,
+            target: target.id,
+            historical: true,
+            lastObservedAt: date || undefined
+        });
+    });
+
     if (snapshot instanceof Map) {
         snapshot.forEach((mutualIds, friendId) => {
             const source = ensureNode(friendId);
@@ -111,9 +130,12 @@ export function buildMutualFriendsBaseGraph(
                 if (!target || target.id === source.id) {
                     continue;
                 }
-                edgeMap.set([source.id, target.id].sort().join('__'), {
+                const edgeKey = [source.id, target.id].sort().join('__');
+                const wasHistorical = edgeMap.get(edgeKey)?.historical;
+                edgeMap.set(edgeKey, {
                     source: source.id,
-                    target: target.id
+                    target: target.id,
+                    ...(wasHistorical ? { historical: false } : {})
                 });
             }
         });

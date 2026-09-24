@@ -24,6 +24,7 @@ export function useMutualFriendsSnapshot({
     const [snapshotData, setSnapshotData] = useState<MutualFriendsSnapshotData>(
         {
             snapshot: new Map(),
+            historicalLinks: new Map(),
             meta: new Map()
         }
     );
@@ -33,7 +34,11 @@ export function useMutualFriendsSnapshot({
 
         if (!currentUserId) {
             setStatus('idle');
-            setSnapshotData({ snapshot: new Map(), meta: new Map() });
+            setSnapshotData({
+                snapshot: new Map(),
+                historicalLinks: new Map(),
+                meta: new Map()
+            });
             return () => {
                 active = false;
             };
@@ -59,7 +64,11 @@ export function useMutualFriendsSnapshot({
                 }
 
                 setStatus('error');
-                setSnapshotData({ snapshot: new Map(), meta: new Map() });
+                setSnapshotData({
+                    snapshot: new Map(),
+                    historicalLinks: new Map(),
+                    meta: new Map()
+                });
                 setDetail(error instanceof Error ? error.message : '');
             });
 
@@ -89,7 +98,11 @@ export function useMutualFriendsSnapshot({
             setStatus('ready');
             setDetail(nextDetail);
         } catch (error) {
-            setSnapshotData({ snapshot: new Map(), meta: new Map() });
+            setSnapshotData({
+                snapshot: new Map(),
+                historicalLinks: new Map(),
+                meta: new Map()
+            });
             setStatus('error');
             setDetail(error instanceof Error ? error.message : '');
         }

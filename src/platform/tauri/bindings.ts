@@ -5292,6 +5292,11 @@ export type MutualGraphFriendRefreshOutput = {
     status: MutualGraphFriendRefreshStatus;
 };
 export type MutualGraphFriendRefreshStatus = 'refreshed' | 'optedOut';
+export type MutualGraphHistoricalLinkOutput = {
+    friendId: string;
+    mutualId: string;
+    date: string;
+};
 export type MutualGraphLinkOutput = { friendId: string; mutualId: string };
 export type MutualGraphMetaOutput = {
     friendId: string;
@@ -5302,6 +5307,7 @@ export type MutualGraphMetaOutput = {
 export type MutualGraphSnapshotOutput = {
     friendIds: string[];
     links: MutualGraphLinkOutput[];
+    historicalLinks: MutualGraphHistoricalLinkOutput[];
     meta: MutualGraphMetaOutput[];
 };
 export type MyAvatarByIdInput = { avatarId: string };

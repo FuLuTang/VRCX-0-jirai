@@ -87,6 +87,33 @@ describe('mutualFriendsGraphData', () => {
         ]);
         expect(graph.links).toEqual([{ source: 'usr_a', target: 'usr_b' }]);
     });
+
+    it('shows legacy edges as historical and lets the current snapshot take precedence', () => {
+        const graph = buildMutualFriendsBaseGraph(
+            new Map([['usr_a', ['usr_c']]]),
+            null,
+            null,
+            [],
+            new Map([
+                [['usr_a', 'usr_b'].sort().join('__'), '2024-01-02'],
+                [['usr_a', 'usr_c'].sort().join('__'), '2024-02-03']
+            ])
+        );
+
+        expect(graph.links).toEqual([
+            {
+                source: 'usr_a',
+                target: 'usr_b',
+                historical: true,
+                lastObservedAt: '2024-01-02'
+            },
+            {
+                source: 'usr_a',
+                target: 'usr_c',
+                historical: false
+            }
+        ]);
+    });
 });
 
 describe('buildMutualFriendsCoverage', () => {
