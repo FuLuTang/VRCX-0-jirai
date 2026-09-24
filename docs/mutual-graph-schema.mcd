@@ -1,0 +1,7 @@
+MUTUAL_GRAPH_FRIEND (vrcx-0): friend_id
+CURRENT_LINK, 1N MUTUAL_GRAPH_FRIEND (vrcx-0), 1N MUTUAL_GRAPH_FRIEND (vrcx-0):
+HAS_META, 11 MUTUAL_GRAPH_FRIEND (vrcx-0), 01 MUTUAL_GRAPH_META (vrcx-0)
+MUTUAL_GRAPH_META (vrcx-0): friend_id, last_fetched_at, opted_out, total_count
+
+MUTUAL_GRAPH_FRIEND_OLD (vrcx-jirai): friend_id, last_updated
+OLD_LINK, 1N MUTUAL_GRAPH_FRIEND_OLD (vrcx-jirai), 1N MUTUAL_GRAPH_FRIEND_OLD (vrcx-jirai): date

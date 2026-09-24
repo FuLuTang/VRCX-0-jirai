@@ -298,6 +298,12 @@ pub(crate) fn ensure_user_store_tables(
         format!(
             "CREATE TABLE IF NOT EXISTS {user_prefix}_mutual_graph_meta (friend_id TEXT PRIMARY KEY, last_fetched_at TEXT, opted_out INTEGER DEFAULT 0, total_count INTEGER)"
         ),
+        format!(
+            "CREATE TABLE IF NOT EXISTS {user_prefix}_mutual_graph_friends_old (friend_id TEXT PRIMARY KEY, last_updated TEXT NOT NULL)"
+        ),
+        format!(
+            "CREATE TABLE IF NOT EXISTS {user_prefix}_mutual_graph_links_old (friend_id TEXT NOT NULL, mutual_id TEXT NOT NULL, date TEXT NOT NULL, PRIMARY KEY(friend_id, mutual_id))"
+        ),
     ] {
         db.execute_non_query(&sql, &Default::default())?;
     }
