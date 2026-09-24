@@ -65,6 +65,8 @@ interface FeedReadyState {
     searchLimit: number;
 }
 
+const RELATIONSHIP_TIMELINE_PAGE_SIZE = 1000;
+
 function normalizeUserId(value: string): string {
     return value.trim();
 }
@@ -175,6 +177,49 @@ class FeedRepository {
             dateTo,
             maxEntries
         });
+    }
+
+    /**
+     * Reads every persisted location event for the current account. Feed tables
+     * are already partitioned by owner (userId); leaving scopedUserIds empty
+     * intentionally includes all players recorded by that owner.
+     */
+    async queryRelationshipTimelineHistory(
+        userId: string
+    ): Promise<FeedRowOutput[]> {
+        const { normalizedUserId } = await this.#ensureReady(userId);
+        const rows: FeedRowOutput[] = [];
+        let cursor: FeedCursor | null = null;
+
+        while (true) {
+            const page = await feedPersistenceRepository.lookupFeedDatabase(
+                normalizedUserId,
+                ['GPS', 'Offline'],
+                [],
+                RELATIONSHIP_TIMELINE_PAGE_SIZE,
+                cursor
+            );
+            rows.push(...page);
+            if (page.length < RELATIONSHIP_TIMELINE_PAGE_SIZE) {
+                return rows;
+            }
+
+            const lastRow = page[page.length - 1];
+            if (
+                !lastRow?.created_at ||
+                !Number.isFinite(lastRow.rowId) ||
+                !Number.isFinite(lastRow.sourceRank)
+            ) {
+                throw new Error(
+                    'Relationship timeline pagination stopped: the Feed row is missing its cursor.'
+                );
+            }
+            cursor = {
+                createdAt: lastRow.created_at,
+                rowId: lastRow.rowId as number,
+                sourceRank: lastRow.sourceRank as number
+            };
+        }
     }
 
     async queryFeedLatest({

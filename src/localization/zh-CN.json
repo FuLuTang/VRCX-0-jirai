@@ -1900,14 +1900,16 @@
             },
             "relationship_timeline": {
                 "header": "关系时间轴",
-                "friend": "好友",
-                "range_days": "范围（天）",
-                "total_overlap": "总共处时长",
-                "active_days": "活跃天数",
-                "status_changes": "状态变更",
-                "co_presence_chart": "共处时间线",
-                "status_chart": "状态变更频率",
-                "timeline_rows": "时间轴详情"
+                "top_users": "用户数量",
+                "show_others": "显示其他用户",
+                "current_friends_only": "仅显示当前好友",
+                "days_per_unit": "天/单位",
+                "granularity": "每单位天数",
+                "description": "按时间单位展示各用户在同一房间内的记录时长占比。",
+                "chart_aria_label": "关系时长占比堆叠面积图",
+                "no_data": "没有找到关系历史记录",
+                "sign_in_required": "登录后才能查看关系历史。",
+                "load_failed": "关系历史加载失败，请尝试刷新。"
             },
             "loading": {
                 "loading_instance_activity": "正在加载房间活动",

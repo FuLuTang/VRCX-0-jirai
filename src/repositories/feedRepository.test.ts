@@ -120,4 +120,58 @@ describe('feedRepository', () => {
         );
         expect(mocks.searchFeedDatabase).not.toHaveBeenCalled();
     });
+
+    it('loads all relationship timeline pages from the current owner scope', async () => {
+        const page = Array.from({ length: 1000 }, (_, index) => ({
+            created_at: `2026-01-${String((index % 28) + 1).padStart(2, '0')}T00:00:00Z`,
+            rowId: 1000 - index,
+            sourceRank: 60
+        }));
+        mocks.lookupFeedDatabase
+            .mockResolvedValueOnce(page)
+            .mockResolvedValueOnce([
+                {
+                    created_at: '2025-01-01T00:00:00Z',
+                    rowId: 2,
+                    sourceRank: 60
+                }
+            ]);
+
+        const rows =
+            await feedRepository.queryRelationshipTimelineHistory(
+                ' usr_feed_limit '
+            );
+
+        expect(rows).toHaveLength(1001);
+        expect(mocks.lookupFeedDatabase).toHaveBeenNthCalledWith(
+            1,
+            'usr_feed_limit',
+            ['GPS', 'Offline'],
+            [],
+            1000,
+            null
+        );
+        expect(mocks.lookupFeedDatabase).toHaveBeenNthCalledWith(
+            2,
+            'usr_feed_limit',
+            ['GPS', 'Offline'],
+            [],
+            1000,
+            {
+                createdAt: page[page.length - 1].created_at,
+                rowId: 1,
+                sourceRank: 60
+            }
+        );
+    });
+
+    it('fails instead of silently truncating when a full page has no cursor', async () => {
+        mocks.lookupFeedDatabase.mockResolvedValueOnce(
+            Array.from({ length: 1000 }, () => ({}))
+        );
+
+        await expect(
+            feedRepository.queryRelationshipTimelineHistory('usr_feed_limit')
+        ).rejects.toThrow('missing its cursor');
+    });
 });

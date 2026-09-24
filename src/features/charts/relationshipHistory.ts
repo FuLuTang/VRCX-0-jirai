@@ -189,35 +189,36 @@ export function summarizeRelationshipOverlaps(
     );
 }
 
-/** Splits sessions at UTC day boundaries for an accurate relationship timeline. */
+/**
+ * Matches the original VRCX-jirai query: the full logged duration is assigned
+ * to the UTC day of the event's created_at timestamp, and each distinct room
+ * location counts as one join per user/day.
+ */
 export function buildRelationshipDailyValues(
     sessions: readonly RelationshipSession[]
 ): RelationshipDailyValue[] {
     const values = new Map<string, RelationshipDailyValue>();
+    const locationsByUserDay = new Map<string, Set<string>>();
 
     for (const session of sessions) {
-        let cursor = session.startMs;
-        let isFirstSegment = true;
-        while (cursor < session.endMs) {
-            const day = Math.floor(cursor / DAY_MS);
-            const nextDay = (day + 1) * DAY_MS;
-            const endMs = Math.min(session.endMs, nextDay);
-            const key = `${session.userId}\u0000${day}`;
-            const value = values.get(key) || {
-                userId: session.userId,
-                displayName: session.displayName,
-                day,
-                totalTime: 0,
-                joinCount: 0
-            };
-            value.totalTime += endMs - cursor;
-            if (isFirstSegment) {
-                value.joinCount += 1;
-            }
-            values.set(key, value);
-            cursor = endMs;
-            isFirstSegment = false;
+        const day = Math.floor(session.endMs / DAY_MS);
+        const key = `${session.userId}\u0000${day}`;
+        const value = values.get(key) || {
+            userId: session.userId,
+            displayName: session.displayName,
+            day,
+            totalTime: 0,
+            joinCount: 0
+        };
+        value.totalTime += session.durationMs;
+
+        const locations = locationsByUserDay.get(key) || new Set<string>();
+        if (!locations.has(session.location)) {
+            locations.add(session.location);
+            value.joinCount += 1;
         }
+        locationsByUserDay.set(key, locations);
+        values.set(key, value);
     }
 
     return Array.from(values.values());

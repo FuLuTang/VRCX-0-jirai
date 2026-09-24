@@ -1900,14 +1900,16 @@
             },
             "relationship_timeline": {
                 "header": "Relationship Timeline",
-                "friend": "Friend",
-                "range_days": "Range (days)",
-                "total_overlap": "Total Overlap",
-                "active_days": "Active Days",
-                "status_changes": "Status Changes",
-                "co_presence_chart": "Co-presence Timeline",
-                "status_chart": "Status Change Frequency",
-                "timeline_rows": "Timeline Details"
+                "top_users": "Top users",
+                "show_others": "Show others",
+                "current_friends_only": "Current friends only",
+                "days_per_unit": "days/unit",
+                "granularity": "Days per unit",
+                "description": "Share of recorded time spent in the same instance, grouped into time buckets.",
+                "chart_aria_label": "Relationship share over time stacked area chart",
+                "no_data": "No relationship history found",
+                "sign_in_required": "Sign in to view relationship history.",
+                "load_failed": "Relationship history failed to load. Try refreshing."
             },
             "loading": {
                 "loading_instance_activity": "Loading instance activity",
