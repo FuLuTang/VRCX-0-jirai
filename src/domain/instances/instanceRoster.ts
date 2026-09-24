@@ -157,7 +157,7 @@ export function userDisplayName(user: unknown): string {
 }
 
 export function createInstanceUserRow(
-    user: InstanceRosterSource,
+    user: unknown,
     fallback: InstanceRosterRecord = {}
 ): InstanceRosterRow {
     const fallbackUserId = firstText(

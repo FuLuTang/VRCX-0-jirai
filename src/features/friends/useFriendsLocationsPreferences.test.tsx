@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
     boolValues: new Map<string, boolean>(),
     stringValues: new Map<string, string>(),
+    getCachedString: vi.fn(),
     getBool: vi.fn(),
     getString: vi.fn(),
     setBool: vi.fn(),
@@ -14,6 +15,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/repositories/configRepository', () => ({
     default: {
+        getCachedString: mocks.getCachedString,
         getBool: mocks.getBool,
         getString: mocks.getString,
         setBool: mocks.setBool,
@@ -35,6 +37,12 @@ describe('useFriendsLocationsPreferences', () => {
                 async (key: string, fallback = false) =>
                     mocks.boolValues.get(key) ?? fallback
             );
+        mocks.getCachedString
+            .mockReset()
+            .mockImplementation(
+                (key: string, fallback = '') =>
+                    mocks.stringValues.get(key) ?? String(fallback)
+            );
         mocks.getString
             .mockReset()
             .mockImplementation(
@@ -47,13 +55,16 @@ describe('useFriendsLocationsPreferences', () => {
 
     it('loads persisted preferences and writes changes back', async () => {
         mocks.stringValues.set('FriendLocationDensity', 'dense');
+        mocks.stringValues.set('FriendLocationViewMode', 'worlds');
         mocks.boolValues.set('FriendLocationShowSameInstance', true);
         mocks.stringValues.set('sidebarFavoriteGroups', '["group_a"]');
         mocks.stringValues.set('sidebarSortMethod3', 'Sort by Time');
         const { result } = renderHook(() => useFriendsLocationsPreferences());
 
+        expect(result.current.viewMode).toBe('worlds');
         await waitFor(() => expect(result.current.preferencesReady).toBe(true));
         expect(result.current.density).toBe('dense');
+        expect(result.current.viewMode).toBe('worlds');
         expect(result.current.showSameInstanceInOnline).toBe(true);
         expect(result.current.sidebarFavoritePrefs.selectedGroups).toEqual([
             'group_a'
@@ -72,6 +83,16 @@ describe('useFriendsLocationsPreferences', () => {
         expect(mocks.setBool).toHaveBeenCalledWith(
             'FriendLocationShowSameInstance',
             false
+        );
+
+        act(() => {
+            result.current.changeViewMode('people');
+        });
+
+        expect(result.current.viewMode).toBe('people');
+        expect(mocks.setString).toHaveBeenCalledWith(
+            'FriendLocationViewMode',
+            'people'
         );
     });
 

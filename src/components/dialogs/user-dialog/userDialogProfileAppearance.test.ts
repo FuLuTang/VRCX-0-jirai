@@ -127,6 +127,8 @@ describe('mergeUserDialogProfileAppearance', () => {
                 user,
                 {
                     id: 'usr_target',
+                    ageVerificationStatus: '18+',
+                    ageVerified: true,
                     bio: 'hello',
                     bioLinks: ['https://example.test'],
                     pronouns: 'they/them',
@@ -140,6 +142,8 @@ describe('mergeUserDialogProfileAppearance', () => {
             )
         ).toEqual({
             ...user,
+            ageVerificationStatus: '18+',
+            ageVerified: true,
             bio: 'hello',
             bioLinks: ['https://example.test'],
             pronouns: 'they/them',

@@ -23,6 +23,7 @@ import {
     normalizeFriendsLocationId as normalizeId,
     resolveWorldDialogTarget
 } from './friendsLocationsRows';
+import type { FriendsLocationsWorldGroup } from './friendsLocationsWorlds';
 
 type FriendsLocationsSectionActionTarget = Record<string, unknown> & {
     groupId?: string;
@@ -256,7 +257,7 @@ export function useFriendsLocationsActions({
             }
             await sendBoopToUser({
                 userId: friendId,
-                emojiId: result.value
+                emoji: result.value ?? null
             });
             toast.add({
                 type: 'success',
@@ -277,6 +278,13 @@ export function useFriendsLocationsActions({
         openWorldDialog({
             worldId: resolveWorldDialogTarget(section),
             title: section.title
+        });
+    }
+
+    function openWorldGroup(group: FriendsLocationsWorldGroup, name: string) {
+        openWorldDialog({
+            worldId: group.worldId,
+            title: name || undefined
         });
     }
 
@@ -312,6 +320,7 @@ export function useFriendsLocationsActions({
         openFriendWorld,
         openSectionGroup,
         openSectionWorld,
+        openWorldGroup,
         requestFriendInvite,
         selfInviteFriendLocation,
         sendFriendBoop,

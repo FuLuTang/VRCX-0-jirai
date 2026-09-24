@@ -1,3 +1,4 @@
+import type { UserProfileEntity } from '@/domain/entities/user';
 import type { InventoryItemRecord } from '@/repositories/vrchatMediaRepository';
 import {
     profileBackgroundAssetUrl,
@@ -11,6 +12,8 @@ import type {
 } from './userDialogProfileTypes';
 
 const PROFILE_ENDPOINT_FIELDS = [
+    'ageVerificationStatus',
+    'ageVerified',
     'backgroundGradientBottom',
     'backgroundGradientTop',
     'backgroundTemplateId',
@@ -34,7 +37,7 @@ const PROFILE_ENDPOINT_FIELDS = [
     'themeId',
     'themes',
     'userIcon'
-] as const;
+] as const satisfies readonly (keyof UserProfileEntity)[];
 
 type ProfileEndpointField = (typeof PROFILE_ENDPOINT_FIELDS)[number];
 
@@ -111,6 +114,19 @@ export function preserveUserDialogProfileAppearance(
         (field) =>
             !Object.prototype.hasOwnProperty.call(user, field) &&
             Object.prototype.hasOwnProperty.call(previousUser, field)
+    );
+}
+
+export function retainUserDialogProfileAppearance(
+    user: UserDialogProfileSnapshot,
+    previousUser: UserDialogProfileSnapshot
+): UserDialogProfileSnapshot {
+    if (!user || !previousUser) {
+        return user;
+    }
+
+    return applyProfileEndpointFields(user, previousUser, (field) =>
+        Object.prototype.hasOwnProperty.call(previousUser, field)
     );
 }
 

@@ -11,34 +11,42 @@ export type FriendLocationProjection = Record<string, unknown> &
         location?: string;
     };
 
-export type FriendProfileFields = {
-    $location?: FriendLocationProjection | null;
-    $location_at?: number | string | null;
-    $previousLocation?: string | null;
-    $previousLocation_at?: number | string | null;
-    $travelingToLocation?: FriendLocationProjection | null;
-    $travelingToTime?: number | string | null;
-    ageVerificationStatus?: string | null;
-    ageVerified?: boolean;
-    allowAvatarCopying?: boolean;
-    badges?: unknown[];
-    bannerColor?: string | null;
-    bannerType?: string | null;
-    bannerUrl?: string | null;
-    bio?: string | null;
-    bioLinks?: string[];
-    currentAvatarAuthorId?: string | null;
-    currentAvatarImageUrl?: string | null;
-    currentAvatarName?: string | null;
-    currentAvatarTags?: string[];
-    currentAvatarThumbnailImageUrl?: string | null;
-    discordId?: string | null;
-    friendKey?: string | null;
-    iconFrame?: string | null;
-    iconUrl?: string | null;
-    status?: string | null;
-    statusDescription?: string | null;
-};
+export const FRIEND_PROFILE_STRING_FIELDS = [
+    '$previousLocation',
+    '$travelingToTime',
+    'ageVerificationStatus',
+    'bannerColor',
+    'bannerType',
+    'bannerUrl',
+    'discordId',
+    'friendKey',
+    'iconFrame',
+    'iconUrl',
+    'status',
+    'statusDescription'
+] as const;
+
+export const FRIEND_PROFILE_BOOLEAN_FIELDS = [
+    'ageVerified',
+    'allowAvatarCopying'
+] as const;
+
+type FriendProfileStringField = Exclude<
+    (typeof FRIEND_PROFILE_STRING_FIELDS)[number],
+    '$travelingToTime'
+>;
+
+export type FriendProfileFields = Partial<
+    Record<FriendProfileStringField, string | null>
+> &
+    Partial<Record<(typeof FRIEND_PROFILE_BOOLEAN_FIELDS)[number], boolean>> & {
+        $location?: FriendLocationProjection | null;
+        $location_at?: number | string | null;
+        $previousLocation_at?: number | string | null;
+        $travelingToLocation?: FriendLocationProjection | null;
+        $travelingToTime?: number | string | null;
+        badges?: unknown[];
+    };
 
 export type FriendRecordInput = Record<string, unknown> & {
     id?: string;

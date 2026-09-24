@@ -35,25 +35,15 @@ impl FriendRecordPatch {
         match self {
             Self::Fields(fields) => apply_fields(target, fields),
             Self::Full(record) => {
-                let previous_dates = [
-                    target.date_joined.clone(),
-                    target.last_activity.clone(),
-                    target.last_login.clone(),
-                    target.last_mobile.clone(),
-                ];
+                let previous_dates = OPTIONAL_FIELDS
+                    .iter()
+                    .map(|field| (field.get)(target).clone())
+                    .collect::<Vec<_>>();
                 let mut existing_extra = std::mem::take(&mut target.extra);
                 *target = record.as_ref().clone();
-                for (date, previous) in [
-                    &mut target.date_joined,
-                    &mut target.last_activity,
-                    &mut target.last_login,
-                    &mut target.last_mobile,
-                ]
-                .into_iter()
-                .zip(previous_dates)
-                {
-                    if date.is_missing() {
-                        *date = previous;
+                for (field, previous) in OPTIONAL_FIELDS.iter().zip(previous_dates) {
+                    if (field.get)(target).is_missing() {
+                        (field.set)(target, previous);
                     }
                 }
                 existing_extra.extend(std::mem::take(&mut target.extra));
@@ -97,94 +87,69 @@ pub(super) fn apply_friend_patch(
 struct NamedField {
     keys: &'static [&'static str],
     get: fn(&FriendRecord) -> &str,
-    set: Option<fn(&mut FriendRecord, &str)>,
+    set: fn(&mut FriendRecord, &str),
 }
 
 const NAMED_FIELDS: &[NamedField] = &[
     NamedField {
         keys: &["id"],
         get: |record| &record.id,
-        set: None,
+        set: |record, value| record.id = value.into(),
     },
     NamedField {
         keys: &["displayName"],
         get: |record| &record.display_name,
-        set: Some(|record, value| record.display_name = value.into()),
+        set: |record, value| record.display_name = value.into(),
     },
     NamedField {
         keys: &["username"],
         get: |record| &record.username,
-        set: Some(|record, value| record.username = value.to_string()),
+        set: |record, value| record.username = value.into(),
     },
     NamedField {
         keys: &["state"],
         get: |record| &record.state,
-        set: None,
+        set: |record, value| record.state = value.into(),
     },
     NamedField {
         keys: &["location"],
         get: |record| &record.location,
-        set: Some(|record, value| record.location = value.to_string()),
+        set: |record, value| record.location = value.into(),
     },
     NamedField {
         keys: &["travelingToLocation"],
         get: |record| &record.traveling_to_location,
-        set: Some(|record, value| record.traveling_to_location = value.to_string()),
+        set: |record, value| record.traveling_to_location = value.into(),
     },
     NamedField {
         keys: &["worldId"],
         get: |record| &record.world_id,
-        set: Some(|record, value| record.world_id = value.to_string()),
+        set: |record, value| record.world_id = value.into(),
     },
     NamedField {
         keys: &["platform"],
         get: |record| &record.platform,
-        set: Some(|record, value| record.platform = value.into()),
+        set: |record, value| record.platform = value.into(),
     },
     NamedField {
         keys: &["lastPlatform", "last_platform"],
         get: |record| &record.last_platform,
-        set: Some(|record, value| record.last_platform = value.into()),
+        set: |record, value| record.last_platform = value.into(),
     },
     NamedField {
         keys: &["status"],
         get: |record| &record.status,
-        set: Some(|record, value| record.status = value.into()),
+        set: |record, value| record.status = value.into(),
     },
     NamedField {
         keys: &["statusDescription"],
         get: |record| &record.status_description,
-        set: Some(|record, value| record.status_description = value.into()),
-    },
-    NamedField {
-        keys: &["bio"],
-        get: |record| &record.bio,
-        set: Some(|record, value| record.bio = value.to_string()),
+        set: |record, value| record.status_description = value.into(),
     },
     NamedField {
         keys: &["iconUrl"],
         get: |record| &record.icon_url,
-        set: Some(|record, value| record.icon_url = value.to_string()),
-    },
-    NamedField {
-        keys: &["currentAvatarImageUrl"],
-        get: |record| &record.current_avatar_image_url,
-        set: Some(|record, value| record.current_avatar_image_url = value.to_string()),
-    },
-    NamedField {
-        keys: &["currentAvatarThumbnailImageUrl"],
-        get: |record| &record.current_avatar_thumbnail_image_url,
-        set: Some(|record, value| record.current_avatar_thumbnail_image_url = value.to_string()),
-    },
-    NamedField {
-        keys: &["currentAvatarAuthorId"],
-        get: |record| &record.current_avatar_author_id,
-        set: Some(|record, value| record.current_avatar_author_id = value.to_string()),
-    },
-    NamedField {
-        keys: &["currentAvatarName"],
-        get: |record| &record.current_avatar_name,
-        set: Some(|record, value| record.current_avatar_name = value.to_string()),
+        set: |record, value| record.icon_url = value.into(),
     },
 ];
 
@@ -246,11 +211,8 @@ fn patch_str<'a>(patch: &'a Map<String, Value>, keys: &[&str]) -> Option<&'a str
 
 fn apply_fields(record: &mut FriendRecord, patch: &Map<String, Value>) {
     for field in NAMED_FIELDS {
-        let Some(set) = field.set else {
-            continue;
-        };
         if let Some(value) = patch_str(patch, field.keys) {
-            set(record, value);
+            (field.set)(record, value);
         }
     }
     for field in OPTIONAL_FIELDS {
@@ -291,26 +253,36 @@ pub(in crate::realtime::friends::runtime) fn record_string(
     record.extra.text_field(key)
 }
 
-pub(in crate::realtime::friends::runtime) fn record_value(
-    record: &FriendRecord,
-    key: &str,
-) -> Value {
-    if let Some(field) = optional_field(key) {
-        return (field.get)(record)
-            .as_str()
-            .map(|value| Value::String(value.to_string()))
-            .unwrap_or(Value::Null);
-    }
-    if named_field(key).is_some() {
-        return Value::String(record_string(record, key));
-    }
-    record.extra.get(key).cloned().unwrap_or(Value::Null)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn field_tables_cover_every_serialized_friend_record_key() {
+        let record = FriendRecord {
+            date_joined: "2026-01-01".into(),
+            last_activity: "2026-01-01T00:00:00Z".into(),
+            last_login: "2026-01-01T00:00:00Z".into(),
+            last_mobile: "2026-01-01T00:00:00Z".into(),
+            ..FriendRecord::default()
+        };
+        let serialized = serde_json::to_value(&record).unwrap();
+        let mut serialized_keys = serialized
+            .as_object()
+            .unwrap()
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>();
+        serialized_keys.sort();
+        let mut table_keys = NAMED_FIELDS
+            .iter()
+            .map(|field| field.keys[0].to_string())
+            .chain(OPTIONAL_FIELDS.iter().map(|field| field.key.to_string()))
+            .collect::<Vec<_>>();
+        table_keys.sort();
+        assert_eq!(serialized_keys, table_keys);
+    }
 
     #[test]
     fn transition_normalizes_aliases_and_preserves_unknown_fields() {

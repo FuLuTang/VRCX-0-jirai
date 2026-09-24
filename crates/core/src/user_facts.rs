@@ -222,10 +222,6 @@ fn rank_for_field(class: FieldClass, source: &str) -> u8 {
     }
 }
 
-fn user_fact_field_name(field: &str) -> Option<&'static str> {
-    user_fact_field(field).map(|(name, _)| name)
-}
-
 fn resolve_field(raw: &str) -> Option<&'static str> {
     match raw {
         "display_name" | "name" => Some("displayName"),
@@ -238,7 +234,7 @@ fn resolve_field(raw: &str) -> Option<&'static str> {
         | derived_keys::ONLINE_FOR => Some("locationAt"),
         derived_keys::TRAVELING_TO_TIME => Some("travelingToTime"),
         derived_keys::FRIEND_NUMBER => Some("friendNumber"),
-        other => user_fact_field_name(other),
+        other => user_fact_field(other).map(|(name, _)| name),
     }
 }
 

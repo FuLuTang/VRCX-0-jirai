@@ -128,9 +128,7 @@ describe('group invite notification rows', () => {
                 )
             );
 
-            fireEvent.click(
-                screen.getByRole('button', { name: 'Maple', exact: true })
-            );
+            fireEvent.click(screen.getByRole('button', { name: 'Maple' }));
             expect(openUserDialog).toHaveBeenCalledExactlyOnceWith({
                 userId,
                 title: 'Maple'

@@ -1,21 +1,23 @@
 import { replaceEqualDeep } from '@tanstack/react-query';
 import { create } from 'zustand';
 
-import type {
-    FriendLocationProjection,
-    FriendPatchEntry,
-    FriendProfileFields,
-    FriendRecord,
-    FriendRecordInput,
-    FriendRosterBucket,
-    FriendRosterById,
-    FriendRosterInputById,
-    FriendRosterOrdering,
-    FriendRosterSeedSnapshot,
-    FriendRosterSnapshotInput,
-    FriendRosterState,
-    FriendRosterStore,
-    FriendStateBucketAuthority
+import {
+    FRIEND_PROFILE_BOOLEAN_FIELDS,
+    FRIEND_PROFILE_STRING_FIELDS,
+    type FriendLocationProjection,
+    type FriendPatchEntry,
+    type FriendProfileFields,
+    type FriendRecord,
+    type FriendRecordInput,
+    type FriendRosterBucket,
+    type FriendRosterById,
+    type FriendRosterInputById,
+    type FriendRosterOrdering,
+    type FriendRosterSeedSnapshot,
+    type FriendRosterSnapshotInput,
+    type FriendRosterState,
+    type FriendRosterStore,
+    type FriendStateBucketAuthority
 } from '@/domain/friends/types';
 import { normalizeStateBucket } from '@/domain/users/userFacts';
 import { isRecord } from '@/shared/utils/record';
@@ -83,31 +85,6 @@ function normalizeOptionalLocationProjection(
     return isRecord(value) ? { ...value } : undefined;
 }
 
-const FRIEND_PROFILE_STRING_FIELDS = [
-    '$previousLocation',
-    '$travelingToTime',
-    'ageVerificationStatus',
-    'bannerColor',
-    'bannerType',
-    'bannerUrl',
-    'bio',
-    'currentAvatarAuthorId',
-    'currentAvatarImageUrl',
-    'currentAvatarName',
-    'currentAvatarThumbnailImageUrl',
-    'discordId',
-    'friendKey',
-    'iconFrame',
-    'iconUrl',
-    'status',
-    'statusDescription'
-] as const;
-
-const FRIEND_PROFILE_BOOLEAN_FIELDS = [
-    'ageVerified',
-    'allowAvatarCopying'
-] as const;
-
 function normalizeFriendProfileFields(
     source: FriendRecordInput,
     previous?: FriendRecord | null
@@ -154,20 +131,6 @@ function normalizeFriendProfileFields(
     const badges = normalizeOptionalArray(source.badges, previous?.badges);
     if (badges !== undefined) {
         profile.badges = badges;
-    }
-    const bioLinks = normalizeOptionalStringArray(
-        source.bioLinks,
-        previous?.bioLinks
-    );
-    if (bioLinks !== undefined) {
-        profile.bioLinks = bioLinks;
-    }
-    const currentAvatarTags = normalizeOptionalStringArray(
-        source.currentAvatarTags,
-        previous?.currentAvatarTags
-    );
-    if (currentAvatarTags !== undefined) {
-        profile.currentAvatarTags = currentAvatarTags;
     }
 
     return profile;
