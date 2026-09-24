@@ -918,10 +918,10 @@
             "advanced": "Advanced",
             "sorting": "Sorting",
             "favorites_section": "Favorites",
-            "group_by_instance": "Group by Instance",
-            "split_favorite_friends": "Show Favorite Groups",
-            "show_grouped_friends": "Show Grouped Friends",
-            "same_instance_above_favorites": "Prioritize Same Instance",
+            "group_by_instance": "Same Instance Group",
+            "split_favorite_friends": "Split Favorites by Group",
+            "show_grouped_friends": "Also Show in Other Sections",
+            "same_instance_above_favorites": "Place Same Instance Above Favorites",
             "sort_secondary": "Then by",
             "sort_tertiary": "Then by",
             "favorite_groups": "Favorite Groups",
@@ -1158,6 +1158,8 @@
             "view_worlds": "Worlds view",
             "world_instances_one": "{count} instance",
             "world_instances_other": "{count} instances",
+            "instance_population": "Players in instance: {users}",
+            "instance_population_capacity": "Players in instance: {users} / {capacity}",
             "other_online": "Other online friends",
             "favorite": "Favorites",
             "same_instance": "Same instance",
@@ -1499,9 +1501,7 @@
                 "favorites_failed_to_load": "Favorites failed to load"
             },
             "loading": {
-                "loading_favorites_baseline": "Loading favorites",
-                "loading_remote_avatar_details": "Loading remote avatar details",
-                "loading_remote_world_details": "Loading remote world details"
+                "loading_favorites_baseline": "Loading favorites"
             },
             "share_collection": {
                 "title": "Share collection",
@@ -3318,10 +3318,6 @@
                 "world_details_unavailable": "World details are unavailable.",
                 "world_deleted": "This world has been deleted.",
                 "avatar_details_unavailable": "Avatar details are unavailable."
-            },
-            "loading": {
-                "loading_world_details": "Loading world details.",
-                "loading_avatar_details": "Loading avatar details."
             },
             "dynamic": {
                 "remove_value_from_value": "Remove {value} from {value2}?",
@@ -5800,7 +5796,8 @@
                 "schema_migrations": "Applying schema updates",
                 "optimize": "Optimizing the database copy",
                 "write_version": "Recording the database version",
-                "commit": "Switching to the upgraded database"
+                "commit": "Switching to the upgraded database",
+                "repair_data": "Repairing gaps in game log history"
             },
             "upgrade_failed_title": "Database upgrade failed",
             "failure_record": "Failure record",

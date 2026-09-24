@@ -310,7 +310,7 @@ export function SidePanelSelfHeader() {
                                 )}
                                 {showLocationSubline ? (
                                     <div
-                                        className="text-content-tertiary flex h-4 min-w-0 items-center text-xs leading-4"
+                                        className="text-content-secondary flex h-4 min-w-0 items-center text-xs leading-4"
                                         onContextMenu={(event) =>
                                             event.stopPropagation()
                                         }
@@ -321,6 +321,7 @@ export function SidePanelSelfHeader() {
                                             hint={metadataHint}
                                             metadata={locationMetadata}
                                             link
+                                            showGroupLink
                                             showInstanceIdInLocation={
                                                 showInstanceIdInLocation
                                             }

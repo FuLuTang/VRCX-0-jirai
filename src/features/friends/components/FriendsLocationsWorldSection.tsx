@@ -1,4 +1,4 @@
-import { GlobeIcon, UserIcon } from 'lucide-react';
+import { GlobeIcon, UserIcon, UsersIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { AffinityBadge } from '@/components/affinity/AffinityBadge';
@@ -17,12 +17,17 @@ import { parseLocation, translateAccessType } from '@/shared/utils/location';
 import { normalizeString } from '@/shared/utils/string';
 import { useRuntimeStore } from '@/state/runtimeStore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/ui/shadcn/avatar';
+import { Skeleton } from '@/ui/shadcn/skeleton';
+import { Spinner } from '@/ui/shadcn/spinner';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/shadcn/tooltip';
 
 import type { getFriendsLocationsDensityConfig } from '../friendsLocationsDensity';
+import { resolveLocationTarget } from '../friendsLocationsRows';
 import type {
     FriendsLocationsWorldGroup,
     FriendsLocationsWorldInstance
 } from '../friendsLocationsWorlds';
+import { useFriendsLocationsInstancePopulation } from '../useFriendsLocationsInstancePopulation';
 import type { FriendsLocationsWorldSummary } from '../useFriendsLocationsWorldSummaries';
 
 type FriendsLocationsWorldSectionProps = {
@@ -50,6 +55,7 @@ function FriendChip({
     onOpen: () => void;
 }) {
     const avatarUrl = userImage(friend);
+    const isTraveling = resolveLocationTarget(friend).isTraveling;
     const statusDescription = twoLine
         ? normalizeString(friend.statusDescription)
         : '';
@@ -81,6 +87,9 @@ function FriendChip({
                 </Avatar>
                 <span className="flex min-w-0 flex-col items-start">
                     <span className="flex max-w-full min-w-0 items-center gap-1 leading-4">
+                        {isTraveling ? (
+                            <Spinner className="size-3 shrink-0" />
+                        ) : null}
                         <span className="min-w-0 truncate">
                             {friend.displayName}
                         </span>
@@ -162,6 +171,16 @@ function InstanceRow({
         currentLocation: instance.location,
         groupHint: instance.groupName
     });
+    const {
+        ref: metaRef,
+        population,
+        loading: populationLoading
+    } = useFriendsLocationsInstancePopulation({
+        worldId: parsed.worldId,
+        instanceId: parsed.instanceId,
+        enabled: parsed.isRealInstance,
+        friendCount: instance.friends.length
+    });
     const groupName = metadata.groupName || instance.groupName;
     const label = [
         translateAccessType(parsed.accessTypeName, t, accessTypeLocaleKeyMap),
@@ -172,10 +191,51 @@ function InstanceRow({
 
     return (
         <>
-            <div className="text-muted-foreground grid min-h-8 min-w-0 grid-cols-[auto_minmax(0,1fr)] content-center gap-y-0.5 text-xs leading-4">
+            <div
+                ref={metaRef}
+                className="text-muted-foreground grid min-h-8 min-w-0 grid-cols-[auto_minmax(0,1fr)] content-center gap-y-0.5 text-xs leading-4"
+            >
                 <RegionCodeBadge region={parsed.region} />
                 <span className="col-start-2 flex min-w-0 items-center gap-1.5">
                     <span className="min-w-0 truncate">{label}</span>
+                    {population ? (
+                        <Tooltip>
+                            <TooltipTrigger
+                                render={
+                                    <span
+                                        className={cn(
+                                            'inline-flex shrink-0 items-center gap-1 tabular-nums',
+                                            population.full && 'text-amber-400'
+                                        )}
+                                    />
+                                }
+                            >
+                                <UsersIcon
+                                    aria-hidden="true"
+                                    className="size-3"
+                                />
+                                {population.capacity
+                                    ? `${population.nUsers}/${population.capacity}`
+                                    : population.nUsers}
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                {population.capacity
+                                    ? t(
+                                          'view.friends_locations.instance_population_capacity',
+                                          {
+                                              users: population.nUsers,
+                                              capacity: population.capacity
+                                          }
+                                      )
+                                    : t(
+                                          'view.friends_locations.instance_population',
+                                          { users: population.nUsers }
+                                      )}
+                            </TooltipContent>
+                        </Tooltip>
+                    ) : populationLoading ? (
+                        <Skeleton className="h-3 w-8 shrink-0" />
+                    ) : null}
                     {instance.isCurrent ? (
                         <CurrentInstanceBadge className="shrink-0" />
                     ) : null}

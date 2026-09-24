@@ -914,10 +914,10 @@
             "advanced": "Erweitert",
             "sorting": "Sortierung",
             "favorites_section": "Favoriten",
-            "group_by_instance": "Nach Instanz gruppieren",
-            "split_favorite_friends": "Favoritengruppen anzeigen",
-            "show_grouped_friends": "Gruppierte Freunde anzeigen",
-            "same_instance_above_favorites": "Gleiche Instanz priorisieren",
+            "group_by_instance": "Gruppen gleicher Instanzen anzeigen",
+            "split_favorite_friends": "Favoriten nach Gruppe aufteilen",
+            "show_grouped_friends": "Freunde derselben Instanz auch in anderen Listen anzeigen",
+            "same_instance_above_favorites": "Gleiche Instanz über Favoriten anzeigen",
             "sort_secondary": "Dann nach",
             "sort_tertiary": "Dann nach",
             "favorite_groups": "Favoritengruppen",
@@ -1154,6 +1154,8 @@
             "view_worlds": "Weltenansicht",
             "world_instances_one": "{count} Instanz",
             "world_instances_other": "{count} Instanzen",
+            "instance_population": "Spieler in der Instanz: {users}",
+            "instance_population_capacity": "Spieler in der Instanz: {users} / max. {capacity}",
             "other_online": "Weitere Online-Freunde",
             "favorite": "Favoriten",
             "same_instance": "Gleiche Instanz",
@@ -1495,9 +1497,7 @@
                 "favorites_failed_to_load": "Favoriten konnten nicht geladen werden"
             },
             "loading": {
-                "loading_favorites_baseline": "Favoriten werden geladen",
-                "loading_remote_avatar_details": "Externe Avatar-Details werden geladen",
-                "loading_remote_world_details": "Externe Welt-Details werden geladen"
+                "loading_favorites_baseline": "Favoriten werden geladen"
             },
             "share_collection": {
                 "title": "Sammlung teilen",
@@ -3277,10 +3277,6 @@
                 "world_details_unavailable": "Welt-Details sind nicht verfügbar.",
                 "world_deleted": "This world has been deleted.",
                 "avatar_details_unavailable": "Avatar-Details sind nicht verfügbar."
-            },
-            "loading": {
-                "loading_world_details": "Welt-Details werden geladen.",
-                "loading_avatar_details": "Avatar-Details werden geladen."
             },
             "dynamic": {
                 "remove_value_from_value": "{value} aus {value2} entfernen?",
@@ -5714,7 +5710,8 @@
                 "schema_migrations": "Strukturaktualisierungen werden angewendet",
                 "optimize": "Datenbankkopie wird optimiert",
                 "write_version": "Datenbankversion wird gespeichert",
-                "commit": "Zur aktualisierten Datenbank wird gewechselt"
+                "commit": "Zur aktualisierten Datenbank wird gewechselt",
+                "repair_data": "Lücken im Spielprotokoll-Verlauf werden repariert"
             },
             "upgrade_failed_title": "Datenbank-Upgrade fehlgeschlagen",
             "failure_record": "Fehlerprotokoll",

@@ -918,10 +918,10 @@
             "advanced": "高级",
             "sorting": "排序方式",
             "favorites_section": "收藏",
-            "group_by_instance": "按房间分组",
-            "split_favorite_friends": "按分组显示好友",
-            "show_grouped_friends": "显示同一房间中的好友",
-            "same_instance_above_favorites": "优先显示同一房间中的好友",
+            "group_by_instance": "显示同一房间分组",
+            "split_favorite_friends": "收藏好友按分组显示",
+            "show_grouped_friends": "同房好友也显示在其他列表",
+            "same_instance_above_favorites": "“同一房间”排在“收藏”前",
             "sort_secondary": "次要排序方式",
             "sort_tertiary": "第三排序方式",
             "favorite_groups": "收藏分组",
@@ -1152,12 +1152,14 @@
         },
         "friends_locations": {
             "online": "在线",
-            "world_friends_one": "{count} 人",
-            "world_friends_other": "{count} 人",
+            "world_friends_one": "{count} 位好友",
+            "world_friends_other": "{count} 位好友",
             "view_people": "好友视图",
             "view_worlds": "世界视图",
             "world_instances_one": "{count} 个房间",
             "world_instances_other": "{count} 个房间",
+            "instance_population": "房间内人数：{users}",
+            "instance_population_capacity": "房间内人数：{users} / 上限 {capacity}",
             "other_online": "其他在线好友",
             "favorite": "具有分组的好友",
             "same_instance": "同一房间",
@@ -1499,9 +1501,7 @@
                 "favorites_failed_to_load": "收藏加载失败"
             },
             "loading": {
-                "loading_favorites_baseline": "正在加载收藏基线数据",
-                "loading_remote_avatar_details": "正在加载远程模型详情",
-                "loading_remote_world_details": "正在加载远程世界详情"
+                "loading_favorites_baseline": "正在加载收藏基线数据"
             },
             "share_collection": {
                 "title": "分享收藏合集",
@@ -3318,10 +3318,6 @@
                 "world_details_unavailable": "世界详情不可用。",
                 "world_deleted": "该世界已被删除。",
                 "avatar_details_unavailable": "模型详情不可用。"
-            },
-            "loading": {
-                "loading_world_details": "正在加载世界详情。",
-                "loading_avatar_details": "正在加载模型详情。"
             },
             "dynamic": {
                 "remove_value_from_value": "要从 {value2} 中移除 {value} 吗？",
@@ -5801,7 +5797,8 @@
                 "schema_migrations": "正在应用数据库结构更新",
                 "optimize": "正在优化数据库副本",
                 "write_version": "正在记录数据库版本",
-                "commit": "正在切换到升级后的数据库"
+                "commit": "正在切换到升级后的数据库",
+                "repair_data": "正在修复游戏日志中缺失的记录"
             },
             "upgrade_failed_title": "数据库升级失败",
             "failure_record": "失败记录",

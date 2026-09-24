@@ -914,10 +914,10 @@
             "advanced": "高度な設定",
             "sorting": "ソート",
             "favorites_section": "お気に入り",
-            "group_by_instance": "インスタンスでグループ化",
-            "split_favorite_friends": "お気に入りのグループを表示",
-            "show_grouped_friends": "グループ化されたフレンドを表示",
-            "same_instance_above_favorites": "同じインスタンスを優先",
+            "group_by_instance": "同じインスタンスのグループを表示",
+            "split_favorite_friends": "お気に入りをグループ別に表示",
+            "show_grouped_friends": "同じインスタンスのフレンドを他の一覧にも表示",
+            "same_instance_above_favorites": "同じインスタンスをお気に入りより上に表示",
             "sort_secondary": "次のソート基準",
             "sort_tertiary": "さらに次のソート基準",
             "favorite_groups": "お気に入りのグループ",
@@ -1148,12 +1148,14 @@
         },
         "friends_locations": {
             "online": "オンライン",
-            "world_friends_one": "{count} 人",
-            "world_friends_other": "{count} 人",
+            "world_friends_one": "フレンド {count} 人",
+            "world_friends_other": "フレンド {count} 人",
             "view_people": "フレンド表示",
             "view_worlds": "ワールド表示",
             "world_instances_one": "{count} インスタンス",
             "world_instances_other": "{count} インスタンス",
+            "instance_population": "インスタンス内の人数：{users}",
+            "instance_population_capacity": "インスタンス内の人数：{users}（上限 {capacity}）",
             "other_online": "その他のオンラインフレンド",
             "favorite": "お気に入り",
             "same_instance": "同じインスタンス",
@@ -1491,9 +1493,7 @@
                 "favorites_failed_to_load": "お気に入りの読み込みに失敗しました"
             },
             "loading": {
-                "loading_favorites_baseline": "お気に入りを読み込み中",
-                "loading_remote_avatar_details": "リモートアバター詳細を読み込み中",
-                "loading_remote_world_details": "リモートワールド詳細を読み込み中"
+                "loading_favorites_baseline": "お気に入りを読み込み中"
             },
             "share_collection": {
                 "title": "コレクションを共有",
@@ -3273,10 +3273,6 @@
                 "world_details_unavailable": "ワールド詳細を利用できません。",
                 "world_deleted": "このワールドは削除されています。",
                 "avatar_details_unavailable": "アバター詳細を利用できません。"
-            },
-            "loading": {
-                "loading_world_details": "ワールド詳細を読み込み中",
-                "loading_avatar_details": "アバター詳細を読み込み中"
             },
             "dynamic": {
                 "remove_value_from_value": "{value2} から {value} を削除しますか？",
@@ -5742,7 +5738,8 @@
                 "schema_migrations": "データベース構造の更新を適用しています",
                 "optimize": "データベースのコピーを最適化しています",
                 "write_version": "データベースのバージョンを記録しています",
-                "commit": "アップグレード済みデータベースに切り替えています"
+                "commit": "アップグレード済みデータベースに切り替えています",
+                "repair_data": "ゲームログ履歴の欠けた記録を修復しています"
             },
             "upgrade_failed_title": "データベースのアップグレードに失敗しました",
             "failure_record": "エラー記録",
