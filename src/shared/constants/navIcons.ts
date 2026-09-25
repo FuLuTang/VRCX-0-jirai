@@ -65,8 +65,10 @@ const navIconEntries: Array<readonly [NavIconKey, string]> = [
     ['lucide:Tags', 'Tags'],
     ['lucide:UserRound', 'User'],
     ['lucide:Activity', 'Activity'],
+    ['lucide:ArrowLeftRight', 'Compare'],
     ['lucide:Rocket', 'Rocket'],
     ['lucide:Gauge', 'Gauge'],
+    ['lucide:TrendingUp', 'Trending Up'],
     ['lucide:List', 'List'],
     ['lucide:PanelLeft', 'Panel']
 ];

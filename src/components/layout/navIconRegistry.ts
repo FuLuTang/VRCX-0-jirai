@@ -1,5 +1,6 @@
 import {
     ActivityIcon,
+    ArrowLeftRightIcon,
     ArchiveIcon,
     BellIcon,
     BookOpenIcon,
@@ -51,6 +52,7 @@ import {
     StarIcon,
     TagsIcon,
     TextSearchIcon,
+    TrendingUpIcon,
     UserRoundIcon,
     UserRoundCheckIcon,
     UserStarIcon,
@@ -68,6 +70,7 @@ import {
 
 const navIconComponentByName: Record<string, LucideIcon> = {
     Activity: ActivityIcon,
+    ArrowLeftRight: ArrowLeftRightIcon,
     Archive: ArchiveIcon,
     Bell: BellIcon,
     BookOpen: BookOpenIcon,
@@ -119,6 +122,7 @@ const navIconComponentByName: Record<string, LucideIcon> = {
     Star: StarIcon,
     Tags: TagsIcon,
     TextSearch: TextSearchIcon,
+    TrendingUp: TrendingUpIcon,
     UserRound: UserRoundIcon,
     UserRoundCheck: UserRoundCheckIcon,
     UserStar: UserStarIcon,
