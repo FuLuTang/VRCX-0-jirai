@@ -66,7 +66,10 @@ pub use vrcx_0_persistence::maintenance::{
 pub use vrcx_0_persistence::memos::{
     AvatarMemoOutput, MemoSaveResult, UserMemoOutput, UserNoteOutput, WorldMemoOutput,
 };
-pub use vrcx_0_persistence::mutual_graph::MutualGraphSnapshotOutput;
+pub use vrcx_0_persistence::mutual_graph::{
+    MutualGraphExtrasOutput, MutualGraphManualLinkSetInput, MutualGraphSnapshotOutput,
+    MutualGraphTrackedUserSetInput,
+};
 pub use vrcx_0_persistence::notifications::{
     NotificationListItemOutput, NotificationListQueryInput,
 };
@@ -824,6 +827,43 @@ impl LocalDataRuntime {
             self.db.as_ref(),
             user_id,
         )?)
+    }
+
+    pub fn mutual_graph_extras_get(
+        &self,
+        owner_user_id: String,
+    ) -> Result<MutualGraphExtrasOutput> {
+        Ok(vrcx_0_persistence::mutual_graph::mutual_graph_extras_get(
+            self.db.as_ref(),
+            owner_user_id,
+        )?)
+    }
+
+    pub fn mutual_graph_tracked_user_set(
+        &self,
+        input: MutualGraphTrackedUserSetInput,
+    ) -> Result<()> {
+        Ok(
+            vrcx_0_persistence::mutual_graph::mutual_graph_tracked_user_set(
+                self.db.as_ref(),
+                input.owner_user_id,
+                input.user_id,
+                input.display_name,
+                input.tracked,
+            )?,
+        )
+    }
+
+    pub fn mutual_graph_manual_link_set(&self, input: MutualGraphManualLinkSetInput) -> Result<()> {
+        Ok(
+            vrcx_0_persistence::mutual_graph::mutual_graph_manual_link_set(
+                self.db.as_ref(),
+                input.owner_user_id,
+                input.user_id_a,
+                input.user_id_b,
+                input.related,
+            )?,
+        )
     }
 
     pub fn local_moderation_list(

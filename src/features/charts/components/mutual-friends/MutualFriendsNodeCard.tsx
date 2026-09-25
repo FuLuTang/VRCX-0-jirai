@@ -3,6 +3,8 @@ import {
     RefreshCcwIcon,
     ScanSearchIcon,
     UserIcon,
+    UserPlusIcon,
+    UserRoundMinusIcon,
     XIcon
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -22,23 +24,29 @@ import { MutualFriendsSurface } from './MutualFriendsSurface';
 
 export function MutualFriendsNodeCard({
     community,
+    isCurrentFriend,
     isRefreshing,
+    isTracked,
     node,
     onClose,
     onFocusCommunity,
     onHide,
     onOpenProfile,
     onRefresh,
+    onToggleTracked,
     user
 }: {
     community: MutualFriendCommunity | null;
+    isCurrentFriend: boolean;
     isRefreshing: boolean;
+    isTracked: boolean;
     node: MutualFriendNode;
     onClose: () => void;
     onFocusCommunity: () => void;
     onHide: () => void;
     onOpenProfile: () => void;
     onRefresh: () => void;
+    onToggleTracked: () => void;
     user: FriendRecord | null;
 }) {
     const { t } = useTranslation();
@@ -138,6 +146,26 @@ export function MutualFriendsNodeCard({
                 >
                     <EyeOffIcon />
                 </Button>
+                {!isCurrentFriend ? (
+                    <Button
+                        type="button"
+                        variant={isTracked ? 'secondary' : 'outline'}
+                        size="icon-sm"
+                        aria-label={t(
+                            isTracked
+                                ? 'view.charts.mutual_friend.tracked.remove'
+                                : 'view.charts.mutual_friend.tracked.add'
+                        )}
+                        title={t(
+                            isTracked
+                                ? 'view.charts.mutual_friend.tracked.remove'
+                                : 'view.charts.mutual_friend.tracked.add'
+                        )}
+                        onClick={onToggleTracked}
+                    >
+                        {isTracked ? <UserRoundMinusIcon /> : <UserPlusIcon />}
+                    </Button>
+                ) : null}
             </div>
         </MutualFriendsSurface>
     );

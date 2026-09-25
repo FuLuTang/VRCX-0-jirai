@@ -304,6 +304,12 @@ pub(crate) fn ensure_user_store_tables(
         format!(
             "CREATE TABLE IF NOT EXISTS {user_prefix}_mutual_graph_links_old (friend_id TEXT NOT NULL, mutual_id TEXT NOT NULL, date TEXT NOT NULL, PRIMARY KEY(friend_id, mutual_id))"
         ),
+        format!(
+            "CREATE TABLE IF NOT EXISTS {user_prefix}_tracked_nonfriends (user_id TEXT PRIMARY KEY, display_name TEXT, added_at TEXT)"
+        ),
+        format!(
+            "CREATE TABLE IF NOT EXISTS {user_prefix}_manual_relations_MANUEL (user_id_a TEXT NOT NULL, user_id_b TEXT NOT NULL, relation_type TEXT NOT NULL DEFAULT 'friend', added_at TEXT, PRIMARY KEY(user_id_a, user_id_b))"
+        ),
     ] {
         db.execute_non_query(&sql, &Default::default())?;
     }

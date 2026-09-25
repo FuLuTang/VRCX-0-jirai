@@ -12,8 +12,23 @@ export interface MutualFriendNode {
 export interface MutualFriendLink {
     source: string;
     target: string;
+    current?: boolean;
+    manual?: boolean;
     historical?: boolean;
     lastObservedAt?: string;
+}
+
+export interface MutualFriendTrackedUser {
+    userId: string;
+    displayName: string;
+    addedAt: string;
+}
+
+export interface MutualFriendManualLink {
+    userIdA: string;
+    userIdB: string;
+    relationType: string;
+    addedAt: string;
 }
 
 export interface MutualFriendGraph {

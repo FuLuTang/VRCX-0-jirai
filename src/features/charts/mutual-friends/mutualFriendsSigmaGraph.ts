@@ -7,6 +7,7 @@ import { runGraphLayoutWorker } from './graphLayoutWorkerClient';
 import { isMutualFriendNodeUnavailable } from './mutualFriendsFilters';
 import {
     communityColor,
+    MUTUAL_GRAPH_EDGE_SOURCE_COLORS,
     type MutualFriendsGraphTheme
 } from './mutualFriendsPalette';
 import { truncateMutualFriendLabel } from './mutualFriendsPicker';
@@ -67,7 +68,9 @@ type MutualFriendsEdgeAttributes = Record<string, unknown> & {
     color?: string;
     crossCommunity: boolean;
     curvature?: number;
+    current?: boolean;
     historical?: boolean;
+    manual?: boolean;
     size: number;
     type?: string;
     zIndex?: number;
@@ -371,7 +374,9 @@ export async function buildSigmaGraph({
                 graph.getNodeAttribute(link.target, 'community');
             graph.addEdgeWithKey(key, link.source, link.target, {
                 crossCommunity,
+                current: link.current === true,
                 historical: link.historical === true,
+                manual: link.manual === true,
                 size: crossCommunity
                     ? CROSS_COMMUNITY_EDGE_SIZE
                     : INTRA_COMMUNITY_EDGE_SIZE
@@ -578,9 +583,34 @@ export function renderSigmaGraph({
         const dim = hoverTransition.value;
         const isCross = data.crossCommunity === true;
         const originalColor = isCross ? theme.edgeCrossColor : theme.edgeColor;
-        const baseColor = data.historical
-            ? mixGraphColors(originalColor, theme.backgroundColor, 0.62)
-            : originalColor;
+        const isCurrent = data.current === true;
+        const isManual = data.manual === true;
+        const isHistorical = data.historical === true && !isCurrent;
+        const baseColor =
+            isCurrent && isManual && isHistorical
+                ? MUTUAL_GRAPH_EDGE_SOURCE_COLORS.allSources
+                : isCurrent && isManual
+                  ? MUTUAL_GRAPH_EDGE_SOURCE_COLORS.currentManual
+                  : isManual && isHistorical
+                    ? MUTUAL_GRAPH_EDGE_SOURCE_COLORS.manualHistorical
+                    : isCurrent && isHistorical
+                      ? MUTUAL_GRAPH_EDGE_SOURCE_COLORS.currentHistorical
+                      : isManual
+                        ? MUTUAL_GRAPH_EDGE_SOURCE_COLORS.manual
+                        : isHistorical
+                          ? mixGraphColors(
+                                originalColor,
+                                theme.backgroundColor,
+                                0.62
+                            )
+                          : originalColor;
+        result.size = isManual
+            ? isCurrent || isHistorical
+                ? 1.35
+                : 1.1
+            : isHistorical
+              ? 0.55
+              : data.size;
         const restingColor =
             crossCommunityOnlyRef.current && !isCross
                 ? mixGraphColors(

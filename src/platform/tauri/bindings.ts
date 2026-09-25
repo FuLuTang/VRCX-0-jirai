@@ -1037,6 +1037,27 @@ const generatedCommands = {
     ): Promise<MutualGraphSnapshotOutput> {
         return await TAURI_INVOKE('app__mutual_graph_snapshot_get', { userId });
     },
+    async appMutualGraphExtrasGet(
+        ownerUserId: string
+    ): Promise<MutualGraphExtrasOutput> {
+        return await TAURI_INVOKE('app__mutual_graph_extras_get', {
+            ownerUserId
+        });
+    },
+    async appMutualGraphTrackedUserSet(
+        input: MutualGraphTrackedUserSetInput
+    ): Promise<null> {
+        return await TAURI_INVOKE('app__mutual_graph_tracked_user_set', {
+            input
+        });
+    },
+    async appMutualGraphManualLinkSet(
+        input: MutualGraphManualLinkSetInput
+    ): Promise<null> {
+        return await TAURI_INVOKE('app__mutual_graph_manual_link_set', {
+            input
+        });
+    },
     async appMutualGraphFetchCancel(
         input: MutualGraphFetchCancelInput
     ): Promise<MutualGraphFetchStatus> {
@@ -5254,6 +5275,10 @@ export type ModerationSyncRefreshOutput = {
     localCount: number;
     rows: RemoteModerationRow[];
 };
+export type MutualGraphExtrasOutput = {
+    trackedUsers: MutualGraphTrackedUserOutput[];
+    manualLinks: MutualGraphManualLinkOutput[];
+};
 export type MutualGraphFetchCancelInput = { ownerUserId?: OwnerId };
 export type MutualGraphFetchStartInput = {
     ownerUserId: OwnerId;
@@ -5298,6 +5323,18 @@ export type MutualGraphHistoricalLinkOutput = {
     date: string;
 };
 export type MutualGraphLinkOutput = { friendId: string; mutualId: string };
+export type MutualGraphManualLinkOutput = {
+    userIdA: string;
+    userIdB: string;
+    relationType: string;
+    addedAt: string;
+};
+export type MutualGraphManualLinkSetInput = {
+    ownerUserId: string;
+    userIdA: string;
+    userIdB: string;
+    related: boolean;
+};
 export type MutualGraphMetaOutput = {
     friendId: string;
     lastFetchedAt: string;
@@ -5309,6 +5346,17 @@ export type MutualGraphSnapshotOutput = {
     links: MutualGraphLinkOutput[];
     historicalLinks: MutualGraphHistoricalLinkOutput[];
     meta: MutualGraphMetaOutput[];
+};
+export type MutualGraphTrackedUserOutput = {
+    userId: string;
+    displayName: string;
+    addedAt: string;
+};
+export type MutualGraphTrackedUserSetInput = {
+    ownerUserId: string;
+    userId: string;
+    displayName?: string;
+    tracked: boolean;
 };
 export type MyAvatarByIdInput = { avatarId: string };
 export type MyAvatarsInput = {

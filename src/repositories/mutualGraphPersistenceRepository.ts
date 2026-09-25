@@ -10,6 +10,13 @@ async function getSnapshot(userId: string): Promise<{
     snapshot: Map<string, string[]>;
     historicalLinks: Map<string, string>;
     meta: Map<string, MutualGraphMeta>;
+    trackedUsers: { userId: string; displayName: string; addedAt: string }[];
+    manualLinks: {
+        userIdA: string;
+        userIdB: string;
+        relationType: string;
+        addedAt: string;
+    }[];
 }> {
     const {
         friendIds,
@@ -17,6 +24,7 @@ async function getSnapshot(userId: string): Promise<{
         historicalLinks: historicalLinkRows,
         meta: metaRows
     } = await commands.appMutualGraphSnapshotGet(userId.trim());
+    const extras = await commands.appMutualGraphExtrasGet(userId.trim());
 
     const snapshot = new Map<string, string[]>();
     const meta = new Map<string, MutualGraphMeta>();
@@ -25,6 +33,17 @@ async function getSnapshot(userId: string): Promise<{
     for (const friendId of friendIds) {
         if (friendId && !snapshot.has(friendId)) {
             snapshot.set(friendId, []);
+        }
+    }
+
+    const trackedUsers = extras.trackedUsers.map((user) => ({
+        userId: user.userId,
+        displayName: user.displayName,
+        addedAt: user.addedAt
+    }));
+    for (const user of trackedUsers) {
+        if (user.userId && !snapshot.has(user.userId)) {
+            snapshot.set(user.userId, []);
         }
     }
 
@@ -64,12 +83,49 @@ async function getSnapshot(userId: string): Promise<{
     return {
         snapshot,
         historicalLinks,
-        meta
+        meta,
+        trackedUsers,
+        manualLinks: extras.manualLinks.map((link) => ({
+            userIdA: link.userIdA,
+            userIdB: link.userIdB,
+            relationType: link.relationType,
+            addedAt: link.addedAt
+        }))
     };
 }
 
+async function setTrackedUser(
+    ownerUserId: string,
+    userId: string,
+    displayName: string,
+    tracked: boolean
+) {
+    await commands.appMutualGraphTrackedUserSet({
+        ownerUserId,
+        userId,
+        displayName,
+        tracked
+    });
+}
+
+async function setManualLink(
+    ownerUserId: string,
+    userIdA: string,
+    userIdB: string,
+    related: boolean
+) {
+    await commands.appMutualGraphManualLinkSet({
+        ownerUserId,
+        userIdA,
+        userIdB,
+        related
+    });
+}
+
 const mutualGraphPersistenceRepository = Object.freeze({
-    getSnapshot
+    getSnapshot,
+    setTrackedUser,
+    setManualLink
 });
 
 export default mutualGraphPersistenceRepository;

@@ -69,7 +69,9 @@ describe('mutualFriendsGraphData', () => {
         );
 
         expect(graph.nodes.map((node) => node.id)).toEqual(['usr_a', 'usr_b']);
-        expect(graph.links).toEqual([{ source: 'usr_a', target: 'usr_b' }]);
+        expect(graph.links).toEqual([
+            { source: 'usr_a', target: 'usr_b', current: true }
+        ]);
     });
 
     it('still renders cached relationships when optional metadata is missing', () => {
@@ -85,7 +87,9 @@ describe('mutualFriendsGraphData', () => {
             ['usr_a', 'usr_a', 1],
             ['usr_b', 'usr_b', 1]
         ]);
-        expect(graph.links).toEqual([{ source: 'usr_a', target: 'usr_b' }]);
+        expect(graph.links).toEqual([
+            { source: 'usr_a', target: 'usr_b', current: true }
+        ]);
     });
 
     it('shows legacy edges as historical and lets the current snapshot take precedence', () => {
@@ -110,9 +114,76 @@ describe('mutualFriendsGraphData', () => {
             {
                 source: 'usr_a',
                 target: 'usr_c',
-                historical: false
+                current: true,
+                historical: true,
+                lastObservedAt: '2024-02-03'
             }
         ]);
+    });
+
+    it('keeps tracked users visible and marks manual-only and overlapping edge sources', () => {
+        const graph = buildMutualFriendsBaseGraph(
+            new Map([['usr_api', ['usr_mix']]]),
+            null,
+            null,
+            [],
+            new Map([
+                [['usr_old', 'usr_mix'].sort().join('__'), '2024-01-01'],
+                [['usr_api', 'usr_mix'].sort().join('__'), '2024-01-02']
+            ]),
+            [
+                {
+                    userId: 'usr_tracked',
+                    displayName: 'Tracked name',
+                    addedAt: '2026-01-01'
+                }
+            ],
+            [
+                {
+                    userIdA: 'usr_api',
+                    userIdB: 'usr_mix',
+                    relationType: 'friend',
+                    addedAt: '2026-01-02'
+                },
+                {
+                    userIdA: 'usr_manual',
+                    userIdB: 'usr_tracked',
+                    relationType: 'friend',
+                    addedAt: '2026-01-03'
+                },
+                {
+                    userIdA: 'usr_old',
+                    userIdB: 'usr_mix',
+                    relationType: 'friend',
+                    addedAt: '2026-01-04'
+                }
+            ]
+        );
+
+        expect(
+            graph.nodes.find((node) => node.id === 'usr_tracked')?.label
+        ).toBe('Tracked name');
+        expect(graph.nodes.map((node) => node.id)).toContain('usr_manual');
+        expect(graph.links).toContainEqual({
+            source: 'usr_api',
+            target: 'usr_mix',
+            current: true,
+            manual: true,
+            historical: true,
+            lastObservedAt: '2024-01-02'
+        });
+        expect(graph.links).toContainEqual({
+            source: 'usr_manual',
+            target: 'usr_tracked',
+            manual: true
+        });
+        expect(graph.links).toContainEqual({
+            source: 'usr_mix',
+            target: 'usr_old',
+            manual: true,
+            historical: true,
+            lastObservedAt: '2024-01-01'
+        });
     });
 });
 

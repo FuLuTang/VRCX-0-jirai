@@ -62,6 +62,158 @@ pub struct MutualGraphSnapshotOutput {
     pub meta: Vec<MutualGraphMetaOutput>,
 }
 
+#[derive(Debug, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct MutualGraphTrackedUserOutput {
+    pub user_id: String,
+    pub display_name: String,
+    pub added_at: String,
+}
+
+#[derive(Debug, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct MutualGraphManualLinkOutput {
+    pub user_id_a: String,
+    pub user_id_b: String,
+    pub relation_type: String,
+    pub added_at: String,
+}
+
+#[derive(Debug, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct MutualGraphExtrasOutput {
+    pub tracked_users: Vec<MutualGraphTrackedUserOutput>,
+    pub manual_links: Vec<MutualGraphManualLinkOutput>,
+}
+
+#[derive(Debug, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct MutualGraphTrackedUserSetInput {
+    pub owner_user_id: String,
+    pub user_id: String,
+    #[serde(default)]
+    pub display_name: String,
+    pub tracked: bool,
+}
+
+#[derive(Debug, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct MutualGraphManualLinkSetInput {
+    pub owner_user_id: String,
+    pub user_id_a: String,
+    pub user_id_b: String,
+    pub related: bool,
+}
+
+pub fn mutual_graph_extras_get(
+    db: &DatabaseService,
+    owner_user_id: String,
+) -> Result<MutualGraphExtrasOutput, Error> {
+    let user_prefix = normalize_user_table_prefix(&normalize_text(owner_user_id))?;
+    ensure_user_store_tables(db, &user_prefix)?;
+    let tracked_users = db.execute(
+        &format!("SELECT user_id, display_name, added_at FROM {user_prefix}_tracked_nonfriends ORDER BY added_at DESC, user_id"),
+        &Default::default(),
+    )?.into_iter().filter_map(|row| {
+        let user_id = row_string(&row, 0);
+        (!user_id.is_empty()).then(|| MutualGraphTrackedUserOutput {
+            user_id,
+            display_name: row_string(&row, 1),
+            added_at: row_string(&row, 2),
+        })
+    }).collect();
+    let manual_links = db.execute(
+        &format!("SELECT user_id_a, user_id_b, relation_type, added_at FROM {user_prefix}_manual_relations_MANUEL ORDER BY added_at DESC, user_id_a, user_id_b"),
+        &Default::default(),
+    )?.into_iter().filter_map(|row| {
+        let user_id_a = row_string(&row, 0);
+        let user_id_b = row_string(&row, 1);
+        (!user_id_a.is_empty() && !user_id_b.is_empty()).then(|| MutualGraphManualLinkOutput {
+            user_id_a,
+            user_id_b,
+            relation_type: row_string(&row, 2),
+            added_at: row_string(&row, 3),
+        })
+    }).collect();
+    Ok(MutualGraphExtrasOutput {
+        tracked_users,
+        manual_links,
+    })
+}
+
+pub fn mutual_graph_tracked_user_set(
+    db: &DatabaseService,
+    owner_user_id: String,
+    user_id: String,
+    display_name: String,
+    tracked: bool,
+) -> Result<(), Error> {
+    let user_prefix = normalize_user_table_prefix(&normalize_text(owner_user_id))?;
+    ensure_user_store_tables(db, &user_prefix)?;
+    let user_id = normalize_text(user_id);
+    if user_id.is_empty() {
+        return Err(Error::Custom(
+            "Tracked mutual graph user id is required.".into(),
+        ));
+    }
+    if tracked {
+        db.execute_non_query(
+            &format!("INSERT INTO {user_prefix}_tracked_nonfriends (user_id, display_name, added_at) VALUES (@user_id, @display_name, @added_at) ON CONFLICT(user_id) DO UPDATE SET display_name = CASE WHEN excluded.display_name = '' THEN {user_prefix}_tracked_nonfriends.display_name ELSE excluded.display_name END"),
+            &ParamsBuilder::new()
+                .set("user_id", user_id)
+                .set("display_name", normalize_text(display_name))
+                .set("added_at", now_iso())
+                .build(),
+        )?;
+    } else {
+        db.execute_non_query(
+            &format!("DELETE FROM {user_prefix}_tracked_nonfriends WHERE user_id = @user_id"),
+            &ParamsBuilder::new().set("user_id", user_id).build(),
+        )?;
+    }
+    Ok(())
+}
+
+pub fn mutual_graph_manual_link_set(
+    db: &DatabaseService,
+    owner_user_id: String,
+    user_id_a: String,
+    user_id_b: String,
+    related: bool,
+) -> Result<(), Error> {
+    let user_prefix = normalize_user_table_prefix(&normalize_text(owner_user_id))?;
+    ensure_user_store_tables(db, &user_prefix)?;
+    let mut user_id_a = normalize_text(user_id_a);
+    let mut user_id_b = normalize_text(user_id_b);
+    if user_id_a.is_empty() || user_id_b.is_empty() || user_id_a == user_id_b {
+        return Err(Error::Custom(
+            "Manual mutual graph relation requires two different user ids.".into(),
+        ));
+    }
+    if user_id_a > user_id_b {
+        std::mem::swap(&mut user_id_a, &mut user_id_b);
+    }
+    if related {
+        db.execute_non_query(
+            &format!("INSERT OR IGNORE INTO {user_prefix}_manual_relations_MANUEL (user_id_a, user_id_b, relation_type, added_at) VALUES (@user_id_a, @user_id_b, 'friend', @added_at)"),
+            &ParamsBuilder::new()
+                .set("user_id_a", user_id_a)
+                .set("user_id_b", user_id_b)
+                .set("added_at", now_iso())
+                .build(),
+        )?;
+    } else {
+        db.execute_non_query(
+            &format!("DELETE FROM {user_prefix}_manual_relations_MANUEL WHERE user_id_a = @user_id_a AND user_id_b = @user_id_b"),
+            &ParamsBuilder::new()
+                .set("user_id_a", user_id_a)
+                .set("user_id_b", user_id_b)
+                .build(),
+        )?;
+    }
+    Ok(())
+}
+
 pub fn mutual_graph_snapshot_get(
     db: &DatabaseService,
     user_id: String,

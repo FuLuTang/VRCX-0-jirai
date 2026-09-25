@@ -14,6 +14,7 @@ import type { MutualFriendsFetchProgress } from './mutualFriendsTypes';
 
 interface GraphFetchOptions {
     currentUserId: string;
+    trackedUserIds?: readonly string[];
     reloadSnapshot: (detail: string, ownerUserId: string) => Promise<void>;
     setDetail: (detail: string) => void;
 }
@@ -31,6 +32,7 @@ function readMutualGraphFriendIds(ownerUserId: string): string[] {
 
 export function useMutualFriendsGraphFetch({
     currentUserId,
+    trackedUserIds = [],
     reloadSnapshot,
     setDetail
 }: GraphFetchOptions) {
@@ -147,7 +149,7 @@ export function useMutualFriendsGraphFetch({
 
         try {
             let friendIds = readMutualGraphFriendIds(ownerUserId);
-            if (!friendIds.length) {
+            if (!friendIds.length && !trackedUserIds.length) {
                 await bootstrapFriendRoster({
                     userId: ownerUserId,
                     endpoint: ownerEndpoint,
@@ -164,7 +166,7 @@ export function useMutualFriendsGraphFetch({
                     return;
                 }
                 friendIds = readMutualGraphFriendIds(ownerUserId);
-                if (!friendIds.length) {
+                if (!friendIds.length && !trackedUserIds.length) {
                     toast.add({
                         type: 'info',
                         title: t(
@@ -174,6 +176,8 @@ export function useMutualFriendsGraphFetch({
                     return;
                 }
             }
+
+            friendIds = Array.from(new Set([...friendIds, ...trackedUserIds]));
 
             setDetail('');
 

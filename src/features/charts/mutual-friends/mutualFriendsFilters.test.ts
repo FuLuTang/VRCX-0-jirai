@@ -4,6 +4,7 @@ import {
     applyMutualFriendsViewFilters,
     countIsolatedMutualFriendNodes,
     countUnknownMutualFriendNodes,
+    hideNonFriendNodes,
     MUTUAL_GRAPH_DEFAULT_VIEW_FILTERS
 } from './mutualFriendsFilters';
 import type { MutualFriendGraph } from './mutualFriendsTypes';
@@ -145,5 +146,20 @@ describe('applyMutualFriendsViewFilters', () => {
             noConnections: 0,
             unavailable: 1
         });
+    });
+});
+
+describe('hideNonFriendNodes', () => {
+    it('keeps only roster friends and their connecting edges when disabled', () => {
+        expect(
+            hideNonFriendNodes(graph, new Set(['usr_a', 'usr_b']), false)
+        ).toEqual({
+            nodes: [graph.nodes[0], graph.nodes[1]],
+            links: [graph.links[0]]
+        });
+    });
+
+    it('returns the complete graph when non-friends are enabled', () => {
+        expect(hideNonFriendNodes(graph, new Set(), true)).toBe(graph);
     });
 });

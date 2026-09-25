@@ -1,5 +1,9 @@
 import { useTranslation } from 'react-i18next';
 
+import {
+    buildMutualFriendsGraphTheme,
+    MUTUAL_GRAPH_EDGE_SOURCE_COLORS
+} from '@/features/charts/mutual-friends/mutualFriendsPalette';
 import { formatDateFilter } from '@/lib/dateTime';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/shadcn/tooltip';
@@ -19,6 +23,7 @@ export function MutualFriendsLegend({
     crossCommunityOnly,
     focusedCommunity,
     isolatedCounts,
+    isDarkMode,
     minDegree,
     onMinDegreeChange,
     onToggleCrossCommunityOnly,
@@ -30,6 +35,7 @@ export function MutualFriendsLegend({
     crossCommunityOnly: boolean;
     focusedCommunity: number | null;
     isolatedCounts: MutualFriendsIsolatedCounts;
+    isDarkMode: boolean;
     minDegree: number;
     onMinDegreeChange: (value: number) => void;
     onToggleCrossCommunityOnly: () => void;
@@ -37,6 +43,7 @@ export function MutualFriendsLegend({
     unknownCount: number;
 }) {
     const { t } = useTranslation();
+    const graphTheme = buildMutualFriendsGraphTheme(isDarkMode);
     const namedCommunities = communities.filter(
         (community) => community.isNamed
     );
@@ -45,7 +52,7 @@ export function MutualFriendsLegend({
     ).length;
 
     return (
-        <MutualFriendsSurface className="animate-in fade-in-0 slide-in-from-bottom-2 pointer-events-auto absolute bottom-3 left-3 z-10 w-64 p-3 duration-200 ease-out">
+        <MutualFriendsSurface className="animate-in fade-in-0 slide-in-from-bottom-2 pointer-events-auto absolute bottom-3 left-3 z-10 max-h-[calc(100dvh-1.5rem)] w-64 overflow-y-auto overscroll-contain p-3 duration-200 ease-out">
             <div className="flex items-baseline justify-between">
                 <span className="text-foreground text-xs font-medium">
                     {t('view.charts.mutual_friend.legend.circles')}
@@ -150,6 +157,131 @@ export function MutualFriendsLegend({
                             )}
                         </TooltipContent>
                     </Tooltip>
+                </li>
+            </ul>
+
+            <div className="bg-border my-2.5 h-px" />
+
+            <ul className="text-muted-foreground grid grid-cols-2 gap-x-2 gap-y-1 text-xs">
+                <li
+                    className="flex min-w-0 items-center gap-1.5"
+                    title={t('view.charts.mutual_friend.legend.edge_current')}
+                >
+                    <span
+                        className="h-0.5 w-4 shrink-0 rounded-full"
+                        style={{ backgroundColor: graphTheme.edgeColor }}
+                    />
+                    <span className="truncate">
+                        {t('view.charts.mutual_friend.legend.edge_label_api')}
+                    </span>
+                </li>
+                <li
+                    className="flex min-w-0 items-center gap-1.5"
+                    title={t('view.charts.mutual_friend.legend.edge_manual')}
+                >
+                    <span
+                        className="h-0.5 w-4 shrink-0 rounded-full"
+                        style={{
+                            backgroundColor:
+                                MUTUAL_GRAPH_EDGE_SOURCE_COLORS.manual
+                        }}
+                    />
+                    <span className="truncate">
+                        {t(
+                            'view.charts.mutual_friend.legend.edge_label_manual'
+                        )}
+                    </span>
+                </li>
+                <li
+                    className="flex min-w-0 items-center gap-1.5"
+                    title={t(
+                        'view.charts.mutual_friend.legend.edge_historical'
+                    )}
+                >
+                    <span
+                        className="h-0.5 w-4 shrink-0 rounded-full"
+                        style={{
+                            backgroundColor: graphTheme.edgeColor,
+                            opacity: 0.38
+                        }}
+                    />
+                    <span className="truncate">
+                        {t('view.charts.mutual_friend.legend.edge_label_old')}
+                    </span>
+                </li>
+                <li
+                    className="flex min-w-0 items-center gap-1.5"
+                    title={t(
+                        'view.charts.mutual_friend.legend.edge_api_history'
+                    )}
+                >
+                    <span
+                        className="h-0.5 w-4 shrink-0 rounded-full"
+                        style={{
+                            backgroundColor:
+                                MUTUAL_GRAPH_EDGE_SOURCE_COLORS.currentHistorical
+                        }}
+                    />
+                    <span className="truncate">
+                        {t(
+                            'view.charts.mutual_friend.legend.edge_label_api_old'
+                        )}
+                    </span>
+                </li>
+                <li
+                    className="flex min-w-0 items-center gap-1.5"
+                    title={t(
+                        'view.charts.mutual_friend.legend.edge_api_manual'
+                    )}
+                >
+                    <span
+                        className="h-0.5 w-4 shrink-0 rounded-full"
+                        style={{
+                            backgroundColor:
+                                MUTUAL_GRAPH_EDGE_SOURCE_COLORS.currentManual
+                        }}
+                    />
+                    <span className="truncate">
+                        {t(
+                            'view.charts.mutual_friend.legend.edge_label_api_manual'
+                        )}
+                    </span>
+                </li>
+                <li
+                    className="flex min-w-0 items-center gap-1.5"
+                    title={t(
+                        'view.charts.mutual_friend.legend.edge_manual_history'
+                    )}
+                >
+                    <span
+                        className="h-0.5 w-4 shrink-0 rounded-full"
+                        style={{
+                            backgroundColor:
+                                MUTUAL_GRAPH_EDGE_SOURCE_COLORS.manualHistorical
+                        }}
+                    />
+                    <span className="truncate">
+                        {t(
+                            'view.charts.mutual_friend.legend.edge_label_manual_old'
+                        )}
+                    </span>
+                </li>
+                <li
+                    className="flex min-w-0 items-center gap-1.5"
+                    title={t(
+                        'view.charts.mutual_friend.legend.edge_all_sources'
+                    )}
+                >
+                    <span
+                        className="h-0.5 w-4 shrink-0 rounded-full"
+                        style={{
+                            backgroundColor:
+                                MUTUAL_GRAPH_EDGE_SOURCE_COLORS.allSources
+                        }}
+                    />
+                    <span className="truncate">
+                        {t('view.charts.mutual_friend.legend.edge_label_all')}
+                    </span>
                 </li>
             </ul>
 

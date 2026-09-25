@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { commands } from '@/platform/tauri/bindings';
+import mutualGraphPersistenceRepository from '@/repositories/mutualGraphPersistenceRepository';
 import { openUserDialog } from '@/services/dialogService';
 import { toast } from '@/services/toastService';
 import { useModalStore } from '@/state/modalStore';
@@ -11,7 +12,8 @@ import { assignMutualFriendCommunities } from './mutualFriendsCommunities';
 import {
     applyMutualFriendsViewFilters,
     countIsolatedMutualFriendNodes,
-    countUnknownMutualFriendNodes
+    countUnknownMutualFriendNodes,
+    hideNonFriendNodes
 } from './mutualFriendsFilters';
 import {
     buildMutualFriendsBaseGraph,
@@ -52,6 +54,7 @@ export function useMutualFriendsPageState() {
         readExcludedMutualFriendIds
     );
     const [nodeRefreshId, setNodeRefreshId] = useState('');
+    const [showNonFriends, setShowNonFriends] = useState(true);
     const [reloadToken, setReloadToken] = useState(0);
     const backfillRevision = useMutualGraphRevisionStore((state) =>
         state.ownerUserId === currentUserId ? state.revision : 0
@@ -89,15 +92,28 @@ export function useMutualFriendsPageState() {
                 snapshot.snapshotData.meta,
                 friendLabelsById,
                 excludedFriendIds,
-                snapshot.snapshotData.historicalLinks
+                snapshot.snapshotData.historicalLinks,
+                snapshot.snapshotData.trackedUsers,
+                snapshot.snapshotData.manualLinks
             ),
         [
             excludedFriendIds,
             friendLabelsById,
             snapshot.snapshotData.historicalLinks,
+            snapshot.snapshotData.trackedUsers,
+            snapshot.snapshotData.manualLinks,
             snapshot.snapshotData.meta,
             snapshot.snapshotData.snapshot
         ]
+    );
+    const visibleBaseGraph = useMemo(
+        () =>
+            hideNonFriendNodes(
+                baseGraph,
+                new Set(Object.keys(friendsById)),
+                showNonFriends
+            ),
+        [baseGraph, friendsById, showNonFriends]
     );
 
     const communityPalette = useMemo(
@@ -112,11 +128,11 @@ export function useMutualFriendsPageState() {
     const { communityIndexById, communities } = useMemo(
         () =>
             assignMutualFriendCommunities(
-                baseGraph,
+                visibleBaseGraph,
                 communityPalette,
                 neutralCommunityColor
             ),
-        [baseGraph, communityPalette, neutralCommunityColor]
+        [visibleBaseGraph, communityPalette, neutralCommunityColor]
     );
 
     const namedCommunityIndexes = useMemo(
@@ -141,11 +157,11 @@ export function useMutualFriendsPageState() {
     const filteredGraph = useMemo(
         () =>
             applyMutualFriendsViewFilters(
-                baseGraph,
+                visibleBaseGraph,
                 filters,
                 communityIndexById
             ),
-        [baseGraph, communityIndexById, filters]
+        [visibleBaseGraph, communityIndexById, filters]
     );
 
     const excludePickerOptions = useMemo(
@@ -153,9 +169,19 @@ export function useMutualFriendsPageState() {
             buildMutualFriendExcludePickerOptions(
                 snapshot.snapshotData.snapshot,
                 friendsById,
-                currentUserId
+                currentUserId,
+                snapshot.snapshotData.trackedUsers,
+                snapshot.snapshotData.manualLinks,
+                snapshot.snapshotData.historicalLinks
             ),
-        [currentUserId, friendsById, snapshot.snapshotData.snapshot]
+        [
+            currentUserId,
+            friendsById,
+            snapshot.snapshotData.historicalLinks,
+            snapshot.snapshotData.manualLinks,
+            snapshot.snapshotData.snapshot,
+            snapshot.snapshotData.trackedUsers
+        ]
     );
 
     const normalizedExcludedFriendIds = useMemo(
@@ -165,8 +191,9 @@ export function useMutualFriendsPageState() {
 
     const selectedNode = useMemo(
         () =>
-            baseGraph.nodes.find((node) => node.id === selectedNodeId) ?? null,
-        [baseGraph.nodes, selectedNodeId]
+            visibleBaseGraph.nodes.find((node) => node.id === selectedNodeId) ??
+            null,
+        [visibleBaseGraph.nodes, selectedNodeId]
     );
 
     useEffect(() => {
@@ -212,6 +239,9 @@ export function useMutualFriendsPageState() {
     const { fetchProgress, handleCancelFetch, handleFetchGraph } =
         useMutualFriendsGraphFetch({
             currentUserId,
+            trackedUserIds: snapshot.snapshotData.trackedUsers.map(
+                (user) => user.userId
+            ),
             reloadSnapshot: snapshot.reloadSnapshot,
             setDetail: snapshot.setDetail
         });
@@ -227,6 +257,64 @@ export function useMutualFriendsPageState() {
                 ? normalizedCurrent.filter((id) => id !== normalizedId)
                 : [...normalizedCurrent, normalizedId];
         });
+    }
+
+    async function setTrackedUser(
+        userId: string,
+        displayName: string,
+        tracked: boolean
+    ) {
+        if (!currentUserId || !userId) {
+            return;
+        }
+        try {
+            await mutualGraphPersistenceRepository.setTrackedUser(
+                currentUserId,
+                userId,
+                displayName,
+                tracked
+            );
+            await snapshot.reloadSnapshot('', currentUserId);
+        } catch (error) {
+            toast.add({
+                type: 'error',
+                title:
+                    error instanceof Error
+                        ? error.message
+                        : t(
+                              'view.charts.toast.failed_to_save_mutual_graph_settings'
+                          )
+            });
+        }
+    }
+
+    async function setManualLink(
+        userIdA: string,
+        userIdB: string,
+        related: boolean
+    ) {
+        if (!currentUserId || !userIdA || !userIdB || userIdA === userIdB) {
+            return;
+        }
+        try {
+            await mutualGraphPersistenceRepository.setManualLink(
+                currentUserId,
+                userIdA,
+                userIdB,
+                related
+            );
+            await snapshot.reloadSnapshot('', currentUserId);
+        } catch (error) {
+            toast.add({
+                type: 'error',
+                title:
+                    error instanceof Error
+                        ? error.message
+                        : t(
+                              'view.charts.toast.failed_to_save_mutual_graph_settings'
+                          )
+            });
+        }
     }
 
     async function handleRefreshSelectedNode() {
@@ -313,6 +401,9 @@ export function useMutualFriendsPageState() {
             clearSelection: () => handleSelectNode(''),
             setMinDegree,
             setSearchQuery,
+            setManualLink,
+            setTrackedUser,
+            toggleNonFriends: () => setShowNonFriends((value) => !value),
             toggleCrossCommunityOnly,
             toggleExcludedFriendId,
             toggleFocusedCommunity
@@ -327,16 +418,20 @@ export function useMutualFriendsPageState() {
             fetchProgress
         },
         graph: {
-            baseNodeCount: baseGraph.nodes.length,
+            baseNodeCount: visibleBaseGraph.nodes.length,
             communities,
             communityIndexById,
             coverage,
             currentUserId,
+            showNonFriends,
+            resolvedTheme,
+            trackedUsers: snapshot.snapshotData.trackedUsers,
+            manualLinks: snapshot.snapshotData.manualLinks,
             detail: snapshot.detail,
             edgeCount: filteredGraph.links.length,
             friendCount: orderedFriendIds.length,
-            isolatedCounts: countIsolatedMutualFriendNodes(baseGraph),
-            unknownCount: countUnknownMutualFriendNodes(baseGraph),
+            isolatedCounts: countIsolatedMutualFriendNodes(visibleBaseGraph),
+            unknownCount: countUnknownMutualFriendNodes(visibleBaseGraph),
             isLayoutRunning: sigma.isLayoutRunning,
             nodeCount: filteredGraph.nodes.length,
             setGraphElementRef: sigma.setGraphElementRef,
@@ -354,6 +449,9 @@ export function useMutualFriendsPageState() {
                 selectedNode && nodeRefreshId === selectedNode.id
             ),
             node: selectedNode,
+            isCurrentFriend: selectedNode
+                ? Boolean(friendsById[selectedNode.id])
+                : false,
             user: selectedNode ? (friendsById[selectedNode.id] ?? null) : null
         },
         view: {

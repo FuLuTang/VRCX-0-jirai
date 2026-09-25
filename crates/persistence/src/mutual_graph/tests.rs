@@ -157,3 +157,114 @@ fn snapshot_includes_legacy_relationship_edges_for_the_requested_owner_only() {
     assert_eq!(snapshot.historical_links[0].mutual_id, "usr_b");
     assert_eq!(snapshot.historical_links[0].date, "2024-01-02");
 }
+
+#[test]
+fn tracked_users_and_manual_links_are_owner_scoped_and_do_not_change_legacy_edges() {
+    let dir = TestDir::new("extras-owner-scope");
+    let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3")).unwrap();
+
+    mutual_graph_tracked_user_set(
+        &db,
+        "usr_owner".into(),
+        "usr_tracked".into(),
+        "Tracked user".into(),
+        true,
+    )
+    .unwrap();
+    mutual_graph_manual_link_set(
+        &db,
+        "usr_owner".into(),
+        "usr_z".into(),
+        "usr_a".into(),
+        true,
+    )
+    .unwrap();
+    mutual_graph_tracked_user_set(
+        &db,
+        "usr_other".into(),
+        "usr_other_tracked".into(),
+        "Other owner".into(),
+        true,
+    )
+    .unwrap();
+
+    let owner = mutual_graph_extras_get(&db, "usr_owner".into()).unwrap();
+    assert_eq!(owner.tracked_users.len(), 1);
+    assert_eq!(owner.tracked_users[0].user_id, "usr_tracked");
+    assert_eq!(owner.tracked_users[0].display_name, "Tracked user");
+    assert_eq!(owner.manual_links.len(), 1);
+    assert_eq!(owner.manual_links[0].user_id_a, "usr_a");
+    assert_eq!(owner.manual_links[0].user_id_b, "usr_z");
+
+    let other = mutual_graph_extras_get(&db, "usr_other".into()).unwrap();
+    assert_eq!(other.tracked_users.len(), 1);
+    assert!(other.manual_links.is_empty());
+
+    mutual_graph_manual_link_set(
+        &db,
+        "usr_owner".into(),
+        "usr_a".into(),
+        "usr_z".into(),
+        false,
+    )
+    .unwrap();
+    mutual_graph_tracked_user_set(
+        &db,
+        "usr_owner".into(),
+        "usr_tracked".into(),
+        String::new(),
+        false,
+    )
+    .unwrap();
+
+    let owner = mutual_graph_extras_get(&db, "usr_owner".into()).unwrap();
+    assert!(owner.tracked_users.is_empty());
+    assert!(owner.manual_links.is_empty());
+}
+
+#[test]
+fn manual_relationship_rejects_empty_and_self_links() {
+    let dir = TestDir::new("manual-link-validation");
+    let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3")).unwrap();
+    assert!(mutual_graph_manual_link_set(
+        &db,
+        "usr_owner".into(),
+        "usr_same".into(),
+        "usr_same".into(),
+        true,
+    )
+    .is_err());
+}
+
+#[test]
+fn schema_upgrade_reuses_existing_vrcx_jirai_extension_tables_without_copying_rows() {
+    let dir = TestDir::new("legacy-extension-tables");
+    let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3")).unwrap();
+    let prefix = normalize_user_table_prefix("usr_owner").unwrap();
+    db.execute_non_query(
+        &format!("CREATE TABLE {prefix}_tracked_nonfriends (user_id TEXT PRIMARY KEY, display_name TEXT, added_at TEXT)"),
+        &Default::default(),
+    )
+    .unwrap();
+    db.execute_non_query(
+        &format!("CREATE TABLE {prefix}_manual_relations_MANUEL (user_id_a TEXT NOT NULL, user_id_b TEXT NOT NULL, relation_type TEXT NOT NULL DEFAULT 'friend', added_at TEXT, PRIMARY KEY(user_id_a, user_id_b))"),
+        &Default::default(),
+    )
+    .unwrap();
+    db.execute_non_query(
+        &format!("INSERT INTO {prefix}_tracked_nonfriends VALUES ('usr_tracked', 'Existing tracked', '2025-01-01')"),
+        &Default::default(),
+    )
+    .unwrap();
+    db.execute_non_query(
+        &format!("INSERT INTO {prefix}_manual_relations_MANUEL VALUES ('usr_a', 'usr_b', 'friend', '2025-02-01')"),
+        &Default::default(),
+    )
+    .unwrap();
+
+    let extras = mutual_graph_extras_get(&db, "usr_owner".into()).unwrap();
+    assert_eq!(extras.tracked_users.len(), 1);
+    assert_eq!(extras.tracked_users[0].display_name, "Existing tracked");
+    assert_eq!(extras.manual_links.len(), 1);
+    assert_eq!(extras.manual_links[0].user_id_a, "usr_a");
+}

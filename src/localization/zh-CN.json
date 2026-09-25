@@ -1821,6 +1821,10 @@
                     "find_friend": "查找好友",
                     "open_profile": "查看资料",
                     "hide_from_graph": "从关系图中隐藏",
+                    "track_user": "将此用户加入关系图追踪",
+                    "untrack_user": "停止追踪此用户",
+                    "show_non_friends": "在关系图中显示非好友",
+                    "hide_non_friends": "在关系图中隐藏非好友",
                     "clear_filters": "清除筛选"
                 },
                 "prompt": {
@@ -1845,6 +1849,26 @@
                     "stat_links": "连接",
                     "stat_hidden": "已隐藏"
                 },
+                "tracked": {
+                    "title": "追踪的非好友",
+                    "help": "追踪对象会加入下一次完整拉取。选中一位非好友节点，再点击节点卡片上的追踪按钮即可添加。",
+                    "empty": "当前没有追踪非好友。",
+                    "add": "将此用户加入关系图追踪",
+                    "remove": "停止追踪此用户",
+                    "user_id": "VRChat 用户 ID",
+                    "verify": "验证",
+                    "verified_as": "已验证为{name}。将此用户加入追踪节点？",
+                    "verify_error": "未找到该 VRChat 用户，请检查 ID 后重试。"
+                },
+                "manual": {
+                    "title": "手动关系",
+                    "help": "这些连线是你自己的标注，与 VRChat API 数据和旧表历史连线分别保存。",
+                    "user_a": "选择第一位用户",
+                    "user_b": "选择第二位用户",
+                    "add": "添加手动关系",
+                    "remove": "删除手动关系",
+                    "empty": "还没有添加手动关系。"
+                },
                 "context_menu": {
                     "last_fetched": "最后获取时间"
                 },
@@ -1863,6 +1887,20 @@
                     "hollow_means_unknown": "空心点 = 对方未公开共同好友",
                     "cross_edges": "较亮的线 = 跨圈子连接",
                     "cross_edges_only": "压暗圈子内部的连线",
+                    "edge_current": "VRChat API：当前共同关系",
+                    "edge_manual": "手动标注的关系",
+                    "edge_historical": "OLD 表中的历史关系",
+                    "edge_api_history": "API 与 OLD 历史记录重叠",
+                    "edge_api_manual": "API 与手动关系重叠",
+                    "edge_manual_history": "手动关系与 OLD 历史记录重叠",
+                    "edge_all_sources": "API、手动关系与 OLD 历史记录均存在",
+                    "edge_label_api": "API",
+                    "edge_label_manual": "手动",
+                    "edge_label_old": "OLD",
+                    "edge_label_api_old": "API+OLD",
+                    "edge_label_api_manual": "API+手动",
+                    "edge_label_manual_old": "手动+OLD",
+                    "edge_label_all": "三者重叠",
                     "coverage": "已获取",
                     "coverage_value": "{fetched}/{total} 位好友",
                     "coverage_unavailable": "未公开",
@@ -1942,7 +1980,8 @@
             },
             "toast": {
                 "failed_to_fetch_mutual_friends_graph": "获取共同好友图谱失败",
-                "failed_to_refresh_selected_mutuals": "刷新所选共同好友失败"
+                "failed_to_refresh_selected_mutuals": "刷新所选共同好友失败",
+                "failed_to_save_mutual_graph_settings": "保存关系图设置失败"
             },
             "modal": {
                 "refresh_non_friend_mutuals": "刷新非好友的共同好友",

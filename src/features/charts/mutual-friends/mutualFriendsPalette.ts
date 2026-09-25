@@ -24,6 +24,14 @@ const LIGHT_COMMUNITY_PALETTE = [
 
 export const MUTUAL_GRAPH_NAMED_COMMUNITY_LIMIT = 6;
 
+export const MUTUAL_GRAPH_EDGE_SOURCE_COLORS = {
+    manual: '#22c55e',
+    currentManual: '#f97316',
+    manualHistorical: '#06b6d4',
+    currentHistorical: '#38bdf8',
+    allSources: '#a855f7'
+} as const;
+
 const DARK_NEUTRAL_COMMUNITY_COLOR = '#6b7280';
 const LIGHT_NEUTRAL_COMMUNITY_COLOR = '#a1a8b3';
 
@@ -86,8 +94,8 @@ export function buildMutualFriendsGraphTheme(
         communityPalette: mutualFriendsCommunityPalette(isDarkMode),
         neutralCommunityColor: mutualFriendsNeutralCommunityColor(isDarkMode),
         backgroundColor: isDarkMode ? '#0a0a0a' : '#ffffff',
-        edgeColor: isDarkMode ? '#242c37' : '#dfe4ea',
-        edgeCrossColor: isDarkMode ? '#4d5f78' : '#a3b0c2',
+        edgeColor: isDarkMode ? '#64748b' : '#94a3b8',
+        edgeCrossColor: isDarkMode ? '#a78bfa' : '#7c3aed',
         edgeActiveColor: isDarkMode ? '#8fa3bd' : '#64748b',
         labelColor: isDarkMode ? '#e2e8f0' : '#111827',
         hoverCardBackground: readCssColor(

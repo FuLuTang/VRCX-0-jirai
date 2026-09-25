@@ -7,8 +7,10 @@ import {
 import type {
     MutualFriendGraph,
     MutualFriendLink,
+    MutualFriendManualLink,
     MutualFriendMeta,
     MutualFriendNode,
+    MutualFriendTrackedUser,
     MutualFriendsCoverage,
     MutualFriendSnapshot
 } from './mutualFriendsTypes';
@@ -63,12 +65,17 @@ export function buildMutualFriendsBaseGraph(
     meta: MutualFriendMeta | null | undefined,
     friendLabelsById: Readonly<Record<string, string>> | null | undefined,
     excludedFriendIds: readonly string[] = [],
-    historicalLinks: ReadonlyMap<string, string> | null | undefined = null
+    historicalLinks: ReadonlyMap<string, string> | null | undefined = null,
+    trackedUsers: readonly MutualFriendTrackedUser[] = [],
+    manualLinks: readonly MutualFriendManualLink[] = []
 ): MutualFriendGraph {
     const nodeMap = new Map<string, MutualFriendNode>();
     const totalCountById = new Map<string, number>();
     const edgeMap = new Map<string, MutualFriendLink>();
     const metaMap = meta instanceof Map ? meta : new Map();
+    const trackedById = new Map(
+        trackedUsers.map((user) => [user.userId, user])
+    );
     const excluded = new Set(
         excludedFriendIds.map(normalizeMutualFriendId).filter(Boolean)
     );
@@ -88,7 +95,10 @@ export function buildMutualFriendsBaseGraph(
         const metadata = metaMap.get(normalizedId);
         const node: MutualFriendNode = {
             id: normalizedId,
-            label: friendLabelsById?.[normalizedId] || normalizedId,
+            label:
+                friendLabelsById?.[normalizedId] ||
+                trackedById.get(normalizedId)?.displayName ||
+                normalizedId,
             lastFetchedAt: metadata?.lastFetchedAt ?? null,
             optedOut: Boolean(metadata?.optedOut),
             degree: 0,
@@ -119,6 +129,10 @@ export function buildMutualFriendsBaseGraph(
         });
     });
 
+    for (const user of trackedUsers) {
+        ensureNode(user.userId);
+    }
+
     if (snapshot instanceof Map) {
         snapshot.forEach((mutualIds, friendId) => {
             const source = ensureNode(friendId);
@@ -131,13 +145,30 @@ export function buildMutualFriendsBaseGraph(
                     continue;
                 }
                 const edgeKey = [source.id, target.id].sort().join('__');
-                const wasHistorical = edgeMap.get(edgeKey)?.historical;
+                const existing = edgeMap.get(edgeKey);
                 edgeMap.set(edgeKey, {
                     source: source.id,
                     target: target.id,
-                    ...(wasHistorical ? { historical: false } : {})
+                    ...(existing ?? {}),
+                    current: true
                 });
             }
+        });
+    }
+
+    for (const relation of manualLinks) {
+        const source = ensureNode(relation.userIdA);
+        const target = ensureNode(relation.userIdB);
+        if (!source || !target || source.id === target.id) {
+            continue;
+        }
+        const edgeKey = [source.id, target.id].sort().join('__');
+        const existing = edgeMap.get(edgeKey);
+        edgeMap.set(edgeKey, {
+            source: source.id,
+            target: target.id,
+            ...(existing ?? {}),
+            manual: true
         });
     }
 

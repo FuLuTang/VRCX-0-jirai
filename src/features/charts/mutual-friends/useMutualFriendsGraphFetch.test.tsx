@@ -51,10 +51,11 @@ import { useMutualFriendsGraphFetch } from './useMutualFriendsGraphFetch';
 const ENDPOINT = 'https://api.example.test';
 const WEBSOCKET = 'wss://pipeline.example.test';
 
-function renderGraphFetch() {
+function renderGraphFetch(trackedUserIds: string[] = []) {
     return renderHook(() =>
         useMutualFriendsGraphFetch({
             currentUserId: 'usr_self',
+            trackedUserIds,
             reloadSnapshot: vi.fn(),
             setDetail: vi.fn()
         })
@@ -133,6 +134,21 @@ describe('useMutualFriendsGraphFetch', () => {
             ownerUserId: 'usr_self',
             endpoint: ENDPOINT,
             friendIds: ['usr_friend']
+        });
+    });
+
+    it('includes tracked non-friends as fetch targets without requiring a friend roster', async () => {
+        const { result } = renderGraphFetch(['usr_tracked', 'usr_tracked']);
+
+        await act(async () => {
+            await result.current.handleFetchGraph();
+        });
+
+        expect(mocks.bootstrapFriendRoster).not.toHaveBeenCalled();
+        expect(mocks.startMutualGraphFetch).toHaveBeenCalledWith({
+            ownerUserId: 'usr_self',
+            endpoint: ENDPOINT,
+            friendIds: ['usr_tracked']
         });
     });
 

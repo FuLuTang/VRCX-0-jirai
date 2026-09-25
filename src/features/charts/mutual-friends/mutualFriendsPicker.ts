@@ -6,8 +6,10 @@ import {
     normalizeMutualFriendId
 } from './mutualFriendsSettings';
 import type {
+    MutualFriendManualLink,
     MutualFriendPickerOption,
-    MutualFriendSnapshot
+    MutualFriendSnapshot,
+    MutualFriendTrackedUser
 } from './mutualFriendsTypes';
 
 export function truncateMutualFriendLabel(value: string, maxLength = 18) {
@@ -43,10 +45,16 @@ export function buildMutualFriendPickerOption(
 export function buildMutualFriendExcludePickerOptions(
     snapshot: MutualFriendSnapshot | null | undefined,
     friendsById: FriendRosterById,
-    currentUserId: string
+    currentUserId: string,
+    trackedUsers: readonly MutualFriendTrackedUser[] = [],
+    manualLinks: readonly MutualFriendManualLink[] = [],
+    historicalLinks: ReadonlyMap<string, string> | null | undefined = null
 ) {
     const seen = new Set<string>();
     const items: MutualFriendPickerOption[] = [];
+    const trackedNames = new Map(
+        trackedUsers.map((user) => [user.userId, user.displayName])
+    );
 
     function pushOption(userId: string, fallbackName = '') {
         const normalizedId = normalizeMutualFriendId(userId);
@@ -68,14 +76,31 @@ export function buildMutualFriendExcludePickerOptions(
         }
     }
 
+    for (const friendId of Object.keys(friendsById)) {
+        pushOption(friendId);
+    }
+
     if (snapshot instanceof Map) {
         snapshot.forEach((mutualIds, friendId) => {
-            pushOption(friendId);
+            pushOption(friendId, trackedNames.get(friendId) ?? '');
             for (const mutualId of Array.isArray(mutualIds) ? mutualIds : []) {
                 pushOption(mutualId);
             }
         });
     }
+
+    for (const user of trackedUsers) {
+        pushOption(user.userId, user.displayName);
+    }
+    for (const relation of manualLinks) {
+        pushOption(relation.userIdA);
+        pushOption(relation.userIdB);
+    }
+    historicalLinks?.forEach((_, key) => {
+        const [userIdA, userIdB] = key.split('__');
+        pushOption(userIdA);
+        pushOption(userIdB);
+    });
 
     return items.sort((left, right) => left.label.localeCompare(right.label));
 }

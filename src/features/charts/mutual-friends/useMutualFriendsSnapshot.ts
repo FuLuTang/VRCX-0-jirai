@@ -25,7 +25,9 @@ export function useMutualFriendsSnapshot({
         {
             snapshot: new Map(),
             historicalLinks: new Map(),
-            meta: new Map()
+            meta: new Map(),
+            trackedUsers: [],
+            manualLinks: []
         }
     );
 
@@ -37,7 +39,9 @@ export function useMutualFriendsSnapshot({
             setSnapshotData({
                 snapshot: new Map(),
                 historicalLinks: new Map(),
-                meta: new Map()
+                meta: new Map(),
+                trackedUsers: [],
+                manualLinks: []
             });
             return () => {
                 active = false;
@@ -67,7 +71,9 @@ export function useMutualFriendsSnapshot({
                 setSnapshotData({
                     snapshot: new Map(),
                     historicalLinks: new Map(),
-                    meta: new Map()
+                    meta: new Map(),
+                    trackedUsers: [],
+                    manualLinks: []
                 });
                 setDetail(error instanceof Error ? error.message : '');
             });
@@ -101,7 +107,9 @@ export function useMutualFriendsSnapshot({
             setSnapshotData({
                 snapshot: new Map(),
                 historicalLinks: new Map(),
-                meta: new Map()
+                meta: new Map(),
+                trackedUsers: [],
+                manualLinks: []
             });
             setStatus('error');
             setDetail(error instanceof Error ? error.message : '');

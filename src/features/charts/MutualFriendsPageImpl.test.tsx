@@ -32,6 +32,10 @@ vi.mock('./components/mutual-friends/MutualFriendsSettingsSheet', () => ({
     MutualFriendsSettingsSheet: () => null
 }));
 
+vi.mock('./components/mutual-friends/MutualFriendsManagementSheets', () => ({
+    MutualFriendsManagementSheets: () => null
+}));
+
 vi.mock('./components/mutual-friends/MutualFriendsStageOverlay', () => ({
     MutualFriendsLayoutBadge: () => null,
     MutualFriendsStageOverlay: () => null
@@ -58,6 +62,9 @@ function controllerValue(currentUserId: string, friendCount: number) {
             resetLayoutAndHidden: noop,
             setMinDegree: noop,
             setSearchQuery: noop,
+            setManualLink: noop,
+            setTrackedUser: noop,
+            toggleNonFriends: noop,
             toggleExcludedFriendId: noop,
             toggleCrossCommunityOnly: noop,
             toggleFocusedCommunity: noop
@@ -85,6 +92,10 @@ function controllerValue(currentUserId: string, friendCount: number) {
                 lastFetchedAt: null
             },
             currentUserId,
+            resolvedTheme: 'dark',
+            showNonFriends: true,
+            trackedUsers: [],
+            manualLinks: [],
             detail: '',
             edgeCount: 0,
             friendCount,
@@ -102,6 +113,7 @@ function controllerValue(currentUserId: string, friendCount: number) {
         selection: {
             communityIndex: null,
             isRefreshing: false,
+            isCurrentFriend: false,
             node: null,
             user: null
         },

@@ -70,4 +70,21 @@ describe('mutualFriendsPicker', () => {
             'Very long…'
         );
     });
+
+    it('includes roster friends not yet present in the graph for manual relations', () => {
+        const options = buildMutualFriendExcludePickerOptions(
+            new Map(),
+            {
+                usr_friend: friend({
+                    id: 'usr_friend',
+                    displayName: 'Roster Friend'
+                })
+            },
+            'usr_self'
+        );
+
+        expect(options).toMatchObject([
+            { value: 'usr_friend', label: 'Roster Friend' }
+        ]);
+    });
 });

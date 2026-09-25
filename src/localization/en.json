@@ -1821,6 +1821,10 @@
                     "find_friend": "Find a friend",
                     "open_profile": "Open profile",
                     "hide_from_graph": "Hide from graph",
+                    "track_user": "Track this user for mutual graph fetching",
+                    "untrack_user": "Stop tracking this user",
+                    "show_non_friends": "Show non-friends in the graph",
+                    "hide_non_friends": "Hide non-friends from the graph",
                     "clear_filters": "Clear filters"
                 },
                 "prompt": {
@@ -1845,6 +1849,26 @@
                     "stat_links": "Links",
                     "stat_hidden": "Hidden"
                 },
+                "tracked": {
+                    "title": "Tracked non-friends",
+                    "help": "Tracked users are included in the next full graph fetch. Select a non-friend node and use its tracking button to add it.",
+                    "empty": "No non-friends are being tracked.",
+                    "add": "Track this user for mutual graph fetching",
+                    "remove": "Stop tracking this user",
+                    "user_id": "VRChat user ID",
+                    "verify": "Verify",
+                    "verified_as": "Verified as {name}. Add this user to the tracked nodes?",
+                    "verify_error": "Could not find that VRChat user. Check the ID and try again."
+                },
+                "manual": {
+                    "title": "Manual relationships",
+                    "help": "These links are your own annotations. They are kept separate from VRChat API data and historical links.",
+                    "user_a": "Choose first user",
+                    "user_b": "Choose second user",
+                    "add": "Add manual relationship",
+                    "remove": "Remove manual relationship",
+                    "empty": "No manual relationships have been added."
+                },
                 "context_menu": {
                     "last_fetched": "Last fetched"
                 },
@@ -1863,6 +1887,20 @@
                     "hollow_means_unknown": "Hollow dot = mutuals not shared",
                     "cross_edges": "Brighter lines cross circles",
                     "cross_edges_only": "Mute links inside circles",
+                    "edge_current": "VRChat API: current mutual connection",
+                    "edge_manual": "Manual relationship",
+                    "edge_historical": "Historical connection from OLD table",
+                    "edge_api_history": "Both API and OLD history",
+                    "edge_api_manual": "Both API and manual",
+                    "edge_manual_history": "Both manual and OLD history",
+                    "edge_all_sources": "API, manual, and OLD history",
+                    "edge_label_api": "API",
+                    "edge_label_manual": "Manual",
+                    "edge_label_old": "OLD",
+                    "edge_label_api_old": "API + OLD",
+                    "edge_label_api_manual": "API + manual",
+                    "edge_label_manual_old": "Manual + OLD",
+                    "edge_label_all": "All three",
                     "coverage": "Fetched",
                     "coverage_value": "{fetched}/{total} friends",
                     "coverage_unavailable": "Not shared",
@@ -1942,7 +1980,8 @@
             },
             "toast": {
                 "failed_to_fetch_mutual_friends_graph": "Failed to fetch mutual-friends graph",
-                "failed_to_refresh_selected_mutuals": "Failed to refresh selected mutuals"
+                "failed_to_refresh_selected_mutuals": "Failed to refresh selected mutuals",
+                "failed_to_save_mutual_graph_settings": "Failed to save mutual graph settings"
             },
             "modal": {
                 "refresh_non_friend_mutuals": "Refresh non-friend mutuals",

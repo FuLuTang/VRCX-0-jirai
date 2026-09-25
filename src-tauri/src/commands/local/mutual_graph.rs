@@ -6,7 +6,10 @@ use vrcx_0_application::social::{
     MutualGraphFriendRefreshInput, MutualGraphFriendRefreshOutput, UserMutualFriendsListInput,
     UserMutualFriendsListOutput,
 };
-use vrcx_0_runtime_host_desktop::local_data::MutualGraphSnapshotOutput;
+use vrcx_0_runtime_host_desktop::local_data::{
+    MutualGraphExtrasOutput, MutualGraphManualLinkSetInput, MutualGraphSnapshotOutput,
+    MutualGraphTrackedUserSetInput,
+};
 
 use crate::commands::blocking::run_blocking;
 use crate::error::AppError;
@@ -21,6 +24,45 @@ pub async fn app__mutual_graph_snapshot_get(
     let local_data = state.runtime_host().local_data().clone();
     run_blocking("mutual graph snapshot", move || {
         local_data.mutual_graph_snapshot_get(user_id)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__mutual_graph_extras_get(
+    state: State<'_, AppState>,
+    owner_user_id: String,
+) -> Result<MutualGraphExtrasOutput, AppError> {
+    let local_data = state.runtime_host().local_data().clone();
+    run_blocking("mutual graph extras", move || {
+        local_data.mutual_graph_extras_get(owner_user_id)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__mutual_graph_tracked_user_set(
+    state: State<'_, AppState>,
+    input: MutualGraphTrackedUserSetInput,
+) -> Result<(), AppError> {
+    let local_data = state.runtime_host().local_data().clone();
+    run_blocking("mutual graph tracked user", move || {
+        local_data.mutual_graph_tracked_user_set(input)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__mutual_graph_manual_link_set(
+    state: State<'_, AppState>,
+    input: MutualGraphManualLinkSetInput,
+) -> Result<(), AppError> {
+    let local_data = state.runtime_host().local_data().clone();
+    run_blocking("mutual graph manual link", move || {
+        local_data.mutual_graph_manual_link_set(input)
     })
     .await
 }

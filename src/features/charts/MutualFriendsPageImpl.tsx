@@ -2,6 +2,7 @@ import { PageScaffold } from '@/components/layout/PageScaffold';
 
 import { MutualFriendsHud } from './components/mutual-friends/MutualFriendsHud';
 import { MutualFriendsLegend } from './components/mutual-friends/MutualFriendsLegend';
+import { MutualFriendsManagementSheets } from './components/mutual-friends/MutualFriendsManagementSheets';
 import { MutualFriendsNodeCard } from './components/mutual-friends/MutualFriendsNodeCard';
 import { MutualFriendsSettingsSheet } from './components/mutual-friends/MutualFriendsSettingsSheet';
 import {
@@ -44,8 +45,19 @@ export function MutualFriendsPage() {
                     }
                     onCancelFetch={actions.cancelFetch}
                     onFetchGraph={actions.fetchGraph}
+                    managementSlots={
+                        <MutualFriendsManagementSheets
+                            manualLinks={graph.manualLinks}
+                            onSetManualLink={actions.setManualLink}
+                            onSetTrackedUser={actions.setTrackedUser}
+                            options={exclusions.excludePickerOptions}
+                            trackedUsers={graph.trackedUsers}
+                        />
+                    }
+                    onToggleNonFriends={actions.toggleNonFriends}
                     onRefreshPage={actions.refreshPage}
                     onSearchQueryChange={actions.setSearchQuery}
+                    showNonFriends={graph.showNonFriends}
                     searchQuery={view.filters.searchQuery}
                     settingsSlot={
                         <MutualFriendsSettingsSheet
@@ -78,6 +90,7 @@ export function MutualFriendsPage() {
                         crossCommunityOnly={view.crossCommunityOnly}
                         focusedCommunity={view.filters.focusedCommunity}
                         isolatedCounts={graph.isolatedCounts}
+                        isDarkMode={graph.resolvedTheme === 'dark'}
                         minDegree={view.filters.minDegree}
                         onMinDegreeChange={actions.setMinDegree}
                         onToggleCrossCommunityOnly={
@@ -93,7 +106,11 @@ export function MutualFriendsPage() {
                 {selectedNode ? (
                     <MutualFriendsNodeCard
                         community={selectedCommunity}
+                        isCurrentFriend={selection.isCurrentFriend}
                         isRefreshing={selection.isRefreshing}
+                        isTracked={graph.trackedUsers.some(
+                            (user) => user.userId === selectedNode.id
+                        )}
                         node={selectedNode}
                         onClose={actions.clearSelection}
                         onFocusCommunity={() => {
@@ -108,6 +125,15 @@ export function MutualFriendsPage() {
                         }
                         onOpenProfile={() => actions.openNode(selectedNode.id)}
                         onRefresh={actions.refreshSelectedNode}
+                        onToggleTracked={() =>
+                            actions.setTrackedUser(
+                                selectedNode.id,
+                                selectedNode.label,
+                                !graph.trackedUsers.some(
+                                    (user) => user.userId === selectedNode.id
+                                )
+                            )
+                        }
                         user={selection.user}
                     />
                 ) : null}
