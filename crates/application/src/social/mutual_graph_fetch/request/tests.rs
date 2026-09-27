@@ -18,12 +18,37 @@ struct GraphCommit {
     opted_out: bool,
 }
 
+#[derive(Debug, PartialEq)]
+struct HistoricalCommit {
+    owner_user_id: String,
+    friend_id: String,
+    mutual_ids: Vec<String>,
+    observed_at: String,
+}
+
 #[derive(Default)]
 struct RecordingStore {
     commits: Mutex<Vec<GraphCommit>>,
+    archives: Mutex<Vec<HistoricalCommit>>,
 }
 
 impl MutualGraphStore for RecordingStore {
+    fn archive_observation(
+        &self,
+        owner_user_id: String,
+        friend_id: String,
+        mutual_ids: Vec<String>,
+        observed_at: String,
+    ) -> Result<()> {
+        self.archives.lock().unwrap().push(HistoricalCommit {
+            owner_user_id,
+            friend_id,
+            mutual_ids,
+            observed_at,
+        });
+        Ok(())
+    }
+
     fn friend_refresh_commit(
         &self,
         owner_user_id: String,
@@ -31,6 +56,7 @@ impl MutualGraphStore for RecordingStore {
         mutual_ids: Option<Vec<String>>,
         total_count: Option<usize>,
         opted_out: bool,
+        _observed_at: Option<String>,
     ) -> Result<()> {
         self.commits.lock().unwrap().push(GraphCommit {
             owner_user_id,
@@ -51,6 +77,9 @@ impl MutualGraphStore for RecordingStore {
         _owner_user_id: String,
         _entries: Vec<MutualGraphSnapshotEntryInput>,
         _meta: Vec<MutualGraphMetaInput>,
+        _observations: Vec<crate::social::MutualGraphObservationInput>,
+        _replace_missing: bool,
+        _scope_ids: Vec<String>,
     ) -> Result<()> {
         panic!("list requests must not replace the graph snapshot")
     }
@@ -125,9 +154,18 @@ async fn non_friend_and_pending_request_lists_only_backfill_after_friend_add() -
         )
         .await?;
         assert_eq!(result.rows, vec![RawJson::from(remote.rows[0].clone())]);
-        assert!(!result.persisted);
+        assert!(result.persisted);
         assert!(store.commits.lock().unwrap().is_empty());
     }
+    let archives = store.archives.lock().unwrap();
+    assert_eq!(archives.len(), 2);
+    for archive in archives.iter() {
+        assert_eq!(archive.owner_user_id, session.user_id);
+        assert_eq!(archive.friend_id, "usr_target");
+        assert_eq!(archive.mutual_ids, vec!["usr_mutual"]);
+        assert!(chrono::DateTime::parse_from_rfc3339(&archive.observed_at).is_ok());
+    }
+    drop(archives);
 
     runtime.handle_active_friend_ws_message_for_test(&RealtimeWsMessagePayload {
         json: json!({
@@ -159,15 +197,16 @@ async fn non_friend_and_pending_request_lists_only_backfill_after_friend_add() -
             opted_out: false,
         }]
     );
+    assert_eq!(store.archives.lock().unwrap().len(), 2);
     Ok(())
 }
 
 #[tokio::test]
-async fn empty_non_friend_list_does_not_create_an_isolated_node() -> Result<()> {
+async fn empty_non_friend_list_archives_success_without_creating_a_current_node() -> Result<()> {
     let (_dir, runtime, session) = runtime_with_active_session("mutual-list-empty")?;
     runtime
         .runtime()
-        .sync_friend_snapshot(session, Some(7), HashMap::new())?;
+        .sync_friend_snapshot(session.clone(), Some(7), HashMap::new())?;
     let store = RecordingStore::default();
     let remote = ResponsePort {
         status: 200,
@@ -183,8 +222,99 @@ async fn empty_non_friend_list_does_not_create_an_isolated_node() -> Result<()> 
     )
     .await?;
     assert!(result.rows.is_empty());
-    assert!(!result.persisted);
+    assert!(result.persisted);
     assert!(store.commits.lock().unwrap().is_empty());
+    let archives = store.archives.lock().unwrap();
+    assert_eq!(archives.len(), 1);
+    assert_eq!(archives[0].owner_user_id, session.user_id);
+    assert_eq!(archives[0].friend_id, "usr_target");
+    assert!(archives[0].mutual_ids.is_empty());
+    Ok(())
+}
+
+#[tokio::test]
+async fn non_array_response_is_not_committed_as_an_empty_success() -> Result<()> {
+    let (_dir, runtime, session) = runtime_with_active_session("mutual-invalid-shape")?;
+    runtime
+        .runtime()
+        .sync_friend_snapshot(session, Some(7), HashMap::new())?;
+    let store = RecordingStore::default();
+    let remote = ResponsePort {
+        status: 200,
+        rows: json!({ "unexpected": "object" }),
+        before_response: || {},
+    };
+    let result = get_user_mutual_friends_list(
+        MutualGraphRequestDeps::new(&store, &MutualRequests, &remote, runtime.auth_scope()),
+        runtime.runtime(),
+        UserMutualFriendsListInput {
+            user_id: "usr_target".into(),
+        },
+    )
+    .await;
+    assert!(result.is_err());
+    assert!(store.commits.lock().unwrap().is_empty());
+    assert!(store.archives.lock().unwrap().is_empty());
+    Ok(())
+}
+
+#[tokio::test]
+async fn exactly_fifty_full_pages_do_not_confirm_a_complete_snapshot() -> Result<()> {
+    let (_dir, runtime, session) = runtime_with_active_session("mutual-page-cap")?;
+    runtime
+        .runtime()
+        .sync_friend_snapshot(session.clone(), Some(7), HashMap::new())?;
+    let store = RecordingStore::default();
+    let remote = ResponsePort {
+        status: 200,
+        rows: Value::Array(
+            (0..100)
+                .map(|n| json!({ "id": format!("usr_{n}") }))
+                .collect(),
+        ),
+        before_response: || {},
+    };
+    let result = get_user_mutual_friends_list(
+        MutualGraphRequestDeps::new(&store, &MutualRequests, &remote, runtime.auth_scope()),
+        runtime.runtime(),
+        UserMutualFriendsListInput {
+            user_id: "usr_target".into(),
+        },
+    )
+    .await;
+    assert!(result.is_err());
+    assert!(store.commits.lock().unwrap().is_empty());
+    assert!(store.archives.lock().unwrap().is_empty());
+    Ok(())
+}
+
+#[tokio::test]
+async fn bulk_friend_fetch_rejects_the_same_pagination_limit() -> Result<()> {
+    let (_dir, runtime, session) = runtime_with_active_session("mutual-bulk-page-cap")?;
+    let expected_scope = runtime.auth_scope().snapshot();
+    let cancelled = AtomicBool::new(false);
+    let remote = ResponsePort {
+        status: 200,
+        rows: Value::Array(
+            (0..100)
+                .map(|n| json!({ "id": format!("usr_{n}") }))
+                .collect(),
+        ),
+        before_response: || {},
+    };
+    let mut context = MutualGraphFetchContext {
+        remote: &remote,
+        remote_requests: &MutualRequests,
+        endpoint: &session.endpoint,
+        cancel_flag: &cancelled,
+        auth_scope: runtime.auth_scope(),
+        expected_scope: &expected_scope,
+        last_request_at: None,
+    };
+    assert!(matches!(
+        fetch_friend_mutuals(&mut context, "usr_target").await,
+        FriendFetchResult::Failed(_)
+    ));
     Ok(())
 }
 
@@ -238,6 +368,7 @@ async fn unavailable_lists_only_update_opt_out_metadata_for_current_friends() ->
             } else {
                 assert!(commits.is_empty());
             }
+            assert!(store.archives.lock().unwrap().is_empty());
         }
     }
     Ok(())
@@ -284,7 +415,12 @@ async fn friend_removed_during_list_request_is_not_backfilled() -> Result<()> {
     )
     .await?;
     assert_eq!(result.rows.len(), 1);
-    assert!(!result.persisted);
+    assert!(result.persisted);
     assert!(store.commits.lock().unwrap().is_empty());
+    let archives = store.archives.lock().unwrap();
+    assert_eq!(archives.len(), 1);
+    assert_eq!(archives[0].owner_user_id, session.user_id);
+    assert_eq!(archives[0].friend_id, "usr_target");
+    assert_eq!(archives[0].mutual_ids, vec!["usr_mutual"]);
     Ok(())
 }

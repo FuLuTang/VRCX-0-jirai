@@ -3933,6 +3933,9 @@
             "mutual_friends": {
                 "header": "Mutual Friends",
                 "undisclosed_friend": "Undisclosed Mutual Friend",
+                "confirmed_at": "Confirmed",
+                "historical_unconfirmed": "Historical, currently unconfirmed",
+                "last_successful_check": "Last successful check",
                 "sorting": {
                     "alphabetical": "Alphabetical",
                     "last_active": "Last Active",

@@ -3934,6 +3934,9 @@
             "mutual_friends": {
                 "header": "共同好友",
                 "undisclosed_friend": "未公开的共同好友",
+                "confirmed_at": "已确认",
+                "historical_unconfirmed": "历史记录，当前未确认",
+                "last_successful_check": "最近一次成功检查",
                 "sorting": {
                     "alphabetical": "字母顺序",
                     "last_active": "最后活跃",

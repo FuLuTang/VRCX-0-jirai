@@ -110,6 +110,37 @@ describe('UserDialog EntityList', () => {
         expect(screen.queryByText(/Tauri command failed/)).toBeNull();
     });
 
+    it('distinguishes confirmed mutuals from historical unconfirmed mutuals', () => {
+        render(
+            <EntityList
+                kind="user"
+                rows={[
+                    {
+                        id: 'usr_current',
+                        displayName: 'Current',
+                        $mutualConfirmed: true,
+                        $mutualDate: '2026-09-26T00:00:00Z'
+                    },
+                    {
+                        id: 'usr_history',
+                        displayName: 'History',
+                        $mutualConfirmed: false,
+                        $mutualDate: '2026-07-21T00:00:00Z'
+                    }
+                ]}
+            />
+        );
+        expect(
+            screen.getByText(/dialog\.user\.mutual_friends\.confirmed_at/)
+                .className
+        ).toContain('green');
+        expect(
+            screen.getByText(
+                /dialog\.user\.mutual_friends\.historical_unconfirmed/
+            ).className
+        ).toContain('gray');
+    });
+
     it('localizes undisclosed mutual friends and prevents opening them', () => {
         render(
             <EntityList

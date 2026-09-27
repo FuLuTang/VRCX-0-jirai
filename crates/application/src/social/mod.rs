@@ -104,9 +104,9 @@ pub use mutual_graph_fetch::{
     MutualGraphFetchRuntime, MutualGraphFetchStartInput, MutualGraphFetchState,
     MutualGraphFetchStatus, MutualGraphFriendRefreshInput, MutualGraphFriendRefreshOutput,
     MutualGraphFriendRefreshStatus, MutualGraphLinkOutput, MutualGraphMetaInput,
-    MutualGraphMetaOutput, MutualGraphRemoteRequests, MutualGraphRequestDeps,
-    MutualGraphSnapshotEntryInput, MutualGraphSnapshotOutput, MutualGraphStore,
-    UserMutualFriendsListInput, UserMutualFriendsListOutput,
+    MutualGraphMetaOutput, MutualGraphObservationInput, MutualGraphRemoteRequests,
+    MutualGraphRequestDeps, MutualGraphSnapshotEntryInput, MutualGraphSnapshotOutput,
+    MutualGraphStore, UserMutualFriendsListInput, UserMutualFriendsListOutput,
 };
 pub use note_export::{
     prepare_note_export, run_note_export, NoteExportActions, NoteExportItemInput,

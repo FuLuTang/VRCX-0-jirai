@@ -63,6 +63,7 @@ export type UserDialogRepositories = {
         }): Promise<{
             rows: unknown[];
             persisted: boolean;
+            observedAt?: string;
         }>;
     };
     vrchatFavoriteRepository: {
@@ -195,13 +196,16 @@ export async function loadUserDialogTabData({
     }
 
     if (tab === 'mutual') {
-        const { rows, persisted } =
+        const { rows, persisted, observedAt } =
             await repositories.userProfileRepository.getAllMutualFriends({
                 userId,
                 endpoint
             });
         return {
-            rows: recordRows(rows),
+            rows: recordRows(rows).map((row) => ({
+                ...row,
+                $mutualObservedAt: observedAt
+            })),
             favoriteWorldGroups: [],
             mutualGraphUpdated: persisted
         };

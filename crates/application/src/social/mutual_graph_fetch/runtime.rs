@@ -20,8 +20,8 @@ use super::request::{
 };
 use super::types::{
     MutualGraphFetchCancelInput, MutualGraphFetchStartInput, MutualGraphFetchState,
-    MutualGraphFetchStatus, MutualGraphMetaInput, MutualGraphRemoteRequests,
-    MutualGraphSnapshotEntryInput, MutualGraphStore,
+    MutualGraphFetchStatus, MutualGraphMetaInput, MutualGraphObservationInput,
+    MutualGraphRemoteRequests, MutualGraphSnapshotEntryInput, MutualGraphStore,
 };
 
 #[derive(Clone)]
@@ -45,6 +45,7 @@ struct MutualGraphFetchJob {
     owner_user_id: OwnerId,
     endpoint: String,
     friend_ids: Vec<String>,
+    replace_missing: bool,
     store: Arc<dyn MutualGraphStore>,
     remote_requests: Arc<dyn MutualGraphRemoteRequests>,
     remote: Arc<dyn VrchatRequestPort>,
@@ -96,8 +97,9 @@ impl MutualGraphFetchRuntime {
     ) -> Result<MutualGraphFetchStatus> {
         let (owner_user_id, endpoint, expected_scope) = resolve_fetch_scope(&input, &auth_scope)?;
 
+        let replace_missing = input.replace_missing;
         let friend_ids = normalize_friend_ids(input.friend_ids);
-        if friend_ids.is_empty() {
+        if friend_ids.is_empty() && !replace_missing {
             return Err(Error::Custom(
                 "MutualGraphFetchStart requires at least one friend id.".into(),
             ));
@@ -149,6 +151,7 @@ impl MutualGraphFetchRuntime {
                     owner_user_id: OwnerId::new(owner_user_id),
                     endpoint,
                     friend_ids,
+                    replace_missing,
                     store,
                     remote_requests,
                     remote,
@@ -201,6 +204,7 @@ impl MutualGraphFetchRuntime {
             owner_user_id,
             endpoint,
             friend_ids,
+            replace_missing,
             store,
             remote_requests,
             remote,
@@ -210,6 +214,8 @@ impl MutualGraphFetchRuntime {
         } = job;
         let mut entries = Vec::new();
         let mut meta_entries = Vec::new();
+        let mut observations = Vec::new();
+        let scope_ids = friend_ids.clone();
         let mut processed_friends = 0usize;
         let mut fetched_friends = 0usize;
         let mut opted_out_friends = 0usize;
@@ -238,13 +244,19 @@ impl MutualGraphFetchRuntime {
                     mutual_ids,
                     total_count,
                 } => {
+                    let observed_at = now_iso();
+                    observations.push(MutualGraphObservationInput {
+                        friend_id: friend_id.clone(),
+                        mutual_ids: mutual_ids.clone(),
+                        observed_at: observed_at.clone(),
+                    });
                     entries.push(MutualGraphSnapshotEntryInput {
                         friend_id: friend_id.clone(),
                         mutual_ids,
                     });
                     meta_entries.push(MutualGraphMetaInput {
                         friend_id: friend_id.clone(),
-                        last_fetched_at: String::new(),
+                        last_fetched_at: observed_at,
                         opted_out: false,
                         total_count: Some(total_count),
                     });
@@ -321,7 +333,14 @@ impl MutualGraphFetchRuntime {
             return;
         }
 
-        match store.snapshot_commit(owner_user_id.to_string(), entries, meta_entries) {
+        match store.snapshot_commit(
+            owner_user_id.to_string(),
+            entries,
+            meta_entries,
+            observations,
+            replace_missing,
+            scope_ids,
+        ) {
             Ok(()) => {
                 self.finish_run(run_id, MutualGraphFetchState::Completed, last_error);
             }

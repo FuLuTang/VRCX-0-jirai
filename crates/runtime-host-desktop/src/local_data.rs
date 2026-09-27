@@ -15,7 +15,7 @@ use vrcx_0_application::social::{
 use vrcx_0_application_activity::OverlayActivityRuntime;
 use vrcx_0_application_core::vrchat_api::VrchatApiResponse;
 use vrcx_0_application_core::{
-    AvatarCache, FavoriteEntityKind, FileCache, Result, RuntimeAuthScope, TaskSupervisor,
+    AvatarCache, Error, FavoriteEntityKind, FileCache, Result, RuntimeAuthScope, TaskSupervisor,
     WebClient, WorldCache,
 };
 use vrcx_0_application_game::{
@@ -827,6 +827,33 @@ impl LocalDataRuntime {
             self.db.as_ref(),
             user_id,
         )?)
+    }
+
+    pub fn mutual_graph_history_get(
+        &self,
+        friend_id: String,
+    ) -> Result<vrcx_0_persistence::mutual_graph::MutualGraphHistoryOutput> {
+        let scope = self.auth_scope.snapshot();
+        if !scope.active || scope.current_user_id.is_empty() {
+            return Err(Error::Custom(
+                "Mutual graph history requires an authenticated user.".into(),
+            ));
+        }
+        let history = vrcx_0_persistence::mutual_graph::mutual_graph_history_get(
+            self.db.as_ref(),
+            scope.current_user_id.clone(),
+            friend_id,
+        )?;
+        let latest = self.auth_scope.snapshot();
+        if !latest.active
+            || latest.generation != scope.generation
+            || latest.current_user_id != scope.current_user_id
+        {
+            return Err(Error::Custom(
+                "Mutual graph history authentication scope changed.".into(),
+            ));
+        }
+        Ok(history)
     }
 
     pub fn mutual_graph_extras_get(

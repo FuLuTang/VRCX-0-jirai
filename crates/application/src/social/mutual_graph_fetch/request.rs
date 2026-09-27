@@ -90,12 +90,14 @@ pub async fn refresh_mutual_graph_friend(
             FriendFetchResult::Failed(error) => return Err(Error::Custom(error)),
         };
     ensure_mutual_scope_matches(deps.auth_scope, &expected_scope)?;
+    let observed_at = mutual_ids.as_ref().map(|_| vrcx_0_core::time::now_iso());
     deps.store.friend_refresh_commit(
         expected_scope.current_user_id,
         friend_id,
         mutual_ids,
         total_count,
         opted_out,
+        observed_at,
     )?;
     Ok(MutualGraphFriendRefreshOutput { status })
 }
@@ -139,6 +141,7 @@ pub async fn get_user_mutual_friends_list(
                     None,
                     None,
                     true,
+                    None,
                 )?;
             }
             Err(Error::Custom(
@@ -146,22 +149,38 @@ pub async fn get_user_mutual_friends_list(
             ))
         }
         MutualFriendRowsResult::Rows { rows, complete } => {
-            let persisted = complete && backfills_graph;
+            if !complete {
+                return Err(Error::Custom(
+                    "User mutual friends list exceeded the pagination limit.".into(),
+                ));
+            }
+            let observed_at = vrcx_0_core::time::now_iso();
+            let persisted = user_id != owner_user_id.as_str();
             if persisted {
-                let total_count = rows.len();
                 let mutual_ids =
                     normalize_friend_ids(rows.iter().filter_map(mutual_id_from_value).collect());
-                deps.store.friend_refresh_commit(
-                    owner_user_id.to_string(),
-                    user_id,
-                    Some(mutual_ids),
-                    Some(total_count),
-                    false,
-                )?;
+                if backfills_graph {
+                    deps.store.friend_refresh_commit(
+                        owner_user_id.to_string(),
+                        user_id,
+                        Some(mutual_ids),
+                        Some(rows.len()),
+                        false,
+                        Some(observed_at.clone()),
+                    )?;
+                } else {
+                    deps.store.archive_observation(
+                        owner_user_id.to_string(),
+                        user_id,
+                        mutual_ids,
+                        observed_at.clone(),
+                    )?;
+                }
             }
             Ok(UserMutualFriendsListOutput {
                 rows: rows.into_iter().map(RawJson::from).collect(),
                 persisted,
+                observed_at,
             })
         }
     }
@@ -204,10 +223,9 @@ pub(super) async fn fetch_friend_mutuals(
                 }
                 offset += page_len as i32;
                 if offset / MUTUAL_GRAPH_PAGE_SIZE >= MUTUAL_GRAPH_MAX_PAGES as i32 {
-                    return FriendFetchResult::MutualIds {
-                        mutual_ids: collected,
-                        total_count,
-                    };
+                    return FriendFetchResult::Failed(format!(
+                        "VRChat mutual friends request for {friend_id} exceeded the pagination limit."
+                    ));
                 }
             }
             PageFetchResult::OptedOut => return FriendFetchResult::OptedOut,
@@ -273,7 +291,7 @@ async fn fetch_mutual_page(
             return PageFetchResult::OptedOut;
         }
 
-        if (200..=399).contains(&response.status) {
+        if (200..=299).contains(&response.status) {
             let json = match serde_json::from_str::<Value>(&response.data) {
                 Ok(value) => value,
                 Err(error) => return PageFetchResult::Failed(error.to_string()),
@@ -281,8 +299,18 @@ async fn fetch_mutual_page(
             if json.get("error").is_some() {
                 return PageFetchResult::Failed(response.data);
             }
-            let rows = json.as_array().cloned().unwrap_or_default();
-            return PageFetchResult::Rows(rows);
+            return match json.as_array() {
+                Some(rows)
+                    if rows
+                        .iter()
+                        .all(|row| row.get("id").and_then(Value::as_str).is_some()) =>
+                {
+                    PageFetchResult::Rows(rows.clone())
+                }
+                _ => PageFetchResult::Failed(format!(
+                    "VRChat mutual friends request for {friend_id} returned invalid rows."
+                )),
+            };
         }
 
         if is_retryable_status(response.status) && attempt < MUTUAL_GRAPH_MAX_RETRIES {

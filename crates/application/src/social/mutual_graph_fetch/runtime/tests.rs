@@ -9,6 +9,16 @@ use vrcx_0_application_core::{
 struct NoopMutualGraphStore;
 
 impl MutualGraphStore for NoopMutualGraphStore {
+    fn archive_observation(
+        &self,
+        _owner_user_id: String,
+        _friend_id: String,
+        _mutual_ids: Vec<String>,
+        _observed_at: String,
+    ) -> Result<()> {
+        Ok(())
+    }
+
     fn friend_refresh_commit(
         &self,
         _owner_user_id: String,
@@ -16,6 +26,7 @@ impl MutualGraphStore for NoopMutualGraphStore {
         _mutual_ids: Option<Vec<String>>,
         _total_count: Option<usize>,
         _opted_out: bool,
+        _observed_at: Option<String>,
     ) -> Result<()> {
         Ok(())
     }
@@ -33,6 +44,9 @@ impl MutualGraphStore for NoopMutualGraphStore {
         _owner_user_id: String,
         _entries: Vec<MutualGraphSnapshotEntryInput>,
         _meta: Vec<MutualGraphMetaInput>,
+        _observations: Vec<MutualGraphObservationInput>,
+        _replace_missing: bool,
+        _scope_ids: Vec<String>,
     ) -> Result<()> {
         Ok(())
     }
@@ -154,6 +168,7 @@ fn fetch_scope_uses_the_authenticated_owner_and_endpoint() {
         owner_user_id: OwnerId::new("usr_owner"),
         endpoint: "https://stale.example.test/api/1".into(),
         friend_ids: vec!["usr_friend".into()],
+        replace_missing: false,
     };
 
     let (owner_user_id, endpoint, scope) = resolve_fetch_scope(&input, &auth_scope).unwrap();
@@ -171,6 +186,7 @@ fn fetch_scope_rejects_a_different_owner() {
         owner_user_id: OwnerId::new("usr_other"),
         endpoint: String::new(),
         friend_ids: vec!["usr_friend".into()],
+        replace_missing: false,
     };
 
     assert!(resolve_fetch_scope(&input, &auth_scope).is_err());
@@ -192,6 +208,7 @@ fn start_emits_a_running_status_before_the_job_is_spawned() {
                 owner_user_id: OwnerId::new("usr_owner"),
                 endpoint: String::new(),
                 friend_ids: vec!["usr_friend".into()],
+                replace_missing: false,
             },
             Arc::new(NoopMutualGraphStore),
             Arc::new(NoopMutualGraphRemoteRequests),

@@ -154,6 +154,31 @@ export function EntityList({
                 const rowKey = `${row?.id || row?.userId || label}:${index}`;
 
                 if (kind === 'user') {
+                    const mutualDate =
+                        typeof row.$mutualDate === 'string'
+                            ? row.$mutualDate
+                            : '';
+                    const mutualDateLabel =
+                        mutualDate && Number.isFinite(Date.parse(mutualDate))
+                            ? new Date(mutualDate).toLocaleDateString()
+                            : mutualDate;
+                    const mutualSubline = mutualDate ? (
+                        <span
+                            className={cn(
+                                'inline-block rounded px-1 text-[11px]',
+                                row.$mutualConfirmed === true
+                                    ? 'bg-green-500/20 text-green-700 dark:text-green-400'
+                                    : 'text-muted-foreground bg-gray-400/20'
+                            )}
+                        >
+                            {t(
+                                row.$mutualConfirmed === true
+                                    ? 'dialog.user.mutual_friends.confirmed_at'
+                                    : 'dialog.user.mutual_friends.historical_unconfirmed'
+                            )}{' '}
+                            {mutualDateLabel}
+                        </span>
+                    ) : undefined;
                     return (
                         <UserDetailTile
                             key={rowKey}
@@ -178,7 +203,8 @@ export function EntityList({
                                 userColour ? { color: userColour } : undefined
                             }
                             subline={
-                                isInstanceCreator ? (
+                                mutualSubline ??
+                                (isInstanceCreator ? (
                                     t('dialog.user.info.instance_creator')
                                 ) : showInstanceDuration || isTraveling ? (
                                     <FriendLocationTimer
@@ -189,7 +215,7 @@ export function EntityList({
                                     />
                                 ) : (
                                     subtitle || undefined
-                                )
+                                ))
                             }
                             onOpen={
                                 undisclosedMutualFriend

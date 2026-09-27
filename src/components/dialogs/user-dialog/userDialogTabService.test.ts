@@ -105,7 +105,11 @@ describe('userDialogTabService', () => {
             userProfileRepository: {
                 getAllMutualFriends: async (params) => {
                     calls.push(['mutual', params]);
-                    return { rows: [{ id: 'usr_friend' }], persisted: true };
+                    return {
+                        rows: [{ id: 'usr_friend' }],
+                        persisted: true,
+                        observedAt: '2026-09-26T00:00:00Z'
+                    };
                 }
             },
             groupProfileRepository: {
@@ -130,7 +134,9 @@ describe('userDialogTabService', () => {
                 repositories: fakeRepositories
             })
         ).resolves.toEqual({
-            rows: [{ id: 'usr_friend' }],
+            rows: [
+                { id: 'usr_friend', $mutualObservedAt: '2026-09-26T00:00:00Z' }
+            ],
             favoriteWorldGroups: [],
             mutualGraphUpdated: true
         });

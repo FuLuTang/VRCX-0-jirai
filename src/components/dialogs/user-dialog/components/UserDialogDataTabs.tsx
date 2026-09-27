@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
@@ -5,7 +6,9 @@ import { InstanceHistoryListPanel } from '@/components/dialogs/previous-instance
 import { DialogErrorState } from '@/components/dialogs/previous-instances-table/PreviousInstancesViewParts';
 import { UserActivityPanel } from '@/components/dialogs/UserActivityPanel';
 import type { UserProfileEntity } from '@/domain/entities/user';
+import mutualGraphPersistenceRepository from '@/repositories/mutualGraphPersistenceRepository';
 import { useDialogStore } from '@/state/dialogStore';
+import { useFriendRosterStore } from '@/state/friendRosterStore';
 import {
     Select,
     SelectContent,
@@ -32,6 +35,8 @@ import {
     type UserDialogWorldOrder,
     type UserDialogWorldSort
 } from '../userDialogListOptions';
+import { buildMutualHistoryRows } from '../userDialogMutualHistory';
+import { sortMutualFriendRows } from '../userDialogRows';
 import { EntityList, FavoriteWorldGroups } from '../UserDialogViewParts';
 import type { UserDialogProfileRecord } from '../useUserDialogProfileResource';
 import {
@@ -49,9 +54,8 @@ type RemoteTabProps = Pick<
 >;
 
 export function UserDialogMutualTab({
+    userId,
     mutualFriends,
-    filteredMutualFriends,
-    visibleMutualFriends,
     remoteStatus,
     remoteErrors,
     loadTab,
@@ -59,8 +63,7 @@ export function UserDialogMutualTab({
     setSearch,
     mutualSort,
     setMutualSort
-}: RemoteTabProps &
-    Pick<
+}: RemoteTabProps & { userId: string } & Pick<
         UserTabData,
         | 'mutualFriends'
         | 'filteredMutualFriends'
@@ -69,14 +72,54 @@ export function UserDialogMutualTab({
         | 'setMutualSort'
     >) {
     const { t } = useTranslation();
+    const [historyState, setHistoryState] = useState<{
+        userId: string;
+        data: Awaited<
+            ReturnType<typeof mutualGraphPersistenceRepository.getHistory>
+        >;
+    } | null>(null);
+    const history = historyState?.userId === userId ? historyState.data : null;
+
+    useEffect(() => {
+        let active = true;
+        if (userId) {
+            mutualGraphPersistenceRepository
+                .getHistory(userId)
+                .then((result) => {
+                    if (active) setHistoryState({ userId, data: result });
+                })
+                .catch(() => {
+                    if (active) setHistoryState(null);
+                });
+        }
+        return () => {
+            active = false;
+        };
+    }, [userId, remoteStatus.mutual]);
+
+    const rows = buildMutualHistoryRows(
+        mutualFriends,
+        remoteStatus.mutual === 'ready',
+        history?.links ?? [],
+        useFriendRosterStore.getState().friendsById
+    );
+    const query = search.mutual?.trim().toLowerCase() ?? '';
+    const filteredRows = query
+        ? rows.filter((row) =>
+              String(row.displayName ?? row.id ?? '')
+                  .toLowerCase()
+                  .includes(query)
+          )
+        : rows;
+    const visibleRows = sortMutualFriendRows(filteredRows, mutualSort);
 
     return (
         <EntityDialogTabContent value="mutual" className="flex flex-col gap-2">
             <UserDialogSearchHeader
                 searchKey="mutual"
                 tab="mutual"
-                rows={mutualFriends}
-                filteredRows={filteredMutualFriends}
+                rows={rows}
+                filteredRows={filteredRows}
                 placeholder={t('dialog.user.action.search_mutual_friends')}
                 remoteStatus={remoteStatus}
                 loadTab={loadTab}
@@ -120,11 +163,22 @@ export function UserDialogMutualTab({
                     </SelectContent>
                 </Select>
             </UserDialogSearchHeader>
+            {rows.length > 0 && remoteErrors.mutual ? (
+                <div role="alert" className="text-destructive text-sm">
+                    {remoteErrors.mutual}
+                </div>
+            ) : null}
+            {rows.length === 0 && history?.lastSuccessfulAt ? (
+                <div className="text-muted-foreground text-xs">
+                    {t('dialog.user.mutual_friends.last_successful_check')}:{' '}
+                    {new Date(history.lastSuccessfulAt).toLocaleDateString()}
+                </div>
+            ) : null}
             <EntityList
-                rows={visibleMutualFriends}
+                rows={visibleRows}
                 kind="user"
-                loading={remoteStatus.mutual === 'running'}
-                error={remoteErrors.mutual}
+                loading={remoteStatus.mutual === 'running' && !rows.length}
+                error={rows.length ? '' : remoteErrors.mutual}
             />
         </EntityDialogTabContent>
     );

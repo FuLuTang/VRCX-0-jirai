@@ -312,6 +312,7 @@ export function UserDialogTabsSection({
                 activitySummarySection={activitySummarySection}
             />
             <UserDialogMutualTab
+                userId={typeof profile.id === 'string' ? profile.id : ''}
                 mutualFriends={mutualFriends}
                 filteredMutualFriends={filteredMutualFriends}
                 visibleMutualFriends={visibleMutualFriends}

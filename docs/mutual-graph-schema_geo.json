@@ -1,29 +1,41 @@
 {
-    "width": 824,
-    "height": 192,
-    "cx": [
-        ["MUTUAL_GRAPH_FRIEND__VRCX_0_", 121],
-        ["CURRENT_LINK", 321],
-        ["HAS_META", 530],
-        ["MUTUAL_GRAPH_META__VRCX_0_", 709],
-        ["MUTUAL_GRAPH_FRIEND_OLD__VRCX_JIRAI_", 321],
-        ["OLD_LINK", 530]
-    ],
-    "cy": [
-        ["MUTUAL_GRAPH_FRIEND__VRCX_0_", 62],
-        ["CURRENT_LINK", 62],
-        ["HAS_META", 62],
-        ["MUTUAL_GRAPH_META__VRCX_0_", 62],
-        ["MUTUAL_GRAPH_FRIEND_OLD__VRCX_JIRAI_", 148],
-        ["OLD_LINK", 148]
-    ],
-    "shift": [
-        ["CURRENT_LINK,MUTUAL_GRAPH_FRIEND__VRCX_0_,-1_0", 0],
-        ["CURRENT_LINK,MUTUAL_GRAPH_FRIEND__VRCX_0_,1_0", 0],
-        ["HAS_META,MUTUAL_GRAPH_FRIEND__VRCX_0_,0", 0],
-        ["HAS_META,MUTUAL_GRAPH_META__VRCX_0_,0", 0],
-        ["OLD_LINK,MUTUAL_GRAPH_FRIEND_OLD__VRCX_JIRAI_,-1_0", 0],
-        ["OLD_LINK,MUTUAL_GRAPH_FRIEND_OLD__VRCX_JIRAI_,1_0", 0]
-    ],
-    "ratio": []
+  "width": 1119,
+  "height": 368,
+  "cx": [
+    [ "MUTUAL_GRAPH_FRIENDS__CURRENT_", 145 ],
+    [ "HAS_CURRENT_LINK", 395 ],
+    [ "MUTUAL_GRAPH_LINKS__CURRENT_", 645 ],
+    [ "HAS_META", 885 ],
+    [ "MUTUAL_GRAPH_META__CURRENT_", 1115 ],
+    [ "MUTUAL_GRAPH_FRIENDS_OLD__LEGACY_", 380 ],
+    [ "HAS_OLD_LINK", 645 ],
+    [ "MUTUAL_GRAPH_LINKS_OLD__HISTORY_", 910 ],
+    [ "TRACKED_NONFRIENDS__JIRAI_", 145 ],
+    [ "MAY_SEED", 145 ],
+    [ "MANUAL_RELATIONS_MANUEL__JIRAI_", 910 ]
+  ],
+  "cy": [
+    [ "MUTUAL_GRAPH_FRIENDS__CURRENT_", 62 ],
+    [ "HAS_CURRENT_LINK", 62 ],
+    [ "MUTUAL_GRAPH_LINKS__CURRENT_", 62 ],
+    [ "HAS_META", 62 ],
+    [ "MUTUAL_GRAPH_META__CURRENT_", 62 ],
+    [ "MUTUAL_GRAPH_FRIENDS_OLD__LEGACY_", 190 ],
+    [ "HAS_OLD_LINK", 190 ],
+    [ "MUTUAL_GRAPH_LINKS_OLD__HISTORY_", 190 ],
+    [ "TRACKED_NONFRIENDS__JIRAI_", 322 ],
+    [ "MAY_SEED", 190 ],
+    [ "MANUAL_RELATIONS_MANUEL__JIRAI_", 322 ]
+  ],
+  "shift": [
+    [ "HAS_CURRENT_LINK,MUTUAL_GRAPH_FRIENDS__CURRENT_,0", 0 ],
+    [ "HAS_CURRENT_LINK,MUTUAL_GRAPH_LINKS__CURRENT_,0", 0 ],
+    [ "HAS_META,MUTUAL_GRAPH_FRIENDS__CURRENT_,0", 0 ],
+    [ "HAS_META,MUTUAL_GRAPH_META__CURRENT_,0", 0 ],
+    [ "HAS_OLD_LINK,MUTUAL_GRAPH_FRIENDS_OLD__LEGACY_,0", 0 ],
+    [ "HAS_OLD_LINK,MUTUAL_GRAPH_LINKS_OLD__HISTORY_,0", 0 ],
+    [ "MAY_SEED,TRACKED_NONFRIENDS__JIRAI_,0", 0 ],
+    [ "MAY_SEED,MUTUAL_GRAPH_FRIENDS__CURRENT_,0", 0 ]
+  ],
+  "ratio": []
 }

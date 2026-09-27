@@ -323,6 +323,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             commands::local::activity::app__activity_page_view,
             commands::local::activity::app__activity_overlap_view,
             commands::local::mutual_graph::app__mutual_graph_snapshot_get,
+            commands::local::mutual_graph::app__mutual_graph_history_get,
             commands::local::mutual_graph::app__mutual_graph_extras_get,
             commands::local::mutual_graph::app__mutual_graph_tracked_user_set,
             commands::local::mutual_graph::app__mutual_graph_manual_link_set,

@@ -193,6 +193,7 @@ impl VrcxMcpServer {
                 owner_user_id,
                 endpoint: self.runtime.current_endpoint(),
                 friend_ids: friend_ids.clone(),
+                replace_missing: false,
             })
             .map_err(|error| error.to_string())?;
         Ok(RefreshMutualGraphOutput {

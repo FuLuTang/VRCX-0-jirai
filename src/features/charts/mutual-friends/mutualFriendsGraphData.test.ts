@@ -218,9 +218,9 @@ describe('buildMutualFriendsCoverage', () => {
             ])
         ).toEqual({
             friendCount: 4,
-            fetchedCount: 2,
+            fetchedCount: 1,
             unavailableCount: 1,
-            lastFetchedAt: '2026-09-03T10:00:00.000Z'
+            lastFetchedAt: '2026-09-01T10:00:00.000Z'
         });
     });
 

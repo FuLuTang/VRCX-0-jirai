@@ -112,7 +112,8 @@ describe('useMutualFriendsGraphFetch', () => {
         expect(mocks.startMutualGraphFetch).toHaveBeenCalledWith({
             ownerUserId: 'usr_self',
             endpoint: ENDPOINT,
-            friendIds: ['usr_friend']
+            friendIds: ['usr_friend'],
+            replaceMissing: true
         });
         expect(
             mocks.bootstrapFriendRoster.mock.invocationCallOrder[0]
@@ -133,7 +134,8 @@ describe('useMutualFriendsGraphFetch', () => {
         expect(mocks.startMutualGraphFetch).toHaveBeenCalledWith({
             ownerUserId: 'usr_self',
             endpoint: ENDPOINT,
-            friendIds: ['usr_friend']
+            friendIds: ['usr_friend'],
+            replaceMissing: true
         });
     });
 
@@ -148,7 +150,8 @@ describe('useMutualFriendsGraphFetch', () => {
         expect(mocks.startMutualGraphFetch).toHaveBeenCalledWith({
             ownerUserId: 'usr_self',
             endpoint: ENDPOINT,
-            friendIds: ['usr_tracked']
+            friendIds: ['usr_tracked'],
+            replaceMissing: false
         });
     });
 

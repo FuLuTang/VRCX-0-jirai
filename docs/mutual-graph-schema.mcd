@@ -1,7 +1,13 @@
-MUTUAL_GRAPH_FRIEND (vrcx-0): friend_id
-CURRENT_LINK, 1N MUTUAL_GRAPH_FRIEND (vrcx-0), 1N MUTUAL_GRAPH_FRIEND (vrcx-0):
-HAS_META, 11 MUTUAL_GRAPH_FRIEND (vrcx-0), 01 MUTUAL_GRAPH_META (vrcx-0)
-MUTUAL_GRAPH_META (vrcx-0): friend_id, last_fetched_at, opted_out, total_count
+MUTUAL_GRAPH_FRIENDS (CURRENT): friend_id (PK)
+HAS_CURRENT_LINK, 0N MUTUAL_GRAPH_FRIENDS (CURRENT), 11 MUTUAL_GRAPH_LINKS (CURRENT)
+MUTUAL_GRAPH_LINKS (CURRENT): friend_id (PK part), mutual_id (PK part)
+HAS_META, 01 MUTUAL_GRAPH_FRIENDS (CURRENT), 01 MUTUAL_GRAPH_META (CURRENT)
+MUTUAL_GRAPH_META (CURRENT): friend_id (PK), last_fetched_at, opted_out, total_count
 
-MUTUAL_GRAPH_FRIEND_OLD (vrcx-jirai): friend_id, last_updated
-OLD_LINK, 1N MUTUAL_GRAPH_FRIEND_OLD (vrcx-jirai), 1N MUTUAL_GRAPH_FRIEND_OLD (vrcx-jirai): date
+MUTUAL_GRAPH_FRIENDS_OLD (LEGACY): friend_id (PK), last_updated
+HAS_OLD_LINK, 0N MUTUAL_GRAPH_FRIENDS_OLD (LEGACY), 11 MUTUAL_GRAPH_LINKS_OLD (HISTORY)
+MUTUAL_GRAPH_LINKS_OLD (HISTORY): friend_id (PK part), mutual_id (PK part), date
+
+TRACKED_NONFRIENDS (JIRAI): user_id (PK), display_name, added_at
+MAY_SEED, 01 TRACKED_NONFRIENDS (JIRAI), 01 MUTUAL_GRAPH_FRIENDS (CURRENT)
+MANUAL_RELATIONS_MANUEL (JIRAI): user_id_a (PK part), user_id_b (PK part), relation_type, added_at

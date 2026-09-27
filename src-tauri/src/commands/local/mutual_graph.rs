@@ -6,6 +6,7 @@ use vrcx_0_application::social::{
     MutualGraphFriendRefreshInput, MutualGraphFriendRefreshOutput, UserMutualFriendsListInput,
     UserMutualFriendsListOutput,
 };
+use vrcx_0_persistence::mutual_graph::MutualGraphHistoryOutput;
 use vrcx_0_runtime_host_desktop::local_data::{
     MutualGraphExtrasOutput, MutualGraphManualLinkSetInput, MutualGraphSnapshotOutput,
     MutualGraphTrackedUserSetInput,
@@ -24,6 +25,19 @@ pub async fn app__mutual_graph_snapshot_get(
     let local_data = state.runtime_host().local_data().clone();
     run_blocking("mutual graph snapshot", move || {
         local_data.mutual_graph_snapshot_get(user_id)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__mutual_graph_history_get(
+    state: State<'_, AppState>,
+    friend_id: String,
+) -> Result<MutualGraphHistoryOutput, AppError> {
+    let local_data = state.runtime_host().local_data().clone();
+    run_blocking("mutual graph history", move || {
+        local_data.mutual_graph_history_get(friend_id)
     })
     .await
 }

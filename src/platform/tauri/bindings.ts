@@ -1037,6 +1037,13 @@ const generatedCommands = {
     ): Promise<MutualGraphSnapshotOutput> {
         return await TAURI_INVOKE('app__mutual_graph_snapshot_get', { userId });
     },
+    async appMutualGraphHistoryGet(
+        friendId: string
+    ): Promise<MutualGraphHistoryOutput> {
+        return await TAURI_INVOKE('app__mutual_graph_history_get', {
+            friendId
+        });
+    },
     async appMutualGraphExtrasGet(
         ownerUserId: string
     ): Promise<MutualGraphExtrasOutput> {
@@ -5284,6 +5291,7 @@ export type MutualGraphFetchStartInput = {
     ownerUserId: OwnerId;
     endpoint?: string;
     friendIds?: string[];
+    replaceMissing?: boolean;
 };
 export type MutualGraphFetchState =
     | 'idle'
@@ -5321,6 +5329,10 @@ export type MutualGraphHistoricalLinkOutput = {
     friendId: string;
     mutualId: string;
     date: string;
+};
+export type MutualGraphHistoryOutput = {
+    lastSuccessfulAt: string | null;
+    links: MutualGraphHistoricalLinkOutput[];
 };
 export type MutualGraphLinkOutput = { friendId: string; mutualId: string };
 export type MutualGraphManualLinkOutput = {
@@ -6453,6 +6465,7 @@ export type UserMutualFriendsListInput = { userId: string };
 export type UserMutualFriendsListOutput = {
     rows: RawJson[];
     persisted: boolean;
+    observedAt: string;
 };
 export type UserNoteOutput = {
     userId: string;

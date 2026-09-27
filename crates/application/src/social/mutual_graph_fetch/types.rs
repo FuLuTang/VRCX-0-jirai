@@ -13,6 +13,8 @@ pub struct MutualGraphFetchStartInput {
     pub endpoint: String,
     #[serde(default)]
     pub friend_ids: Vec<String>,
+    #[serde(default)]
+    pub replace_missing: bool,
 }
 
 #[derive(Debug, Deserialize, specta::Type)]
@@ -90,6 +92,13 @@ pub struct MutualGraphSnapshotEntryInput {
 }
 
 #[derive(Clone, Debug)]
+pub struct MutualGraphObservationInput {
+    pub friend_id: String,
+    pub mutual_ids: Vec<String>,
+    pub observed_at: String,
+}
+
+#[derive(Clone, Debug)]
 pub struct MutualGraphMetaInput {
     pub friend_id: String,
     pub last_fetched_at: String,
@@ -119,6 +128,13 @@ pub struct MutualGraphSnapshotOutput {
 }
 
 pub trait MutualGraphStore: Send + Sync {
+    fn archive_observation(
+        &self,
+        owner_user_id: String,
+        friend_id: String,
+        mutual_ids: Vec<String>,
+        observed_at: String,
+    ) -> Result<()>;
     fn friend_refresh_commit(
         &self,
         owner_user_id: String,
@@ -126,6 +142,7 @@ pub trait MutualGraphStore: Send + Sync {
         mutual_ids: Option<Vec<String>>,
         total_count: Option<usize>,
         opted_out: bool,
+        observed_at: Option<String>,
     ) -> Result<()>;
     fn snapshot_get(&self, owner_user_id: String) -> Result<MutualGraphSnapshotOutput>;
     fn snapshot_commit(
@@ -133,6 +150,9 @@ pub trait MutualGraphStore: Send + Sync {
         owner_user_id: String,
         entries: Vec<MutualGraphSnapshotEntryInput>,
         meta: Vec<MutualGraphMetaInput>,
+        observations: Vec<MutualGraphObservationInput>,
+        replace_missing: bool,
+        scope_ids: Vec<String>,
     ) -> Result<()>;
 }
 
@@ -177,4 +197,5 @@ pub struct UserMutualFriendsListInput {
 pub struct UserMutualFriendsListOutput {
     pub rows: Vec<RawJson>,
     pub persisted: bool,
+    pub observed_at: String,
 }

@@ -166,7 +166,11 @@ export function useMutualFriendsGraphFetch({
                     return;
                 }
                 friendIds = readMutualGraphFriendIds(ownerUserId);
-                if (!friendIds.length && !trackedUserIds.length) {
+                if (
+                    !friendIds.length &&
+                    !trackedUserIds.length &&
+                    useFriendRosterStore.getState().loadStatus !== 'ready'
+                ) {
                     toast.add({
                         type: 'info',
                         title: t(
@@ -177,6 +181,10 @@ export function useMutualFriendsGraphFetch({
                 }
             }
 
+            const rosterState = useFriendRosterStore.getState();
+            const replaceMissing =
+                rosterState.currentUserId === ownerUserId &&
+                rosterState.loadStatus === 'ready';
             friendIds = Array.from(new Set([...friendIds, ...trackedUserIds]));
 
             setDetail('');
@@ -184,7 +192,8 @@ export function useMutualFriendsGraphFetch({
             await startMutualGraphFetch({
                 ownerUserId,
                 endpoint: ownerEndpoint,
-                friendIds
+                friendIds,
+                replaceMissing
             });
             toast.add({
                 type: 'info',

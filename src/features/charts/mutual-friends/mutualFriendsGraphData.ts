@@ -46,7 +46,7 @@ export function buildMutualFriendsCoverage(
         if (metadata.optedOut) {
             coverage.unavailableCount += 1;
         }
-        if (!metadata.lastFetchedAt) {
+        if (metadata.optedOut || !metadata.lastFetchedAt) {
             continue;
         }
         coverage.fetchedCount += 1;
@@ -150,7 +150,9 @@ export function buildMutualFriendsBaseGraph(
                     source: source.id,
                     target: target.id,
                     ...(existing ?? {}),
-                    current: true
+                    ...(meta?.get(friendId)?.optedOut
+                        ? { historical: true }
+                        : { current: true })
                 });
             }
         });

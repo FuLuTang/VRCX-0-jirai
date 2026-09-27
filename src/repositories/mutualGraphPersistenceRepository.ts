@@ -6,6 +6,10 @@ type MutualGraphMeta = {
     totalCount: number | null;
 };
 
+async function getHistory(friendId: string) {
+    return commands.appMutualGraphHistoryGet(friendId.trim());
+}
+
 async function getSnapshot(userId: string): Promise<{
     snapshot: Map<string, string[]>;
     historicalLinks: Map<string, string>;
@@ -64,7 +68,16 @@ async function getSnapshot(userId: string): Promise<{
             continue;
         }
         const key = [row.friendId, row.mutualId].sort().join('__');
-        historicalLinks.set(key, row.date);
+        const previous = historicalLinks.get(key);
+        const currentTime = Date.parse(row.date);
+        const previousTime = previous ? Date.parse(previous) : NaN;
+        if (
+            !previous ||
+            (Number.isFinite(currentTime) &&
+                (!Number.isFinite(previousTime) || currentTime > previousTime))
+        ) {
+            historicalLinks.set(key, row.date);
+        }
     }
 
     for (const row of metaRows) {
@@ -124,6 +137,7 @@ async function setManualLink(
 
 const mutualGraphPersistenceRepository = Object.freeze({
     getSnapshot,
+    getHistory,
     setTrackedUser,
     setManualLink
 });
