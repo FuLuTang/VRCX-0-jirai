@@ -506,7 +506,7 @@ describe('databaseUpgradeService', () => {
 
         expect(mocks.appOpenVrcxAppDataFolder).toHaveBeenCalledTimes(1);
         expect(mocks.openExternalLink).toHaveBeenCalledWith(
-            'https://github.com/Map1en/VRCX-0/issues/new?template=bug_report.yml'
+            'https://github.com/FuLuTang/VRCX-0-jirai/issues/new?template=bug_report.yml'
         );
     });
 

@@ -1,0 +1,227 @@
+diff --git a/crates/persistence/src/lib.rs b/crates/persistence/src/lib.rs
+index a30e264b..bcebc539 100644
+--- a/crates/persistence/src/lib.rs
++++ b/crates/persistence/src/lib.rs
+@@ -27,6 +27,7 @@
+ pub mod player_list;
+ pub mod profile_backup;
+ pub mod realtime;
++pub mod relationship_recommendations;
+ pub mod saved_group_favorites;
+ pub mod screenshot_cache;
+ pub mod secrets;
+diff --git a/crates/runtime-host-desktop/src/local_data.rs b/crates/runtime-host-desktop/src/local_data.rs
+index a19f7eb2..dc49ed47 100644
+--- a/crates/runtime-host-desktop/src/local_data.rs
++++ b/crates/runtime-host-desktop/src/local_data.rs
+@@ -74,6 +74,9 @@
+ pub use vrcx_0_persistence::realtime::{
+     ProfileFeedReconcileInput, ProfileFeedReconcileOutput,
+ };
++pub use vrcx_0_persistence::relationship_recommendations::{
++    RelationshipEvidenceOutput, RelationshipEvidenceQueryInput,
++};
+ pub use vrcx_0_persistence::social_aggregates::{WorldFriendVisitRow, WorldFriendVisitsOutput};
+ pub use vrcx_0_persistence::tracked_nonfriends::{
+     TrackedNonFriendAddInput, TrackedNonFriendOutput, TrackedNonFriendUpdateNameInput,
+@@ -292,6 +295,15 @@ pub fn profile_feed_reconcile(
+         )?)
+     }
+ 
++    pub fn relationship_evidence_query(
++        &self,
++        input: RelationshipEvidenceQueryInput,
++    ) -> Result<Vec<RelationshipEvidenceOutput>> {
++        Ok(vrcx_0_persistence::relationship_recommendations::relationship_evidence_query(
++            self.db.as_ref(), &self.current_owner(), input,
++        )?)
++    }
++
+     pub fn query_feed_latest(&self, query: FeedLatestQueryInput) -> Result<FeedReadModelOutput> {
+         self.realtime.query_feed_latest(query)
+     }
+diff --git a/src-tauri/src/bindings_export.rs b/src-tauri/src/bindings_export.rs
+index 0f55c3d3..c7781200 100644
+--- a/src-tauri/src/bindings_export.rs
++++ b/src-tauri/src/bindings_export.rs
+@@ -298,6 +298,7 @@ pub fn builder() -> Builder<tauri::Wry> {
+             commands::local::feed::app__avatar_feed_history_cleanup,
+             commands::local::feed::app__startup_online_backfill_insert,
+             commands::local::feed::app__profile_feed_reconcile,
++            commands::local::feed::app__relationship_evidence_query,
+             commands::local::feed::app__feed_latest_query,
+             commands::local::feed::app__feed_search_query,
+             commands::local::feed::app__feed_rows_query,
+diff --git a/src-tauri/src/commands/local/feed.rs b/src-tauri/src/commands/local/feed.rs
+index 87ed9c69..2e6385d4 100644
+--- a/src-tauri/src/commands/local/feed.rs
++++ b/src-tauri/src/commands/local/feed.rs
+@@ -7,6 +7,7 @@
+ use vrcx_0_runtime_host_desktop::local_data::{
+     FeedLatestQueryInput, FeedReadModelOutput, FeedRowOutput, FeedRowsQueryInput,
+     FeedSearchQueryInput, ProfileFeedReconcileInput, ProfileFeedReconcileOutput,
++    RelationshipEvidenceOutput, RelationshipEvidenceQueryInput,
+     StartupOnlineBackfillInput, StartupOnlineBackfillOutput,
+ };
+ 
+@@ -77,6 +78,17 @@ pub async fn app__profile_feed_reconcile(
+         .map_err(AppError::from)
+ }
+ 
++#[tauri::command]
++#[specta::specta]
++pub async fn app__relationship_evidence_query(
++    state: State<'_, AppState>, input: RelationshipEvidenceQueryInput,
++) -> Result<Vec<RelationshipEvidenceOutput>, AppError> {
++    let local_data = state.runtime_host().local_data().clone();
++    tauri::async_runtime::spawn_blocking(move || local_data.relationship_evidence_query(input)).await
++        .map_err(|error| AppError::Custom(format!("relationship evidence task: {error}")))?
++        .map_err(AppError::from)
++}
++
+ #[tauri::command]
+ #[specta::specta]
+ pub async fn app__feed_latest_query(
+diff --git a/src/features/charts/components/mutual-friends/ManualRelationsControl.tsx b/src/features/charts/components/mutual-friends/ManualRelationsControl.tsx
+index 55022f97..1463cb3e 100644
+--- a/src/features/charts/components/mutual-friends/ManualRelationsControl.tsx
++++ b/src/features/charts/components/mutual-friends/ManualRelationsControl.tsx
+@@ -2,6 +2,8 @@ import { Link2Icon, Trash2Icon } from 'lucide-react';
+ import { useState } from 'react';
+ 
+ import type { ManualRelation } from '@/repositories/manualRelationsRepository';
++import { useRelationshipRecommendationsStore } from '@/state/relationshipRecommendationsStore';
++import { useTrackedNonfriendsStore } from '@/state/trackedNonfriendsStore';
+ import { Button } from '@/ui/shadcn/button';
+ import {
+     Dialog,
+@@ -34,6 +36,29 @@ export function ManualRelationsControl({
+     const [userIdB, setUserIdB] = useState('');
+     const [isSaving, setIsSaving] = useState(false);
+     const [actionError, setActionError] = useState('');
++    const recommendations = useRelationshipRecommendationsStore(
++        (state) => state.items
++    );
++    const recommendationsLoading = useRelationshipRecommendationsStore(
++        (state) => state.loading
++    );
++    const runRecommendations = useRelationshipRecommendationsStore(
++        (state) => state.run
++    );
++    const ignoreRecommendation = useRelationshipRecommendationsStore(
++        (state) => state.ignore
++    );
++    const acceptRecommendation = useRelationshipRecommendationsStore(
++        (state) => state.accept
++    );
++    const cancelRecommendations = useRelationshipRecommendationsStore(
++        (state) => state.cancel
++    );
++    const trackedCandidates = useTrackedNonfriendsStore((state) =>
++        state.currentUserId === ownerUserId
++            ? state.entries.map((entry) => entry.userId)
++            : []
++    );
+     const normalizedUserIdA = userIdA.trim();
+     const normalizedUserIdB = userIdB.trim();
+     const canAdd =
+@@ -137,6 +162,58 @@ export function ManualRelationsControl({
+                     </p>
+                 ) : null}
+ 
++                <section className="space-y-2 border-t pt-3">
++                    <Button
++                        type="button"
++                        size="sm"
++                        disabled={!ownerUserId || recommendationsLoading}
++                        onClick={() =>
++                            void runRecommendations(ownerUserId, [
++                                ...new Set([
++                                    ...Object.keys(labelsById),
++                                    ...trackedCandidates
++                                ])
++                            ])
++                        }
++                    >
++                        Find relationship recommendations
++                    </Button>
++                    {recommendationsLoading ? (
++                        <Button
++                            type="button"
++                            size="sm"
++                            variant="ghost"
++                            onClick={cancelRecommendations}
++                        >
++                            Cancel
++                        </Button>
++                    ) : null}
++                    {recommendations.map((item) => (
++                        <div
++                            key={item.key}
++                            className="flex items-center gap-2 text-sm"
++                        >
++                            <span className="flex-1 truncate">
++                                {item.nameA} ↔ {item.nameB} ({item.score})
++                            </span>
++                            <Button
++                                type="button"
++                                size="sm"
++                                onClick={() => void acceptRecommendation(item)}
++                            >
++                                Accept
++                            </Button>
++                            <Button
++                                type="button"
++                                size="sm"
++                                variant="ghost"
++                                onClick={() => ignoreRecommendation(item.key)}
++                            >
++                                Ignore
++                            </Button>
++                        </div>
++                    ))}
++                </section>
+                 <div className="max-h-72 overflow-y-auto">
+                     {isLoading ? (
+                         <p className="text-muted-foreground py-4 text-sm">
+diff --git a/src/platform/tauri/bindings.ts b/src/platform/tauri/bindings.ts
+index 2066deca..b51f4a6c 100644
+--- a/src/platform/tauri/bindings.ts
++++ b/src/platform/tauri/bindings.ts
+@@ -1054,6 +1054,13 @@ const generatedCommands = {
+     ): Promise<ProfileFeedReconcileOutput> {
+         return await TAURI_INVOKE('app__profile_feed_reconcile', { input });
+     },
++    async appRelationshipEvidenceQuery(
++        input: RelationshipEvidenceQueryInput
++    ): Promise<RelationshipEvidenceOutput[]> {
++        return await TAURI_INVOKE('app__relationship_evidence_query', {
++            input
++        });
++    },
+     async appMutualGraphFetchStatusGet(): Promise<MutualGraphFetchStatus> {
+         return await TAURI_INVOKE('app__mutual_graph_fetch_status_get');
+     },
+@@ -5732,6 +5739,22 @@ export type ProfileBackupSettings = {
+     lastAutoAt: string | null;
+ };
+ export type ProfileBackupState = 'idle' | 'running' | 'retryable' | 'error';
++export type RelationshipEvidenceQueryInput = {
++    candidateUserIds: string[];
++    perCandidateLimit: number;
++    totalLimit: number;
++};
++export type RelationshipEvidenceOutput = {
++    ownerUserId: string;
++    userId: string;
++    displayName: string;
++    location: string;
++    accessType: string;
++    creatorUserId: string | null;
++    startMs: number;
++    endMs: number;
++    selfPresent: boolean;
++};
+ export type ProfileFeedReconcileInput = {
+     userId: string;
+     displayName: string;

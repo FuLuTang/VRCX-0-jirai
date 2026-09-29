@@ -37,6 +37,7 @@ describe('tool catalog categories', () => {
                 'crash-dumps'
             ],
             automation: [
+                'sync-workflow',
                 'app-launcher',
                 'presence-schedule',
                 'presence-room-rules',

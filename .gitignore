@@ -24,3 +24,4 @@ scripts/package-windows-release.ps1
 .agents/
 .mcp.json
 tsconfig.tsbuildinfo
+node_modules.orig/

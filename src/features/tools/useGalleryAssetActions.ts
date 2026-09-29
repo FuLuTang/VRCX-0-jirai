@@ -224,13 +224,8 @@ export function createGalleryAssetActions({
         }
         throw new Error(`Unsupported upload target: ${tab}`);
     }
-    async function uploadSelectedFile(event: ChangeEvent<HTMLInputElement>) {
-        const file = event.target.files?.[0] || null;
-        event.target.value = '';
-        if (!file) {
-            return;
-        }
-        const tab = uploadTargetRef.current || activeTab;
+    function prepareUploadFile(file: File, target?: GalleryUploadTarget) {
+        const tab = target || uploadTargetRef.current || activeTab;
         if (tab !== 'gallery' && tab !== 'icons' && !isVrcPlusSupporter) {
             toast.add({ type: 'error', title: t('message.vrcplus.required') });
             return;
@@ -238,7 +233,9 @@ export function createGalleryAssetActions({
         if (!validateImageFile(file, t)) {
             return;
         }
-        const authTarget = uploadAuthTargetRef.current || getAuthTarget();
+        const authTarget = target
+            ? getAuthTarget()
+            : uploadAuthTargetRef.current || getAuthTarget();
         if (!isRuntimeAuthTarget(authTarget)) {
             return;
         }
@@ -272,6 +269,13 @@ export function createGalleryAssetActions({
             authTarget,
             aspectRatio: UPLOAD_ASPECT_RATIOS[tab] || 1
         });
+    }
+    function uploadSelectedFile(event: ChangeEvent<HTMLInputElement>) {
+        const file = event.target.files?.[0] || null;
+        event.target.value = '';
+        if (file) {
+            prepareUploadFile(file);
+        }
     }
     async function confirmCroppedUpload(
         blob: Blob,
@@ -409,6 +413,7 @@ export function createGalleryAssetActions({
         refreshTab,
         refreshAll,
         beginUpload,
+        prepareUploadFile,
         uploadSelectedFile,
         confirmCroppedUpload,
         deleteFileAsset

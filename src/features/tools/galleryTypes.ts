@@ -31,6 +31,11 @@ export type GalleryUploadOptions = {
     note?: string;
 };
 
+export type GalleryPendingUpload = {
+    file: File;
+    target: GalleryUploadTarget;
+};
+
 type DialogResult<TValue = never> = {
     ok: boolean;
     value?: TValue;

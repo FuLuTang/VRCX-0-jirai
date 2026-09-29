@@ -149,7 +149,7 @@ export function buildMutualFriendsBaseGraph(
                 edgeMap.set(edgeKey, {
                     source: source.id,
                     target: target.id,
-                    ...(existing ?? {}),
+                    ...existing,
                     ...(meta?.get(friendId)?.optedOut
                         ? { historical: true }
                         : { current: true })
@@ -169,7 +169,7 @@ export function buildMutualFriendsBaseGraph(
         edgeMap.set(edgeKey, {
             source: source.id,
             target: target.id,
-            ...(existing ?? {}),
+            ...existing,
             manual: true
         });
     }

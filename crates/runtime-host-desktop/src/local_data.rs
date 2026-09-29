@@ -15,8 +15,8 @@ use vrcx_0_application::social::{
 use vrcx_0_application_activity::OverlayActivityRuntime;
 use vrcx_0_application_core::vrchat_api::VrchatApiResponse;
 use vrcx_0_application_core::{
-    AvatarCache, Error, FavoriteEntityKind, FileCache, Result, RuntimeAuthScope, TaskSupervisor,
-    WebClient, WorldCache,
+    AvatarCache, Error, FavoriteEntityKind, FileCache, Result, RuntimeAuthScope,
+    RuntimeAuthScopeSnapshot, TaskSupervisor, WebClient, WorldCache,
 };
 use vrcx_0_application_game::{
     GameLogSessionDto, GameLogSessionsQueryInput, InstanceHistoryEntryOutput,
@@ -74,7 +74,11 @@ pub use vrcx_0_persistence::notifications::{
     NotificationListItemOutput, NotificationListQueryInput,
 };
 pub use vrcx_0_persistence::player_list::InstanceActivityRowOutput;
+pub use vrcx_0_persistence::realtime::{ProfileFeedReconcileInput, ProfileFeedReconcileOutput};
 pub use vrcx_0_persistence::social_aggregates::{WorldFriendVisitRow, WorldFriendVisitsOutput};
+pub use vrcx_0_persistence::tracked_nonfriends::{
+    TrackedNonFriendAddInput, TrackedNonFriendOutput, TrackedNonFriendUpdateNameInput,
+};
 pub use vrcx_0_persistence::worlds::WorldSummaryOutput;
 
 #[derive(Debug, serde::Deserialize, specta::Type)]
@@ -96,6 +100,67 @@ pub struct WorldGetInput {
     pub force: bool,
     #[serde(default)]
     pub full: bool,
+}
+
+/// A renderer request for an observed online friend. The host independently
+/// verifies the current realtime friend record and creates the timestamp.
+#[derive(Debug, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct StartupOnlineBackfillInput {
+    pub expected_owner_user_id: String,
+    pub target_user_id: String,
+    pub display_name: String,
+}
+
+#[derive(Debug, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct StartupOnlineBackfillOutput {
+    pub inserted: bool,
+}
+
+fn tracked_nonfriends_owner_for_scope(
+    scope: &RuntimeAuthScopeSnapshot,
+    expected_owner_user_id: &str,
+) -> Result<OwnerId> {
+    let expected_owner_user_id = expected_owner_user_id.trim();
+    if !scope.active
+        || expected_owner_user_id.is_empty()
+        || scope.current_user_id != expected_owner_user_id
+    {
+        return Err(Error::PersistenceInvalidData(
+            "Tracked non-friends account changed before local access.".into(),
+        ));
+    }
+    Ok(OwnerId::new(scope.current_user_id.clone()))
+}
+
+#[cfg(test)]
+mod tracked_nonfriends_scope_tests {
+    use super::*;
+
+    #[test]
+    fn rejects_stale_or_inactive_owner_before_local_access() {
+        let auth_scope = RuntimeAuthScope::new();
+        assert!(tracked_nonfriends_owner_for_scope(&auth_scope.snapshot(), "usr_a").is_err());
+
+        auth_scope.set("usr_a", "");
+        assert_eq!(
+            tracked_nonfriends_owner_for_scope(&auth_scope.snapshot(), " usr_a ")
+                .unwrap()
+                .as_str(),
+            "usr_a"
+        );
+        assert!(tracked_nonfriends_owner_for_scope(&auth_scope.snapshot(), "").is_err());
+
+        auth_scope.set("usr_b", "");
+        assert!(tracked_nonfriends_owner_for_scope(&auth_scope.snapshot(), "usr_a").is_err());
+        assert_eq!(
+            tracked_nonfriends_owner_for_scope(&auth_scope.snapshot(), "usr_b")
+                .unwrap()
+                .as_str(),
+            "usr_b"
+        );
+    }
 }
 
 #[derive(Clone)]
@@ -173,6 +238,10 @@ impl LocalDataRuntime {
         OwnerId::new(self.auth_scope.snapshot().current_user_id)
     }
 
+    fn tracked_nonfriends_owner(&self, expected_owner_user_id: &str) -> Result<OwnerId> {
+        tracked_nonfriends_owner_for_scope(&self.auth_scope.snapshot(), expected_owner_user_id)
+    }
+
     fn game_state_store(&self) -> crate::game_state_store::PersistenceGameStateStore {
         crate::game_state_store::PersistenceGameStateStore::new(Arc::clone(&self.db))
     }
@@ -239,6 +308,59 @@ impl LocalDataRuntime {
         self.realtime.set_feed_persistence_disabled(disabled)
     }
 
+    /// Atomically appends an observed-now Online edge if this owner's latest
+    /// Online/Offline Feed state is absent or Offline.
+    pub fn startup_online_backfill_insert(
+        &self,
+        input: StartupOnlineBackfillInput,
+    ) -> Result<StartupOnlineBackfillOutput> {
+        let current_owner = self.current_owner();
+        if input.expected_owner_user_id.trim() != current_owner.as_str() {
+            return Err(vrcx_0_application_core::Error::PersistenceInvalidData(
+                "Startup online backfill account changed before persistence.".into(),
+            ));
+        }
+        let target_user_id = input.target_user_id.trim();
+        let realtime_friend = self
+            .realtime
+            .friend_snapshot()
+            .filter(|snapshot| snapshot.current_user_id == current_owner.as_str())
+            .and_then(|snapshot| snapshot.friends_by_id.get(target_user_id).cloned());
+        if current_owner.is_empty()
+            || !realtime_friend
+                .is_some_and(|friend| friend.state.as_str().eq_ignore_ascii_case("online"))
+        {
+            return Err(vrcx_0_application_core::Error::PersistenceInvalidData(
+                "Startup online backfill target is not a current online friend.".into(),
+            ));
+        }
+
+        let inserted = vrcx_0_persistence::realtime::insert_startup_online_backfill(
+            self.db.as_ref(),
+            &current_owner,
+            target_user_id,
+            &input.display_name,
+        )?;
+        Ok(StartupOnlineBackfillOutput { inserted })
+    }
+
+    pub fn profile_feed_reconcile(
+        &self,
+        input: ProfileFeedReconcileInput,
+    ) -> Result<ProfileFeedReconcileOutput> {
+        let current_owner = self.current_owner();
+        if input.expected_owner_user_id.trim() != current_owner.as_str() {
+            return Err(vrcx_0_application_core::Error::PersistenceInvalidData(
+                "Profile reconciliation account changed before persistence.".into(),
+            ));
+        }
+        Ok(vrcx_0_persistence::realtime::profile_feed_reconcile(
+            self.db.as_ref(),
+            &current_owner,
+            input,
+        )?)
+    }
+
     pub fn query_feed_latest(&self, query: FeedLatestQueryInput) -> Result<FeedReadModelOutput> {
         self.realtime.query_feed_latest(query)
     }
@@ -291,6 +413,10 @@ impl LocalDataRuntime {
 
     pub fn saved_group_favorite_remove(&self, input: SavedGroupFavoriteRemoveInput) -> Result<i64> {
         self.saved_group_favorites.remove_group(input)
+    }
+
+    pub fn mutual_graph_fetch_status(&self) -> MutualGraphFetchStatus {
+        self.mutual_graph_fetch.status()
     }
 
     pub fn mutual_graph_fetch_cancel(
@@ -683,6 +809,79 @@ impl LocalDataRuntime {
             self.db.as_ref(),
             user_id,
         )?)
+    }
+
+    pub fn tracked_nonfriends_list(
+        &self,
+        expected_owner_user_id: String,
+    ) -> Result<Vec<TrackedNonFriendOutput>> {
+        let owner = self.tracked_nonfriends_owner(&expected_owner_user_id)?;
+        Ok(
+            vrcx_0_persistence::tracked_nonfriends::tracked_nonfriends_list(
+                self.db.as_ref(),
+                &owner,
+            )?,
+        )
+    }
+
+    pub fn tracked_nonfriends_add(
+        &self,
+        expected_owner_user_id: String,
+        input: TrackedNonFriendAddInput,
+    ) -> Result<bool> {
+        let owner = self.tracked_nonfriends_owner(&expected_owner_user_id)?;
+        Ok(
+            vrcx_0_persistence::tracked_nonfriends::tracked_nonfriends_add(
+                self.db.as_ref(),
+                &owner,
+                input,
+            )?,
+        )
+    }
+
+    pub fn tracked_nonfriends_remove(
+        &self,
+        expected_owner_user_id: String,
+        user_id: String,
+    ) -> Result<bool> {
+        let owner = self.tracked_nonfriends_owner(&expected_owner_user_id)?;
+        Ok(
+            vrcx_0_persistence::tracked_nonfriends::tracked_nonfriends_remove(
+                self.db.as_ref(),
+                &owner,
+                user_id,
+            )?,
+        )
+    }
+
+    pub fn tracked_nonfriends_is_tracked(
+        &self,
+        expected_owner_user_id: String,
+        user_id: String,
+    ) -> Result<bool> {
+        let owner = self.tracked_nonfriends_owner(&expected_owner_user_id)?;
+        Ok(
+            vrcx_0_persistence::tracked_nonfriends::tracked_nonfriends_is_tracked(
+                self.db.as_ref(),
+                &owner,
+                user_id,
+            )?,
+        )
+    }
+
+    pub fn tracked_nonfriends_update_name(
+        &self,
+        expected_owner_user_id: String,
+        input: TrackedNonFriendUpdateNameInput,
+    ) -> Result<bool> {
+        let owner = self.tracked_nonfriends_owner(&expected_owner_user_id)?;
+        Ok(
+            vrcx_0_persistence::tracked_nonfriends::tracked_nonfriends_update_name(
+                self.db.as_ref(),
+                &owner,
+                input,
+            )?,
+        )
     }
 
     pub fn friend_log_history_delete(

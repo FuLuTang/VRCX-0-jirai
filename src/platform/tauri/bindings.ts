@@ -908,6 +908,18 @@ const generatedCommands = {
             cutoffDate
         });
     },
+    async appStartupOnlineBackfillInsert(
+        input: StartupOnlineBackfillInput
+    ): Promise<StartupOnlineBackfillOutput> {
+        return await TAURI_INVOKE('app__startup_online_backfill_insert', {
+            input
+        });
+    },
+    async appProfileFeedReconcile(
+        input: ProfileFeedReconcileInput
+    ): Promise<ProfileFeedReconcileOutput> {
+        return await TAURI_INVOKE('app__profile_feed_reconcile', { input });
+    },
     async appFeedLatestQuery(
         query: FeedLatestQueryInput
     ): Promise<FeedReadModelOutput> {
@@ -1065,6 +1077,9 @@ const generatedCommands = {
             input
         });
     },
+    async appMutualGraphFetchStatusGet(): Promise<MutualGraphFetchStatus> {
+        return await TAURI_INVOKE('app__mutual_graph_fetch_status_get');
+    },
     async appMutualGraphFetchCancel(
         input: MutualGraphFetchCancelInput
     ): Promise<MutualGraphFetchStatus> {
@@ -1194,6 +1209,49 @@ const generatedCommands = {
         return await TAURI_INVOKE('app__friend_log_history_delete', {
             userId,
             entry
+        });
+    },
+    async appTrackedNonfriendsList(
+        expectedOwnerUserId: string
+    ): Promise<TrackedNonFriendOutput[]> {
+        return await TAURI_INVOKE('app__tracked_nonfriends_list', {
+            expectedOwnerUserId
+        });
+    },
+    async appTrackedNonfriendsAdd(
+        expectedOwnerUserId: string,
+        input: TrackedNonFriendAddInput
+    ): Promise<boolean> {
+        return await TAURI_INVOKE('app__tracked_nonfriends_add', {
+            expectedOwnerUserId,
+            input
+        });
+    },
+    async appTrackedNonfriendsRemove(
+        expectedOwnerUserId: string,
+        userId: string
+    ): Promise<boolean> {
+        return await TAURI_INVOKE('app__tracked_nonfriends_remove', {
+            expectedOwnerUserId,
+            userId
+        });
+    },
+    async appTrackedNonfriendsIsTracked(
+        expectedOwnerUserId: string,
+        userId: string
+    ): Promise<boolean> {
+        return await TAURI_INVOKE('app__tracked_nonfriends_is_tracked', {
+            expectedOwnerUserId,
+            userId
+        });
+    },
+    async appTrackedNonfriendsUpdateName(
+        expectedOwnerUserId: string,
+        input: TrackedNonFriendUpdateNameInput
+    ): Promise<boolean> {
+        return await TAURI_INVOKE('app__tracked_nonfriends_update_name', {
+            expectedOwnerUserId,
+            input
         });
     },
     async appNotificationListQuery(
@@ -5782,6 +5840,18 @@ export type ProfileDecorationEquipSlot =
     | 'iconFrame'
     | 'profileEffect'
     | 'nameplateEffect';
+export type ProfileFeedReconcileInput = {
+    expectedOwnerUserId: string;
+    userId: string;
+    displayName: string;
+    bio?: string | null;
+    status?: string;
+    statusDescription?: string;
+};
+export type ProfileFeedReconcileOutput = {
+    bioUpdated: boolean;
+    statusUpdated: boolean;
+};
 export type ProfileRestoreAppVersionCheck = 'compatible';
 export type ProfileRestoreArchiveCheck = 'valid';
 export type ProfileRestoreDataDisposition =
@@ -6346,6 +6416,16 @@ export type StartupBootstrapSnapshot = {
     systemLanguage: string;
     systemCulture: string;
 };
+/**
+ * A renderer request for an observed online friend. The host independently
+ * verifies the current realtime friend record and creates the timestamp.
+ */
+export type StartupOnlineBackfillInput = {
+    expectedOwnerUserId: string;
+    targetUserId: string;
+    displayName: string;
+};
+export type StartupOnlineBackfillOutput = { inserted: boolean };
 export type TelemetryClientEvent =
     | { type: 'pageVisit'; route: string }
     | { type: 'toolOpen'; tool: string }
@@ -6368,6 +6448,16 @@ export type ToolResultRecord = {
     ok: boolean;
     summary: string;
     entities: Entity[];
+};
+export type TrackedNonFriendAddInput = { userId: string; displayName?: string };
+export type TrackedNonFriendOutput = {
+    userId: string;
+    displayName: string;
+    addedAt: string;
+};
+export type TrackedNonFriendUpdateNameInput = {
+    userId: string;
+    displayName?: string;
 };
 export type TranslationOverrides = {
     enabled: boolean | null;

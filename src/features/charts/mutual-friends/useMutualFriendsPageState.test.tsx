@@ -11,7 +11,10 @@ import { useMutualFriendsSigmaLifecycle } from './useMutualFriendsSigmaLifecycle
 const mocks = vi.hoisted(() => ({
     snapshotData: {
         snapshot: new Map([['usr_a', ['usr_b']]]),
-        meta: new Map()
+        meta: new Map(),
+        historicalLinks: [],
+        trackedUsers: [],
+        manualLinks: []
     }
 }));
 

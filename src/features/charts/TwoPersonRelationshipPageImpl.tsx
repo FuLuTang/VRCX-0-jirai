@@ -17,7 +17,6 @@ import feedRepository from '@/repositories/feedRepository';
 import { openWorldDialog } from '@/services/dialogService';
 import { parseLocation } from '@/shared/utils/location';
 import { useFriendRosterStore } from '@/state/friendRosterStore';
-import { usePreferencesStore } from '@/state/preferencesStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
 import { Button } from '@/ui/shadcn/button';
 import {
@@ -105,7 +104,7 @@ function isSelfPresent(
     return false;
 }
 
-function groupOverlapsByLocation(overlapRows, selfSessions, dtHour12) {
+function groupOverlapsByLocation(overlapRows, selfSessions) {
     const grouped = new Map();
 
     const selfSessionsByLocation = {};
@@ -116,9 +115,6 @@ function groupOverlapsByLocation(overlapRows, selfSessions, dtHour12) {
     for (const row of overlapRows) {
         const key = row.location;
         if (!grouped.has(key)) {
-            const parsed = parseLocation(row.location);
-            const instanceCreatorId = parsed?.userId || null;
-
             grouped.set(key, {
                 location: row.location,
                 worldName: row.worldName,
@@ -198,7 +194,6 @@ export function TwoPersonRelationshipPage() {
     const { t } = useTranslation();
     const currentUserId = useRuntimeStore((state) => state.auth.currentUserId);
     const friendsById = useFriendRosterStore((state) => state.friendsById);
-    const dtHour12 = usePreferencesStore((state) => state.dtHour12);
 
     const friendOptions = useMemo(
         () => buildFriendOptions(friendsById),
@@ -360,8 +355,8 @@ export function TwoPersonRelationshipPage() {
     }, [showSelfPresence, currentUserId, overlapRows.length]);
 
     const groupedItems = useMemo(
-        () => groupOverlapsByLocation(overlapRows, selfSessions, dtHour12),
-        [overlapRows, selfSessions, dtHour12]
+        () => groupOverlapsByLocation(overlapRows, selfSessions),
+        [overlapRows, selfSessions]
     );
 
     const totalCoexistenceTime = useMemo(

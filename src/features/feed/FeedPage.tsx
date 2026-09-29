@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { useSearchParams } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 
 import { PreviousInstancesTableDialog } from '@/components/dialogs/PreviousInstancesTableDialog';
 import { PageBody, PageScaffold } from '@/components/layout/PageScaffold';
@@ -10,6 +10,10 @@ import {
 import { Spinner } from '@/ui/shadcn/spinner';
 
 import { FeedColumnsMode } from './columns/FeedColumnsMode';
+import {
+    FeedImageDropOverlay,
+    type FeedImageDropTarget
+} from './components/FeedImageDropOverlay';
 import { FeedTableShell } from './components/FeedTableShell';
 import { FeedToolbar } from './components/FeedToolbar';
 import { FeedVirtualListShell } from './components/FeedVirtualListShell';
@@ -22,7 +26,16 @@ type FeedPageProps = {
 };
 
 export function FeedPage({ embedded = false }: FeedPageProps = {}) {
+    const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
+    const onImageDrop = useCallback(
+        (file: File, target: FeedImageDropTarget) => {
+            navigate('/tools/gallery', {
+                state: { feedImageDrop: { file, target } }
+            });
+        },
+        [navigate]
+    );
     const routeScopedUserIds = useMemo(
         () => (embedded ? [] : readFeedRouteUserIds(searchParams)),
         [embedded, searchParams]
@@ -65,37 +78,44 @@ export function FeedPage({ embedded = false }: FeedPageProps = {}) {
 
     if (!ready) {
         return (
-            <PageScaffold
-                embedded={embedded}
-                className={embedded ? '' : 'feed'}
-            >
-                <PageBody className="items-center justify-center">
-                    <Spinner />
-                </PageBody>
-            </PageScaffold>
+            <FeedImageDropOverlay onSelect={onImageDrop}>
+                <PageScaffold
+                    embedded={embedded}
+                    className={embedded ? '' : 'feed'}
+                >
+                    <PageBody className="items-center justify-center">
+                        <Spinner />
+                    </PageBody>
+                </PageScaffold>
+            </FeedImageDropOverlay>
         );
     }
 
     return (
-        <PageScaffold embedded={embedded} className={embedded ? '' : 'feed'}>
-            {effectiveViewMode === 'columns' ? (
-                <PageBody className="gap-2">
-                    <FeedColumnsMode
-                        columns={columns}
-                        density={density}
+        <FeedImageDropOverlay onSelect={onImageDrop}>
+            <PageScaffold
+                embedded={embedded}
+                className={embedded ? '' : 'feed'}
+            >
+                {effectiveViewMode === 'columns' ? (
+                    <PageBody className="gap-2">
+                        <FeedColumnsMode
+                            columns={columns}
+                            density={density}
+                            onViewModeChange={setEffectiveViewMode}
+                            onColumnsChange={setColumns}
+                            onDensityChange={setDensity}
+                        />
+                    </PageBody>
+                ) : (
+                    <FeedTableMode
                         onViewModeChange={setEffectiveViewMode}
-                        onColumnsChange={setColumns}
-                        onDensityChange={setDensity}
+                        routeScopedUserIds={routeScopedUserIds}
+                        setRouteScopedUserIds={setRouteScopedUserIds}
                     />
-                </PageBody>
-            ) : (
-                <FeedTableMode
-                    onViewModeChange={setEffectiveViewMode}
-                    routeScopedUserIds={routeScopedUserIds}
-                    setRouteScopedUserIds={setRouteScopedUserIds}
-                />
-            )}
-        </PageScaffold>
+                )}
+            </PageScaffold>
+        </FeedImageDropOverlay>
     );
 }
 

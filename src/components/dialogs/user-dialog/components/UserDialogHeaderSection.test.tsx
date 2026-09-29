@@ -10,6 +10,8 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { InventoryItemRecord } from '@/repositories/vrchatMediaRepository';
+import { useRuntimeStore } from '@/state/runtimeStore';
+import { useTrackedNonfriendsStore } from '@/state/trackedNonfriendsStore';
 
 import {
     UserDialogHeaderSection,
@@ -181,6 +183,79 @@ function createHeaderCommands(): UserHeaderCommands {
         onUnfriend: noop
     };
 }
+
+describe('UserDialogHeaderSection tracked nonfriends action', () => {
+    it('offers tracking from a non-friend profile menu', () => {
+        const headerModel = createHeaderModel();
+        headerModel.isCurrentUser = false;
+        headerModel.isFriend = false;
+
+        render(
+            <UserDialogHeaderSection
+                headerModel={headerModel}
+                headerCommands={createHeaderCommands()}
+            />
+        );
+
+        fireEvent.click(
+            screen.getByRole('button', { name: 'Open entity actions' })
+        );
+
+        expect(screen.getByText('tracked_nonfriends.add_user')).not.toBeNull();
+    });
+
+    it('does not offer tracking from a friend profile menu', () => {
+        const headerModel = createHeaderModel();
+        headerModel.isCurrentUser = false;
+        headerModel.isFriend = true;
+
+        render(
+            <UserDialogHeaderSection
+                headerModel={headerModel}
+                headerCommands={createHeaderCommands()}
+            />
+        );
+
+        fireEvent.click(
+            screen.getByRole('button', { name: 'Open entity actions' })
+        );
+
+        expect(screen.queryByText('tracked_nonfriends.add_user')).toBeNull();
+    });
+
+    it('does not retry a tracked list that is already in an error state', () => {
+        const originalAuth = useRuntimeStore.getState().auth;
+        const originalTrackedState = useTrackedNonfriendsStore.getState();
+        const load = vi.fn(async () => {});
+        useRuntimeStore.setState((state) => ({
+            ...state,
+            auth: { ...state.auth, currentUserId: 'usr_owner' }
+        }));
+        useTrackedNonfriendsStore.setState({
+            ...originalTrackedState,
+            currentUserId: 'usr_owner',
+            entries: [],
+            loadStatus: 'error',
+            error: 'network error',
+            load
+        });
+        const headerModel = createHeaderModel();
+        headerModel.isCurrentUser = false;
+        headerModel.isFriend = false;
+
+        render(
+            <UserDialogHeaderSection
+                headerModel={headerModel}
+                headerCommands={createHeaderCommands()}
+            />
+        );
+
+        expect(load).not.toHaveBeenCalled();
+        cleanup();
+        useTrackedNonfriendsStore.setState(originalTrackedState);
+        useRuntimeStore.setState((state) => ({ ...state, auth: originalAuth }));
+    });
+});
 
 describe('UserDialogHeaderSection nameplate', () => {
     it('copies the current display name from the title', () => {

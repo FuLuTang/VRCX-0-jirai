@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { vi } from 'vitest';
+vi.mock('@/platform/tauri/bindings', () => ({ commands: {} }));
 
 import {
     DEFAULT_PREFERENCES,
@@ -9,6 +11,17 @@ import {
 } from './preferencesStore';
 
 describe('preferencesStore normalizers', () => {
+    it('defaults developer-group auto-join on and preserves opt-out', () => {
+        expect(DEFAULT_PREFERENCES.autoJoinGroupCertification).toBe(true);
+        expect(normalizePreferenceSnapshot({}).autoJoinGroupCertification).toBe(
+            true
+        );
+        expect(
+            normalizePreferenceSnapshot({ autoJoinGroupCertification: false })
+                .autoJoinGroupCertification
+        ).toBe(false);
+    });
+
     it('shows Friend Log notification dots by default and preserves an explicit opt-out', () => {
         expect(DEFAULT_PREFERENCES.friendLogNotificationDot).toBe(true);
         expect(normalizePreferenceSnapshot({}).friendLogNotificationDot).toBe(

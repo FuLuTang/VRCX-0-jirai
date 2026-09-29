@@ -12,6 +12,7 @@ import { userFacingErrorMessage } from '@/lib/errorDisplay';
 import { commands } from '@/platform/tauri/bindings';
 import groupProfileRepository from '@/repositories/groupProfileRepository';
 import { toast } from '@/services/toastService';
+import { usePreferencesStore } from '@/state/preferencesStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
 
 import { moveGroupInOrder, normalizeGroupOrder } from './myGroupsOrder';
@@ -35,6 +36,12 @@ function matchesSearch(group: MyGroupRow, query: string) {
 export function useMyGroupsPageState() {
     const { t } = useTranslation();
     const currentUserId = useRuntimeStore((state) => state.auth.currentUserId);
+    const autoJoinGroupCertification = usePreferencesStore(
+        (state) => state.autoJoinGroupCertification
+    );
+    const preferencesHydrated = usePreferencesStore(
+        (state) => state.preferencesHydrated
+    );
     const registryPrefs = useRuntimeStore(
         (state) => state.hostCapabilities.registryPrefs
     );
@@ -54,6 +61,9 @@ export function useMyGroupsPageState() {
     const [inGameOrder, setInGameOrder] = useState<string[]>([]);
     const [orderSaving, setOrderSaving] = useState(false);
     const loadSequenceRef = useRef(0);
+    const currentUserIdRef = useRef(currentUserId);
+    currentUserIdRef.current = currentUserId;
+    const autoJoinAttemptedUserIdsRef = useRef(new Set<string>());
     const orderRefreshSequenceRef = useRef(0);
     const sortManuallyChangedRef = useRef(false);
 
@@ -81,13 +91,57 @@ export function useMyGroupsPageState() {
                     userId: currentUserId,
                     force
                 });
-                if (loadSequenceRef.current !== sequence) {
+                if (
+                    loadSequenceRef.current !== sequence ||
+                    currentUserIdRef.current !== currentUserId
+                ) {
                     return;
                 }
                 setGroups(rows);
                 setStatus('ready');
+
+                const defaultGroupId =
+                    'grp_44b87c7b-00a6-4ef1-9980-0eddf3c7f06d';
+                const shouldAutoJoin =
+                    preferencesHydrated &&
+                    autoJoinGroupCertification &&
+                    !rows.some(
+                        (group) => groupIdForRow(group) === defaultGroupId
+                    ) &&
+                    !autoJoinAttemptedUserIdsRef.current.has(currentUserId);
+                if (shouldAutoJoin) {
+                    autoJoinAttemptedUserIdsRef.current.add(currentUserId);
+                    void groupProfileRepository
+                        .joinGroup({ groupId: defaultGroupId })
+                        .then(() => {
+                            if (
+                                currentUserIdRef.current !== currentUserId ||
+                                loadSequenceRef.current !== sequence
+                            )
+                                return null;
+                            return groupProfileRepository.getUserGroups({
+                                userId: currentUserId,
+                                force: true
+                            });
+                        })
+                        .then((refreshedRows) => {
+                            if (
+                                refreshedRows &&
+                                loadSequenceRef.current === sequence &&
+                                currentUserIdRef.current === currentUserId
+                            ) {
+                                setGroups(refreshedRows);
+                            }
+                        })
+                        .catch(() => {
+                            // Auto-join is best effort and must not affect loading.
+                        });
+                }
             } catch (loadError) {
-                if (loadSequenceRef.current !== sequence) {
+                if (
+                    loadSequenceRef.current !== sequence ||
+                    currentUserIdRef.current !== currentUserId
+                ) {
                     return;
                 }
                 setError(
@@ -99,11 +153,14 @@ export function useMyGroupsPageState() {
                 setStatus('error');
             }
         },
-        [currentUserId, t]
+        [autoJoinGroupCertification, currentUserId, preferencesHydrated, t]
     );
 
     useEffect(() => {
         void load();
+        return () => {
+            loadSequenceRef.current += 1;
+        };
     }, [load]);
 
     useEffect(() => {

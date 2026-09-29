@@ -65,6 +65,44 @@
         "context_rules_title": "No instance rules yet",
         "context_rules_description": "Add a rule to change your status based on the instance, world, or friends around you."
     },
+    "workflow": {
+        "title": "Account sync workflow",
+        "tools_description": "Run available account synchronization tasks and review skipped dependencies.",
+        "description": "Tasks run for the current account: {{account}}.",
+        "action_list": "Synchronization tasks",
+        "account_unavailable": "No current account",
+        "ready": "Ready to run a new workflow.",
+        "run": "Run workflow",
+        "running": "Workflow running",
+        "cancel_current": "Cancel current task",
+        "progress_bar": "Workflow progress",
+        "skip_reason": "Skip reason",
+        "summary": "Progress {{progress}}/{{total}} · Completed {{completed}} · Skipped {{skipped}} · Errors {{error}} · Running {{running}}",
+        "status": {
+            "completed": "Completed",
+            "skipped": "Skipped",
+            "error": "Error",
+            "running": "Running",
+            "pending": "Pending"
+        },
+        "actions": {
+            "startup_online_backfill": "05 · Startup online backfill",
+            "tracked_non_friends_sync": "06 · Tracked non-friends",
+            "manual_relations_sync": "07 · Manual relationships",
+            "automatic_profile_fetch": "08 · Automatic profile fetch",
+            "relationship_recommendations": "09 · Relationship recommendations"
+        },
+        "skip": {
+            "not_implemented": "Not implemented.",
+            "account_required": "A current account is required before this workflow can run.",
+            "cancelled_by_user": "Cancelled by user.",
+            "cancelled_before_execution": "Cancelled before execution.",
+            "tracked_non_friends_dependency": "The tracked non-friends dependency is not available.",
+            "manual_relations_dependency": "The manual relationships dependency is not available.",
+            "automatic_profile_fetch_dependency": "The automatic profile fetch executor is not available.",
+            "relationship_recommendations_dependency": "The relationship recommendations dependency is not available."
+        }
+    },
     "browse_history": {
         "title": "View history",
         "description": "Recently viewed users, worlds, avatars, and groups.",
@@ -995,6 +1033,15 @@
         "empty": {
             "no_authenticated_user_snapshot_is_available": "Sign in before refreshing friends"
         }
+    },
+    "tracked_nonfriends": {
+        "title": "Tracked users",
+        "filter": "Filter tracked users",
+        "add_user": "Track user",
+        "remove_user": "Stop tracking user",
+        "empty": "No tracked users",
+        "load_error": "Could not load tracked users",
+        "mutation_error": "Could not update tracked users"
     },
     "support_vrcx": {
         "title": "Support VRCX-0",
@@ -2942,6 +2989,10 @@
                         "header": "Force Quit VRChat on Exit",
                         "description": "Force close VRChat after exiting the game"
                     },
+                    "auto_join_group_certification": {
+                        "header": "Automatically join the developer group",
+                        "description": "Join the default developer group after your groups finish loading."
+                    },
                     "auto_cache_management": {
                         "header": "Auto Manage Cache on Exit",
                         "description": "Automatically clean up old cache data when closing VRChat."
@@ -3855,6 +3906,18 @@
                 "represented_group": "Represented Group",
                 "bio": "Bio",
                 "bio_history": "Bio History",
+                "status_distribution": "Status Distribution",
+                "refresh_status_distribution": "Refresh status distribution",
+                "status_distribution_hint": "Load observed status history to estimate time by status.",
+                "no_status_distribution": "No observed status history.",
+                "status_distribution_error": "Could not load status history; existing results may be outdated.",
+                "status_distribution_scope": "Only confirmed online intervals in recorded data are counted. Unobserved time is excluded, and older records may be limited by the query cap.",
+                "status": {
+                    "join_me": "Join Me",
+                    "active": "Active",
+                    "ask_me": "Ask Me",
+                    "busy": "Busy"
+                },
                 "translate_bio": "Translate Bio",
                 "show_original_bio": "Show Original",
                 "open_bio_link": "Open {link}",

@@ -13,6 +13,7 @@ function createActions(overrides: Partial<GalleryAssetActionDeps> = {}) {
             click: vi.fn()
         }
     };
+    const setCropRequest = vi.fn();
     const toast = {
         error: vi.fn(),
         success: vi.fn(),
@@ -66,10 +67,17 @@ function createActions(overrides: Partial<GalleryAssetActionDeps> = {}) {
             getFileList: vi.fn(),
             getPrints: vi.fn()
         },
-        parseEmojiUploadSettings: vi.fn(),
+        parseEmojiUploadSettings: vi.fn((_name, settings) => ({
+            isAnimated: false,
+            animationStyle: 'Stop',
+            fps: 15,
+            frames: 4,
+            loopPingPong: false,
+            ...settings
+        })),
         readFileAsBase64: vi.fn().mockResolvedValue('base64-body'),
         setAssets: vi.fn(),
-        setCropRequest: vi.fn(),
+        setCropRequest,
         setEmojiAnimFps: vi.fn(),
         setEmojiAnimFrameCount: vi.fn(),
         setEmojiAnimLoopPingPong: vi.fn(),
@@ -87,13 +95,14 @@ function createActions(overrides: Partial<GalleryAssetActionDeps> = {}) {
         uploadTargetRef: {
             current: null
         },
-        validateImageFile: vi.fn(),
+        validateImageFile: vi.fn().mockReturnValue(true),
         withUploadTimeout: <T>(promise: Promise<T>) => promise,
         ...overrides
     });
 
     return {
         actions,
+        setCropRequest,
         toast,
         uploadAssetImage,
         uploadInputRef
@@ -166,4 +175,44 @@ describe('createGalleryAssetActions', () => {
             );
         }
     );
+
+    it.each<GalleryUploadTarget>([
+        'gallery',
+        'icons',
+        'emojis',
+        'stickers',
+        'prints'
+    ])('prepares a dropped File for the selected %s target', (tab) => {
+        const file = new File(['image'], 'dropped.png', { type: 'image/png' });
+        const { actions, setCropRequest } = createActions({
+            uploadTargetRef: { current: 'gallery' },
+            UPLOAD_ASPECT_RATIOS: { icons: 1, prints: 16 / 9 }
+        });
+
+        actions.prepareUploadFile(file, tab);
+
+        expect(setCropRequest).toHaveBeenCalledWith(
+            expect.objectContaining({
+                file,
+                tab,
+                aspectRatio: tab === 'prints' ? 16 / 9 : 1
+            })
+        );
+    });
+
+    it('reports VRC+ restrictions for a dropped print', () => {
+        const { actions, setCropRequest, toast } = createActions({
+            isVrcPlusSupporter: false
+        });
+
+        actions.prepareUploadFile(
+            new File(['image'], 'print.png', { type: 'image/png' }),
+            'prints'
+        );
+
+        expect(setCropRequest).not.toHaveBeenCalled();
+        expect(toast.error).toHaveBeenCalledWith(
+            expect.objectContaining({ title: 'message.vrcplus.required' })
+        );
+    });
 });

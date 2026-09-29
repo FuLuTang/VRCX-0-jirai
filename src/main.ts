@@ -3,11 +3,20 @@ import { createRoot } from 'react-dom/client';
 
 import '@/styles/globals.css';
 import { installDevPerformanceTimelineGuard } from '@/app/devPerformanceTimelineGuard';
+import { startupOnlineBackfillExecutor } from '@/features/workflows/startupOnlineBackfillExecutor';
+import { registerAuthenticatedRuntimeOnlineBackfill } from '@/services/authenticatedRuntimeService';
 import { installErrorLogging } from '@/services/errorLogService';
 
 // only use in dev to prevent OOM from React dev tools User Timing measures
 installDevPerformanceTimelineGuard();
 installErrorLogging();
+registerAuthenticatedRuntimeOnlineBackfill(async (accountId, signal) => {
+    await startupOnlineBackfillExecutor({
+        accountId,
+        signal,
+        translate: (key) => key
+    });
+});
 
 async function bootstrap() {
     const [, { App }] = await Promise.all([

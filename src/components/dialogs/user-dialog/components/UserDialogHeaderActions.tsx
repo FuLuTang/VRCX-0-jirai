@@ -28,9 +28,13 @@ import {
     VolumeXIcon,
     XIcon
 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { FavoriteActionMenu } from '@/components/favorites/FavoriteActionMenu';
+import { toast } from '@/services/toastService';
+import { useRuntimeStore } from '@/state/runtimeStore';
+import { useTrackedNonfriendsStore } from '@/state/trackedNonfriendsStore';
 
 import {
     EntityActionDropdown,
@@ -137,6 +141,97 @@ export function UserDialogHeaderActions({
     } = commands;
     const isBusy = loadStatus === 'running' || actionStatus !== 'idle';
     const actionsDisabled = actionStatus !== 'idle';
+    const trackedAccountId = useRuntimeStore(
+        (state) => state.auth.currentUserId || ''
+    );
+    const trackedCurrentUserId = useTrackedNonfriendsStore(
+        (state) => state.currentUserId
+    );
+    const trackedEntries = useTrackedNonfriendsStore((state) => state.entries);
+    const trackedLoadStatus = useTrackedNonfriendsStore(
+        (state) => state.loadStatus
+    );
+    const loadTrackedNonfriends = useTrackedNonfriendsStore(
+        (state) => state.load
+    );
+    const resetTrackedNonfriends = useTrackedNonfriendsStore(
+        (state) => state.reset
+    );
+    const addTrackedNonfriend = useTrackedNonfriendsStore((state) => state.add);
+    const removeTrackedNonfriend = useTrackedNonfriendsStore(
+        (state) => state.remove
+    );
+    const [isTrackedMutationRunning, setTrackedMutationRunning] =
+        useState(false);
+    const trackedTargetUserId = profile.id?.trim() || '';
+    const isTrackedNonfriend =
+        trackedCurrentUserId === trackedAccountId &&
+        trackedEntries.some((entry) => entry.userId === trackedTargetUserId);
+    const canToggleTrackedNonfriend =
+        !isCurrentUser &&
+        !isFriend &&
+        Boolean(trackedAccountId) &&
+        trackedCurrentUserId === trackedAccountId &&
+        trackedLoadStatus === 'ready' &&
+        Boolean(trackedTargetUserId) &&
+        !actionsDisabled &&
+        !isTrackedMutationRunning;
+
+    useEffect(() => {
+        if (!trackedAccountId) {
+            resetTrackedNonfriends();
+            return;
+        }
+        if (isCurrentUser || isFriend) {
+            return;
+        }
+        if (
+            trackedCurrentUserId !== trackedAccountId ||
+            trackedLoadStatus === 'idle'
+        ) {
+            void loadTrackedNonfriends(trackedAccountId);
+        }
+    }, [
+        isCurrentUser,
+        isFriend,
+        loadTrackedNonfriends,
+        resetTrackedNonfriends,
+        trackedAccountId,
+        trackedCurrentUserId,
+        trackedLoadStatus
+    ]);
+
+    async function toggleTrackedNonfriend() {
+        if (!canToggleTrackedNonfriend) {
+            return;
+        }
+        setTrackedMutationRunning(true);
+        try {
+            if (isTrackedNonfriend) {
+                await removeTrackedNonfriend(
+                    trackedAccountId,
+                    trackedTargetUserId
+                );
+            } else {
+                await addTrackedNonfriend(
+                    trackedAccountId,
+                    trackedTargetUserId,
+                    profile.displayName || ''
+                );
+            }
+        } catch (error) {
+            toast.add({
+                type: 'error',
+                title:
+                    error instanceof Error
+                        ? error.message
+                        : t('tracked_nonfriends.mutation_error')
+            });
+        } finally {
+            setTrackedMutationRunning(false);
+        }
+    }
+
     const hasAvatarOverride =
         avatarOverrideState.hideAvatar || avatarOverrideState.showAvatar;
 
@@ -269,6 +364,23 @@ export function UserDialogHeaderActions({
                                 onClick={() => onFriendRequest('send')}
                             >
                                 {t('dialog.user.actions.send_friend_request')}
+                            </EntityActionItem>
+                        ) : null}
+                        {!isFriend ? (
+                            <EntityActionItem
+                                icon={
+                                    isTrackedNonfriend
+                                        ? UserRoundMinusIcon
+                                        : UserPlusIcon
+                                }
+                                disabled={!canToggleTrackedNonfriend}
+                                onClick={() => void toggleTrackedNonfriend()}
+                            >
+                                {t(
+                                    isTrackedNonfriend
+                                        ? 'tracked_nonfriends.remove_user'
+                                        : 'tracked_nonfriends.add_user'
+                                )}
                             </EntityActionItem>
                         ) : null}
                         {isFriend ? (
