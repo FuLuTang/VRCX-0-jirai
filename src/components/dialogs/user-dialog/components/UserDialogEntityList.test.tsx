@@ -110,8 +110,8 @@ describe('UserDialog EntityList', () => {
         expect(screen.queryByText(/Tauri command failed/)).toBeNull();
     });
 
-    it('distinguishes confirmed mutuals from historical unconfirmed mutuals', () => {
-        render(
+    it('uses date and color to distinguish confirmed from historical mutuals', () => {
+        const { container } = render(
             <EntityList
                 kind="user"
                 rows={[
@@ -130,15 +130,17 @@ describe('UserDialog EntityList', () => {
                 ]}
             />
         );
+        const badges = Array.from(container.querySelectorAll('span'));
         expect(
-            screen.getByText(/dialog\.user\.mutual_friends\.confirmed_at/)
-                .className
-        ).toContain('green');
+            badges.find((badge) => badge.className.includes('green'))
+        ).toBeTruthy();
         expect(
-            screen.getByText(
-                /dialog\.user\.mutual_friends\.historical_unconfirmed/
-            ).className
-        ).toContain('gray');
+            badges.find((badge) => badge.className.includes('gray'))
+        ).toBeTruthy();
+        expect(container.textContent).not.toContain('Confirmed');
+        expect(container.textContent).not.toContain(
+            'Historical, currently unconfirmed'
+        );
     });
 
     it('localizes undisclosed mutual friends and prevents opening them', () => {

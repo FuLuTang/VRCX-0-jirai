@@ -171,11 +171,6 @@ export function EntityList({
                                     : 'text-muted-foreground bg-gray-400/20'
                             )}
                         >
-                            {t(
-                                row.$mutualConfirmed === true
-                                    ? 'dialog.user.mutual_friends.confirmed_at'
-                                    : 'dialog.user.mutual_friends.historical_unconfirmed'
-                            )}{' '}
                             {mutualDateLabel}
                         </span>
                     ) : undefined;

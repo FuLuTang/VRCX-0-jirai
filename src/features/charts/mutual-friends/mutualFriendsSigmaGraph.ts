@@ -7,7 +7,6 @@ import { runGraphLayoutWorker } from './graphLayoutWorkerClient';
 import { isMutualFriendNodeUnavailable } from './mutualFriendsFilters';
 import {
     communityColor,
-    MUTUAL_GRAPH_EDGE_SOURCE_COLORS,
     type MutualFriendsGraphTheme
 } from './mutualFriendsPalette';
 import { truncateMutualFriendLabel } from './mutualFriendsPicker';
@@ -582,30 +581,24 @@ export function renderSigmaGraph({
         const theme = themeRef.current;
         const dim = hoverTransition.value;
         const isCross = data.crossCommunity === true;
-        const originalColor = isCross ? theme.edgeCrossColor : theme.edgeColor;
         const isCurrent = data.current === true;
         const isManual = data.manual === true;
-        const isHistorical = data.historical === true && !isCurrent;
-        const baseColor =
-            isCurrent && isManual && isHistorical
-                ? MUTUAL_GRAPH_EDGE_SOURCE_COLORS.allSources
-                : isCurrent && isManual
-                  ? MUTUAL_GRAPH_EDGE_SOURCE_COLORS.currentManual
-                  : isManual && isHistorical
-                    ? MUTUAL_GRAPH_EDGE_SOURCE_COLORS.manualHistorical
-                    : isCurrent && isHistorical
-                      ? MUTUAL_GRAPH_EDGE_SOURCE_COLORS.currentHistorical
-                      : isManual
-                        ? MUTUAL_GRAPH_EDGE_SOURCE_COLORS.manual
-                        : isHistorical
-                          ? mixGraphColors(
-                                originalColor,
-                                theme.backgroundColor,
-                                0.62
-                            )
-                          : originalColor;
-        result.size = isManual
-            ? isCurrent || isHistorical
+        const isHistorical =
+            data.historical === true && !isCurrent && !isManual;
+        const ordinaryColor = isCross ? theme.edgeCrossColor : theme.edgeColor;
+        const baseColor = isCurrent
+            ? ordinaryColor
+            : isManual
+              ? theme.edgeManualColor
+              : isHistorical
+                ? mixGraphColors(
+                      ordinaryColor,
+                      theme.backgroundColor,
+                      0.62
+                  )
+                : ordinaryColor;
+        result.size = isManual && !isCurrent
+            ? isHistorical
                 ? 1.35
                 : 1.1
             : isHistorical
