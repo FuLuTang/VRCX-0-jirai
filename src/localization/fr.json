@@ -1148,8 +1148,6 @@
         },
         "friends_locations": {
             "online": "En ligne",
-            "world_friends_one": "{count} ami",
-            "world_friends_other": "{count} amis",
             "view_people": "Vue des amis",
             "view_worlds": "Vue des mondes",
             "world_instances_one": "{count} instance",
@@ -3597,6 +3595,8 @@
             "group_count": "{count} groupe(s)",
             "edit_mode": "Modifier",
             "exit_edit_mode": "Terminé",
+            "section_own": "Mes groupes",
+            "section_joined": "Groupes rejoints",
             "order_hint": "Glissez les groupes pour définir l'ordre dans lequel VRChat les affiche.",
             "order_game_running": "VRChat est en cours d'éxecution. l'ordre peut être modifié une fois le jeu fermé.",
             "order_unavailable": "L'ordre des groupes est indisponible : {reason}",
@@ -4205,8 +4205,7 @@
                 "add_domain": "Ajouter un domaine"
             },
             "loading": {
-                "loading_world_profile": "Chargement du profil du monde",
-                "fetching_the_current_vrchat_world_snapshot_for_this_dialog": "Chargement des détails du monde"
+                "loading_world_profile": "Chargement du profil du monde"
             },
             "error": {
                 "world_profile_unavailable": "Profil du monde indisponible",

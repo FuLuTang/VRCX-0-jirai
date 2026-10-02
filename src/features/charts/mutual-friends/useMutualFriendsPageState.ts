@@ -1,39 +1,34 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { assignMutualFriendCommunities } from '@/lib/mutual-friends/mutualFriendsCommunities';
+import {
+    applyMutualFriendsViewFilters,
+    countIsolatedMutualFriendNodes,
+    countUnknownMutualFriendNodes
+} from '@/lib/mutual-friends/mutualFriendsFilters';
+import {
+    buildMutualFriendsBaseGraph,
+    buildMutualFriendsCoverage
+} from '@/lib/mutual-friends/mutualFriendsGraphData';
+import {
+    mutualFriendsCommunityPalette,
+    mutualFriendsNeutralCommunityColor
+} from '@/lib/mutual-friends/mutualFriendsPalette';
+import { buildMutualFriendExcludePickerOptions } from '@/lib/mutual-friends/mutualFriendsPicker';
+import { normalizeMutualFriendId } from '@/lib/mutual-friends/mutualFriendsSettings';
+import { useMutualFriendsExclusionStore } from '@/lib/mutual-friends/useMutualFriendsExclusionStore';
+import { useMutualFriendsLayoutSettings } from '@/lib/mutual-friends/useMutualFriendsLayoutSettings';
+import { useMutualFriendsSigmaLifecycle } from '@/lib/mutual-friends/useMutualFriendsSigmaLifecycle';
 import { commands } from '@/platform/tauri/bindings';
 import mutualGraphPersistenceRepository from '@/repositories/mutualGraphPersistenceRepository';
 import { openUserDialog } from '@/services/dialogService';
 import { toast } from '@/services/toastService';
 import { useModalStore } from '@/state/modalStore';
 import { useMutualGraphRevisionStore } from '@/state/mutualGraphRevisionStore';
-
-import { assignMutualFriendCommunities } from './mutualFriendsCommunities';
-import {
-    applyMutualFriendsViewFilters,
-    countIsolatedMutualFriendNodes,
-    countUnknownMutualFriendNodes,
-    hideNonFriendNodes
-} from './mutualFriendsFilters';
-import {
-    buildMutualFriendsBaseGraph,
-    buildMutualFriendsCoverage
-} from './mutualFriendsGraphData';
-import {
-    mutualFriendsCommunityPalette,
-    mutualFriendsNeutralCommunityColor
-} from './mutualFriendsPalette';
-import { buildMutualFriendExcludePickerOptions } from './mutualFriendsPicker';
-import {
-    normalizeExcludedMutualFriendIds,
-    normalizeMutualFriendId,
-    readExcludedMutualFriendIds,
-    writeExcludedMutualFriendIds
-} from './mutualFriendsSettings';
+import { hideNonFriendNodes } from '@/lib/mutual-friends/mutualFriendsFilters';
 import { useMutualFriendsGraphFetch } from './useMutualFriendsGraphFetch';
-import { useMutualFriendsLayoutSettings } from './useMutualFriendsLayoutSettings';
 import { useMutualFriendsRuntime } from './useMutualFriendsRuntime';
-import { useMutualFriendsSigmaLifecycle } from './useMutualFriendsSigmaLifecycle';
 import { useMutualFriendsSnapshot } from './useMutualFriendsSnapshot';
 import { useMutualFriendsViewFilters } from './useMutualFriendsViewFilters';
 
@@ -50,8 +45,14 @@ export function useMutualFriendsPageState() {
     const currentUserIdRef = useRef(currentUserId);
     const [selectedNodeId, setSelectedNodeId] = useState('');
     const selectedNodeIdRef = useRef('');
-    const [excludedFriendIds, setExcludedFriendIds] = useState(
-        readExcludedMutualFriendIds
+    const excludedFriendIds = useMutualFriendsExclusionStore(
+        (state) => state.excludedFriendIds
+    );
+    const setExcludedFriendIds = useMutualFriendsExclusionStore(
+        (state) => state.setExcludedFriendIds
+    );
+    const toggleExcludedFriendId = useMutualFriendsExclusionStore(
+        (state) => state.toggleExcludedFriendId
     );
     const [nodeRefreshId, setNodeRefreshId] = useState('');
     const [showNonFriends, setShowNonFriends] = useState(true);
@@ -80,10 +81,6 @@ export function useMutualFriendsPageState() {
         currentUserIdRef,
         reloadToken: reloadToken + backfillRevision
     });
-
-    useEffect(() => {
-        writeExcludedMutualFriendIds(excludedFriendIds);
-    }, [excludedFriendIds]);
 
     const baseGraph = useMemo(
         () =>
@@ -184,11 +181,6 @@ export function useMutualFriendsPageState() {
         ]
     );
 
-    const normalizedExcludedFriendIds = useMemo(
-        () => normalizeExcludedMutualFriendIds(excludedFriendIds),
-        [excludedFriendIds]
-    );
-
     const selectedNode = useMemo(
         () =>
             visibleBaseGraph.nodes.find((node) => node.id === selectedNodeId) ??
@@ -245,19 +237,6 @@ export function useMutualFriendsPageState() {
             reloadSnapshot: snapshot.reloadSnapshot,
             setDetail: snapshot.setDetail
         });
-
-    function toggleExcludedFriendId(friendId: string) {
-        const normalizedId = normalizeMutualFriendId(friendId);
-        if (!normalizedId) {
-            return;
-        }
-        setExcludedFriendIds((current) => {
-            const normalizedCurrent = normalizeExcludedMutualFriendIds(current);
-            return normalizedCurrent.includes(normalizedId)
-                ? normalizedCurrent.filter((id) => id !== normalizedId)
-                : [...normalizedCurrent, normalizedId];
-        });
-    }
 
     async function setTrackedUser(
         userId: string,
@@ -410,9 +389,8 @@ export function useMutualFriendsPageState() {
         },
         exclusions: {
             excludePickerOptions,
-            excludedFriendIds: normalizedExcludedFriendIds,
-            setExcludedFriendIds: (next: string[]) =>
-                setExcludedFriendIds(normalizeExcludedMutualFriendIds(next))
+            excludedFriendIds,
+            setExcludedFriendIds
         },
         fetch: {
             fetchProgress

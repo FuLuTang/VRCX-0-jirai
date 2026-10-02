@@ -13,17 +13,17 @@ import {
 import { isActionRecent } from '@/services/recentActionService';
 import { MINUTE_MS } from '@/shared/constants/time';
 import { vrchatUserUrl } from '@/shared/constants/vrchatWebUrls';
+import { extractFileId } from '@/shared/utils/fileUtils';
 import { parseLocation } from '@/shared/utils/location';
 import { usePreferencesStore } from '@/state/preferencesStore';
-import { useRuntimeStore } from '@/state/runtimeStore';
 
 import {
     EntityDialogScaffold,
     EntityDialogTwoColumnLayout
 } from './EntityDialogScaffold';
+import { ProfileMediaPanel } from './ProfileMediaPanel';
 import { UserDialogHeaderSection } from './user-dialog/components/UserDialogHeaderSection';
 import { UserDialogProfileDecorationsPanel } from './user-dialog/components/UserDialogProfileDecorationsPanel';
-import { UserDialogProfileMediaPanel } from './user-dialog/components/UserDialogProfileMediaPanel';
 import { UserDialogTabsSection } from './user-dialog/components/UserDialogTabsSection';
 import type {
     resolveFriendRequestState,
@@ -40,6 +40,7 @@ import {
 } from './user-dialog/userDialogRows';
 import type { UserDialogLoadStatus } from './user-dialog/userDialogTabService';
 import { buildUserDialogProfileSummary } from './user-dialog/userDialogViewData';
+import { USER_PROFILE_MEDIA_SECTIONS } from './user-dialog/userProfileFields';
 import { useUserDialogAvatarAuthorAction } from './user-dialog/useUserDialogAvatarAuthorAction';
 import { useUserDialogClipboardActions } from './user-dialog/useUserDialogClipboardActions';
 import type { useUserDialogLocationPanel } from './user-dialog/useUserDialogLocationPanel';
@@ -301,12 +302,6 @@ export function UserDialogTabbedView({
     } = useUserDialogTabbedRuntimeState();
     const { copyUserText, openDiscordProfile } =
         useUserDialogClipboardActions();
-    const currentUserSnapshot = useRuntimeStore(
-        (state) => state.auth.currentUserSnapshot
-    );
-    const isGameRunning = useRuntimeStore(
-        (state) => state.gameState.isGameRunning === true
-    );
 
     useEffect(() => {
         const intervalId = window.setInterval(() => {
@@ -425,12 +420,9 @@ export function UserDialogTabbedView({
             : null,
         nowMs
     });
-    const statusDotClassName = resolveSidebarStatusDotClassName(
-        profile,
-        currentUserSnapshot,
-        isCurrentUser,
-        { hideNonFriend: false, isGameRunning }
-    );
+    const statusDotClassName = resolveSidebarStatusDotClassName(profile, {
+        hideNonFriend: false
+    });
     const currentAvatarDisplayName = String(
         profile.currentAvatarName || profile.avatarName || ''
     ).trim();
@@ -451,14 +443,8 @@ export function UserDialogTabbedView({
     const visiblePresenceParsedLocation = visiblePresenceLocation
         ? parseLocation(visiblePresenceLocation)
         : null;
-    const projectedLocation = record(profile.$location);
-    const projectedWorld = record(projectedLocation.world);
     const locationWorldTitle = normalizedText(
-        profile.worldName ||
-            profile.$worldName ||
-            projectedLocation.worldName ||
-            projectedLocation.name ||
-            projectedWorld.name
+        profile.worldName || profile.$worldName
     );
     const { locationInstanceUsers, locationOwnerId } = useMemo(
         () =>
@@ -756,11 +742,24 @@ export function UserDialogTabbedView({
                 }
             >
                 {activeSelfPanel === 'profile-media' ? (
-                    <UserDialogProfileMediaPanel
-                        profile={profile}
+                    <ProfileMediaPanel
+                        title={t('dialog.user.actions.edit_profile_media')}
+                        sections={USER_PROFILE_MEDIA_SECTIONS}
+                        currentFileIds={{
+                            banner: extractFileId(
+                                typeof profile.bannerCustomUrl === 'string'
+                                    ? profile.bannerCustomUrl
+                                    : ''
+                            ),
+                            userIcon: extractFileId(
+                                typeof profile.userIcon === 'string'
+                                    ? profile.userIcon
+                                    : ''
+                            )
+                        }}
                         actionStatus={actionStatus}
                         onBack={() => setSelfPanel('')}
-                        onSetProfileMediaField={onSetSelfProfileMediaField}
+                        onSetField={onSetSelfProfileMediaField}
                     />
                 ) : activeSelfPanel === 'profile-decorations' ? (
                     <UserDialogProfileDecorationsPanel

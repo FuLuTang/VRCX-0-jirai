@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { vi } from 'vitest';
 vi.mock('@/platform/tauri/bindings', () => ({ commands: {} }));
 
+import { TRUST_COLOR_DEFAULTS } from '@/shared/constants/trustColors';
+
 import {
     DEFAULT_PREFERENCES,
     normalizeOverlayActivityFilters,
@@ -292,15 +294,7 @@ describe('preferencesStore normalizers', () => {
     });
 
     it('uses default wrist filters when overlay activity filters are missing', () => {
-        const snapshot = normalizePreferenceSnapshot({
-            sharedFeedFilters: JSON.stringify({
-                wrist: {
-                    invite: 'VIP',
-                    OnPlayerJoined: 'Everyone',
-                    friendRequest: 'Off'
-                }
-            })
-        });
+        const snapshot = normalizePreferenceSnapshot({});
 
         expect(snapshot.overlayActivityFilters.wrist.types.invite).toEqual({
             scope: 'friends',
@@ -351,21 +345,12 @@ describe('preferencesStore normalizers', () => {
             localFavoriteFriendsGroups: ['VIP', '', null],
             overlayActivityFilters: JSON.stringify({
                 wrist: {
-                    favoriteGroupKeys: ['group_1'],
-                    categories: {
-                        profileChange: {
-                            scope: 'allFavorites',
-                            favoriteGroupKeys: ['group_2'],
-                            typeOverrides: {
-                                Avatar: {
-                                    scope: 'off'
-                                },
-                                Bio: {
-                                    scope: 'selectedFavorites',
-                                    favoriteGroupKeys: ['group_3']
-                                }
-                            },
-                            priority: 'low'
+                    types: {
+                        DisplayName: { scope: 'allFavorites' },
+                        AvatarChange: { scope: 'off' },
+                        Bio: {
+                            scope: 'selectedFavorites',
+                            favoriteGroupKeys: ['group_3', '']
                         }
                     }
                 }
@@ -430,9 +415,7 @@ describe('preferencesStore normalizers', () => {
             }
         });
         expect(snapshot.trustColor.basic).toBe('#ABCDEF');
-        expect(snapshot.trustColor.known).toBe(
-            normalizePreferenceSnapshot(DEFAULT_PREFERENCES).trustColor.known
-        );
+        expect(snapshot.trustColor.known).toBe(TRUST_COLOR_DEFAULTS.known);
     });
 
     it('keeps DeepL translation provider snapshots', () => {

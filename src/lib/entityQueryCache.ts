@@ -215,6 +215,8 @@ export const queryKeys = Object.freeze({
         }: { eventId?: string; groupId?: string } = {},
         endpoint: string = ''
     ) => withEndpoint(['calendar', groupId, eventId], endpoint),
+    worldRooms: (worldId: string, endpoint: string = '') =>
+        withEndpoint(['world', worldId, 'rooms'], endpoint),
     avatarGallery: (avatarId: string, endpoint: string = '') =>
         withEndpoint(['avatar', avatarId, 'gallery'], endpoint),
     userInventoryItem: (
@@ -240,6 +242,8 @@ export const queryKeys = Object.freeze({
         withEndpoint(['avatar', 'styles'], endpoint),
     representedGroup: (userId: string, endpoint: string = '') =>
         withEndpoint(['user', userId, 'representedGroup'], endpoint),
+    userMutualFriends: (userId: string, endpoint: string = '') =>
+        withEndpoint(['user', userId, 'mutualFriends'], endpoint),
     userDialogTabCounts: (
         params: UserDialogTabCountQueryParams,
         endpoint: string = ''

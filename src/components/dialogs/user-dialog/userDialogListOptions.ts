@@ -55,6 +55,20 @@ export const userDialogMutualFriendSortingOptions = [
 export type UserDialogMutualFriendSort =
     (typeof userDialogMutualFriendSortingOptions)[number]['value'];
 
+export type UserDialogMutualView = 'list' | 'graph';
+
+const MUTUAL_VIEW_STORAGE_KEY = 'VRCX_UserDialogMutualView';
+
+export function readUserDialogMutualView(): UserDialogMutualView {
+    return localStorage.getItem(MUTUAL_VIEW_STORAGE_KEY) === 'graph'
+        ? 'graph'
+        : 'list';
+}
+
+export function writeUserDialogMutualView(view: UserDialogMutualView) {
+    localStorage.setItem(MUTUAL_VIEW_STORAGE_KEY, view);
+}
+
 export const userDialogAvatarSortingOptions = [
     { name: 'dialog.user.avatars.sort_by_name', value: 'name' },
     { name: 'dialog.user.avatars.sort_by_update', value: 'update' },

@@ -19,9 +19,12 @@ import { timeToText } from '@/lib/dateTime';
 import { openUserDialog, openWorldDialog } from '@/services/dialogService';
 import { TRUST_COLOR_ENTRIES } from '@/shared/constants/trustColors';
 import { getTrustColor } from '@/shared/utils/trustColors';
+import { useFriendRosterStore } from '@/state/friendRosterStore';
 import { useModalStore } from '@/state/modalStore';
+import { useRuntimeStore } from '@/state/runtimeStore';
 import { Skeleton } from '@/ui/shadcn/skeleton';
 
+import { UserHoverCardMutuals } from './UserHoverCardMutuals';
 import { useUserHoverCardData } from './useUserHoverCardData';
 
 type UserHoverCardContentProps = {
@@ -66,6 +69,12 @@ export function UserHoverCardContent({
         instanceEpoch
     } = useUserHoverCardData({ userId, seed });
     const openImagePreview = useModalStore((state) => state.openImagePreview);
+    const currentUserId = useRuntimeStore((state) => state.auth.currentUserId);
+    const isFriend = useFriendRosterStore((state) =>
+        Boolean(state.friendsById[userId])
+    );
+    const showMutuals =
+        !isFriend && Boolean(userId) && userId !== currentUserId;
     const worldDialogTarget = model.location.tag || model.location.worldId;
 
     const trustEntry = TRUST_COLOR_ENTRIES.find(
@@ -76,9 +85,7 @@ export function UserHoverCardContent({
     const nameColour = String(
         model.userColour || getTrustColor(model.trustSource, trustColor)
     );
-    const statusText = model.statusKey
-        ? t(`dialog.user.status.${model.statusKey}`)
-        : '';
+    const statusText = model.statusKey ? t(model.statusKey) : '';
     const statusDotClassName = model.statusDotClassName || '';
     const hasStatusDescription = Boolean(model.statusDescription);
     const isOffline = model.variant === 'offline';
@@ -251,6 +258,8 @@ export function UserHoverCardContent({
                         </span>
                     </div>
                 ) : null}
+
+                {showMutuals ? <UserHoverCardMutuals userId={userId} /> : null}
 
                 {memo || model.note ? (
                     <div className="space-y-1.5 border-t pt-2.5 text-xs">

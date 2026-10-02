@@ -14,11 +14,12 @@ use vrcx_0_application::social::{
     ModerationSyncRuntime, MutualGraphFetchRuntime, PrintCleanupQueue,
 };
 use vrcx_0_application_activity::notification::{
-    load_overlay_activity_filters, save_notification_activity_filters,
-    save_overlay_activity_preference_filters, AuthWebhookEvent, AuthWebhookQueue,
-    AuthWebhookQueueDeps, NotificationActivityFiltersSetInput, NotificationConfig,
-    NotificationWebhookSink, NotificationWebhookSinkDeps, OverlayActivityPreferenceFilters,
-    UserImageCache, WebhookDeliveryMonitor, WebhookDeliverySnapshot,
+    load_location_hidden_user_ids, load_overlay_activity_filters,
+    save_notification_activity_filters, save_overlay_activity_preference_filters, AuthWebhookEvent,
+    AuthWebhookQueue, AuthWebhookQueueDeps, NotificationActivityFiltersSetInput,
+    NotificationConfig, NotificationWebhookSink, NotificationWebhookSinkDeps,
+    OverlayActivityPreferenceFilters, UserImageCache, WebhookDeliveryMonitor,
+    WebhookDeliverySnapshot,
 };
 use vrcx_0_application_activity::{
     OverlayActivityRuntime, OverlayActivitySink, OverlayActivitySinkRegistry,
@@ -91,7 +92,12 @@ impl RuntimeHostDesktopAssemblyDeps {
         web: Arc<WebClient>,
         image_cache: Arc<ImageCache>,
     ) -> Self {
-        Self::from_context(Arc::new(RuntimeHostContext::new(db, web, image_cache)))
+        Self::from_context(Arc::new(RuntimeHostContext::new(
+            db,
+            web,
+            image_cache,
+            TaskSupervisor::new(),
+        )))
     }
 
     pub(crate) fn from_context(context: Arc<RuntimeHostContext>) -> Self {
@@ -258,6 +264,7 @@ impl RuntimeHostContext {
         db: Arc<DatabaseService>,
         web: Arc<WebClient>,
         image_cache: Arc<ImageCache>,
+        tasks: TaskSupervisor,
     ) -> Self {
         let config = ConfigRepository::new(Arc::clone(&db));
         let notification_config: Arc<dyn NotificationConfig> = Arc::new(
@@ -282,7 +289,6 @@ impl RuntimeHostContext {
         let diagnostics = RuntimeDiagnostics::new();
         let sync = RuntimeSyncEngine::new();
         let auth_scope = RuntimeAuthScope::new();
-        let tasks = TaskSupervisor::new();
         let session = HostSessionRuntime::new();
         let avatar_cache = Arc::new(AvatarCache::new(
             vrcx_0_outbound_adapters::LocalAvatarCacheAdapter::new(
@@ -303,6 +309,9 @@ impl RuntimeHostContext {
             FILE_CACHE_WORKING_CAPACITY,
         ));
         let overlay_activity = OverlayActivityRuntime::with_filters(load_overlay_activity_filters(
+            notification_config.as_ref(),
+        ));
+        overlay_activity.set_location_hidden_user_ids(load_location_hidden_user_ids(
             notification_config.as_ref(),
         ));
         let overlay_activity_sinks = OverlayActivitySinkRegistry::default();
@@ -359,6 +368,7 @@ impl RuntimeHostContext {
                 Arc::clone(&web),
                 diagnostics.clone(),
                 sync.clone(),
+                Arc::clone(&world_cache),
             ));
         let favorite_mutations = FavoriteMutationCoordinator::new(
             Arc::clone(&favorite_store),
@@ -369,6 +379,7 @@ impl RuntimeHostContext {
                 event_bus.clone(),
                 auth_scope.clone(),
                 Arc::clone(&remote_mutations),
+                Arc::clone(&world_cache),
             ),
         );
         Self {
@@ -544,6 +555,10 @@ impl RuntimeHostContext {
     pub fn reload_overlay_activity_filters(&self) {
         self.overlay_activity
             .set_filters(load_overlay_activity_filters(
+                self.notification_config.as_ref(),
+            ));
+        self.overlay_activity
+            .set_location_hidden_user_ids(load_location_hidden_user_ids(
                 self.notification_config.as_ref(),
             ));
     }

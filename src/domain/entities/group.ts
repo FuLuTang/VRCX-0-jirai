@@ -1,9 +1,10 @@
 import type { EntityRecord } from './shared';
 
-type GroupRoleRecord = EntityRecord & {
+export type GroupRoleRecord = EntityRecord & {
     id?: string;
     name?: string;
     description?: string;
+    order?: number;
     isManagementRole?: boolean;
     isSelfAssignable?: boolean;
     permissions?: string[];
@@ -210,6 +211,7 @@ export type GroupDialogInstanceRow = GroupInstanceRecord & {
 };
 
 export type GroupProfileRecord = EntityRecord & {
+    allowGroupJoinPrompt?: boolean;
     announcement?: GroupAnnouncementRecord;
     id: string;
     name: string;

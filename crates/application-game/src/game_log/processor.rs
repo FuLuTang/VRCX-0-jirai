@@ -9,9 +9,7 @@ use vrcx_0_application_core::{
 
 use vrcx_0_contracts::game_log::{GameLogJoinLeaveEntry, GameLogWriteBatch};
 use vrcx_0_core::game_log_parser::GameLogEvent;
-use vrcx_0_core::location::{
-    is_meaningful_world_name, world_id_from_location as world_id_from_location_or_id,
-};
+use vrcx_0_core::location::{is_meaningful_world_name, world_id_from_location};
 
 use crate::game_log::host::GameLogHostActions;
 use crate::game_log::ingest::{
@@ -20,6 +18,7 @@ use crate::game_log::ingest::{
 };
 use crate::game_log::instance_media::InstanceMediaQueue;
 use crate::game_log::runtime_state::{RuntimeSnapshot, RuntimeSnapshotStore};
+use crate::game_log::video::NowPlayingClock;
 use crate::overlay_activity::OverlayActivityGameIngestExt;
 use crate::GameLogEventOrigin;
 use crate::RuntimeAuthScope;
@@ -163,6 +162,7 @@ pub struct GameLogProcessor {
     deps: GameLogProcessorDeps,
     engine: Arc<Mutex<GameLogIngestEngine>>,
     media_queue: InstanceMediaQueue,
+    now_playing: NowPlayingClock,
     persistence_resume_after_ms: Arc<AtomicI64>,
     stop_requested: Arc<AtomicBool>,
     scan_cursor: Arc<Mutex<Option<crate::GameLogScanCursor>>>,
@@ -210,6 +210,7 @@ impl GameLogProcessor {
             deps,
             engine: Arc::new(Mutex::new(engine)),
             media_queue: InstanceMediaQueue::new(),
+            now_playing: NowPlayingClock::default(),
             persistence_resume_after_ms: Arc::new(AtomicI64::new(i64::MIN)),
         }
     }
@@ -337,7 +338,11 @@ impl GameLogProcessor {
     }
 
     fn side_effect_deps(&self) -> GameLogSideEffectDeps {
-        GameLogSideEffectDeps::new(&self.deps, self.media_queue.clone())
+        GameLogSideEffectDeps::new(
+            &self.deps,
+            self.media_queue.clone(),
+            self.now_playing.clone(),
+        )
     }
 
     fn ingest_events_now(&self, events: &[GameLogEvent], origin: GameLogEventOrigin) -> Result<()> {
@@ -621,10 +626,7 @@ impl GameLogProcessor {
         for row in pending.output.runtime_persisted_mirrors {
             self.deps
                 .event_bus
-                .emit_runtime_game_log_event(RuntimeGameLogEventPayload {
-                    runtime_persisted: true,
-                    raw: row,
-                });
+                .emit_runtime_game_log_event(RuntimeGameLogEventPayload { raw: row });
         }
         Ok(())
     }
@@ -677,7 +679,7 @@ impl GameLogProcessor {
         if is_meaningful_world_name(current_world_name) {
             return None;
         }
-        let world_id = world_id_from_location_or_id(location);
+        let world_id = world_id_from_location(location);
         if world_id.is_empty() {
             return None;
         }

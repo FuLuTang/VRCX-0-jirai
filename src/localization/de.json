@@ -166,7 +166,10 @@
         "note_local": "Lokale Notiz",
         "note_synced": "VRChat-Notiz",
         "last_online": "Zuletzt online vor {duration}",
-        "in_private_world": "In einer privaten Welt"
+        "in_private_world": "In einer privaten Welt",
+        "mutual_friends": "{count} gemeinsame Freunde",
+        "no_mutual_friends": "Keine gemeinsamen Freunde",
+        "name_separator": ", "
     },
     "deep_link": {
         "import_collection": {
@@ -887,12 +890,18 @@
         "self_menu": "Kontomenü",
         "filter_friends": "Freunde filtern",
         "filter_groups": "Gruppen filtern",
+        "filter_instances": "Instanzen filtern",
         "filter_no_results": "Keine Treffer",
         "self_more_actions": "Mehr",
         "switch_account": "Konto wechseln",
         "favorite": "Favoriten",
         "same_instance": "Gleiche Instanz",
         "you_are_here": "Du bist hier",
+        "visited_minutes_ago_one": "Vor 1 Min. besucht",
+        "visited_minutes_ago_other": "Vor {count} Min. besucht",
+        "visited_hours_ago_one": "Vor 1 Std. besucht",
+        "visited_hours_ago_other": "Vor {count} Std. besucht",
+        "visited_at": "Zuletzt betreten: {time}",
         "online": "Online",
         "active": "Aktiv",
         "offline": "Offline",
@@ -931,6 +940,7 @@
                 "display_hint": "Wie Tabs in der Seitenleiste aussehen.",
                 "layout_hint": "Zum Umsortieren ziehen. Freunde und Gruppen sind integriert – füge Favoritengruppen als eigene Tabs hinzu.",
                 "system_badge": "Integriert",
+                "world_badge": "Welt",
                 "always_visible": "Immer sichtbar",
                 "move_up": "Nach oben",
                 "move_down": "Nach unten",
@@ -1142,14 +1152,12 @@
                 "value_copied": "{value} kopiert"
             },
             "context": {
-                "hide_user": "Im Feed ausblenden",
-                "unhide_user": "Im Feed wieder einblenden"
+                "hide_user": "Ortswechsel im Feed ausblenden",
+                "unhide_user": "Ortswechsel im Feed einblenden"
             }
         },
         "friends_locations": {
             "online": "Online",
-            "world_friends_one": "{count} Freund",
-            "world_friends_other": "{count} Freunde",
             "view_people": "Freundeansicht",
             "view_worlds": "Weltenansicht",
             "world_instances_one": "{count} Instanz",
@@ -1209,10 +1217,7 @@
                 "start": "Start",
                 "end": "Ende",
                 "game_log_is_disabled": "Das Schreiben des GameLogs ist deaktiviert",
-                "showing": "Zeige",
-                "of": "von",
-                "game_log_row": "Spielprotokoll-Eintrag",
-                "game_log_rows": "Spielprotokoll-Einträge"
+                "showing_summary": "<b>{shown}</b> von <b>{count}</b> angezeigt"
             },
             "success": {
                 "game_log_row_deleted": "Spielprotokoll-Eintrag gelöscht",
@@ -1308,10 +1313,8 @@
                 "grid_density_dense": "Dicht",
                 "click_to_wear": "Klicken zum Anziehen",
                 "impostor_queued_for_creation": "Impostor zur Erstellung eingereiht",
-                "showing": "Zeige",
-                "of": "von",
+                "showing_summary": "<b>{shown}</b> von <b>{count}</b> angezeigt",
                 "avatar": "Avatar",
-                "avatars": "Avatare",
                 "broaden_the_filters_or_search_query_to_see_more_avatars": "Erweitere die Filter oder die Suchanfrage, um mehr Avatare zu sehen",
                 "make_public": "Öffentlich machen",
                 "make_private": "Privat machen",
@@ -1404,6 +1407,8 @@
                 "search": "Suchen",
                 "search_mode_name": "Name",
                 "search_mode_tag": "Tag",
+                "search_mode": "Suchen nach",
+                "search_tags": "Tags durchsuchen",
                 "vrchat_favorites": "VRChat-Favoriten",
                 "local_favorites": "Lokale Favoriten",
                 "new_group": "Neue Gruppe"
@@ -1581,10 +1586,7 @@
                 "friend_history_failed_to_load": "Freundschaftsverlauf konnte nicht geladen werden"
             },
             "label": {
-                "showing": "Zeige",
-                "of": "von",
-                "log_row": "Protokollzeile",
-                "log_rows": "Protokollzeilen",
+                "showing_summary": "<b>{shown}</b> von <b>{count}</b> angezeigt",
                 "broaden_the_type_filters_or_search_query_to_see_more_history": "Erweitere die Typfilter oder die Suchanfrage, um mehr Verlauf zu sehen"
             },
             "empty": {
@@ -1748,10 +1750,8 @@
             "label": {
                 "friend_details_are_already_loaded": "Freundesdetails sind bereits geladen",
                 "shared_connections_are_opted_out_for_the_current_account": "Dieses Konto hat gemeinsame Verbindungen deaktiviert",
-                "showing": "Zeige",
-                "of": "von",
+                "showing_summary": "<b>{shown}</b> von <b>{count}</b> angezeigt",
                 "friend": "Freund",
-                "friends": "Freunde",
                 "try_turning_off_favorites_only_or_broadening_the_search_query": "Deaktiviere \"Nur Favoriten\" oder erweitere die Suchanfrage",
                 "favorites_are_still_hydrating": "Favoriten werden noch geladen",
                 "try_a_different_segment_or_broaden_the_search_query": "Versuche einen anderen Abschnitt oder erweitere die Suchanfrage",
@@ -2286,7 +2286,7 @@
                 "submit": "Senden",
                 "submitting": "Wird gesendet…",
                 "thanks": "Danke für dein Feedback!",
-                "cooldown": "In {{seconds}} s kannst du erneut senden",
+                "cooldown": "In {seconds} s kannst du erneut senden",
                 "reply_note": "Wenn du eine Antwort möchtest, gib deine E-Mail-Adresse im Feedback an.",
                 "more_help": "Du kannst uns auch hier kontaktieren oder Logs anhängen:",
                 "error_generic": "Feedback konnte nicht gesendet werden. Bitte versuche es später erneut."
@@ -2314,13 +2314,15 @@
                     "description": "Ruft regelmäßig die öffentlichen Bios von Freunden ab und zeigt Änderungen im Feed. Aktualisierungen können sich verzögern, und einzelne Änderungen können unbemerkt bleiben."
                 },
                 "hidden_feed": {
-                    "header": "Ausgeblendete Feed-Freunde",
-                    "description": "Blende ausgewählte Freunde im Feed aus, ohne gespeicherte Daten zu löschen.",
+                    "header": "Freunde mit ausgeblendeten Ortswechseln",
+                    "description": "Blendet die Ortswechsel ausgewählter Freunde im Feed aus. Ihre übrigen Aktivitäten bleiben sichtbar, gespeicherte Daten werden nicht gelöscht.",
                     "add": "Freund hinzufügen",
                     "search_placeholder": "Freunde suchen",
                     "empty": "Du hast noch niemanden ausgeblendet.",
                     "remove": "Ausgeblendeten Freund entfernen",
-                    "unknown_friend": "Unbekannter Freund"
+                    "unknown_friend": "Unbekannter Freund",
+                    "hide_notifications": "Auch in Benachrichtigungen ausblenden",
+                    "hide_notifications_description": "Ihre Ortswechsel erscheinen auch nicht in Desktop-Benachrichtigungen, TTS, VR-Overlays, Webhooks oder App-Benachrichtigungen."
                 }
             },
             "vr": {
@@ -3174,6 +3176,18 @@
             },
             "toast": {
                 "failed_to_look_up_this_player": "Dieser Spieler konnte nicht gesucht werden"
+            },
+            "mutual_friends": {
+                "query": "Gemeinsame Freunde abfragen",
+                "graph_fetch_running": "Der Gemeinsame-Freunde-Graph wird gerade abgerufen. Danach erneut abfragen.",
+                "summary": "{count} Spieler haben gemeinsame Freunde mit dir",
+                "circles_prefix": "vor allem aus den Communitys von",
+                "circles_suffix": "",
+                "cell_tooltip": "{names} · {count} gemeinsame Freunde",
+                "cell_tooltip_circle": "{names} · {count} gemeinsame Freunde · vor allem aus der Community von {circle}",
+                "requery": "Erneut abfragen",
+                "show": "Ergebnisse anzeigen",
+                "hide": "Ausblenden"
             }
         },
         "auth": {
@@ -3593,6 +3607,8 @@
             "group_count": "{count} Gruppe(n)",
             "edit_mode": "Bearbeiten",
             "exit_edit_mode": "Fertig",
+            "section_own": "Eigene Gruppen",
+            "section_joined": "Beigetretene Gruppen",
             "order_hint": "Ziehe die Gruppen, um ihre Anzeigereihenfolge in VRChat festzulegen.",
             "order_game_running": "VRChat läuft. Änderungen an der Reihenfolge können beim Beenden des Spiels überschrieben werden.",
             "order_unavailable": "Gruppenreihenfolge nicht verfügbar: {reason}",
@@ -3723,6 +3739,7 @@
             },
             "group_invite": {
                 "select_group": "Gruppe auswählen...",
+                "description": "Wähle die Gruppe aus, in die du {value} einladen möchtest.",
                 "loading": "Gruppen, für die du Einladungen senden kannst, werden geladen...",
                 "no_groups": "Du hast keine Gruppen, für die du Einladungen senden kannst",
                 "load_failed": "Gruppen konnten nicht geladen werden",
@@ -3854,6 +3871,9 @@
                     "alphabetical": "Alphabetisch",
                     "last_active": "Zuletzt aktiv",
                     "friend_order": "Freundesreihenfolge"
+                },
+                "view": {
+                    "list": "Liste"
                 }
             },
             "activity": {
@@ -4108,6 +4128,12 @@
                 "public_count": "Öffentlich {count}",
                 "private_count": "Privat {count}",
                 "capacity_count": "Kapazität {count} ({max})",
+                "pin_to_sidebar": "An Seitenleiste anheften",
+                "pinned_to_sidebar": "An die Seitenleiste angeheftet",
+                "pin_to_sidebar_failed": "Anheften an die Seitenleiste fehlgeschlagen",
+                "unpin_from_sidebar": "Von Seitenleiste lösen",
+                "unpinned_from_sidebar": "Von der Seitenleiste gelöst",
+                "unpin_from_sidebar_failed": "Lösen von der Seitenleiste fehlgeschlagen",
                 "instance_creator": "Instanz-Ersteller"
             },
             "info": {
@@ -4201,8 +4227,7 @@
                 "add_domain": "Domain hinzufügen"
             },
             "loading": {
-                "loading_world_profile": "Weltprofil wird geladen",
-                "fetching_the_current_vrchat_world_snapshot_for_this_dialog": "Weltdetails werden geladen"
+                "loading_world_profile": "Weltprofil wird geladen"
             },
             "error": {
                 "world_profile_unavailable": "Weltprofil nicht verfügbar",
@@ -4479,7 +4504,12 @@
                 "moderation_tools": "Moderationswerkzeuge",
                 "leave": "Gruppe verlassen",
                 "block": "Gruppe blockieren",
-                "unblock": "Gruppe entsperren"
+                "unblock": "Gruppe entsperren",
+                "edit_profile": "Gruppendetails bearbeiten",
+                "edit_profile_media": "Banner und Symbol bearbeiten",
+                "use_banner": "Als Banner verwenden",
+                "use_group_icon": "Als Gruppensymbol verwenden",
+                "delete": "Gruppe löschen"
             },
             "overview": {
                 "header": "Übersicht",
@@ -4543,7 +4573,9 @@
                 "loaded_of_total": "{loaded} von {total} geladen",
                 "search_results": "{count} Treffer",
                 "export_loaded": "Geladene exportieren ({count})",
-                "export_all": "Alle exportieren ({count})"
+                "export_all": "Alle exportieren ({count})",
+                "failed_to_load": "Mitglieder konnten nicht geladen werden",
+                "failed_to_search": "Mitgliedersuche fehlgeschlagen"
             },
             "gallery": {
                 "header": "Fotos"
@@ -4589,7 +4621,9 @@
                 "name_a_z": "Name A-Z",
                 "name_z_a": "Name Z-A",
                 "role": "Rolle",
-                "all_roles": "Alle Rollen"
+                "all_roles": "Alle Rollen",
+                "banner": "Banner",
+                "group_icon": "Gruppensymbol"
             },
             "success": {
                 "group_join_request_cancelled": "Beitrittsanfrage abgebrochen",
@@ -4619,7 +4653,11 @@
                 "group_post_created": "Gruppenbeitrag erstellt",
                 "failed_to_save_group_post": "Gruppenbeitrag konnte nicht gespeichert werden",
                 "failed_to_send_group_invite": "Gruppeneinladung konnte nicht gesendet werden",
-                "failed_to_delete_group_post": "Gruppenbeitrag konnte nicht gelöscht werden"
+                "failed_to_delete_group_post": "Gruppenbeitrag konnte nicht gelöscht werden",
+                "group_profile_updated": "Gruppe aktualisiert",
+                "failed_to_update_group_profile": "Gruppe konnte nicht aktualisiert werden",
+                "group_deleted": "Gruppe gelöscht",
+                "failed_to_delete_group": "Gruppe konnte nicht gelöscht werden"
             },
             "modal": {
                 "leave_group": "Gruppe verlassen?",
@@ -4628,7 +4666,9 @@
                 "delete_group_post": "Gruppenbeitrag löschen?",
                 "block_group": "Gruppe blockieren?",
                 "unblock_group": "Gruppe entsperren?",
-                "invite_to_group": "In Gruppe einladen"
+                "invite_to_group": "In Gruppe einladen",
+                "delete_group": "Gruppe löschen?",
+                "delete": "Löschen"
             },
             "dynamic": {
                 "leave_value": "{value} verlassen?",
@@ -4636,7 +4676,19 @@
                 "value_completed": "{value} abgeschlossen",
                 "search_value": "{value} suchen",
                 "no_value": "Kein(e) {value}",
-                "value_copied": "{value} kopiert"
+                "value_copied": "{value} kopiert",
+                "delete_value": "{value} löschen? Danach hat niemand mehr Zugriff auf die Gruppe."
+            },
+            "edit": {
+                "short_code": "Kurzcode",
+                "short_code_hint": "3–6 Großbuchstaben oder Ziffern. Eine Änderung ändert auch den Gruppenlink.",
+                "add_link": "Link hinzufügen",
+                "remove_link": "Link entfernen",
+                "join_state_open": "Alle",
+                "join_state_request": "Auf Anfrage",
+                "join_state_invite": "Nur mit Einladung",
+                "join_state_closed": "Geschlossen",
+                "allow_join_prompt": "Personen in Gruppeninstanzen zum Beitritt auffordern"
             }
         },
         "favorite": {
@@ -5356,7 +5408,8 @@
             "send": "Senden",
             "recent": "Zuletzt verwendet",
             "inventory_emojis": "Inventar",
-            "no_inventory_emojis": "Noch keine Boop-Emojis im Inventar"
+            "no_inventory_emojis": "Noch keine Boop-Emojis im Inventar",
+            "failed_to_load_emojis": "Emojis konnten nicht geladen werden"
         },
         "vrcx_updater": {
             "latest_version": "VRCX-0 ist auf dem neuesten Stand",
@@ -5419,7 +5472,6 @@
         },
         "favorite_import": {
             "action": {
-                "import": "importieren",
                 "clear_table": "Tabelle leeren",
                 "clear_errors": "Fehler löschen",
                 "exclude": "Ausschließen"
@@ -5435,7 +5487,6 @@
                 "name": "Name",
                 "detail": "Details",
                 "actions": "Aktionen",
-                "rows_yet": "Zeilen bisher",
                 "import_to": "Importieren nach",
                 "local": "Lokal",
                 "select_group": "Gruppe auswählen"
@@ -5451,7 +5502,14 @@
                 "detected_count": "{count} erkannt"
             },
             "empty": {
-                "no_parsed": "Keine verarbeitet"
+                "avatar": "Noch keine Avatare zum Importieren",
+                "world": "Noch keine Welten zum Importieren",
+                "friend": "Noch keine Freunde zum Importieren"
+            },
+            "title": {
+                "avatar": "Avatare importieren",
+                "world": "Welten importieren",
+                "friend": "Freunde importieren"
             }
         },
         "tools": {
@@ -5907,7 +5965,8 @@
             "bioLink": "Bio-Links",
             "note": "Notiz",
             "user": "Nutzer",
-            "location": "Standort"
+            "location": "Standort",
+            "mutualFriends": "Gemeinsame Freunde"
         },
         "friendLog": {
             "date": "Datum",
@@ -6067,12 +6126,6 @@
                 "failed_to_remove_favorite": "Favorit konnte nicht entfernt werden",
                 "failed_to_add_local_favorite": "Lokaler Favorit konnte nicht hinzugefügt werden",
                 "failed_to_remove_local_favorite": "Lokaler Favorit konnte nicht entfernt werden"
-            },
-            "modal": {
-                "remove_vrchat_favorite": "VRChat-Favorit entfernen?"
-            },
-            "dynamic": {
-                "remove_value_from_vrchat_favorites": "{value} aus VRChat-Favoriten entfernen?"
             }
         },
         "friend_location_card": {
@@ -6177,6 +6230,14 @@
             }
         },
         "groups_sidebar": {
+            "toast": {
+                "failed_to_launch_instance": "Instanz konnte nicht gestartet werden",
+                "failed_to_send_self_invite": "Selbsteinladung konnte nicht gesendet werden"
+            }
+        },
+        "world_rooms_sidebar": {
+            "empty": "Derzeit keine aktiven Instanzen",
+            "failed": "Instanzen konnten nicht geladen werden",
             "toast": {
                 "failed_to_launch_instance": "Instanz konnte nicht gestartet werden",
                 "failed_to_send_self_invite": "Selbsteinladung konnte nicht gesendet werden"
@@ -6427,5 +6488,9 @@
         "restore": "Wiederherstellen und neu starten",
         "keep": "Darstellung korrekt, beibehalten",
         "failed": "Die Darstellungseinstellung konnte nicht geändert werden. Versuche es erneut."
+    },
+    "mutual_graph_hint": {
+        "build": "Noch kein Gemeinsame-Freunde-Graph · Jetzt erstellen",
+        "room_scan_running": "Gemeinsame Freunde für diese Instanz werden abgefragt. Bitte danach erneut versuchen."
     }
 }

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { useShellStore } from '@/state/shellStore';
+import { activePresence } from '@/test/presenceFixtures';
 
 import {
     groupIdForRow,
@@ -77,7 +78,7 @@ describe('userDialogRows', () => {
             {
                 id: 'avtr_b',
                 name: 'Birch',
-                updated_at: '2026-02-01T00:00:00.000Z',
+                updated_at: '2026-04-01T00:00:00.000Z',
                 created_at: '2024-01-01T00:00:00.000Z'
             }
         ];
@@ -88,8 +89,8 @@ describe('userDialogRows', () => {
             'avtr_c'
         ]);
         expect(sortAvatarRows(rows, 'update').map((row) => row.id)).toEqual([
-            'avtr_a',
             'avtr_b',
+            'avtr_a',
             'avtr_c'
         ]);
         expect(sortAvatarRows(rows, 'createdAt').map((row) => row.id)).toEqual([
@@ -361,10 +362,16 @@ describe('userDialogRows', () => {
         ).toBe('World');
         expect(worldOccupantSubtitle({ occupants: 12 })).toBe('(12)');
         expect(
-            resolveStatusStateText({ state: 'active', status: 'join me' })
+            resolveStatusStateText({
+                $presence: activePresence(),
+                status: 'join me'
+            })
         ).toBe('active / join me');
         expect(
-            resolveStatusStateText({ state: 'active', status: 'active' })
+            resolveStatusStateText({
+                $presence: activePresence(),
+                status: 'active'
+            })
         ).toBe('active');
         expect(
             resolveTabValue([{ value: 'info' }, { value: 'groups' }], 'groups')

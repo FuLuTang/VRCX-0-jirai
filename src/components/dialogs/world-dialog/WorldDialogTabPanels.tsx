@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { CurrentInstanceBadge } from '@/components/instances/CurrentInstanceBadge';
 import { InstanceActionBar } from '@/components/instances/InstanceActionBar';
+import { InstanceVisitedBadge } from '@/components/instances/InstanceVisitedBadge';
 import { normalizeLocationText } from '@/components/location/locationModel';
 import { LocationWorld } from '@/components/LocationWorld';
 import { ScreenshotThumbnailCard } from '@/components/media/ScreenshotThumbnailCard';
@@ -43,6 +44,7 @@ import {
     platformDisplayName,
     resolveLaunchLocation
 } from './WorldDialogViewParts';
+import { WorldSidebarPinButton } from './WorldSidebarPinButton';
 
 const WORLD_DATE_FALLBACKS = {
     empty: '',
@@ -134,10 +136,7 @@ function WorldScreenshotsGrid({
                     count: safeScreenshots.length
                 })}
             </Badge>
-            <div
-                ref={viewportRef}
-                className="min-h-0 flex-1 overflow-auto pr-1"
-            >
+            <div ref={viewportRef} className="min-h-0 flex-1 overflow-auto p-1">
                 <div className="relative" style={{ height: totalHeight }}>
                     {visibleRows.map((row) => (
                         <div
@@ -223,7 +222,7 @@ export function WorldDialogTabPanels({
         >
             <EntityDialogTabContent
                 value="instances"
-                className="flex flex-col gap-3 px-px pt-3 pb-px"
+                className="flex flex-col gap-3 pt-3"
             >
                 <div className="flex flex-wrap items-center gap-1.5">
                     <Badge variant="outline">
@@ -245,6 +244,10 @@ export function WorldDialogTabPanels({
                             max: world.capacity || '—'
                         })}
                     </Badge>
+                    <WorldSidebarPinButton
+                        worldId={world.id}
+                        name={world.name}
+                    />
                 </div>
                 <div className="flex flex-col gap-2">
                     {displayInstanceRows.length ? (
@@ -309,6 +312,7 @@ export function WorldDialogTabPanels({
                                                 }
                                                 playerCount={playerCount}
                                                 capacity={capacity}
+                                                showWorldName={false}
                                                 showPlayerSummary={false}
                                                 hint={
                                                     world.name ||
@@ -322,7 +326,12 @@ export function WorldDialogTabPanels({
                                             />
                                             {instance.isCurrentInstance ? (
                                                 <CurrentInstanceBadge className="shrink-0" />
-                                            ) : null}
+                                            ) : (
+                                                <InstanceVisitedBadge
+                                                    location={location}
+                                                    className="shrink-0"
+                                                />
+                                            )}
                                         </div>
                                         <InstanceActionBar
                                             className="min-w-0 flex-wrap justify-start sm:justify-end"
@@ -383,7 +392,7 @@ export function WorldDialogTabPanels({
             </EntityDialogTabContent>
             <EntityDialogTabContent
                 value="screenshots"
-                className="flex min-h-0 flex-col gap-3 px-px pt-3 pb-px"
+                className="flex min-h-0 flex-col gap-3 pt-3"
             >
                 <div className="flex shrink-0 justify-end">
                     <Button

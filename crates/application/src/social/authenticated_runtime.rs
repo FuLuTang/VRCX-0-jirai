@@ -124,7 +124,6 @@ struct FriendBaselineMetadata {
     user_id: String,
     stale: bool,
     detail: String,
-    ordered_friend_ids: Arc<[String]>,
 }
 
 impl AuthenticatedRuntimeOrchestrator {
@@ -155,16 +154,7 @@ impl AuthenticatedRuntimeOrchestrator {
             )
         };
         let current_friends = match friend_baseline.as_ref() {
-            Some(friend_baseline) => match self
-                .realtime_runtime
-                .friend_roster_snapshot(&friend_baseline.ordered_friend_ids)
-            {
-                Ok(current_friends) => current_friends,
-                Err(error) => {
-                    tracing::warn!(error = %error, "failed to build current friend phase snapshot");
-                    None
-                }
-            },
+            Some(_) => self.realtime_runtime.friend_roster_snapshot(),
             None => None,
         };
         assemble_authenticated_runtime_snapshot(
@@ -758,8 +748,9 @@ impl AuthenticatedRuntimeOrchestrator {
         if !self.auth_scope.snapshot().generation_matches(scope) {
             return;
         }
-        self.event_bus
-            .emit_runtime_vrchat_auth_failure(RuntimeVrchatAuthFailurePayload {
+        self.auth_scope.report_vrchat_auth_failure(
+            &self.event_bus,
+            RuntimeVrchatAuthFailurePayload {
                 owner_user_id: OwnerId::new(scope.current_user_id.clone()),
                 endpoint: scope.endpoint.clone(),
                 path: path.to_string(),
@@ -767,7 +758,8 @@ impl AuthenticatedRuntimeOrchestrator {
                 status_code,
                 auth_scope_generation: scope.generation,
                 realtime_transport: None,
-            });
+            },
+        );
     }
 
     fn is_active(
@@ -987,21 +979,10 @@ fn commit_favorites_baseline(
 }
 
 fn friend_baseline_metadata(output: &SocialFriendRosterBaselineOutput) -> FriendBaselineMetadata {
-    let ordered_friend_ids = output
-        .snapshot
-        .as_ref()
-        .and_then(|snapshot| snapshot.as_value().get("orderedFriendIds"))
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(Value::as_str)
-        .map(str::to_string)
-        .collect::<Vec<_>>();
     FriendBaselineMetadata {
         user_id: output.user_id.clone(),
         stale: output.stale,
         detail: output.detail.clone(),
-        ordered_friend_ids: ordered_friend_ids.into(),
     }
 }
 

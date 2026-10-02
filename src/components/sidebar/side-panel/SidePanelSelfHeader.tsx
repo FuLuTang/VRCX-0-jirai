@@ -13,14 +13,17 @@ import {
     resolveFriendRowLocationState,
     StaticSidebarLocation
 } from '@/components/sidebar/friends-sidebar/FriendsSidebarLocation';
-import { resolveSidebarStatusDotClassName } from '@/components/sidebar/friends-sidebar/friendsSidebarModel';
-import { buildCurrentUserDisplayRecord } from '@/components/sidebar/friends-sidebar/friendsSidebarVirtualRowBuilder';
+import {
+    resolveSidebarStatusDotClassName,
+    type SidebarFriendRecord
+} from '@/components/sidebar/friends-sidebar/friendsSidebarModel';
 import { useFriendsSidebarActions } from '@/components/sidebar/friends-sidebar/useFriendsSidebarActions';
 import { useFriendsSidebarPreferences } from '@/components/sidebar/friends-sidebar/useFriendsSidebarPreferences';
 import { SidePanelSelfAccountMenu } from '@/components/sidebar/side-panel/SidePanelSelfAccountMenu';
 import { useFriendsSidebarDisplayPreferences } from '@/components/sidebar/useFriendsSidebarDisplayPreferences';
 import { useFriendsSidebarRuntimeSnapshot } from '@/components/sidebar/useFriendsSidebarRuntimeSnapshot';
 import { UserStatusAvatar } from '@/components/UserStatusAvatar';
+import { presenceLocationTag, presenceOf } from '@/domain/friends/presence';
 import { cn } from '@/lib/utils';
 import { useModalStore } from '@/state/modalStore';
 import {
@@ -104,9 +107,9 @@ export function SidePanelSelfHeader() {
         currentUserId
     });
 
-    const selfRow = useMemo(
-        () => buildCurrentUserDisplayRecord(currentUser, gameState),
-        [currentUser, gameState]
+    const selfRow = useMemo<SidebarFriendRecord | null>(
+        () => (currentUser ? { ...currentUser } : null),
+        [currentUser]
     );
     const { displaySource, imageUrl, displayName, nameStyle } =
         resolveFriendRowDisplay(selfRow, {
@@ -114,8 +117,11 @@ export function SidePanelSelfHeader() {
             isDarkMode,
             trustColor
         });
+    const selfPresence = presenceOf(selfRow);
     const locationMetadata = useLocationMetadata({
-        locationInfo: displaySource?.location || '',
+        locationInfo: selfPresence
+            ? presenceLocationTag(selfPresence, { preferTraveling: true })
+            : '',
         currentLocation: gameState?.currentLocation || '',
         endpoint: currentEndpoint || ''
     });
@@ -200,12 +206,7 @@ export function SidePanelSelfHeader() {
                                     imageUrl={imageUrl}
                                     statusDotClassName={resolveSidebarStatusDotClassName(
                                         selfRow,
-                                        currentUser,
-                                        true,
-                                        {
-                                            isGameRunning:
-                                                gameState?.isGameRunning
-                                        }
+                                        { hideNonFriend: false }
                                     )}
                                 />
                             </button>
@@ -282,7 +283,7 @@ export function SidePanelSelfHeader() {
                                                         'focus-visible:ring-ring -mx-1 h-4 min-w-0 cursor-text truncate rounded-md px-1 text-left text-xs leading-4 outline-none focus-visible:ring-2',
                                                         statusDescription
                                                             ? 'text-content-secondary'
-                                                            : 'text-content-tertiary'
+                                                            : 'text-content-disabled hover:text-content-tertiary'
                                                     )}
                                                     onClick={() => {
                                                         setDescriptionDraft(

@@ -1,12 +1,9 @@
 // @vitest-environment jsdom
 
 import { cleanup, render, screen, within } from '@testing-library/react';
+import { cloneElement } from 'react';
 import type { PropsWithChildren, ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-
-const mocks = vi.hoisted(() => ({
-    getPlayerDetailFromInstance: vi.fn().mockResolvedValue([])
-}));
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
@@ -44,15 +41,19 @@ vi.mock('@/services/entityMediaService', () => ({
 }));
 
 vi.mock('@/ui/shadcn/avatar', () => ({
-    Avatar: ({ children }: PropsWithChildren) => <span>{children}</span>,
+    Avatar: ({
+        children,
+        render,
+        ...props
+    }: PropsWithChildren<{ render?: ReactElement }>) =>
+        render ? (
+            cloneElement(render, props, children)
+        ) : (
+            <span>{children}</span>
+        ),
+    AvatarGroup: ({ children }: PropsWithChildren) => <div>{children}</div>,
     AvatarImage: ({ src }: { src?: string }) => <img src={src} alt="" />,
     AvatarFallback: ({ children }: PropsWithChildren) => <span>{children}</span>
-}));
-
-vi.mock('@/repositories/gameLogRepository', () => ({
-    default: {
-        getPlayerDetailFromInstance: mocks.getPlayerDetailFromInstance
-    }
 }));
 
 vi.mock('@/services/gameLogUserDialogService', () => ({
@@ -98,7 +99,9 @@ describe('GameLogSessionsView', () => {
             ['usr_alice', 'Alice'],
             ['usr_bob', 'Bob'],
             ['usr_carla', 'Carla'],
-            ['usr_dan', 'Dan']
+            ['usr_dan', 'Dan'],
+            ['usr_eve', 'Eve'],
+            ['usr_finn', 'Finn']
         ];
 
         const sessionView = (
@@ -139,8 +142,12 @@ describe('GameLogSessionsView', () => {
         );
 
         expect(
-            screen.getByRole('button', { name: '4 friends' }).textContent
+            screen.getByRole('button', { name: '6 friends' }).textContent
         ).toBe('+1');
+        for (const name of ['Dan', 'Alice', 'Bob', 'Carla', 'Eve']) {
+            expect(screen.getByRole('button', { name })).not.toBeNull();
+        }
+        expect(screen.queryByRole('button', { name: 'Finn' })).toBeNull();
         const hoverCard = screen.getByTestId('friends-hover-card');
         expect(hoverCard.dataset.side).toBe('bottom');
 
@@ -155,7 +162,7 @@ describe('GameLogSessionsView', () => {
             within(hoverCard)
                 .getAllByRole('listitem')
                 .map((row) => row.textContent)
-        ).toEqual(['DDan', 'AAlice', 'BBob', 'CCarla']);
+        ).toEqual(['DDan', 'AAlice', 'BBob', 'CCarla', 'EEve', 'FFinn']);
 
         view.rerender(
             <GameLogSessionAffinityContext
@@ -167,7 +174,7 @@ describe('GameLogSessionsView', () => {
                 {sessionView}
             </GameLogSessionAffinityContext>
         );
-        expect(screen.queryByRole('button', { name: '4 friends' })).toBeNull();
+        expect(screen.queryByRole('button', { name: '6 friends' })).toBeNull();
         expect(screen.queryByTestId('friends-hover-card')).toBeNull();
         expect(screen.getByLabelText('2 friends')).not.toBeNull();
         expect(screen.queryByRole('button', { name: 'Dan' })).toBeNull();
@@ -178,7 +185,7 @@ describe('GameLogSessionsView', () => {
         ).toEqual(['Bob', 'Alice']);
     });
 
-    it('uses the batched duration rows without querying each session', () => {
+    it('shows the session duration accumulated from batched player rows', () => {
         render(
             <GameLogSessionsView
                 isGameRunning={false}
@@ -225,6 +232,5 @@ describe('GameLogSessionsView', () => {
         );
 
         expect(screen.getByText(/2m/)).not.toBeNull();
-        expect(mocks.getPlayerDetailFromInstance).not.toHaveBeenCalled();
     });
 });

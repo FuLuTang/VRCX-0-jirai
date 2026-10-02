@@ -2,8 +2,10 @@ import { GlobeIcon, UserIcon, UsersIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { AffinityBadge } from '@/components/affinity/AffinityBadge';
-import { CurrentInstanceBadge } from '@/components/instances/CurrentInstanceBadge';
+import { InstanceVisitedBadge } from '@/components/instances/InstanceVisitedBadge';
+import { LocationPendingText } from '@/components/location/LocationPendingText';
 import { RegionCodeBadge } from '@/components/location/RegionCodeBadge';
+import { useInstancePopulation } from '@/components/location/useInstancePopulation';
 import { useLocationMetadata } from '@/components/location/useLocationMetadata';
 import { FadeInImage } from '@/components/media/FadeInImage';
 import { resolveSidebarStatusDotClassName } from '@/components/sidebar/friends-sidebar/friendsSidebarModel';
@@ -15,26 +17,23 @@ import { userImage } from '@/services/entityMediaService';
 import { accessTypeLocaleKeyMap } from '@/shared/constants/accessType';
 import { parseLocation, translateAccessType } from '@/shared/utils/location';
 import { normalizeString } from '@/shared/utils/string';
-import { useRuntimeStore } from '@/state/runtimeStore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/ui/shadcn/avatar';
 import { Skeleton } from '@/ui/shadcn/skeleton';
 import { Spinner } from '@/ui/shadcn/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/shadcn/tooltip';
 
 import type { getFriendsLocationsDensityConfig } from '../friendsLocationsDensity';
-import { resolveLocationTarget } from '../friendsLocationsRows';
+import { friendLocationTarget } from '../friendsLocationsRows';
 import type {
     FriendsLocationsWorldGroup,
     FriendsLocationsWorldInstance
 } from '../friendsLocationsWorlds';
-import { useFriendsLocationsInstancePopulation } from '../useFriendsLocationsInstancePopulation';
 import type { FriendsLocationsWorldSummary } from '../useFriendsLocationsWorldSummaries';
 
 type FriendsLocationsWorldSectionProps = {
     group: FriendsLocationsWorldGroup;
     summary?: FriendsLocationsWorldSummary;
     densityConfig: ReturnType<typeof getFriendsLocationsDensityConfig>;
-    currentUserId?: string | null;
     favoriteIds: ReadonlySet<string>;
     onOpenWorld: (group: FriendsLocationsWorldGroup, name: string) => void;
     onOpenGroup: (groupId: string) => void;
@@ -55,7 +54,7 @@ function FriendChip({
     onOpen: () => void;
 }) {
     const avatarUrl = userImage(friend);
-    const isTraveling = resolveLocationTarget(friend).isTraveling;
+    const isTraveling = friendLocationTarget(friend).isTraveling;
     const statusDescription = twoLine
         ? normalizeString(friend.statusDescription)
         : '';
@@ -65,8 +64,8 @@ function FriendChip({
             <button
                 type="button"
                 className={cn(
-                    'bg-muted/40 hover:bg-muted focus-visible:ring-ring/50 flex min-w-0 cursor-pointer items-center gap-2 rounded-md pr-3 pl-1 text-sm outline-none focus-visible:ring-3',
-                    twoLine ? 'h-10 max-w-64' : 'h-8 max-w-56'
+                    'focus-visible:ring-ring/50 flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-md pr-3 pl-1 text-sm outline-none hover:bg-(--state-hover-surface) focus-visible:ring-3',
+                    twoLine ? 'h-10' : 'h-8'
                 )}
                 onClick={onOpen}
             >
@@ -110,26 +109,17 @@ function FriendChip({
 
 export function FriendsLocationsFriendChips({
     friends,
-    currentUserId,
     favoriteIds,
     twoLine,
     onOpenUser
 }: {
     friends: FriendRecord[];
-    currentUserId?: string | null;
     favoriteIds: ReadonlySet<string>;
     twoLine: boolean;
     onOpenUser: (friend: FriendRecord) => void;
 }) {
-    const currentUserSnapshot = useRuntimeStore(
-        (state) => state.auth.currentUserSnapshot
-    );
-    const isGameRunning = useRuntimeStore(
-        (state) => state.gameState.isGameRunning === true
-    );
-
     return (
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+        <div className="grid min-w-0 grid-cols-[repeat(auto-fill,minmax(0,200px))] gap-1.5">
             {friends.map((friend) => (
                 <FriendChip
                     key={friend.id}
@@ -138,9 +128,9 @@ export function FriendsLocationsFriendChips({
                     twoLine={twoLine}
                     statusDotClassName={resolveSidebarStatusDotClassName(
                         friend,
-                        currentUserSnapshot,
-                        friend.id === currentUserId,
-                        { hideNonFriend: false, isGameRunning }
+                        {
+                            hideNonFriend: false
+                        }
                     )}
                     onOpen={() => onOpenUser(friend)}
                 />
@@ -151,14 +141,12 @@ export function FriendsLocationsFriendChips({
 
 function InstanceRow({
     instance,
-    currentUserId,
     favoriteIds,
     twoLine,
     onOpenGroup,
     onOpenUser
 }: {
     instance: FriendsLocationsWorldInstance;
-    currentUserId?: string | null;
     favoriteIds: ReadonlySet<string>;
     twoLine: boolean;
     onOpenGroup: (groupId: string) => void;
@@ -175,13 +163,15 @@ function InstanceRow({
         ref: metaRef,
         population,
         loading: populationLoading
-    } = useFriendsLocationsInstancePopulation({
+    } = useInstancePopulation({
         worldId: parsed.worldId,
         instanceId: parsed.instanceId,
         enabled: parsed.isRealInstance,
-        friendCount: instance.friends.length
+        refreshKey: instance.friends.length
     });
-    const groupName = metadata.groupName || instance.groupName;
+    const groupName = metadata.groupNamePending
+        ? ''
+        : metadata.groupName || instance.groupName;
     const label = [
         translateAccessType(parsed.accessTypeName, t, accessTypeLocaleKeyMap),
         parsed.instanceName ? `#${parsed.instanceName}` : ''
@@ -190,14 +180,14 @@ function InstanceRow({
         .join(' · ');
 
     return (
-        <>
+        <div className="flex min-w-0 flex-col gap-1.5">
             <div
                 ref={metaRef}
-                className="text-muted-foreground grid min-h-8 min-w-0 grid-cols-[auto_minmax(0,1fr)] content-center gap-y-0.5 text-xs leading-4"
+                className="text-muted-foreground flex min-w-0 items-center text-xs leading-4"
             >
                 <RegionCodeBadge region={parsed.region} />
-                <span className="col-start-2 flex min-w-0 items-center gap-1.5">
-                    <span className="min-w-0 truncate">{label}</span>
+                <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="shrink-0">{label}</span>
                     {population ? (
                         <Tooltip>
                             <TooltipTrigger
@@ -234,37 +224,46 @@ function InstanceRow({
                             </TooltipContent>
                         </Tooltip>
                     ) : populationLoading ? (
-                        <Skeleton className="h-3 w-8 shrink-0" />
+                        <Skeleton className="h-3 w-11 shrink-0" />
                     ) : null}
-                    {instance.isCurrent ? (
-                        <CurrentInstanceBadge className="shrink-0" />
+                    <InstanceVisitedBadge
+                        location={instance.location}
+                        className="shrink-0"
+                    />
+                    {groupName || metadata.groupNamePending ? (
+                        <LocationPendingText
+                            pending={metadata.groupNamePending}
+                            className="flex min-w-0"
+                            placeholderClassName="w-16"
+                        >
+                            <span
+                                role="button"
+                                tabIndex={0}
+                                className="hover:text-foreground min-w-0 cursor-pointer truncate"
+                                onClick={() => onOpenGroup(instance.groupId)}
+                                onKeyDown={(event) => {
+                                    if (
+                                        event.key === 'Enter' ||
+                                        event.key === ' '
+                                    ) {
+                                        event.preventDefault();
+                                        onOpenGroup(instance.groupId);
+                                    }
+                                }}
+                            >
+                                ({groupName})
+                            </span>
+                        </LocationPendingText>
                     ) : null}
                 </span>
-                {groupName ? (
-                    <span
-                        role="button"
-                        tabIndex={0}
-                        className="hover:text-primary col-start-2 min-w-0 cursor-pointer truncate"
-                        onClick={() => onOpenGroup(instance.groupId)}
-                        onKeyDown={(event) => {
-                            if (event.key === 'Enter' || event.key === ' ') {
-                                event.preventDefault();
-                                onOpenGroup(instance.groupId);
-                            }
-                        }}
-                    >
-                        ({groupName})
-                    </span>
-                ) : null}
             </div>
             <FriendsLocationsFriendChips
                 friends={instance.friends}
-                currentUserId={currentUserId}
                 favoriteIds={favoriteIds}
                 twoLine={twoLine}
                 onOpenUser={onOpenUser}
             />
-        </>
+        </div>
     );
 }
 
@@ -272,7 +271,6 @@ export function FriendsLocationsWorldSection({
     group,
     summary,
     densityConfig,
-    currentUserId,
     favoriteIds,
     onOpenWorld,
     onOpenGroup,
@@ -280,6 +278,7 @@ export function FriendsLocationsWorldSection({
 }: FriendsLocationsWorldSectionProps) {
     const { t } = useTranslation();
     const name = summary?.name || group.nameHint || group.worldId;
+    const namePending = !summary && !group.nameHint;
     const thumbnailWidth = densityConfig.worldThumbnailWidth;
     const thumbnailHeight = Math.round((thumbnailWidth * 3) / 4);
 
@@ -310,26 +309,29 @@ export function FriendsLocationsWorldSection({
                 <div className="flex h-6 min-w-0 items-baseline gap-2.5">
                     <button
                         type="button"
-                        className="hover:text-foreground/80 focus-visible:text-foreground/80 min-w-0 cursor-pointer truncate text-left text-sm font-semibold outline-none"
+                        className="focus-visible:ring-ring/50 min-w-0 cursor-pointer truncate rounded-sm text-left text-sm font-semibold outline-none focus-visible:ring-3"
                         onClick={() => onOpenWorld(group, name)}
                     >
-                        {name}
+                        <LocationPendingText
+                            pending={namePending}
+                            placeholderClassName="h-3.5 w-32"
+                        >
+                            {name}
+                        </LocationPendingText>
                     </button>
-                    <span className="text-muted-foreground ml-auto shrink-0 pl-3 text-xs tabular-nums">
-                        {t('view.friends_locations.world_friends', {
-                            count: group.friendCount
-                        })}
-                        {group.instances.length > 1
-                            ? ` · ${t('view.friends_locations.world_instances', { count: group.instances.length })}`
-                            : null}
-                    </span>
+                    {group.instances.length > 1 ? (
+                        <span className="text-muted-foreground ml-auto shrink-0 pl-3 text-xs tabular-nums">
+                            {t('view.friends_locations.world_instances', {
+                                count: group.instances.length
+                            })}
+                        </span>
+                    ) : null}
                 </div>
-                <div className="grid min-w-0 grid-cols-[fit-content(224px)_minmax(0,1fr)] gap-x-3 gap-y-2">
+                <div className="flex min-w-0 flex-col gap-3">
                     {group.instances.map((instance) => (
                         <InstanceRow
                             key={instance.location}
                             instance={instance}
-                            currentUserId={currentUserId}
                             favoriteIds={favoriteIds}
                             twoLine={densityConfig.worldChipLines === 2}
                             onOpenGroup={onOpenGroup}

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { onlinePresence } from '@/test/presenceFixtures';
+
 import {
     fileAnalysisSizeForPlatform,
     getHomeWorldId,
@@ -13,16 +15,13 @@ import {
 describe('playerListDisplay', () => {
     it('shows normalized platform labels and compact mode labels', () => {
         expect(resolvePlatformMeta('standalonewindows')).toMatchObject({
-            label: 'PC',
-            className: 'text-muted-foreground'
+            label: 'PC'
         });
         expect(resolvePlatformMeta('quest')).toMatchObject({
-            label: 'Android',
-            className: 'text-muted-foreground'
+            label: 'Android'
         });
         expect(resolvePlatformMeta('ios')).toMatchObject({
-            label: 'iOS',
-            className: 'text-muted-foreground'
+            label: 'iOS'
         });
         expect(resolvePlatformMeta('unknown')).toMatchObject({
             label: 'unknown',
@@ -85,21 +84,17 @@ describe('playerListDisplay', () => {
         });
     });
 
-    it('does not render the current player as offline while they are in a live instance', () => {
+    it('renders the current player from the realtime presence view over stale raw fields', () => {
         expect(
             resolveStatusMeta({
                 isCurrentUser: true,
-                location: 'wrld_live:123',
-                ref: {
-                    location: 'offline',
-                    state: 'offline',
-                    status: 'offline'
-                },
+                location: 'offline',
                 state: 'offline',
-                status: 'offline',
+                status: 'active',
+                $presence: onlinePresence('wrld_live:123'),
                 statusDescription: 'Me'
-            }).indicatorClassName
-        ).toBe('x-user-status online mr-1');
+            }).statusDotClassName
+        ).toBe('user-status-indicator online bg-[var(--status-online)]');
     });
 
     it('resolves home world ids from location strings and profile objects', () => {

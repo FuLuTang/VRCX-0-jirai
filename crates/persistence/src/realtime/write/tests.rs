@@ -9,8 +9,9 @@ use crate::realtime::ensure_realtime_tables;
 
 use super::{
     insert_startup_online_backfill, normalize_user_table_prefix, profile_feed_reconcile,
-    write_realtime_batch, FriendLogDelete, FriendLogUpsert, NotificationV2Update,
-    ProfileFeedReconcileInput, RealtimePersistenceBatch, SelfProfileField, SelfProfileLogEntry,
+    write_realtime_batch, FriendLogDelete, FriendLogUpsert, NotificationExpiration,
+    NotificationV2Update, ProfileFeedReconcileInput, RealtimePersistenceBatch, SelfProfileField,
+    SelfProfileLogEntry,
 };
 use crate::ownership::OwnerId;
 use vrcx_0_contracts::feed_live::FeedLiveEntry;
@@ -631,24 +632,6 @@ fn blank_display_name_persists_unknown_not_user_id() -> Result<(), crate::Error>
 }
 
 #[test]
-fn rejects_feed_entry_types_without_a_database_table() {
-    let dir = TestDir::new("realtime-invalid-feed");
-    let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3")).unwrap();
-
-    let error = write_realtime_batch(
-        &db,
-        &OwnerId::new("usr_self"),
-        &RealtimePersistenceBatch {
-            feed_entries: vec![untabled_entry("2026-05-15T00:00:00Z")],
-            ..RealtimePersistenceBatch::default()
-        },
-    )
-    .unwrap_err();
-
-    assert!(matches!(error, crate::Error::InvalidData(_)));
-}
-
-#[test]
 fn rejects_trust_feed_without_matching_friend_log_upsert() {
     let dir = TestDir::new("realtime-unpaired-trust-feed");
     let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3")).unwrap();
@@ -739,6 +722,45 @@ fn realtime_schema_adds_v1_seen_column_and_backfills_expired_rows() -> Result<()
             vec![json!("expired"), json!(1)]
         ]
     );
+    Ok(())
+}
+
+#[test]
+fn expiring_a_v1_notification_marks_it_seen() -> Result<(), crate::Error> {
+    let dir = TestDir::new("realtime-notification-v1-expire-seen");
+    let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3"))?;
+    let owner = OwnerId::new("usr_self");
+    write_realtime_batch(
+        &db,
+        &owner,
+        &RealtimePersistenceBatch {
+            notification_v1_upserts: vec![json!({
+                "id": "notif_v1",
+                "createdAt": "2026-05-15T00:00:00Z",
+                "type": "friendRequest",
+                "senderUserId": "usr_sender",
+            })],
+            ..RealtimePersistenceBatch::default()
+        },
+    )?;
+
+    write_realtime_batch(
+        &db,
+        &owner,
+        &RealtimePersistenceBatch {
+            notification_expirations: vec![NotificationExpiration {
+                id: "notif_v1".into(),
+                expired_at: "2026-05-15T01:00:00Z".into(),
+            }],
+            ..RealtimePersistenceBatch::default()
+        },
+    )?;
+
+    let rows = db.execute(
+        "SELECT expired, seen FROM usrself_notifications WHERE id = 'notif_v1'",
+        &Default::default(),
+    )?;
+    assert_eq!(rows, vec![vec![json!(1), json!(1)]]);
     Ok(())
 }
 

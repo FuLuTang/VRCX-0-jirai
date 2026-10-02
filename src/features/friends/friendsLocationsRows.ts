@@ -1,42 +1,25 @@
 export {
-    buildFavoriteGroupLabelsByFriendId,
-    compareFavoriteGroups,
-    resolveFavoriteGroupLabels
-} from './friends-locations-rows/favorites';
-export {
     isRawWorldReference,
-    isSentinelLocationValue,
     normalizeDisplayText,
-    normalizeFriendsLocationId,
     resolveDisplayWorldName,
-    resolveWorldIdCandidate
+    resolveWorldIdCandidate,
+    uniqueFriendsById
 } from './friends-locations-rows/normalization';
 export {
-    buildSameInstanceGroups,
-    isShareableInstanceLocation,
     resolveFriendGroupName,
-    resolveFriendTravelingWorldId,
-    resolveFriendTravelingWorldName,
-    resolveFriendWorldName,
-    resolvePresenceLocation,
-    uniqueFriendsById
-} from './friends-locations-rows/presence';
-export {
-    buildFriendSections,
-    buildSameInstanceSections,
-    resolveInstanceSectionDescriptor
-} from './friends-locations-rows/sections';
+    resolveFriendWorldName
+} from './friends-locations-rows/names';
 export {
     isFriendInPrivateLocation,
+    locationTarget,
     partitionFriendsByPrivateLocation,
     resolveLocationSummary,
-    resolveLocationTarget,
-    resolveWorldDialogTarget
+    friendLocationTarget,
+    resolveWorldDialogTarget,
+    summarizeLocation
 } from './friends-locations-rows/targets';
 export type {
     FriendLocationFriend,
-    FriendLocationSection,
-    FriendLocationSectionDescriptor,
+    FriendLocationTarget,
     SameInstanceGroup
 } from './friends-locations-rows/types';
-export { resolveCurrentInviteLocation as resolveFriendsLocationsCurrentInviteLocation } from '@/shared/utils/invite';

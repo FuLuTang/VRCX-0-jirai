@@ -1,3 +1,4 @@
+import { ListIcon, WaypointsIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
@@ -18,6 +19,8 @@ import {
     SelectValue
 } from '@/ui/shadcn/select';
 import { Spinner } from '@/ui/shadcn/spinner';
+import { ToggleGroup, ToggleGroupItem } from '@/ui/shadcn/toggle-group';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/shadcn/tooltip';
 
 import {
     EntityDialogTabContent,
@@ -29,9 +32,12 @@ import {
     userDialogMutualFriendSortingOptions,
     userDialogWorldOrderOptions,
     userDialogWorldSortingOptions,
+    readUserDialogMutualView,
+    writeUserDialogMutualView,
     type UserDialogAvatarReleaseStatus,
     type UserDialogAvatarSort,
     type UserDialogMutualFriendSort,
+    type UserDialogMutualView,
     type UserDialogWorldOrder,
     type UserDialogWorldSort
 } from '../userDialogListOptions';
@@ -44,6 +50,7 @@ import {
     type useUserDialogSupplementalData
 } from '../useUserDialogSupplementalData';
 import type { useUserDialogTabData } from '../useUserDialogTabData';
+import { UserDialogMutualGraph } from './UserDialogMutualGraph';
 import { UserDialogSearchHeader } from './UserDialogSearchHeader';
 
 type UserTabData = ReturnType<typeof useUserDialogTabData>;
@@ -54,8 +61,9 @@ type RemoteTabProps = Pick<
 >;
 
 export function UserDialogMutualTab({
-    userId,
+    profile,
     mutualFriends,
+    filteredMutualFriends,
     remoteStatus,
     remoteErrors,
     loadTab,
@@ -63,7 +71,9 @@ export function UserDialogMutualTab({
     setSearch,
     mutualSort,
     setMutualSort
-}: RemoteTabProps & { userId: string } & Pick<
+}: RemoteTabProps & {
+    profile: UserDialogProfileRecord;
+} & Pick<
         UserTabData,
         | 'mutualFriends'
         | 'filteredMutualFriends'
@@ -72,6 +82,7 @@ export function UserDialogMutualTab({
         | 'setMutualSort'
     >) {
     const { t } = useTranslation();
+    const userId = String(profile.id || '');
     const [historyState, setHistoryState] = useState<{
         userId: string;
         data: Awaited<
@@ -112,9 +123,34 @@ export function UserDialogMutualTab({
           )
         : rows;
     const visibleRows = sortMutualFriendRows(filteredRows, mutualSort);
+    const [view, setView] = useState(readUserDialogMutualView);
+    const showGraph =
+        view === 'graph' &&
+        remoteStatus.mutual !== 'running' &&
+        !remoteErrors.mutual &&
+        filteredMutualFriends.length > 0;
+    const viewOptions = [
+        {
+            value: 'list',
+            label: t('dialog.user.mutual_friends.view.list'),
+            Icon: ListIcon
+        },
+        {
+            value: 'graph',
+            label: t('view.charts.mutual_friend.tab_label'),
+            Icon: WaypointsIcon
+        }
+    ] satisfies {
+        value: UserDialogMutualView;
+        label: string;
+        Icon: typeof ListIcon;
+    }[];
 
     return (
-        <EntityDialogTabContent value="mutual" className="flex flex-col gap-2">
+        <EntityDialogTabContent
+            value="mutual"
+            className="flex min-h-0 flex-col gap-2"
+        >
             <UserDialogSearchHeader
                 searchKey="mutual"
                 tab="mutual"
@@ -126,6 +162,36 @@ export function UserDialogMutualTab({
                 search={search}
                 setSearch={setSearch}
             >
+                <ToggleGroup
+                    variant="outline"
+                    size="sm"
+                    value={[view]}
+                    onValueChange={(nextValue) => {
+                        const option = viewOptions.find(
+                            (candidate) => candidate.value === nextValue[0]
+                        );
+                        if (option) {
+                            setView(option.value);
+                            writeUserDialogMutualView(option.value);
+                        }
+                    }}
+                >
+                    {viewOptions.map(({ value, label, Icon }) => (
+                        <Tooltip key={value}>
+                            <TooltipTrigger
+                                render={
+                                    <ToggleGroupItem
+                                        value={value}
+                                        aria-label={label}
+                                    >
+                                        <Icon />
+                                    </ToggleGroupItem>
+                                }
+                            />
+                            <TooltipContent>{label}</TooltipContent>
+                        </Tooltip>
+                    ))}
+                </ToggleGroup>
                 <span className="text-muted-foreground text-sm">
                     {t('dialog.user.groups.sort_by')}
                 </span>
@@ -136,7 +202,9 @@ export function UserDialogMutualTab({
                             setMutualSort(value);
                         }
                     }}
-                    disabled={remoteStatus.mutual === 'running'}
+                    disabled={
+                        remoteStatus.mutual === 'running' || view === 'graph'
+                    }
                     items={userDialogMutualFriendSortingOptions.map(
                         (option) => ({
                             value: option.value,
@@ -174,12 +242,20 @@ export function UserDialogMutualTab({
                     {new Date(history.lastSuccessfulAt).toLocaleDateString()}
                 </div>
             ) : null}
-            <EntityList
-                rows={visibleRows}
-                kind="user"
-                loading={remoteStatus.mutual === 'running' && !rows.length}
-                error={rows.length ? '' : remoteErrors.mutual}
-            />
+            {showGraph ? (
+                <UserDialogMutualGraph
+                    userId={profile?.id || ''}
+                    displayName={profile?.displayName || ''}
+                    rows={filteredMutualFriends}
+                />
+            ) : (
+                <EntityList
+                    rows={visibleRows}
+                    kind="user"
+                    loading={remoteStatus.mutual === 'running' && !rows.length}
+                    error={rows.length ? '' : remoteErrors.mutual}
+                />
+            )}
         </EntityDialogTabContent>
     );
 }

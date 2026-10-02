@@ -18,7 +18,6 @@ mod worlds;
 
 pub use activity::get_friend_activity_pattern;
 pub use best_time::get_best_time_to_play;
-pub use caveats::{data_caveats_resource, global_caveats};
 pub use changes::get_friend_changes;
 pub use companions::get_companions_of;
 pub use copresence::get_copresence_summary;
@@ -48,14 +47,12 @@ pub use types::{
 pub use visits::get_visit_timeline;
 pub use vrcx_0_contracts::feed::{WorldFriendVisitRow, WorldFriendVisitsOutput};
 pub use world_friend_visits::get_world_friend_visits;
-pub use worlds::{favorite_local, search_worlds_visited};
+pub use worlds::{favorite_local, search_worlds_visited, top_visited_worlds};
 
 #[cfg(test)]
 mod activity_tests;
 #[cfg(test)]
 mod best_time_tests;
-#[cfg(test)]
-mod caveats_tests;
 #[cfg(test)]
 mod changes_tests;
 #[cfg(test)]

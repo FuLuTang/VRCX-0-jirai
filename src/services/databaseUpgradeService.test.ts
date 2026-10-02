@@ -12,14 +12,13 @@ const mocks = vi.hoisted(() => ({
     appDatabaseUpgradeStartFresh: vi.fn(),
     appOpenVrcxAppDataFolder: vi.fn(),
     appGetLegacyVrcxMigrationStatus: vi.fn(),
-    appCheckLegacyVrcxAvailable: vi.fn(),
     appRequestLegacyMigration: vi.fn(),
     configReload: vi.fn(),
     confirmLegacyVrcxProcessState: vi.fn(),
     confirm: vi.fn(),
-    openExternalLink: vi.fn(),
     t: vi.fn(),
-    showSQLiteErrorDialog: vi.fn()
+    showSQLiteErrorDialog: vi.fn(),
+    openExternalLink: vi.fn()
 }));
 
 vi.mock('@/services/toastService', () => ({
@@ -46,7 +45,6 @@ vi.mock('@/platform/tauri/bindings', () => ({
         appDatabaseUpgradeStartFresh: mocks.appDatabaseUpgradeStartFresh,
         appOpenVrcxAppDataFolder: mocks.appOpenVrcxAppDataFolder,
         appGetLegacyVrcxMigrationStatus: mocks.appGetLegacyVrcxMigrationStatus,
-        appCheckLegacyVrcxAvailable: mocks.appCheckLegacyVrcxAvailable,
         appRequestLegacyMigration: mocks.appRequestLegacyMigration
     }
 }));
@@ -150,16 +148,13 @@ describe('databaseUpgradeService', () => {
         mocks.appDatabaseUpgradeStartFresh.mockResolvedValue(
             'C:/VRCX-0/database-upgrade-recovery/backup'
         );
-        mocks.appOpenVrcxAppDataFolder.mockResolvedValue(true);
         mocks.appGetLegacyVrcxMigrationStatus.mockResolvedValue(
             unavailableLegacyStatus()
         );
-        mocks.appCheckLegacyVrcxAvailable.mockResolvedValue(false);
         mocks.appRequestLegacyMigration.mockResolvedValue(false);
         mocks.confirmLegacyVrcxProcessState.mockResolvedValue(false);
         mocks.configReload.mockResolvedValue(undefined);
         mocks.confirm.mockResolvedValue({ ok: true, reason: 'confirmed' });
-        mocks.openExternalLink.mockResolvedValue(undefined);
         mocks.t.mockImplementation(
             (key: string, params?: Record<string, unknown>) =>
                 params ? `${key}:${JSON.stringify(params)}` : key

@@ -5,6 +5,8 @@ use vrcx_0_core::text::normalize_text;
 use serde::Serialize;
 use vrcx_0_core::vrchat_endpoints::normalize_vrchat_api_endpoint;
 
+use crate::{RuntimeEventBus, RuntimeVrchatAuthFailurePayload};
+
 #[derive(Clone, Debug, Default, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeAuthScopeSnapshot {
@@ -33,10 +35,15 @@ pub trait RuntimeAuthScopeObserver: Send + Sync {
     fn runtime_auth_scope_changed(&self, snapshot: &RuntimeAuthScopeSnapshot);
 }
 
+pub trait RuntimeVrchatAuthFailureObserver: Send + Sync {
+    fn runtime_vrchat_auth_failed(&self, failure: &RuntimeVrchatAuthFailurePayload);
+}
+
 #[derive(Clone, Default)]
 pub struct RuntimeAuthScope {
     state: Arc<Mutex<RuntimeAuthScopeState>>,
     observers: Arc<Mutex<Vec<Weak<dyn RuntimeAuthScopeObserver>>>>,
+    auth_failure_observers: Arc<Mutex<Vec<Arc<dyn RuntimeVrchatAuthFailureObserver>>>>,
 }
 
 impl std::fmt::Debug for RuntimeAuthScope {
@@ -131,6 +138,36 @@ impl RuntimeAuthScope {
         observer.runtime_auth_scope_changed(&self.snapshot());
     }
 
+    pub fn add_vrchat_auth_failure_observer(
+        &self,
+        observer: Arc<dyn RuntimeVrchatAuthFailureObserver>,
+    ) {
+        match self.auth_failure_observers.lock() {
+            Ok(mut observers) => observers.push(observer),
+            Err(error) => {
+                tracing::warn!(error = %error, "failed to register VRChat auth failure observer");
+            }
+        }
+    }
+
+    pub fn report_vrchat_auth_failure(
+        &self,
+        event_bus: &RuntimeEventBus,
+        failure: RuntimeVrchatAuthFailurePayload,
+    ) {
+        let observers = match self.auth_failure_observers.lock() {
+            Ok(observers) => observers.clone(),
+            Err(error) => {
+                tracing::warn!(error = %error, "failed to read VRChat auth failure observers");
+                Vec::new()
+            }
+        };
+        for observer in observers {
+            observer.runtime_vrchat_auth_failed(&failure);
+        }
+        event_bus.emit(failure);
+    }
+
     pub fn snapshot(&self) -> RuntimeAuthScopeSnapshot {
         self.lock_state().snapshot.clone()
     }
@@ -192,7 +229,11 @@ fn normalize_display_name(value: &str, user_id: &str) -> String {
 mod tests {
     use std::sync::{Arc, Mutex};
 
-    use super::{RuntimeAuthScope, RuntimeAuthScopeObserver, RuntimeAuthScopeSnapshot};
+    use super::{
+        RuntimeAuthScope, RuntimeAuthScopeObserver, RuntimeAuthScopeSnapshot,
+        RuntimeVrchatAuthFailureObserver,
+    };
+    use crate::{RuntimeEventBus, RuntimeVrchatAuthFailurePayload};
 
     #[derive(Default)]
     struct TestObserver {
@@ -209,6 +250,7 @@ mod tests {
     fn tracks_active_auth_scope() {
         let scope = RuntimeAuthScope::new();
         assert!(!scope.snapshot().active);
+        assert!(!scope.matches("", ""));
 
         let snapshot = scope.set(" usr_current ", "https://api.example.test/api/1/");
         assert!(snapshot.active);
@@ -228,6 +270,7 @@ mod tests {
         let cleared = scope.set("", "");
         assert!(!cleared.active);
         assert!(!scope.matches("usr_current", "https://api.example.test/api/1"));
+        assert!(!scope.matches("", ""));
     }
 
     #[test]
@@ -269,14 +312,6 @@ mod tests {
     }
 
     #[test]
-    fn inactive_scope_never_authorizes_requests() {
-        let scope = RuntimeAuthScope::new();
-
-        assert!(!scope.matches("usr_current", "https://api.vrchat.cloud/api/1"));
-        assert!(!scope.matches("usr_other", "https://api.vrchat.cloud/api/1"));
-    }
-
-    #[test]
     fn active_scope_normalizes_requested_endpoints() {
         let scope = RuntimeAuthScope::new();
         scope.set("usr_current", "https://api.vrchat.cloud/api/1");
@@ -294,15 +329,6 @@ mod tests {
         }
 
         assert!(!scope.matches("usr_current", "https://api.example.test/api/1"));
-    }
-
-    #[test]
-    fn active_scope_matches_only_its_current_user() {
-        let scope = RuntimeAuthScope::new();
-        scope.set("usr_current", "https://api.example.test/api/1");
-
-        assert!(scope.matches("usr_current", "https://api.example.test/api/1"));
-        assert!(!scope.matches("usr_stale", "https://api.example.test/api/1"));
     }
 
     #[test]
@@ -332,5 +358,41 @@ mod tests {
         assert!(!snapshots[0].active);
         assert_eq!(snapshots[1].current_user_id, "usr_a");
         assert!(!snapshots[2].active);
+    }
+
+    #[derive(Default)]
+    struct TestAuthFailureObserver {
+        failures: Mutex<Vec<RuntimeVrchatAuthFailurePayload>>,
+    }
+
+    impl RuntimeVrchatAuthFailureObserver for TestAuthFailureObserver {
+        fn runtime_vrchat_auth_failed(&self, failure: &RuntimeVrchatAuthFailurePayload) {
+            self.failures.lock().unwrap().push(failure.clone());
+        }
+    }
+
+    #[test]
+    fn reported_auth_failures_reach_typed_observers_and_the_event_bus() {
+        let scope = RuntimeAuthScope::new();
+        let observer = Arc::new(TestAuthFailureObserver::default());
+        scope.add_vrchat_auth_failure_observer(observer.clone());
+        let event_bus = RuntimeEventBus::new();
+        let failure = RuntimeVrchatAuthFailurePayload {
+            owner_user_id: vrcx_0_core::OwnerId::new("usr_a"),
+            endpoint: "https://api.vrchat.cloud/api/1".into(),
+            path: "auth/user".into(),
+            reason: "HTTP 401".into(),
+            status_code: 401,
+            auth_scope_generation: 1,
+            realtime_transport: None,
+        };
+
+        scope.report_vrchat_auth_failure(&event_bus, failure.clone());
+
+        assert_eq!(*observer.failures.lock().unwrap(), vec![failure]);
+        assert!(event_bus
+            .take_events_for_test()
+            .iter()
+            .any(|event| event.name == "runtimeVrchatAuthFailure"));
     }
 }

@@ -9,7 +9,6 @@ import type { AppToastOptions } from '@/services/toastService';
 import type { FriendListRow } from './friendListRows';
 
 const mocks = vi.hoisted(() => ({
-    applyFriendPatch: vi.fn(),
     confirm: vi.fn(),
     deleteFriend: vi.fn(),
     deleteFriends: vi.fn(),
@@ -36,10 +35,6 @@ const mocks = vi.hoisted(() => ({
     toastError: vi.fn(),
     toastSuccess: vi.fn(),
     toastWarning: vi.fn()
-}));
-
-vi.mock('react-i18next', () => ({
-    useTranslation: () => ({ t: (key: string) => key })
 }));
 
 vi.mock('@/services/toastService', () => ({
@@ -101,6 +96,8 @@ vi.mock('@/services/mutualGraphFetchService', () => ({
     startMutualGraphFetch: vi.fn()
 }));
 
+import { useFriendStatsStore } from '@/state/friendStatsStore';
+
 import { useFriendListRowActions } from './useFriendListRowActions';
 
 type MutualSnapshot = {
@@ -118,8 +115,7 @@ function deferred<Value>() {
 
 const friend: FriendListRow = {
     id: 'usr_friend',
-    displayName: 'Friend',
-    stateBucket: 'online'
+    displayName: 'Friend'
 };
 
 function renderActions() {
@@ -152,14 +148,14 @@ function renderActions() {
     return {
         ...hook,
         deletingFriendIds: () => deletingFriendIds,
-        selectedFriendIds: () => selectedFriendIds,
-        setDeletingFriendIds
+        selectedFriendIds: () => selectedFriendIds
     };
 }
 
 describe('useFriendListRowActions', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        useFriendStatsStore.getState().reset();
         mocks.runtimeState.auth.currentUserId = 'usr_self';
         mocks.runtimeState.auth.currentUserEndpoint =
             'https://api.vrchat.cloud/api/1';
@@ -189,11 +185,15 @@ describe('useFriendListRowActions', () => {
 
     it('locks the row, removes the selection, and warns on partial success', async () => {
         mocks.confirm.mockResolvedValue({ ok: true, value: undefined });
-        mocks.deleteFriend.mockResolvedValue({
-            stale: false,
-            localError: new Error('local persistence failed')
-        });
         const rendered = renderActions();
+        let deletingDuringRequest: string[] = [];
+        mocks.deleteFriend.mockImplementation(async () => {
+            deletingDuringRequest = [...rendered.deletingFriendIds()];
+            return {
+                stale: false,
+                localError: new Error('local persistence failed')
+            };
+        });
 
         await act(async () =>
             rendered.result.current.confirmDeleteFriend(friend)
@@ -206,8 +206,8 @@ describe('useFriendListRowActions', () => {
             currentUserId: 'usr_self'
         });
         expect(rendered.selectedFriendIds()).not.toContain('usr_friend');
+        expect(deletingDuringRequest).toEqual(['usr_friend']);
         expect(rendered.deletingFriendIds()).not.toContain('usr_friend');
-        expect(rendered.setDeletingFriendIds).toHaveBeenCalledTimes(2);
         expect(mocks.toastWarning).toHaveBeenCalledWith(
             expect.objectContaining({
                 type: 'warning',
@@ -217,7 +217,7 @@ describe('useFriendListRowActions', () => {
         expect(mocks.toastSuccess).not.toHaveBeenCalled();
     });
 
-    it('preserves current presence when applying completed mutual stats', async () => {
+    it('stores completed mutual stats for the friend list', async () => {
         mocks.runtimeState.mutualGraph = {
             runId: 1,
             status: 'completed',
@@ -236,13 +236,11 @@ describe('useFriendListRowActions', () => {
             await Promise.resolve();
         });
 
-        expect(mocks.friendState.applyFriendPatch).toHaveBeenCalledWith({
-            userId: 'usr_friend',
-            patch: {
-                $mutualCount: 1,
-                $mutualOptedOut: false
-            },
-            stateBucketAuthority: 'preserve'
+        expect(useFriendStatsStore.getState()).toMatchObject({
+            ownerUserId: 'usr_self',
+            byUserId: {
+                usr_friend: { mutualCount: 1, mutualOptedOut: false }
+            }
         });
     });
 

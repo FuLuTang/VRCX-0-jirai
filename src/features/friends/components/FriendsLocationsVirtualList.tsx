@@ -63,7 +63,7 @@ export function FriendsLocationsVirtualList({
             ) : derived.hasVisibleSections && derived.viewMode === 'worlds' ? (
                 <div
                     key="worlds"
-                    className="divide-border/60 flex flex-col divide-y py-1 pr-1 [&>*]:py-4 [&>*:first-child]:pt-1 [&>*:last-child]:pb-1"
+                    className="divide-border/60 flex flex-col divide-y px-1 py-1 [&>*]:py-4 [&>*:first-child]:pt-1 [&>*:last-child]:pb-1"
                 >
                     {derived.worldGroups.map((group) => (
                         <FriendsLocationsWorldSection
@@ -71,7 +71,6 @@ export function FriendsLocationsVirtualList({
                             group={group}
                             summary={derived.worldSummaries.get(group.worldId)}
                             densityConfig={derived.densityConfig}
-                            currentUserId={runtime.currentUserId}
                             favoriteIds={derived.favoriteIds}
                             onOpenWorld={locationCommands.openWorldGroup}
                             onOpenGroup={(groupId) =>
@@ -101,7 +100,6 @@ export function FriendsLocationsVirtualList({
                             {privateCollapsed ? null : (
                                 <FriendsLocationsFriendChips
                                     friends={derived.privateWorldFriends}
-                                    currentUserId={runtime.currentUserId}
                                     favoriteIds={derived.favoriteIds}
                                     twoLine={worldChipsTwoLine}
                                     onOpenUser={locationCommands.openFriendUser}

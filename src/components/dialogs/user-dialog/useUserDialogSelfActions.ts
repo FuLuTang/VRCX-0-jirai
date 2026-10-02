@@ -20,6 +20,7 @@ import type { CurrentUserProfileUpdateRequest } from '@/platform/tauri/bindings'
 import userProfileRepository from '@/repositories/userProfileRepository';
 import currentUserProfileService from '@/services/currentUserProfileService';
 import { toast } from '@/services/toastService';
+import { PROFILE_LIST_LIMIT } from '@/shared/constants/profileLimits';
 import {
     mergeCurrentUserMediaFields,
     profileMediaFileUrl,
@@ -29,20 +30,16 @@ import {
 } from '@/shared/utils/currentUserMedia';
 import { mergeCurrentUserPresenceFields } from '@/shared/utils/currentUserPresence';
 import { extractFileId } from '@/shared/utils/fileUtils';
+import { normalizeProfileLanguageKeys } from '@/shared/utils/userLanguage';
 import { useRuntimeStore } from '@/state/runtimeStore';
-import { useVrchatConfigStore } from '@/state/vrchatConfigStore';
 
+import { useSpokenLanguageSelection } from '../useSpokenLanguageSelection';
 import { useCurrentUserSocialStatusDialog } from './useCurrentUserSocialStatusDialog';
 import {
     mergeUserDialogProfileAppearance,
     preserveUserDialogProfileAppearance
 } from './userDialogProfileAppearance';
-import {
-    fallbackLanguageOptions,
-    normalizeLanguageKey,
-    normalizeLanguageOptionsFromConfig,
-    normalizeProfileLanguageRows
-} from './userProfileFields';
+import { normalizeProfileLanguageRows } from './userProfileFields';
 import type { UserDialogProfileRecord } from './useUserDialogProfileResource';
 
 function setSelfActionStatus(
@@ -87,20 +84,6 @@ function normalizeStringArray(values: unknown) {
     return rows;
 }
 
-function normalizeLanguageKeys(values: unknown) {
-    const keys: string[] = [];
-    const seen = new Set<string>();
-    for (const value of Array.isArray(values) ? values : []) {
-        const key = normalizeLanguageKey(value);
-        if (!key || seen.has(key)) {
-            continue;
-        }
-        keys.push(key);
-        seen.add(key);
-    }
-    return keys.slice(0, 3);
-}
-
 function normalizeBioLinks(values: unknown) {
     return (Array.isArray(values) ? values : [])
         .map((value) =>
@@ -111,7 +94,7 @@ function normalizeBioLinks(values: unknown) {
                       .slice(0, 1000)
         )
         .filter(Boolean)
-        .slice(0, 3);
+        .slice(0, PROFILE_LIST_LIMIT);
 }
 
 function normalizeProfileBioLinks(profile: Record<string, unknown>) {
@@ -173,17 +156,16 @@ export function useUserDialogSelfActions({
     const [profileDetailsDraft, setProfileDetailsDraft] = useState(
         createProfileDetailsDraft
     );
-    const vrchatConfig = useVrchatConfigStore((state) => state.snapshot);
-    const languageOptions = useMemo(() => {
-        const options = normalizeLanguageOptionsFromConfig(vrchatConfig);
-        return options.length ? options : fallbackLanguageOptions();
-    }, [vrchatConfig]);
-    const languageOptionsStatus = vrchatConfig ? 'ready' : 'error';
-
-    const languageOptionsMap = useMemo(
-        () => new Map(languageOptions.map((option) => [option.key, option])),
-        [languageOptions]
+    const profileDetailsLanguageKeys = useMemo(
+        () => normalizeProfileLanguageKeys(profileDetailsDraft.languageKeys),
+        [profileDetailsDraft.languageKeys]
     );
+    const {
+        languageOptionsMap,
+        languageRows: profileDetailsLanguageRows,
+        availableLanguageOptions,
+        languageOptionsStatus
+    } = useSpokenLanguageSelection(profileDetailsLanguageKeys);
     const currentLanguageRows = useMemo(
         () =>
             normalizeProfileLanguageRows(
@@ -202,29 +184,6 @@ export function useUserDialogSelfActions({
     const currentLanguageKeys = useMemo(
         () => currentLanguageRows.map((language) => language.key),
         [currentLanguageRows]
-    );
-    const profileDetailsLanguageKeys = useMemo(
-        () => normalizeLanguageKeys(profileDetailsDraft.languageKeys),
-        [profileDetailsDraft.languageKeys]
-    );
-    const profileDetailsLanguageRows = useMemo(
-        () =>
-            profileDetailsLanguageKeys.map((key) => ({
-                key,
-                value: languageOptionsMap.get(key)?.value || key.toUpperCase()
-            })),
-        [languageOptionsMap, profileDetailsLanguageKeys]
-    );
-    const profileDetailsLanguageKeySet = useMemo(
-        () => new Set(profileDetailsLanguageKeys),
-        [profileDetailsLanguageKeys]
-    );
-    const availableLanguageOptions = useMemo(
-        () =>
-            languageOptions.filter(
-                (option) => !profileDetailsLanguageKeySet.has(option.key)
-            ),
-        [languageOptions, profileDetailsLanguageKeySet]
     );
     const { dialog: socialStatusDialog, openDialog: editSelfStatus } =
         useCurrentUserSocialStatusDialog({
@@ -405,7 +364,7 @@ export function useUserDialogSelfActions({
         setProfileDetailsDraft({
             languageKeys: currentLanguageRows
                 .map((language) => language.key)
-                .slice(0, 3),
+                .slice(0, PROFILE_LIST_LIMIT),
             bio: String(profile.bio || ''),
             bioLinks: bioLinks.length ? bioLinks : [''],
             pronouns: normalizeProfilePronouns(profile)
@@ -418,7 +377,7 @@ export function useUserDialogSelfActions({
             return;
         }
 
-        const nextLanguageKeys = normalizeLanguageKeys(
+        const nextLanguageKeys = normalizeProfileLanguageKeys(
             profileDetailsDraft.languageKeys
         );
         const addLanguageKeys = nextLanguageKeys.filter(

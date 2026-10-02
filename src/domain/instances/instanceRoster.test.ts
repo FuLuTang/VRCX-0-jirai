@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { offlinePresence, onlinePresence } from '@/test/presenceFixtures';
+
 import {
     buildInstanceRosterRows,
     mergeInstanceUser,
@@ -64,7 +66,7 @@ describe('instanceRoster', () => {
         expect(roster.rows.map((row) => row.id)).toEqual(['usr_friend']);
     });
 
-    it('merges duplicate rows without carrying a legacy dwell timestamp', () => {
+    it('merges duplicate rows and keeps the first row profile fields', () => {
         const users = mergeInstanceUsers(
             [
                 {
@@ -77,8 +79,7 @@ describe('instanceRoster', () => {
             [
                 {
                     id: 'usr_friend',
-                    displayName: 'Friend latest',
-                    locationAt: '2026-01-01T00:00:00.000Z'
+                    displayName: 'Friend latest'
                 }
             ]
         );
@@ -87,7 +88,6 @@ describe('instanceRoster', () => {
         expect(users[0].displayName).toBe('Friend');
         expect(users[0].iconUrl).toBe('avatar.webp');
         expect(users[0].status).toBe('ask me');
-        expect(users[0].$location_at).toBeUndefined();
     });
 
     it('allows a realtime snapshot to replace only existing presence fields', () => {
@@ -97,8 +97,7 @@ describe('instanceRoster', () => {
             displayName: 'Full profile name',
             iconUrl: 'profile.webp',
             location: 'wrld_old:11111',
-            state: 'offline',
-            stateBucket: 'offline',
+            $presence: offlinePresence,
             status: 'busy',
             statusDescription: 'Old description'
         });
@@ -108,8 +107,7 @@ describe('instanceRoster', () => {
                 id: 'usr_self',
                 displayName: 'Snapshot name',
                 location: 'wrld_live:22222',
-                state: 'online',
-                stateBucket: 'online',
+                $presence: onlinePresence('wrld_live:22222'),
                 status: 'join me',
                 statusDescription: ''
             },
@@ -121,8 +119,7 @@ describe('instanceRoster', () => {
             displayName: 'Full profile name',
             iconUrl: 'profile.webp',
             location: 'wrld_live:22222',
-            state: 'online',
-            stateBucket: 'online',
+            $presence: onlinePresence('wrld_live:22222'),
             status: 'join me',
             statusDescription: ''
         });

@@ -15,7 +15,7 @@ import type {
     MutualFriendManualLink,
     MutualFriendPickerOption,
     MutualFriendTrackedUser
-} from '../../mutual-friends/mutualFriendsTypes';
+} from '@/lib/mutual-friends/mutualFriendsTypes';
 import { MutualFriendsRelationsManager } from './MutualFriendsRelationsManager';
 
 interface ManagementProps {

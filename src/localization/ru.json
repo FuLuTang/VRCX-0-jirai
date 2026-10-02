@@ -166,7 +166,10 @@
         "note_local": "Местная записка",
         "note_synced": "VRChat Примечание",
         "last_online": "Был(а) в сети {duration} назад",
-        "in_private_world": "В частном мире"
+        "in_private_world": "В частном мире",
+        "mutual_friends": "Общих друзей: {count}",
+        "no_mutual_friends": "Нет общих друзей",
+        "name_separator": ", "
     },
     "deep_link": {
         "import_collection": {
@@ -887,12 +890,22 @@
         "self_menu": "Меню аккаунта",
         "filter_friends": "Фильтр друзей",
         "filter_groups": "Фильтр групп",
+        "filter_instances": "Фильтр инстансов",
         "filter_no_results": "Совпадений нет",
         "self_more_actions": "Ещё",
         "switch_account": "Сменить аккаунт",
         "favorite": "Избранные",
         "same_instance": "В одинаковых инстансах",
         "you_are_here": "Вы здесь",
+        "visited_minutes_ago_one": "Посещено {count} мин назад",
+        "visited_minutes_ago_few": "Посещено {count} мин назад",
+        "visited_minutes_ago_many": "Посещено {count} мин назад",
+        "visited_minutes_ago_other": "Посещено {count} мин назад",
+        "visited_hours_ago_one": "Посещено {count} ч назад",
+        "visited_hours_ago_few": "Посещено {count} ч назад",
+        "visited_hours_ago_many": "Посещено {count} ч назад",
+        "visited_hours_ago_other": "Посещено {count} ч назад",
+        "visited_at": "Последний вход: {time}",
         "online": "Онлайн",
         "active": "Активный",
         "offline": "Офлайн",
@@ -931,6 +944,7 @@
                 "display_hint": "Как вкладки выглядят на боковой панели.",
                 "layout_hint": "Перетаскивайте, чтобы изменить порядок. «Друзья» и «Группы» встроены — добавляйте группы избранного как собственные вкладки.",
                 "system_badge": "Встроенная",
+                "world_badge": "Мир",
                 "always_visible": "Всегда видима",
                 "move_up": "Вверх",
                 "move_down": "Вниз",
@@ -1142,16 +1156,12 @@
                 "value_copied": "{value} скопировано"
             },
             "context": {
-                "hide_user": "Скрыть из Feed",
-                "unhide_user": "Показать в Feed"
+                "hide_user": "Скрыть смену местоположения из Feed",
+                "unhide_user": "Показывать смену местоположения в Feed"
             }
         },
         "friends_locations": {
             "online": "Онлайн",
-            "world_friends_one": "{count} друг",
-            "world_friends_few": "{count} друга",
-            "world_friends_many": "{count} друзей",
-            "world_friends_other": "{count} друга",
             "view_people": "Вид: друзья",
             "view_worlds": "Вид: миры",
             "world_instances_one": "{count} инстанс",
@@ -1213,10 +1223,7 @@
                 "start": "Запуск",
                 "end": "Конец",
                 "game_log_is_disabled": "Запись GameLog отключена",
-                "showing": "Показать",
-                "of": "В тыс.",
-                "game_log_row": "запись игрового журнала",
-                "game_log_rows": "записи игрового журнала"
+                "showing_summary": "Показано <b>{shown}</b> из <b>{count}</b>"
             },
             "success": {
                 "game_log_row_deleted": "Запись игрового журнала удалена",
@@ -1312,10 +1319,8 @@
                 "grid_density_dense": "Плотность",
                 "click_to_wear": "Нажмите, чтобы надеть",
                 "impostor_queued_for_creation": "Импостор поставлен в очередь на создание",
-                "showing": "Показать",
-                "of": "В тыс.",
+                "showing_summary": "Показано <b>{shown}</b> из <b>{count}</b>",
                 "avatar": "Аватар",
-                "avatars": "Аватары",
                 "broaden_the_filters_or_search_query_to_see_more_avatars": "Расширить фильтры или поисковый запрос, чтобы увидеть больше аватаров",
                 "make_public": "Обнародовать",
                 "make_private": "Сделать приватным",
@@ -1408,6 +1413,8 @@
                 "search": "Поиск",
                 "search_mode_name": "Имя",
                 "search_mode_tag": "Метка",
+                "search_mode": "Искать по",
+                "search_tags": "Поиск по меткам",
                 "vrchat_favorites": "Избранное VRChat",
                 "local_favorites": "Локальное избранное",
                 "new_group": "Новая группа"
@@ -1587,10 +1594,7 @@
                 "friend_history_failed_to_load": "История друзей не загружена"
             },
             "label": {
-                "showing": "Показать",
-                "of": "В тыс.",
-                "log_row": "log строки",
-                "log_rows": "log ряды",
+                "showing_summary": "Показано <b>{shown}</b> из <b>{count}</b>",
                 "broaden_the_type_filters_or_search_query_to_see_more_history": "Расширить тип фильтров или поисковый запрос, чтобы увидеть больше истории"
             },
             "empty": {
@@ -1754,10 +1758,8 @@
             "label": {
                 "friend_details_are_already_loaded": "Детали друзей уже загружены.",
                 "shared_connections_are_opted_out_for_the_current_account": "Совместные связи исключаются из текущего аккаунта",
-                "showing": "Показать",
-                "of": "В тыс.",
+                "showing_summary": "Показано <b>{shown}</b> из <b>{count}</b>",
                 "friend": "Друг",
-                "friends": "друзья",
                 "try_turning_off_favorites_only_or_broadening_the_search_query": "Попробуйте выключить избранные или расширить поиск",
                 "favorites_are_still_hydrating": "Избранное всё ещё загружается",
                 "try_a_different_segment_or_broaden_the_search_query": "Попробовать другой сегмент или расширить запрос поиска",
@@ -2292,7 +2294,7 @@
                 "submit": "Отправить",
                 "submitting": "Отправка…",
                 "thanks": "Спасибо за ваш отзыв!",
-                "cooldown": "Отправить снова можно через {{seconds}} с",
+                "cooldown": "Отправить снова можно через {seconds} с",
                 "reply_note": "Если вам нужен ответ, укажите в отзыве адрес электронной почты.",
                 "more_help": "Также можно связаться с нами или приложить логи здесь:",
                 "error_generic": "Не удалось отправить отзыв. Попробуйте позже."
@@ -2320,13 +2322,15 @@
                     "description": "Периодически загружает публичные био друзей и показывает изменения в Feed. Обновления могут запаздывать, и часть изменений может быть пропущена."
                 },
                 "hidden_feed": {
-                    "header": "Скрытые друзья в ленте",
-                    "description": "Скрывает выбранных друзей в ленте без удаления сохранённых данных.",
+                    "header": "Друзья со скрытой сменой местоположения",
+                    "description": "Скрывает в ленте смену местоположения выбранных друзей. Остальные их события по-прежнему видны, сохранённые данные не удаляются.",
                     "add": "Добавить друга",
                     "search_placeholder": "Поиск друзей",
                     "empty": "Вы ещё никого не скрыли.",
                     "remove": "Удалить скрытого друга",
-                    "unknown_friend": "Неизвестный друг"
+                    "unknown_friend": "Неизвестный друг",
+                    "hide_notifications": "Скрывать и в уведомлениях",
+                    "hide_notifications_description": "Смена их местоположения также не будет появляться в уведомлениях рабочего стола, TTS, VR-оверлеях, вебхуках и уведомлениях в приложении."
                 }
             },
             "vr": {
@@ -3180,6 +3184,18 @@
             },
             "toast": {
                 "failed_to_look_up_this_player": "Не удалось найти этого игрока."
+            },
+            "mutual_friends": {
+                "query": "Проверить общих друзей",
+                "graph_fetch_running": "Сейчас загружается граф общих друзей. Проверьте после завершения.",
+                "summary": "Игроков с общими друзьями: {count}",
+                "circles_prefix": "в основном из сообществ",
+                "circles_suffix": "",
+                "cell_tooltip": "{names} · общих друзей: {count}",
+                "cell_tooltip_circle": "{names} · общих друзей: {count} · в основном из сообщества {circle}",
+                "requery": "Проверить снова",
+                "show": "Показать результаты",
+                "hide": "Скрыть"
             }
         },
         "auth": {
@@ -3599,6 +3615,8 @@
             "group_count": "Групп: {count}",
             "edit_mode": "Изменить",
             "exit_edit_mode": "Готово",
+            "section_own": "Мои группы",
+            "section_joined": "Группы, в которых я состою",
             "order_hint": "Перетаскивайте группы, чтобы изменить порядок их отображения в VRChat.",
             "order_game_running": "VRChat запущен. Изменения порядка могут быть перезаписаны при выходе из игры.",
             "order_unavailable": "Порядок групп недоступен: {reason}",
@@ -3861,6 +3879,9 @@
                     "alphabetical": "Алфавитная",
                     "last_active": "Последний актив",
                     "friend_order": "Заказ друзей"
+                },
+                "view": {
+                    "list": "Список"
                 }
             },
             "activity": {
@@ -4117,6 +4138,12 @@
                 "public_count": "Публичных {count}",
                 "private_count": "Приватных {count}",
                 "capacity_count": "Вместимость {count} ({max})",
+                "pin_to_sidebar": "Закрепить на боковой панели",
+                "pinned_to_sidebar": "Закреплено на боковой панели",
+                "pin_to_sidebar_failed": "Не удалось закрепить на боковой панели",
+                "unpin_from_sidebar": "Открепить от боковой панели",
+                "unpinned_from_sidebar": "Откреплено от боковой панели",
+                "unpin_from_sidebar_failed": "Не удалось открепить от боковой панели",
                 "instance_creator": "Создатель инстанса"
             },
             "info": {
@@ -4210,8 +4237,7 @@
                 "add_domain": "Добавить домен"
             },
             "loading": {
-                "loading_world_profile": "Загрузка мирового профиля",
-                "fetching_the_current_vrchat_world_snapshot_for_this_dialog": "Загрузка сведений о мире"
+                "loading_world_profile": "Загрузка мирового профиля"
             },
             "error": {
                 "world_profile_unavailable": "Мировой профиль отсутствует",
@@ -4488,7 +4514,12 @@
                 "moderation_tools": "Инструменты модерации",
                 "leave": "Покинуть группу",
                 "block": "Заблокировать группу",
-                "unblock": "Разблокировать группу"
+                "unblock": "Разблокировать группу",
+                "edit_profile": "Изменить данные группы",
+                "edit_profile_media": "Изменить баннер и иконку",
+                "use_banner": "Сделать баннером",
+                "use_group_icon": "Сделать иконкой группы",
+                "delete": "Удалить группу"
             },
             "overview": {
                 "header": "Общий обзор",
@@ -4552,7 +4583,9 @@
                 "loaded_of_total": "Загружено {loaded} из {total}",
                 "search_results": "Результатов: {count}",
                 "export_loaded": "Экспорт загруженных ({count})",
-                "export_all": "Экспорт всех ({count})"
+                "export_all": "Экспорт всех ({count})",
+                "failed_to_load": "Не удалось загрузить участников",
+                "failed_to_search": "Не удалось найти участников"
             },
             "gallery": {
                 "header": "Фото"
@@ -4598,7 +4631,9 @@
                 "name_a_z": "Имя A-Z",
                 "name_z_a": "Имя Z-A",
                 "role": "Роль",
-                "all_roles": "Все роли"
+                "all_roles": "Все роли",
+                "banner": "Баннер",
+                "group_icon": "Иконка группы"
             },
             "success": {
                 "group_join_request_cancelled": "Запрос на вступление в группу отменён",
@@ -4628,7 +4663,11 @@
                 "group_post_created": "Публикация группы создана",
                 "failed_to_save_group_post": "Не удалось сохранить публикацию группы",
                 "failed_to_send_group_invite": "Не удалось направить приглашение группы",
-                "failed_to_delete_group_post": "Не удалось удалить публикацию группы"
+                "failed_to_delete_group_post": "Не удалось удалить публикацию группы",
+                "group_profile_updated": "Группа обновлена",
+                "failed_to_update_group_profile": "Не удалось обновить группу",
+                "group_deleted": "Группа удалена",
+                "failed_to_delete_group": "Не удалось удалить группу"
             },
             "modal": {
                 "leave_group": "Оставить группу?",
@@ -4637,7 +4676,9 @@
                 "delete_group_post": "Удалить групповую почту?",
                 "block_group": "Блок-группа?",
                 "unblock_group": "Разблокированная группа?",
-                "invite_to_group": "Приглашение к группе"
+                "invite_to_group": "Приглашение к группе",
+                "delete_group": "Удалить группу?",
+                "delete": "Удалить"
             },
             "dynamic": {
                 "leave_value": "Покинуть {value}?",
@@ -4645,7 +4686,19 @@
                 "value_completed": "{value} завершено",
                 "search_value": "Поиск {value}",
                 "no_value": "Нет {value}",
-                "value_copied": "{value} скопировано"
+                "value_copied": "{value} скопировано",
+                "delete_value": "Удалить {value}? После этого доступ к группе пропадёт у всех."
+            },
+            "edit": {
+                "short_code": "Короткий код",
+                "short_code_hint": "3–6 заглавных латинских букв или цифр. При изменении меняется и ссылка на группу.",
+                "add_link": "Добавить ссылку",
+                "remove_link": "Удалить ссылку",
+                "join_state_open": "Все",
+                "join_state_request": "По заявке",
+                "join_state_invite": "Только по приглашению",
+                "join_state_closed": "Закрыто",
+                "allow_join_prompt": "Предлагать вступить тем, кто находится в инстансах группы"
             }
         },
         "favorite": {
@@ -5365,7 +5418,8 @@
             "send": "Отправить",
             "recent": "Недавние",
             "inventory_emojis": "Инвентарь",
-            "no_inventory_emojis": "В инвентаре пока нет эмодзи для бупа"
+            "no_inventory_emojis": "В инвентаре пока нет эмодзи для бупа",
+            "failed_to_load_emojis": "Не удалось загрузить эмодзи"
         },
         "vrcx_updater": {
             "latest_version": "У вас установлена актуальная версия VRCX-0.",
@@ -5428,7 +5482,6 @@
         },
         "favorite_import": {
             "action": {
-                "import": "импорт",
                 "clear_table": "Очистить стол",
                 "clear_errors": "Очистить ошибки",
                 "exclude": "Исключить"
@@ -5444,7 +5497,6 @@
                 "name": "Имя",
                 "detail": "Подробная информация",
                 "actions": "Меры",
-                "rows_yet": "ряды",
                 "import_to": "Импортировать в",
                 "local": "Локально",
                 "select_group": "Выберите группу"
@@ -5460,7 +5512,14 @@
                 "detected_count": "Найдено: {count}"
             },
             "empty": {
-                "no_parsed": "Без обрезания"
+                "avatar": "Пока нет аватаров для импорта",
+                "world": "Пока нет миров для импорта",
+                "friend": "Пока нет друзей для импорта"
+            },
+            "title": {
+                "avatar": "Импорт аватаров",
+                "world": "Импорт миров",
+                "friend": "Импорт друзей"
             }
         },
         "tools": {
@@ -5916,7 +5975,8 @@
             "bioLink": "Био Ссылки",
             "note": "Заметка",
             "user": "Пользователь",
-            "location": "Место проведения"
+            "location": "Место проведения",
+            "mutualFriends": "Общие друзья"
         },
         "friendLog": {
             "date": "Дата",
@@ -6076,12 +6136,6 @@
                 "failed_to_remove_favorite": "Не удалось удалить избранное",
                 "failed_to_add_local_favorite": "Не удалось добавить локальное избранное",
                 "failed_to_remove_local_favorite": "Не удалось удалить локальное избранное"
-            },
-            "modal": {
-                "remove_vrchat_favorite": "Удалить из избранного VRChat?"
-            },
-            "dynamic": {
-                "remove_value_from_vrchat_favorites": "Удалить {value} из избранного VRChat?"
             }
         },
         "friend_location_card": {
@@ -6186,6 +6240,14 @@
             }
         },
         "groups_sidebar": {
+            "toast": {
+                "failed_to_launch_instance": "Ошибка запуска",
+                "failed_to_send_self_invite": "Не удалось отправить самоприглашение"
+            }
+        },
+        "world_rooms_sidebar": {
+            "empty": "Сейчас нет активных инстансов",
+            "failed": "Не удалось загрузить инстансы",
             "toast": {
                 "failed_to_launch_instance": "Ошибка запуска",
                 "failed_to_send_self_invite": "Не удалось отправить самоприглашение"
@@ -6436,5 +6498,9 @@
         "restore": "Восстановить и перезапустить",
         "keep": "Всё отображается правильно, сохранить",
         "failed": "Не удалось изменить настройку отображения. Повторите попытку."
+    },
+    "mutual_graph_hint": {
+        "build": "Граф общих друзей ещё не построен · Построить",
+        "room_scan_running": "Идёт проверка общих друзей в этом инстансе. Повторите после завершения."
     }
 }

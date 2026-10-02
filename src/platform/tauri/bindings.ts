@@ -584,6 +584,17 @@ const generatedCommands = {
             rules
         });
     },
+    async appPresenceAutomationRuleEnabledSet(
+        kind: PresenceAutomationRuleKind,
+        ruleId: string,
+        enabled: boolean
+    ): Promise<RawJson[]> {
+        return await TAURI_INVOKE('app__presence_automation_rule_enabled_set', {
+            kind,
+            ruleId,
+            enabled
+        });
+    },
     async appFavoritesTransferSelection(
         input: FavoriteTransferSelectionInput
     ): Promise<FavoriteTransferSelectionResult> {
@@ -607,9 +618,6 @@ const generatedCommands = {
         return await TAURI_INVOKE('app__vr_overlay_test_mode_set', {
             testMode
         });
-    },
-    async appVrOverlayConfigReload(): Promise<VrOverlayRuntimeSnapshot> {
-        return await TAURI_INVOKE('app__vr_overlay_config_reload');
     },
     async appRegistryBackupList(): Promise<RegistryBackupSnapshot[]> {
         return await TAURI_INVOKE('app__registry_backup_list');
@@ -763,26 +771,6 @@ const generatedCommands = {
         return await TAURI_INVOKE('app__database_maintenance_table_sizes_get', {
             userId
         });
-    },
-    async appDatabaseMaintenanceMaxFriendLogNumberGet(
-        userId: string
-    ): Promise<number> {
-        return await TAURI_INVOKE(
-            'app__database_maintenance_max_friend_log_number_get',
-            { userId }
-        );
-    },
-    async appDatabaseMaintenanceBrokenLeaveEntriesGet(): Promise<JsonValue[]> {
-        return await TAURI_INVOKE(
-            'app__database_maintenance_broken_leave_entries_get'
-        );
-    },
-    async appDatabaseMaintenanceBrokenGameLogDisplayNamesGet(): Promise<
-        BrokenGameLogDisplayNameOutput[]
-    > {
-        return await TAURI_INVOKE(
-            'app__database_maintenance_broken_game_log_display_names_get'
-        );
     },
     async appAvatarGet(input: AvatarGetInput): Promise<RawJson | null> {
         return await TAURI_INVOKE('app__avatar_get', { input });
@@ -1268,15 +1256,6 @@ const generatedCommands = {
             notification
         });
     },
-    async appNotificationAddV2(
-        userId: string,
-        notification: JsonValue
-    ): Promise<null> {
-        return await TAURI_INVOKE('app__notification_add_v2', {
-            userId,
-            notification
-        });
-    },
     async appNotificationV2Expire(userId: string, id: string): Promise<null> {
         return await TAURI_INVOKE('app__notification_v2_expire', {
             userId,
@@ -1636,10 +1615,12 @@ const generatedCommands = {
     ): Promise<HttpApiExecuteResponse> {
         return await TAURI_INVOKE('app__vrchat_group_get', { input });
     },
-    async appVrchatGroupMemberGet(
+    async appVrchatGroupMemberRoleIdsGet(
         input: VrchatGroupUserInput
-    ): Promise<HttpApiExecuteResponse> {
-        return await TAURI_INVOKE('app__vrchat_group_member_get', { input });
+    ): Promise<string[] | null> {
+        return await TAURI_INVOKE('app__vrchat_group_member_role_ids_get', {
+            input
+        });
     },
     async appVrchatGroupInviteDelete(
         input: VrchatGroupUserInput
@@ -1732,6 +1713,16 @@ const generatedCommands = {
         return await TAURI_INVOKE('app__vrchat_group_members_search', {
             input
         });
+    },
+    async appVrchatGroupUpdate(
+        input: VrchatGroupUpdateInput
+    ): Promise<HttpApiExecuteResponse> {
+        return await TAURI_INVOKE('app__vrchat_group_update', { input });
+    },
+    async appVrchatGroupDelete(
+        input: VrchatGroupIdInput
+    ): Promise<HttpApiExecuteResponse> {
+        return await TAURI_INVOKE('app__vrchat_group_delete', { input });
     },
     async appVrchatGroupPostCreate(
         input: VrchatGroupPostCreateInput
@@ -2520,9 +2511,6 @@ const generatedCommands = {
             version
         });
     },
-    async appCheckLegacyVrcxAvailable(): Promise<boolean> {
-        return await TAURI_INVOKE('app__check_legacy_vrcx_available');
-    },
     async appGetLegacyVrcxForceMigrationStatus(): Promise<LegacyVrcxMigrationStatus> {
         return await TAURI_INVOKE(
             'app__get_legacy_vrcx_force_migration_status'
@@ -2641,6 +2629,15 @@ const generatedCommands = {
         entries: AppLauncherEntry[]
     ): Promise<AppLauncherSnapshot> {
         return await TAURI_INVOKE('app__app_launcher_entries_set', { entries });
+    },
+    async appAppLauncherEntryEnabledSet(
+        entryId: string,
+        enabled: boolean
+    ): Promise<AppLauncherSnapshot> {
+        return await TAURI_INVOKE('app__app_launcher_entry_enabled_set', {
+            entryId,
+            enabled
+        });
     },
     async appAppLauncherEntryTest(
         entryId: string
@@ -2916,7 +2913,6 @@ export type ActivityPageView = {
     utcOffsetMinutes: number;
     windowFromMs: number;
     windowToMs: number;
-    hasOpenTail: boolean;
     summary: ActivityPageSummary;
     previous: ActivityPagePreviousSummary;
     series: ActivityPageSeries;
@@ -2943,11 +2939,7 @@ export type ActivityPageWorlds = {
     returningWorldMinutes: number;
 };
 export type ActivitySeriesBucket = 'day' | 'week';
-export type ActivitySeriesPoint = {
-    startDate: string;
-    minutes: number;
-    inferred: boolean;
-};
+export type ActivitySeriesPoint = { startDate: string; minutes: number };
 export type ActivityViewBuildInput = {
     ownerUserId: OwnerId;
     targetUserId: string;
@@ -2968,7 +2960,6 @@ export type ActivityViewOutput = {
     builtFromCursor: string;
     builtAt: string;
 };
-export type AddGameLogEventPayload = string | RuntimeGameLogEventPayload;
 export type AncillaryRuntimeSnapshot = {
     communityThemeState: CommunityThemeProjection | null;
     profileBackupCurrentStatus: ProfileBackupStatus;
@@ -3326,7 +3317,7 @@ export type BackendRuntimeCombinedSnapshot = {
     authenticatedSession: AuthenticatedSessionProjection;
 };
 export type BackendRuntimeEventPayloadMap = {
-    addGameLogEvent: AddGameLogEventPayload;
+    addGameLogEvent: RuntimeGameLogEventPayload;
     authenticatedSessionProjection: AuthenticatedSessionProjection;
     authenticatedRuntimePhase: AuthenticatedRuntimePhaseSnapshot;
     appUpdateStatus: AppUpdateStatusSnapshot;
@@ -3491,10 +3482,6 @@ export type BatchMutationResult = {
     rollbackFailed: number;
     items: BatchMutationItemResult[];
     lastError: string | null;
-};
-export type BrokenGameLogDisplayNameOutput = {
-    id: JsonValue;
-    displayName: JsonValue;
 };
 export type BrowseHistoryCursor = {
     lastViewedAt: string;
@@ -4103,6 +4090,7 @@ export type FeedLatestQueryInput = {
     favoriteUserIds?: string[];
     scopedUserIds?: string[];
     excludedUserIds?: string[];
+    locationHiddenUserIds?: string[];
     favoritesOnly?: boolean;
     maxRows: number;
 };
@@ -4272,6 +4260,7 @@ export type FeedRowsQueryInput = {
     vipList?: string[];
     scopedUserIds?: string[];
     excludedUserIds?: string[];
+    locationHiddenUserIds?: string[];
     maxEntries: number;
     dateFrom?: string;
     dateTo?: string;
@@ -4284,6 +4273,7 @@ export type FeedSearchQueryInput = {
     favoriteUserIds?: string[];
     scopedUserIds?: string[];
     excludedUserIds?: string[];
+    locationHiddenUserIds?: string[];
     favoritesOnly?: boolean;
     dateFrom?: string;
     dateTo?: string;
@@ -4366,14 +4356,13 @@ export type FriendProjection = {
     baselineRevision: number;
     patches?: FriendProjectionPatch[];
     removals?: string[];
-    feedEntries?: FeedLiveEntry[];
     locationTimeSnapshot?: FriendLocationTime[] | null;
     friendLogChanged: boolean;
 };
 export type FriendProjectionPatch = {
     userId: string;
-    patch: FriendRecord;
-    stateBucketAuthority: FriendStateBucketAuthority;
+    record: FriendRecord;
+    presence: PresenceEntry;
 };
 export type FriendRecord = Partial<{
     [key in string]:
@@ -4387,11 +4376,6 @@ export type FriendRecord = Partial<{
     id?: string;
     displayName?: string;
     username?: string;
-    state?: string;
-    location?: string;
-    travelingToLocation?: string;
-    worldId?: string;
-    platform?: string;
     lastPlatform?: string;
     status?: string;
     statusDescription?: string;
@@ -4401,7 +4385,12 @@ export type FriendRecord = Partial<{
     last_login?: string | null;
     last_mobile?: string | null;
 };
-export type FriendStateBucketAuthority = 'explicit' | 'preserve';
+export type FriendRosterSnapshot = {
+    currentUserId: string;
+    friendsById: Partial<{ [key in string]: FriendRecord }>;
+    presenceById: Partial<{ [key in string]: PresenceEntry }>;
+    generation: number;
+};
 export type GameClientEvent =
     | { kind: 'crashRelaunchDecision'; payload: CrashRelaunchDecisionPayload }
     | { kind: 'debugLoggingOutcome'; payload: DebugLoggingOutcome }
@@ -4852,6 +4841,19 @@ export type GroupPostMutation = {
     imageId: string | null;
 };
 export type GroupPostVisibility = 'group' | 'public';
+export type GroupProfileJoinState = 'closed' | 'invite' | 'open' | 'request';
+export type GroupProfileUpdate = {
+    name: string;
+    shortCode: string;
+    description: string;
+    joinState: GroupProfileJoinState;
+    languages: string[];
+    rules: string;
+    links: string[];
+    iconId: string | null;
+    bannerId: string | null;
+    allowGroupJoinPrompt: boolean;
+};
 export type GroupQuickModerationAction = 'kick' | 'ban';
 export type GroupQuickModerationActionInput = {
     currentUserId?: string;
@@ -5112,6 +5114,7 @@ export type InviteMessageType =
     | 'requestResponse'
     | 'response';
 export type JsonValue = unknown;
+export type LeaveTarget = 'offline' | 'active';
 export type LegacyVrcxMigrationStatus = {
     detected: boolean;
     available: boolean;
@@ -5755,6 +5758,28 @@ export type PlayerState = {
     joinTimeMs: number | null;
 };
 export type PresenceAutomationRuleKind = 'time' | 'context';
+export type PresenceEntry = { rev: number; view: PresenceView };
+export type PresencePlace = {
+    location: ParsedLocation;
+    travelingTo: ParsedLocation | null;
+};
+export type PresenceView =
+    | {
+          kind: 'online';
+          place: PresencePlace;
+          platform: string;
+          onlineSinceMs: number | null;
+      }
+    | {
+          kind: 'pendingOffline';
+          place: PresencePlace;
+          platform: string;
+          onlineSinceMs: number | null;
+          target: LeaveTarget;
+          deadlineMs: number;
+      }
+    | { kind: 'active'; platform: string }
+    | { kind: 'offline' };
 export type PrintAutoCleanupEvent = {
     deleted: number;
     remaining: number;
@@ -5973,7 +5998,6 @@ export type RawJsonObject = Partial<{ [key in string]: JsonValue }>;
 export type RealtimeCurrentUserProjection = {
     generation: number;
     patch: RawJsonObject;
-    snapshot: RawJsonObject;
     gameStatePatch?: RawJsonObject | null;
 };
 export type RealtimeEntryCorrection = {
@@ -6062,7 +6086,6 @@ export type RegistryBackupSnapshot = {
     key: string;
     name: string;
     date: string;
-    data: RawJson;
 };
 export type ReleaseStatusFilter = 'all' | 'hidden' | 'private' | 'public';
 export type RemoteModerationRow = {
@@ -6077,10 +6100,7 @@ export type RemoteModerationRow = {
 export type RequestInviteRequest = { requestSlot?: number | null };
 export type ResolvedFriendLogName = { userId: string; displayName: string };
 export type Role = 'user' | 'assistant' | 'tool_call' | 'tool_result';
-export type RuntimeGameLogEventPayload = {
-    runtimePersisted: boolean;
-    raw: string[];
-};
+export type RuntimeGameLogEventPayload = { raw: string[] };
 export type RuntimeGroupInstancesProjection = {
     status: RuntimeGroupInstancesStatus;
     userId: string;
@@ -6375,7 +6395,7 @@ export type SocialFriendRosterBaselineOutput = {
     stale: boolean;
     count: number;
     detail: string;
-    snapshot: RawJson | null;
+    snapshot: FriendRosterSnapshot | null;
     friendLogChanged: boolean;
 };
 export type SocialUnfriendBatchInput = {
@@ -6737,6 +6757,10 @@ export type VrchatGroupProfileInput = {
 export type VrchatGroupRepresentationInput = {
     groupId?: string;
     isRepresenting?: boolean;
+};
+export type VrchatGroupUpdateInput = {
+    groupId?: string;
+    params: GroupProfileUpdate;
 };
 export type VrchatGroupUserGroupsInput = { userId?: string };
 export type VrchatGroupUserInput = { groupId?: string; userId?: string };

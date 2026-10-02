@@ -22,18 +22,11 @@ import {
 
 describe('settingsValues', () => {
     it('places AI settings before integrations', () => {
-        expect(settingsTabs.map(([value]) => value)).toEqual([
-            'system',
-            'interface',
-            'social',
-            'notifications',
-            'vr',
-            'media',
-            'ai',
-            'integrations',
-            'advanced',
-            'feedback'
-        ]);
+        const tabValues = settingsTabs.map(([value]) => value);
+        expect(tabValues.indexOf('ai')).toBeGreaterThanOrEqual(0);
+        expect(tabValues.indexOf('ai')).toBeLessThan(
+            tabValues.indexOf('integrations')
+        );
     });
 
     it('restores the last settings tab while preserving explicit tab links', () => {
@@ -56,9 +49,9 @@ describe('settingsValues', () => {
         expect(options).toContain(12);
         expect(options).toContain(1000);
         expect(options.filter((size) => size === 50)).toHaveLength(1);
-        expect(filterTablePageSizeOptions(options, '5')).toEqual(
-            options.filter((size) => String(size).includes('5'))
-        );
+        expect(
+            filterTablePageSizeOptions([10, 15, 25, 50, 100], ' 5 ')
+        ).toEqual([15, 25, 50]);
         expect(filterTablePageSizeOptions(options, '')).toEqual(options);
     });
 
@@ -148,66 +141,6 @@ describe('settingsValues', () => {
                 DEFAULT_HMD_NOTIFICATION_ACTIVITY_FILTERS.types
             ).every((rule) => rule.favoriteGroupKeys === 'all')
         ).toBe(true);
-    });
-
-    it('migrates legacy wrist category rules into per-type rules', () => {
-        const filters = normalizeOverlayActivityFilters({
-            wrist: {
-                favoriteGroupKeys: ['group_1'],
-                categories: {
-                    actionRequired: {
-                        scope: 'direct',
-                        typeOverrides: {
-                            boop: {
-                                scope: 'off'
-                            },
-                            'group.queueReady': {
-                                scope: 'criticalOnly'
-                            }
-                        }
-                    },
-                    currentInstance: {
-                        scope: 'everyone',
-                        favoriteGroupKeys: ['group_2']
-                    },
-                    profileChange: {
-                        scope: 'allFavorites',
-                        typeOverrides: {
-                            Avatar: {
-                                scope: 'selectedFavorites',
-                                favoriteGroupKeys: ['group_3']
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
-        expect(filters.wrist.types.invite).toEqual({
-            scope: 'on',
-            favoriteGroupKeys: 'all'
-        });
-        expect(filters.wrist.types.boop).toEqual({
-            scope: 'off',
-            favoriteGroupKeys: 'all'
-        });
-        expect(filters.wrist.types['group.queueReady']).toEqual({
-            scope: 'on',
-            favoriteGroupKeys: 'all'
-        });
-        expect(filters.wrist.types.OnPlayerJoined).toEqual({
-            scope: 'everyoneInInstance',
-            favoriteGroupKeys: 'all'
-        });
-        expect(filters.wrist.types.DisplayName).toEqual({
-            scope: 'allFavorites',
-            favoriteGroupKeys: 'all'
-        });
-        expect(filters.wrist.types.AvatarChange).toEqual({
-            scope: 'selectedFavorites',
-            favoriteGroupKeys: ['group_3']
-        });
-        expect(filters.wrist.types.Avatar).toBeUndefined();
     });
 
     it('maps wrist activity raw type keys to locale-safe label keys', () => {

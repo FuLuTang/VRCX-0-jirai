@@ -1,60 +1,23 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
     PLAYER_LIST_COLUMN_IDS,
     DEFAULT_PLAYER_LIST_SORTING,
     PLAYER_LIST_STORAGE_KEY,
     readPersistedPlayerListState,
-    safeJsonParse,
     sanitizePlayerListColumnOrder,
     sanitizePlayerListColumnVisibility,
     sanitizePlayerListSorting,
     writePersistedPlayerListState
 } from './playerListState';
 
-function installLocalStorage(initial: Record<string, unknown> = {}) {
-    const store = new Map(
-        Object.entries(initial).map(([key, value]) => [key, String(value)])
-    );
-    Object.defineProperty(globalThis, 'window', {
-        configurable: true,
-        value: {
-            localStorage: {
-                getItem: (key: string) => store.get(key) ?? null,
-                setItem: (key: string, value: string) => {
-                    store.set(key, String(value));
-                }
-            }
-        }
-    });
-    return store;
-}
-
 describe('playerListState', () => {
-    afterEach(() => {
-        Reflect.deleteProperty(globalThis, 'window');
+    beforeEach(() => {
+        localStorage.clear();
     });
 
     it('uses the default player-list table shape when saved state is missing or invalid', () => {
-        expect(safeJsonParse('{bad json')).toBeNull();
         expect(readPersistedPlayerListState()).toEqual({});
-        Object.defineProperty(globalThis, 'window', {
-            configurable: true,
-            value: {
-                localStorage: {
-                    getItem() {
-                        throw new Error('storage blocked');
-                    },
-                    setItem() {
-                        throw new Error('storage blocked');
-                    }
-                }
-            }
-        });
-        expect(readPersistedPlayerListState()).toEqual({});
-        expect(() =>
-            writePersistedPlayerListState({ columnOrder: ['avatar'] })
-        ).not.toThrow();
         expect(sanitizePlayerListSorting(null)).toEqual(
             DEFAULT_PLAYER_LIST_SORTING
         );
@@ -82,7 +45,8 @@ describe('playerListState', () => {
                 avatar: false,
                 timer: true,
                 unknown: false,
-                displayName: 'yes'
+                displayName: 'yes',
+                mutualFriends: true
             })
         ).toEqual({ avatar: false, timer: true });
 
@@ -91,19 +55,43 @@ describe('playerListState', () => {
         ).toEqual([
             'note',
             'avatar',
-            ...PLAYER_LIST_COLUMN_IDS.filter(
-                (columnId) => !['note', 'avatar'].includes(columnId)
-            )
+            'timer',
+            'displayName',
+            'mutualFriends',
+            'rank',
+            'groupRoles',
+            'status',
+            'icon',
+            'platform',
+            'language',
+            'bioLink'
+        ]);
+        expect(
+            sanitizePlayerListColumnOrder(['displayName', 'timer', 'avatar'])
+        ).toEqual([
+            'displayName',
+            'mutualFriends',
+            'rank',
+            'groupRoles',
+            'status',
+            'icon',
+            'platform',
+            'language',
+            'bioLink',
+            'note',
+            'timer',
+            'avatar'
         ]);
     });
 
     it('restores and updates persisted player-list table state without losing existing fields', () => {
-        const store = installLocalStorage({
-            [PLAYER_LIST_STORAGE_KEY]: JSON.stringify({
+        localStorage.setItem(
+            PLAYER_LIST_STORAGE_KEY,
+            JSON.stringify({
                 sorting: [{ id: 'timer', desc: true }],
                 columnVisibility: { avatar: false }
             })
-        });
+        );
 
         expect(readPersistedPlayerListState()).toEqual({
             sorting: [{ id: 'timer', desc: true }],
@@ -114,7 +102,9 @@ describe('playerListState', () => {
             columnOrder: ['avatar', 'timer']
         });
 
-        const saved = JSON.parse(String(store.get(PLAYER_LIST_STORAGE_KEY)));
+        const saved = JSON.parse(
+            String(localStorage.getItem(PLAYER_LIST_STORAGE_KEY))
+        );
         expect(saved.sorting).toEqual([{ id: 'timer', desc: true }]);
         expect(saved.columnVisibility).toEqual({ avatar: false });
         expect(saved.columnOrder).toEqual(['avatar', 'timer']);

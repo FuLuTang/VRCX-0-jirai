@@ -28,7 +28,8 @@ use vrcx_0_application::social::{
 use vrcx_0_application_activity::ActivityWarmupRuntime;
 use vrcx_0_application_core::{
     BackendRuntime, BackendRuntimeStatusPublisher, BackgroundCapabilitySession, ImageCache,
-    RuntimeTaskExecutor, TaskStopReport, UnavailableLocalGameContextSource, WebClient,
+    RuntimeTaskExecutor, TaskStopReport, TaskSupervisor, UnavailableLocalGameContextSource,
+    WebClient,
 };
 use vrcx_0_application_realtime::{
     FriendProjectionSink, RealtimeCurrentUserSnapshotSink, RealtimeHostRuntime,
@@ -66,6 +67,7 @@ pub struct RuntimeHostOptions {
     pub app_version: String,
     pub profile: RuntimeHostProfile,
     pub database_maintenance_cache_dir: Option<PathBuf>,
+    pub task_executor: Option<Arc<dyn RuntimeTaskExecutor>>,
 }
 
 pub(super) fn web_ua_app_version(app_version: &str, profile: RuntimeHostProfile) -> String {
@@ -88,7 +90,6 @@ pub struct RuntimeHostStateBuilder {
     backend_runtime: BackendRuntime,
     web: Arc<WebClient>,
     image_cache: Arc<ImageCache>,
-    legacy_vrcx_available: bool,
     legacy_vrcx_source: Option<LegacyVrcxSource>,
     legacy_vrcx_migration_status: LegacyVrcxMigrationStatus,
     launched_from_autostart: bool,
@@ -116,7 +117,6 @@ pub struct RuntimeHostState {
     pub(crate) shared_collection_import: SharedCollectionImportRuntime,
     pub(crate) note_export: NoteExportRuntime,
     pub(crate) group_order_source: Arc<dyn GroupOrderSource>,
-    pub(crate) legacy_vrcx_available: bool,
     pub(crate) legacy_vrcx_source: Option<LegacyVrcxSource>,
     pub(crate) legacy_vrcx_migration_status: LegacyVrcxMigrationStatus,
     pub(crate) launched_from_autostart: bool,
@@ -150,7 +150,6 @@ struct PreparedDataDirMigration {
 struct OpenedProfile {
     storage: Arc<StorageService>,
     db: Arc<DatabaseService>,
-    legacy_vrcx_available: bool,
     legacy_vrcx_source: Option<LegacyVrcxSource>,
     legacy_vrcx_migration_status: LegacyVrcxMigrationStatus,
 }
@@ -217,7 +216,6 @@ fn open_profile(paths: &AppPaths) -> Result<OpenedProfile> {
     );
     let legacy_vrcx_source = legacy_vrcx_discovery.importable_source;
     let legacy_vrcx_migration_status = legacy_vrcx_discovery.status;
-    let legacy_vrcx_available = legacy_vrcx_migration_status.available;
     let storage = Arc::new(StorageService::new(&paths.config_file)?);
     let db = match DatabaseService::new(&paths.db_file) {
         Ok(db) => {
@@ -242,7 +240,6 @@ fn open_profile(paths: &AppPaths) -> Result<OpenedProfile> {
     Ok(OpenedProfile {
         storage,
         db: Arc::new(db),
-        legacy_vrcx_available,
         legacy_vrcx_source,
         legacy_vrcx_migration_status,
     })
@@ -268,6 +265,7 @@ impl RuntimeHostStateBuilder {
             app_version,
             profile,
             database_maintenance_cache_dir,
+            task_executor,
         } = options;
         let prepared_migration = prepare_data_dir_migration_startup(&mut app_data_dir)?;
         let mut paths = AppPaths::from_app_data(app_data_dir.current_dir.clone());
@@ -300,7 +298,6 @@ impl RuntimeHostStateBuilder {
         let OpenedProfile {
             storage,
             db,
-            legacy_vrcx_available,
             legacy_vrcx_source,
             legacy_vrcx_migration_status,
         } = opened;
@@ -319,10 +316,14 @@ impl RuntimeHostStateBuilder {
                 Arc::clone(&web),
             )?,
         )));
+        let tasks = task_executor
+            .map(TaskSupervisor::with_executor)
+            .unwrap_or_default();
         let runtime_context = Arc::new(RuntimeHostContext::new(
             Arc::clone(&db),
             Arc::clone(&web),
             Arc::clone(&image_cache),
+            tasks,
         ));
         let desktop_assembly =
             RuntimeHostDesktopAssemblyDeps::from_context(Arc::clone(&runtime_context));
@@ -367,7 +368,6 @@ impl RuntimeHostStateBuilder {
             backend_runtime: BackendRuntime::new(profile),
             web,
             image_cache,
-            legacy_vrcx_available,
             legacy_vrcx_source,
             legacy_vrcx_migration_status,
             launched_from_autostart,
@@ -546,6 +546,7 @@ impl RuntimeHostStateBuilder {
             Arc::clone(&self.runtime_context.favorite_store),
             Arc::clone(&self.runtime_context.favorite_remote),
             Arc::clone(&self.runtime_context.world_cache),
+            Arc::clone(&self.runtime_context.avatar_cache),
             self.runtime_context.event_bus.clone(),
             self.runtime_context.tasks.clone(),
             self.runtime_context.auth_scope.clone(),
@@ -653,7 +654,6 @@ impl RuntimeHostStateBuilder {
             shared_collection_import,
             note_export,
             group_order_source,
-            legacy_vrcx_available: self.legacy_vrcx_available,
             legacy_vrcx_source: self.legacy_vrcx_source,
             legacy_vrcx_migration_status: self.legacy_vrcx_migration_status,
             launched_from_autostart: self.launched_from_autostart,
@@ -672,13 +672,6 @@ impl RuntimeHostStateBuilder {
 }
 
 impl RuntimeHostState {
-    pub fn set_task_executor<E>(&self, executor: E)
-    where
-        E: RuntimeTaskExecutor + 'static,
-    {
-        self.runtime_context.tasks.set_executor(executor);
-    }
-
     pub fn stop_runtime_tasks(&self) -> TaskStopReport {
         self.runtime_context.tasks.stop_all()
     }
@@ -745,10 +738,6 @@ impl RuntimeHostState {
 
     pub fn note_export(&self) -> &NoteExportRuntime {
         &self.note_export
-    }
-
-    pub fn legacy_vrcx_available(&self) -> bool {
-        self.legacy_vrcx_available
     }
 
     pub fn legacy_vrcx_source(&self) -> &Option<LegacyVrcxSource> {

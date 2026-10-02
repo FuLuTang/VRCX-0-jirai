@@ -1,19 +1,17 @@
 import { useTranslation } from 'react-i18next';
 
-import {
-    buildMutualFriendsGraphTheme
-} from '@/features/charts/mutual-friends/mutualFriendsPalette';
+import { CommitSlider } from '@/components/mutual-friends/CommitSlider';
+import { buildMutualFriendsGraphTheme } from '@/lib/mutual-friends/mutualFriendsPalette';
 import { formatDateFilter } from '@/lib/dateTime';
-import { cn } from '@/lib/utils';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/shadcn/tooltip';
-
-import { MUTUAL_GRAPH_MIN_DEGREE_LIMITS } from '../../mutual-friends/mutualFriendsFilters';
+import { MUTUAL_GRAPH_MIN_DEGREE_LIMITS } from '@/lib/mutual-friends/mutualFriendsFilters';
 import type {
     MutualFriendCommunity,
     MutualFriendsCoverage,
     MutualFriendsIsolatedCounts
-} from '../../mutual-friends/mutualFriendsTypes';
-import { CommitSlider } from './CommitSlider';
+} from '@/lib/mutual-friends/mutualFriendsTypes';
+import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/shadcn/tooltip';
+
 import { MutualFriendsSurface } from './MutualFriendsSurface';
 
 export function MutualFriendsLegend({
@@ -73,7 +71,7 @@ export function MutualFriendsLegend({
                             }
                             className={cn(
                                 'flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-[background-color,opacity] duration-150 ease-out',
-                                'hover:bg-foreground/5 active:translate-y-px',
+                                'hover:bg-(--state-hover-surface) active:translate-y-px',
                                 isFocused
                                     ? 'bg-foreground/10'
                                     : focusedCommunity !== null
@@ -133,7 +131,7 @@ export function MutualFriendsLegend({
                                     onClick={onToggleCrossCommunityOnly}
                                     className={cn(
                                         '-mx-1.5 flex w-[calc(100%+0.75rem)] items-center gap-2 rounded-md px-1.5 py-1 text-left transition-[background-color] duration-150 ease-out',
-                                        'hover:bg-foreground/5 active:translate-y-px',
+                                        'hover:bg-(--state-hover-surface) active:translate-y-px',
                                         crossCommunityOnly
                                             ? 'bg-foreground/10'
                                             : ''

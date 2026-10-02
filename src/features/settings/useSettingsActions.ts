@@ -1,9 +1,7 @@
 import { useTranslation } from 'react-i18next';
 
-import avatarFeedHistoryRepository from '@/repositories/avatarFeedHistoryRepository';
+import { commands } from '@/platform/tauri/bindings';
 import configRepository from '@/repositories/configRepository';
-import databaseMaintenanceRepository from '@/repositories/databaseMaintenanceRepository';
-import mediaRepository from '@/repositories/mediaRepository';
 import vrchatAuthRepository from '@/repositories/vrchatAuthRepository';
 import {
     addFeedHiddenUserPreference,
@@ -150,16 +148,16 @@ export function useSettingsActions(deps: SettingsActionsDeps) {
         DEFAULT_SEARCH_LIMIT,
         applyAppFontPreferences,
         auth,
-        avatarFeedHistoryRepository,
+        cleanupAvatarFeedHistory: commands.appAvatarFeedHistoryCleanup,
         alert,
         configRepository,
         confirm,
-        databaseMaintenanceRepository,
         gameState,
         isValidFontFamilyList,
         language: i18n.language,
         loadTrustColorPreference,
-        mediaRepository,
+        cropAllPrints: commands.appCropAllPrints,
+        getUgcPhotoLocation: commands.appGetUgcPhotoLocation,
         normalizeAppCjkFontPack,
         normalizeAppFontFamily,
         normalizePreferenceSnapshot,
@@ -196,52 +194,11 @@ export function useSettingsActions(deps: SettingsActionsDeps) {
         ...actionDeps,
         ...preferenceActions
     });
-    function normalizeCurrentFeedHiddenUsers() {
-        return normalizePreferenceSnapshot({
-            feedHiddenUsers: deps.prefs.feedHiddenUsers
-        }).feedHiddenUsers;
-    }
     async function addFeedHiddenUser(userId: string) {
-        const previous = normalizeCurrentFeedHiddenUsers();
-        const next = normalizePreferenceSnapshot({
-            feedHiddenUsers: [...previous, userId]
-        }).feedHiddenUsers;
-        await deps.commit(
-            () => addFeedHiddenUserPreference(userId),
-            () => {
-                deps.setPrefs((current) => ({
-                    ...current,
-                    feedHiddenUsers: next
-                }));
-                return () =>
-                    deps.setPrefs((current) => ({
-                        ...current,
-                        feedHiddenUsers: previous
-                    }));
-            }
-        );
+        await deps.commit(() => addFeedHiddenUserPreference(userId));
     }
     async function removeFeedHiddenUser(userId: string) {
-        const normalizedUserId = userId.trim();
-        if (!normalizedUserId) {
-            return;
-        }
-        const previous = normalizeCurrentFeedHiddenUsers();
-        const next = previous.filter((id) => id !== normalizedUserId);
-        await deps.commit(
-            () => removeFeedHiddenUserPreference(normalizedUserId),
-            () => {
-                deps.setPrefs((current) => ({
-                    ...current,
-                    feedHiddenUsers: next
-                }));
-                return () =>
-                    deps.setPrefs((current) => ({
-                        ...current,
-                        feedHiddenUsers: previous
-                    }));
-            }
-        );
+        await deps.commit(() => removeFeedHiddenUserPreference(userId));
     }
     return {
         ...preferenceActions,

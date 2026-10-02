@@ -3,8 +3,14 @@
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { presenceSection, type PresenceView } from '@/domain/friends/presence';
 import type { FriendRecord } from '@/domain/friends/types';
 import { useFriendLocationTimeStore } from '@/state/friendLocationTimeStore';
+import {
+    activePresence,
+    offlinePresence,
+    onlinePresence
+} from '@/test/presenceFixtures';
 
 import {
     getFriendsLocationsCardRowHeight,
@@ -13,22 +19,25 @@ import {
 import * as friendSections from './friendsLocationsSections';
 import { useFriendsLocationsPageDerivedState } from './useFriendsLocationsPageDerivedState';
 
-vi.mock('react-i18next', () => ({
-    useTranslation: () => ({ t: (key: string) => key })
-}));
-
 vi.mock('./useFriendsLocationsWorldSummaries', () => ({
     useFriendsLocationsWorldSummaries: () => new Map()
 }));
 
-function friendAt(location: string): FriendRecord {
+type Section = 'online' | 'active' | 'offline';
+
+function presenceFor(section: Section, location: string): PresenceView {
+    if (section === 'online') {
+        return onlinePresence(location);
+    }
+    return section === 'active' ? activePresence() : offlinePresence;
+}
+
+function friendAt(place: string | PresenceView): FriendRecord {
     return {
         id: 'usr_friend',
         displayName: 'Friend',
         tags: [],
-        state: 'online',
-        stateBucket: 'online',
-        location,
+        $presence: typeof place === 'string' ? onlinePresence(place) : place,
         $trustLevel: '',
         $friendNumber: 0,
         $trustClass: '',
@@ -45,7 +54,7 @@ function pageInput(
 ): Parameters<typeof useFriendsLocationsPageDerivedState>[0] {
     return {
         activeIds: friends
-            .filter((friend) => friend.state === 'active')
+            .filter((friend) => presenceSection(friend.$presence) === 'active')
             .map((friend) => friend.id.trim()),
         activeSegment: 'same-instance',
         collapsedGroups: new Set(),
@@ -67,10 +76,10 @@ function pageInput(
         localFriendFavoriteGroups: [],
         localFriendFavorites: {},
         offlineIds: friends
-            .filter((friend) => friend.state === 'offline')
+            .filter((friend) => presenceSection(friend.$presence) === 'offline')
             .map((friend) => friend.id.trim()),
         onlineIds: friends
-            .filter((friend) => friend.state === 'online')
+            .filter((friend) => presenceSection(friend.$presence) === 'online')
             .map((friend) => friend.id.trim()),
         remoteFavoriteFriendIds: [],
         rosterStatus: 'ready',
@@ -100,7 +109,7 @@ describe('useFriendsLocationsPageDerivedState', () => {
             input.currentUserSnapshot = {
                 id: 'usr_self',
                 displayName: 'Me',
-                location: 'wrld_stale:2'
+                $presence: onlinePresence('wrld_local:1')
             };
             const { result } = renderHook(() =>
                 useFriendsLocationsPageDerivedState(input)
@@ -115,7 +124,7 @@ describe('useFriendsLocationsPageDerivedState', () => {
             ]);
             expect(cards[0]).toMatchObject({
                 displayName: 'Me',
-                location: 'wrld_local:1'
+                $presence: onlinePresence('wrld_local:1')
             });
         }
     );
@@ -204,11 +213,9 @@ describe('useFriendsLocationsPageDerivedState', () => {
     it('uses distinct card row keys when switching segments', () => {
         const onlineFriend = friendAt('wrld_remote:1');
         const offlineFriend = {
-            ...friendAt('offline'),
+            ...friendAt(offlinePresence),
             id: 'usr_offline',
-            displayName: 'Offline Friend',
-            state: 'offline' as const,
-            stateBucket: 'offline' as const
+            displayName: 'Offline Friend'
         };
         const input = pageInput([onlineFriend, offlineFriend]);
         input.activeSegment = 'online';
@@ -248,10 +255,8 @@ describe('useFriendsLocationsPageDerivedState', () => {
         (state, id) => {
             const location = 'wrld_local:1';
             const friend = {
-                ...friendAt('wrld_remote:2'),
-                id,
-                state,
-                stateBucket: state
+                ...friendAt(presenceFor(state, 'wrld_remote:2')),
+                id
             };
             useFriendLocationTimeStore.getState().replaceSnapshot([
                 {
@@ -295,8 +300,9 @@ describe('useFriendsLocationsPageDerivedState', () => {
                 rerender();
                 expect(result.current.hasVisibleSections).toBe(true);
             }
-            expect(friend.location).toBe('wrld_remote:2');
-            expect(friend.state).toBe(state);
+            expect(friend.$presence).toEqual(
+                presenceFor(state, 'wrld_remote:2')
+            );
         }
     );
 
@@ -312,15 +318,13 @@ describe('useFriendsLocationsPageDerivedState', () => {
             displayName: 'Zoe'
         };
         const local: FriendRecord = {
-            ...friendAt('wrld_remote:2'),
+            ...friendAt(offlinePresence),
             id: 'usr_m',
-            displayName: 'Mary',
-            state: 'offline'
+            displayName: 'Mary'
         };
         const unrelated: FriendRecord = {
-            ...friendAt('offline'),
-            id: 'usr_unrelated',
-            state: 'offline'
+            ...friendAt(offlinePresence),
+            id: 'usr_unrelated'
         };
         const input = pageInput([onlineLast, unrelated, local, onlineFirst]);
         input.sidebarSortMethods = ['Sort Alphabetically'];
@@ -369,10 +373,10 @@ describe('useFriendsLocationsPageDerivedState', () => {
         );
 
         expect(
-            sort.mock.calls.flatMap(([friends]) =>
-                friends.map((friend) => friend.id)
+            sort.mock.calls.map(([friends]) =>
+                friends.map((friend) => friend.id).sort()
             )
-        ).not.toContain(unrelated.id);
+        ).toEqual([['usr_a', 'usr_m', 'usr_z']]);
         expect(
             result.current.visibleVirtualRows.flatMap((row) =>
                 row.type === 'cards'
@@ -482,14 +486,12 @@ describe('useFriendsLocationsPageDerivedState worlds view', () => {
     function worldFriend(
         id: string,
         location: string,
-        state: FriendRecord['state'] = 'online'
+        section: Section = 'online'
     ): FriendRecord {
         return {
-            ...friendAt(location),
+            ...friendAt(presenceFor(section, location)),
             id,
-            displayName: id,
-            state,
-            stateBucket: state
+            displayName: id
         };
     }
 
@@ -525,13 +527,35 @@ describe('useFriendsLocationsPageDerivedState worlds view', () => {
         expect(result.current.worldGroups).toEqual([]);
     });
 
+    it('leaves out the current user when no friend shares their instance', () => {
+        const input = pageInput([worldFriend('usr_a', 'wrld_other:2')]);
+        input.viewMode = 'worlds';
+        input.currentUserSnapshot = {
+            id: 'usr_self',
+            displayName: 'Me',
+            $presence: onlinePresence('wrld_local:1')
+        };
+        const { result } = renderHook(() =>
+            useFriendsLocationsPageDerivedState(input)
+        );
+
+        expect(
+            result.current.worldGroups.map((group) => group.worldId)
+        ).toEqual(['wrld_other']);
+        expect(
+            result.current.worldGroups[0]?.instances[0]?.friends.map(
+                (friend) => friend.id
+            )
+        ).toEqual(['usr_a']);
+    });
+
     it('keeps the current user inside their own instance', () => {
         const input = pageInput([worldFriend('usr_a', 'wrld_local:1')]);
         input.viewMode = 'worlds';
         input.currentUserSnapshot = {
             id: 'usr_self',
             displayName: 'Me',
-            location: 'wrld_local:1'
+            $presence: onlinePresence('wrld_local:1')
         };
         const { result } = renderHook(() =>
             useFriendsLocationsPageDerivedState(input)

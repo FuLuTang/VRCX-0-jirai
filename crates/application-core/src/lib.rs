@@ -35,6 +35,7 @@ pub use async_runtime_policy::{
 };
 pub use auth_scope::{
     RuntimeAuthIdentity, RuntimeAuthScope, RuntimeAuthScopeObserver, RuntimeAuthScopeSnapshot,
+    RuntimeVrchatAuthFailureObserver,
 };
 pub use avatar_cache::{AvatarCache, AvatarCachePort};
 pub use backend_runtime::{
@@ -51,8 +52,8 @@ pub use config::{config_string_array_value, normalize_config_string_array};
 #[cfg(any(test, feature = "test-utils"))]
 pub use contract_test_support::{
     assert_json_contract, CallRecorder, MemoryCookieWebClientPort, MemoryFileCachePort,
-    MemoryWorldCachePort, NoopImageCachePort, NoopWebClientPort, NoopWorldCachePort,
-    ScriptedResults,
+    MemoryWorldCachePort, NoopAvatarCachePort, NoopImageCachePort, NoopWebClientPort,
+    NoopWorldCachePort, ScriptedResults,
 };
 pub use diagnostics::RuntimeDiagnostics;
 pub use error::Error;
@@ -64,16 +65,17 @@ pub use event_bus::{
 };
 pub use events::{
     FeedLiveEntry, FriendProfileBulkLoadStatus, FriendProfileLoadStatusPayload, FriendProjection,
-    FriendProjectionPatch, FriendStateBucketAuthority, PrintAutoCleanupEvent,
-    RealtimeCurrentUserProjection, RealtimeEntryCorrection, RealtimeEntryCorrectionFields,
-    RealtimeEntryCorrectionStream, RealtimeInstanceClosedProjection, RealtimeInstanceQueueKind,
-    RealtimeInstanceQueueProjection, RealtimeNotificationProjection, RealtimeNotificationUpsert,
-    RealtimeUserProjection,
+    FriendProjectionPatch, PrintAutoCleanupEvent, RealtimeCurrentUserProjection,
+    RealtimeEntryCorrection, RealtimeEntryCorrectionFields, RealtimeEntryCorrectionStream,
+    RealtimeInstanceClosedProjection, RealtimeInstanceQueueKind, RealtimeInstanceQueueProjection,
+    RealtimeNotificationProjection, RealtimeNotificationUpsert, RealtimeUserProjection,
 };
 pub use favorite_kind::{FavoriteChangeScope, FavoriteEntityKind, VrchatFavoriteType};
 pub use file_cache::{FileCache, FileCachePort};
 pub use image_cache::{save_ugc_image_to_file, ImageCache, ImageCachePort};
-pub use instance_dwell::{FriendLocationTime, FriendLocationTimeSource, InstanceDwellRegistry};
+pub use instance_dwell::{
+    FriendLocationTime, FriendLocationTimeSource, FriendPlace, InstanceDwellRegistry,
+};
 pub use interruptible_sleep::sleep_interruptibly;
 pub use ports::{
     BackgroundCapabilitySession, BackgroundCapabilitySessionIdentity, CurrentUserSnapshot,

@@ -1,11 +1,6 @@
-import React, { type PropsWithChildren, type ReactNode } from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-vi.mock('react-i18next', async (importOriginal) => ({
-    ...(await importOriginal<typeof import('react-i18next')>()),
-    useTranslation: () => ({ t: (key: string) => key })
-}));
+import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/components/friends/FriendInstanceTimer', () => ({
     FriendInstanceTimer: () => <span data-instance-timer />,
@@ -23,9 +18,13 @@ vi.mock('@/components/user-hover-card/UserHoverCard', () => ({
 }));
 
 vi.mock('@/components/UserDetailTile', () => ({
-    UserDetailContent: ({ subline }: { subline?: ReactNode }) => (
-        <div>{subline}</div>
-    )
+    UserDetailContent: ({
+        subline,
+        statusDotClassName
+    }: {
+        subline?: ReactNode;
+        statusDotClassName?: string;
+    }) => <div data-status-dot={statusDotClassName}>{subline}</div>
 }));
 
 vi.mock('@/ui/shadcn/context-menu', () => ({
@@ -46,57 +45,45 @@ vi.mock('./FriendsSidebarActionItems', () => ({
     FriendActionItems: () => null
 }));
 
-import { useFriendLocationTimeStore } from '@/state/friendLocationTimeStore';
+import { activePresence } from '@/test/presenceFixtures';
 
 import { FriendRow } from './FriendsSidebarFriendRow';
 
-const remoteLocation = 'wrld_friends:1';
-
-function renderRemoteFriend(userId: string, isGameRunning: boolean) {
-    return renderToStaticMarkup(
-        <FriendRow
-            friend={{
-                id: userId,
-                displayName: userId,
-                state: 'online',
-                location: remoteLocation
-            }}
-            rowModel={{
-                isGroupByInstance: true,
-                instanceLocation: remoteLocation
-            }}
-            appearance={{ isGameRunning }}
-        />
-    );
-}
-
 describe('FriendsSidebarFriendRow instance timer', () => {
-    beforeEach(() => {
-        useFriendLocationTimeStore.getState().replaceSnapshot([
-            {
-                userId: 'usr_a',
-                location: remoteLocation,
-                sinceMs: 1_000,
-                source: 'realtime'
-            },
-            {
-                userId: 'usr_b',
-                location: remoteLocation,
-                sinceMs: 2_000,
-                source: 'realtime'
-            }
-        ]);
+    it('times a remote friend in a grouped instance by that instance location', () => {
+        const html = renderToStaticMarkup(
+            <FriendRow
+                friend={{
+                    id: 'usr_a',
+                    displayName: 'usr_a',
+                    state: 'online',
+                    location: 'wrld_friends:1'
+                }}
+                rowModel={{
+                    isGroupByInstance: true,
+                    instanceLocation: 'wrld_friends:1'
+                }}
+            />
+        );
+
+        expect(html).toContain('data-user-id="usr_a"');
+        expect(html).toContain('data-location="wrld_friends:1"');
     });
 
-    it('keeps remote friend timer inputs when the current user starts the game elsewhere', () => {
-        for (const userId of ['usr_a', 'usr_b']) {
-            const before = renderRemoteFriend(userId, false);
-            const after = renderRemoteFriend(userId, true);
+    it('shows the status dot for the current user even though VRChat marks the self record as not a friend', () => {
+        const html = renderToStaticMarkup(
+            <FriendRow
+                friend={{
+                    id: 'usr_self',
+                    displayName: 'Self',
+                    status: 'active',
+                    isFriend: false,
+                    $presence: activePresence()
+                }}
+                rowModel={{ isCurrentUser: true }}
+            />
+        );
 
-            expect(before).toContain(`data-user-id="${userId}"`);
-            expect(before).toContain(`data-location="${remoteLocation}"`);
-            expect(after).toContain(`data-user-id="${userId}"`);
-            expect(after).toContain(`data-location="${remoteLocation}"`);
-        }
+        expect(html).toContain('data-status-dot="user-status-indicator');
     });
 });

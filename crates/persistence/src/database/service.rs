@@ -3,7 +3,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
+    atomic::{AtomicU64, AtomicUsize, Ordering},
     Arc, Mutex, MutexGuard, RwLock, RwLockReadGuard, TryLockError,
 };
 use std::time::Duration;
@@ -50,6 +50,7 @@ pub struct DatabaseService {
     db_path: PathBuf,
     upgrade_dir: PathBuf,
     inner: RwLock<DatabaseMode>,
+    config_generation: AtomicU64,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -96,17 +97,27 @@ pub(crate) struct DatabaseWriteTransaction<'conn> {
 
 impl DatabaseService {
     pub fn new(db_path: &Path) -> Result<Self, Error> {
-        let main = open_main_database(db_path)?;
         let upgrade_dir = db_path
             .parent()
             .unwrap_or_else(|| Path::new("."))
             .join("db-upgrade");
+        upgrade::restore_interrupted_replacement(db_path, &upgrade_dir)?;
+        let main = open_main_database(db_path)?;
 
         Ok(Self {
             db_path: db_path.to_path_buf(),
             upgrade_dir,
             inner: RwLock::new(DatabaseMode::Main(main)),
+            config_generation: AtomicU64::new(0),
         })
+    }
+
+    pub fn config_generation(&self) -> u64 {
+        self.config_generation.load(Ordering::Acquire)
+    }
+
+    pub(crate) fn bump_config_generation(&self) {
+        self.config_generation.fetch_add(1, Ordering::AcqRel);
     }
 
     pub fn db_path(&self) -> &Path {

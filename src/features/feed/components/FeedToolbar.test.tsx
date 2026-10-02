@@ -30,6 +30,8 @@ import { useFeedFilters } from '../useFeedFilters';
 import { FeedToolbar } from './FeedToolbar';
 import { FeedViewModeToggle } from './FeedViewModeToggle';
 
+vi.unmock('react-i18next');
+
 const i18n = createInstance();
 
 beforeAll(async () => {
@@ -413,8 +415,7 @@ describe('Feed compound search', { timeout: 10_000 }, () => {
         useFriendRosterStore.getState().setRosterSnapshot({
             friendsById: {
                 usr_alpha: { id: 'usr_alpha', displayName: 'Alpha' }
-            },
-            orderedFriendIds: ['usr_alpha']
+            }
         });
         renderFilters();
         const calendar = await selectDateRange(user);
@@ -427,6 +428,7 @@ describe('Feed compound search', { timeout: 10_000 }, () => {
         expect(
             screen.getByRole('status', { name: 'Applied friends' }).textContent
         ).toBe('usr_alpha');
+        expect(screen.getByRole<HTMLInputElement>('combobox').value).toBe('');
         expect(
             screen.getByRole('status', { name: 'Applied dates' }).textContent
         ).toBe('2026-08-10/2026-08-12');

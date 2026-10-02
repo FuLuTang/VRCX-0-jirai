@@ -223,15 +223,7 @@ pub enum GameClientEvent {
 #[derive(Clone, Debug, PartialEq, serde::Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeGameLogEventPayload {
-    pub runtime_persisted: bool,
     pub raw: Vec<String>,
-}
-
-#[derive(Clone, Debug, PartialEq, serde::Serialize, specta::Type)]
-#[serde(untagged)]
-pub enum AddGameLogEventPayload {
-    Compat(String),
-    Runtime(RuntimeGameLogEventPayload),
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, specta::Type)]
@@ -258,7 +250,7 @@ macro_rules! runtime_event_payload {
 
 runtime_event_payload!(GameLogSideEffectEvent, "gameLogSideEffect");
 runtime_event_payload!(GameClientEvent, "gameClientEvent");
-runtime_event_payload!(RuntimeGameLogEventPayload, "runtimeGameLogEvent");
+runtime_event_payload!(RuntimeGameLogEventPayload, "addGameLogEvent");
 runtime_event_payload!(GameLogProjection, "gameLogProjection");
 runtime_event_payload!(
     GameLogPersistenceFallbackPayload,
@@ -304,25 +296,9 @@ mod tests {
     use vrcx_0_application_core::{RuntimeEventBus, RuntimeEventPayload, RuntimeEventSink};
 
     use super::{
-        CrashRelaunchDecisionPayload, EmptyEventPayload, GameClientEvent,
-        GameLogPersistenceFallbackPayload, GameLogSideEffectEvent, GameLogSideEffectObserver,
-        GameLogSideEffectSink, NowPlayingPayload, NowPlayingSnapshot,
+        CrashRelaunchDecisionPayload, EmptyEventPayload, GameClientEvent, GameLogSideEffectEvent,
+        GameLogSideEffectObserver, GameLogSideEffectSink, NowPlayingPayload, NowPlayingSnapshot,
     };
-
-    #[test]
-    fn persistence_fallback_exposes_diagnostics_without_raw_rows() {
-        assert_eq!(
-            serde_json::to_value(GameLogPersistenceFallbackPayload {
-                attempted_row_count: 3,
-                error: "database is locked".into(),
-            })
-            .unwrap(),
-            json!({
-                "attemptedRowCount": 3,
-                "error": "database is locked",
-            })
-        );
-    }
 
     #[test]
     fn now_playing_reset_preserves_empty_payload_object() {

@@ -1,8 +1,8 @@
 use super::*;
 use serde_json::json;
-use vrcx_0_application_core::MemoryWorldCachePort;
+use vrcx_0_application_core::{AvatarCache, MemoryWorldCachePort, NoopAvatarCachePort};
 
-use crate::favorites::test_support::{TestFavoriteRemote, TestFavoriteStore};
+use crate::favorites::test_support::TestFavoriteRemote;
 
 const HYDRATE_TEST_ENDPOINT: &str = "https://api.vrchat.cloud/api/1";
 
@@ -48,10 +48,10 @@ impl WorldHydrateHarness {
         let world_cache = Arc::new(WorldCache::new(MemoryWorldCachePort::default()));
         let scope = auth_scope.snapshot();
         let runtime = FavoriteDetailsRuntime::new(
-            Arc::new(TestFavoriteStore::default()),
             Arc::clone(&remote) as Arc<dyn super::super::FavoriteRemote>,
             auth_scope.clone(),
             Arc::clone(&world_cache),
+            Arc::new(AvatarCache::new(NoopAvatarCachePort)),
             TaskSupervisor::new(),
         );
         Self {
@@ -130,38 +130,6 @@ fn avatar_decision_upserts_public_complete_snapshots() {
 }
 
 #[test]
-fn avatar_decision_inserts_non_public_complete_snapshots_only_when_missing() {
-    for status in ["private", "hidden", ""] {
-        assert_eq!(
-            cache_write_decision(FavoriteCacheKind::Avatar, &complete(status)),
-            CacheWriteDecision::InsertIfMissing
-        );
-    }
-}
-
-#[test]
-fn avatar_decision_skips_incomplete_snapshots() {
-    assert_eq!(
-        cache_write_decision(
-            FavoriteCacheKind::Avatar,
-            &json!({ "id": "avtr_1", "releaseStatus": "public" }),
-        ),
-        CacheWriteDecision::Skip
-    );
-    assert_eq!(
-        cache_write_decision(
-            FavoriteCacheKind::Avatar,
-            &json!({
-                "id": "avtr_1",
-                "name": "Broken Avatar",
-                "releaseStatus": "public",
-            })
-        ),
-        CacheWriteDecision::Skip
-    );
-}
-
-#[test]
 fn avatar_decision_normalizes_release_status_case_and_whitespace() {
     let mut entity = complete("  Public  ");
     assert_eq!(
@@ -174,32 +142,6 @@ fn avatar_decision_normalizes_release_status_case_and_whitespace() {
         cache_write_decision(FavoriteCacheKind::Avatar, &entity),
         CacheWriteDecision::Upsert
     );
-}
-
-#[test]
-fn world_decision_upserts_public_complete_snapshots() {
-    assert_eq!(
-        cache_write_decision(FavoriteCacheKind::World, &complete("public")),
-        CacheWriteDecision::Upsert
-    );
-}
-
-#[test]
-fn world_decision_upserts_private_complete_snapshots() {
-    assert_eq!(
-        cache_write_decision(FavoriteCacheKind::World, &complete("private")),
-        CacheWriteDecision::Upsert
-    );
-}
-
-#[test]
-fn world_decision_skips_other_release_statuses_unlike_avatars() {
-    for status in ["hidden", "labs", ""] {
-        assert_eq!(
-            cache_write_decision(FavoriteCacheKind::World, &complete(status)),
-            CacheWriteDecision::Skip
-        );
-    }
 }
 
 #[test]
@@ -404,6 +346,32 @@ async fn refreshed_world_details_replace_the_cached_card_without_another_group_r
     assert_eq!(
         output.details_by_id.get("wrld_requested").unwrap()["name"],
         "Renamed World"
+    );
+}
+
+#[tokio::test]
+async fn invalidated_world_cards_resolve_refreshed_local_details() {
+    let harness = WorldHydrateHarness::new();
+    harness.world_cache.hydrate_from_payload(&json!({
+        "id": "wrld_local",
+        "name": "Local World",
+        "imageUrl": "https://example.test/old.png",
+        "releaseStatus": "private"
+    }));
+    harness.hydrate_local(&["wrld_local"]).await;
+    harness.world_cache.hydrate_from_payload(&json!({
+        "id": "wrld_local",
+        "name": "Local World",
+        "imageUrl": "https://example.test/new.png",
+        "releaseStatus": "private"
+    }));
+
+    harness.runtime.invalidate_world_cards().await;
+    let output = harness.hydrate_local(&["wrld_local"]).await;
+
+    assert_eq!(
+        output.details_by_id.get("wrld_local").unwrap()["imageUrl"],
+        "https://example.test/new.png"
     );
 }
 

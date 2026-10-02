@@ -2,17 +2,6 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use crate::adapters::assistant::{
-    TauriAssistantConfigAdapter, TauriAssistantLlmClientFactory,
-    TauriAssistantSessionPersistenceAdapter,
-};
-use crate::adapters::log_watcher::LogWatcherCompatBridge;
-use crate::adapters::mcp::{
-    TauriMcpActivityQueryAdapter, TauriMcpConfigAdapter, TauriMcpFavoritesQueryAdapter,
-    TauriMcpFeedQueryAdapter, TauriMcpFriendLocalDataAdapter, TauriMcpMutualGraphAdapter,
-    TauriMcpSocialHistoryQueryAdapter,
-};
-use crate::deep_link::PendingDeepLinks;
 use crate::desktop_notification_activation::PendingDesktopNotificationActivations;
 use crate::error::AppError;
 use vrcx_0_application::discovery::{
@@ -30,9 +19,10 @@ use vrcx_0_application::social::{
     UserDialogTabCountsRuntime,
 };
 use vrcx_0_application_core::UpdaterPort;
-use vrcx_0_assistant::{AssistantController, AssistantControllerDeps, LlmTranslateInput};
-use vrcx_0_mcp::{McpCaller, McpRuntime, McpRuntimeDeps, McpServerController};
+use vrcx_0_assistant::{AssistantController, LlmTranslateInput};
+use vrcx_0_mcp::{McpCaller, McpServerController};
 use vrcx_0_platform::app_paths::AppDataDirResolution;
+use vrcx_0_runtime_host_desktop::deep_link::PendingDeepLinks;
 use vrcx_0_runtime_host_desktop::{DesktopRuntimeHostOptions, DesktopRuntimeHostState};
 
 pub const BACKGROUND_MODE_RESUME_ROUTE_STORAGE_KEY: &str = "VRCX_BackgroundModeResumeRoute";
@@ -40,7 +30,6 @@ pub const BACKGROUND_MODE_RESUME_ROUTE_STORAGE_KEY: &str = "VRCX_BackgroundModeR
 pub struct AppState {
     runtime: DesktopRuntimeHostState,
     mcp_controller: McpServerController,
-    log_watcher_compat_bridge: LogWatcherCompatBridge,
     pending_deep_links: PendingDeepLinks,
     pending_desktop_notification_activations: PendingDesktopNotificationActivations,
     favorite_details: FavoriteDetailsRuntime,
@@ -89,10 +78,6 @@ impl AppState {
         &self.mcp_controller
     }
 
-    pub(crate) fn log_watcher_compat_bridge(&self) -> &LogWatcherCompatBridge {
-        &self.log_watcher_compat_bridge
-    }
-
     pub(crate) fn pending_deep_links(&self) -> &PendingDeepLinks {
         &self.pending_deep_links
     }
@@ -107,6 +92,7 @@ impl AppState {
         app_data_dir: AppDataDirResolution,
         database_maintenance_cache_dir: Option<std::path::PathBuf>,
         updater_port: Arc<dyn UpdaterPort>,
+        task_executor: Arc<dyn vrcx_0_application_core::RuntimeTaskExecutor>,
     ) -> Result<Self, AppError> {
         let launched_from_autostart = std::env::args().any(|arg| arg == "--autostart");
         let runtime = DesktopRuntimeHostState::new(DesktopRuntimeHostOptions {
@@ -119,17 +105,16 @@ impl AppState {
             app_update_check_disabled: crate::bootstrap::app_update_check_disabled(),
             updater_port,
             database_maintenance_cache_dir,
+            task_executor,
         })?;
         let favorite_details = runtime.favorite_details_runtime();
         let quick_search = runtime.quick_search_runtime();
         let mcp_controller =
-            McpServerController::new(mcp_runtime(&runtime, McpCaller::ExternalServer));
-        let log_watcher_compat_bridge = LogWatcherCompatBridge::new();
+            McpServerController::new(runtime.mcp_runtime(McpCaller::ExternalServer));
 
         Ok(Self {
             runtime,
             mcp_controller,
-            log_watcher_compat_bridge,
             pending_deep_links: PendingDeepLinks::default(),
             pending_desktop_notification_activations:
                 PendingDesktopNotificationActivations::default(),
@@ -150,21 +135,7 @@ impl AppState {
 
     pub async fn assistant(&self) -> Result<&AssistantController, AppError> {
         self.assistant
-            .get_or_try_init(|| {
-                let deps = self.runtime.assistant_dependencies();
-                AssistantController::new(AssistantControllerDeps {
-                    config: Arc::new(TauriAssistantConfigAdapter::new(deps.config)),
-                    llm_factory: Arc::new(TauriAssistantLlmClientFactory),
-                    proxy_url: deps.proxy_url,
-                    bus: deps.bus,
-                    tasks: deps.tasks,
-                    mcp_runtime: mcp_runtime(&self.runtime, McpCaller::Assistant),
-                    session_persistence: Arc::new(TauriAssistantSessionPersistenceAdapter::new(
-                        deps.db,
-                    )),
-                    auth_scope: deps.auth_scope,
-                })
-            })
+            .get_or_try_init(|| AssistantController::new(self.runtime.assistant_controller_deps()))
             .await
             .map_err(AppError::from)
     }
@@ -234,6 +205,18 @@ impl AppState {
                 .await;
         }
         Ok(written)
+    }
+
+    pub async fn refresh_local_world_favorite_details(
+        &self,
+    ) -> Result<vrcx_0_application::favorites::LocalWorldDetailsRefreshOutput, AppError> {
+        let output = self
+            .runtime
+            .local_data()
+            .favorite_local_world_details_refresh()
+            .await?;
+        self.favorite_details.invalidate_world_cards().await;
+        Ok(output)
     }
 
     pub async fn hydrate_favorite_details(
@@ -368,34 +351,6 @@ impl OpenAiTranslationPort for TauriOpenAiTranslationPort<'_> {
                 .map_err(AppError::from)
         })
     }
-}
-
-fn mcp_runtime(runtime: &DesktopRuntimeHostState, caller: McpCaller) -> McpRuntime {
-    let deps = runtime.mcp_dependencies();
-    McpRuntime::new(
-        McpRuntimeDeps {
-            realtime_runtime: deps.realtime_runtime,
-            auth_scope: deps.auth_scope.clone(),
-            config: Arc::new(TauriMcpConfigAdapter::new(deps.config)),
-            activity_queries: Arc::new(TauriMcpActivityQueryAdapter::new(Arc::clone(&deps.db))),
-            social_history_queries: Arc::new(TauriMcpSocialHistoryQueryAdapter::new(Arc::clone(
-                &deps.db,
-            ))),
-            friend_local_data: Arc::new(TauriMcpFriendLocalDataAdapter::new(Arc::clone(&deps.db))),
-            favorites_queries: Arc::new(TauriMcpFavoritesQueryAdapter::new(Arc::clone(&deps.db))),
-            feed_queries: Arc::new(TauriMcpFeedQueryAdapter::new(Arc::clone(&deps.db))),
-            mutual_graph: Arc::new(TauriMcpMutualGraphAdapter::new(
-                deps.mutual_graph_fetch,
-                Arc::clone(&deps.db),
-                Arc::clone(&deps.web),
-                deps.auth_scope.clone(),
-                deps.tasks.clone(),
-            )),
-            favorite_mutations: deps.favorite_mutations,
-            tasks: deps.tasks,
-        },
-        caller,
-    )
 }
 
 fn realtime_origin() -> String {

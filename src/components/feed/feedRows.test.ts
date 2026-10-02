@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseDateInput, toDateInputValue } from '@/lib/dateRange';
+import { onlinePresence, pendingPresence } from '@/test/presenceFixtures';
 
 import {
     buildFeedFavoriteIdSet,
@@ -11,9 +11,7 @@ import {
     isUserIdLike,
     normalizeFeedId,
     resolveDisplayNameCandidate,
-    resolveFeedCurrentInviteLocation,
     resolveFeedLocationForDisplay,
-    resolveFeedFriendStateBucket,
     resolveFeedStatusMeta,
     resolveFeedUserDisplayName,
     resolveFeedUserId,
@@ -60,41 +58,20 @@ describe('feed row helpers', () => {
         ).toBe(`GPS:2026-05-15T00:00:00Z:${USER_ID}:wrld_1:instance`);
     });
 
-    it('resolves friend state and current invite location from visible session data', () => {
+    it('resolves invite requests from presence and the current invite location', () => {
         expect(
-            resolveFeedFriendStateBucket(
-                { id: USER_ID, state: 'offline:offline' },
-                {}
-            )
-        ).toBe('offline');
-        expect(
-            resolveFeedFriendStateBucket(
-                { id: USER_ID },
-                { onlineFriends: [USER_ID] }
-            )
-        ).toBe('online');
-        expect(
-            canRequestInviteFromFeedFriend(
-                { id: USER_ID },
-                { onlineFriends: [USER_ID] }
-            )
+            canRequestInviteFromFeedFriend({
+                id: USER_ID,
+                $presence: onlinePresence()
+            })
         ).toBe(true);
         expect(
-            resolveFeedCurrentInviteLocation(
-                {
-                    isGameRunning: true,
-                    currentLocation: 'traveling',
-                    currentDestination: 'wrld_dest:123'
-                },
-                { location: 'wrld_profile:456' }
-            )
-        ).toBe('wrld_dest:123');
-        expect(
-            resolveFeedCurrentInviteLocation(
-                { isGameRunning: true },
-                { $locationTag: 'wrld_profile:456' }
-            )
-        ).toBe('wrld_profile:456');
+            canRequestInviteFromFeedFriend({
+                id: USER_ID,
+                $presence: pendingPresence()
+            })
+        ).toBe(false);
+        expect(canRequestInviteFromFeedFriend({ id: USER_ID })).toBe(false);
     });
 
     it('hides stale offline locations only for online feed display rows', () => {
@@ -152,13 +129,7 @@ describe('feed row helpers', () => {
         expect([...ids]).toEqual([USER_ID, 'usr_local']);
     });
 
-    it('formats date inputs and status display metadata', () => {
-        const parsed = parseDateInput('2026-03-04');
-
-        expect(parsed).toBeInstanceOf(Date);
-        expect(toDateInputValue(parsed)).toBe('2026-03-04');
-        expect(parseDateInput('not-a-date')).toBeUndefined();
-        expect(toDateInputValue(null)).toBe('');
+    it('resolves status display metadata', () => {
         expect(resolveFeedStatusMeta('active')).toEqual({
             label: 'Online',
             className: 'user-status-indicator online bg-[var(--status-online)]'

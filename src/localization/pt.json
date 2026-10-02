@@ -166,7 +166,10 @@
         "note_local": "Nota local",
         "note_synced": "Nota do VRChat",
         "last_online": "Online pela última vez há {duration}",
-        "in_private_world": "Em um mundo privado"
+        "in_private_world": "Em um mundo privado",
+        "mutual_friends": "{count} amigos mútuos",
+        "no_mutual_friends": "Nenhum amigo mútuo",
+        "name_separator": ", "
     },
     "deep_link": {
         "import_collection": {
@@ -887,12 +890,18 @@
         "self_menu": "Menu da conta",
         "filter_friends": "Filtrar amigos",
         "filter_groups": "Filtrar grupos",
+        "filter_instances": "Filtrar instâncias",
         "filter_no_results": "Nenhuma correspondência",
         "self_more_actions": "Mais",
         "switch_account": "Trocar de conta",
         "favorite": "Favoritos",
         "same_instance": "Mesma instância",
         "you_are_here": "Você está aqui",
+        "visited_minutes_ago_one": "Visitada há 1 min",
+        "visited_minutes_ago_other": "Visitada há {count} min",
+        "visited_hours_ago_one": "Visitada há 1 h",
+        "visited_hours_ago_other": "Visitada há {count} h",
+        "visited_at": "Última entrada: {time}",
         "online": "Online",
         "active": "Ativo",
         "offline": "Offline",
@@ -931,6 +940,7 @@
                 "display_hint": "Como as abas aparecem na barra lateral.",
                 "layout_hint": "Arraste para reordenar. Amigos e Grupos são fixos — adicione grupos de favoritos como suas próprias abas.",
                 "system_badge": "Integrado",
+                "world_badge": "Mundo",
                 "always_visible": "Sempre visível",
                 "move_up": "Mover para cima",
                 "move_down": "Mover para baixo",
@@ -1142,14 +1152,12 @@
                 "value_copied": "{value} copiado"
             },
             "context": {
-                "hide_user": "Ocultar do Feed",
-                "unhide_user": "Mostrar no Feed"
+                "hide_user": "Ocultar mudanças de localização do Feed",
+                "unhide_user": "Mostrar mudanças de localização no Feed"
             }
         },
         "friends_locations": {
             "online": "Online",
-            "world_friends_one": "{count} amigo",
-            "world_friends_other": "{count} amigos",
             "view_people": "Visualização por amigos",
             "view_worlds": "Visualização por mundos",
             "world_instances_one": "{count} instância",
@@ -1209,10 +1217,7 @@
                 "start": "Início",
                 "end": "Fim",
                 "game_log_is_disabled": "A gravação do GameLog está desativada",
-                "showing": "Mostrando",
-                "of": "de",
-                "game_log_row": "entrada do registro do jogo",
-                "game_log_rows": "entradas do registro do jogo"
+                "showing_summary": "Mostrando <b>{shown}</b> de <b>{count}</b>"
             },
             "success": {
                 "game_log_row_deleted": "Entrada do registro do jogo excluída",
@@ -1308,10 +1313,8 @@
                 "grid_density_dense": "Densa",
                 "click_to_wear": "Clique para usar",
                 "impostor_queued_for_creation": "Impostor na fila para criação",
-                "showing": "Mostrando",
-                "of": "de",
+                "showing_summary": "Mostrando <b>{shown}</b> de <b>{count}</b>",
                 "avatar": "Avatar",
-                "avatars": "Avatares",
                 "broaden_the_filters_or_search_query_to_see_more_avatars": "Amplie os filtros ou a busca para ver mais Avatares",
                 "make_public": "Tornar público",
                 "make_private": "Tornar privado",
@@ -1404,6 +1407,8 @@
                 "search": "Pesquisar",
                 "search_mode_name": "Nome",
                 "search_mode_tag": "Tag",
+                "search_mode": "Buscar por",
+                "search_tags": "Buscar tags",
                 "vrchat_favorites": "Favoritos do VRChat",
                 "local_favorites": "Favoritos Locais",
                 "new_group": "Novo Grupo"
@@ -1581,10 +1586,7 @@
                 "friend_history_failed_to_load": "Falha ao carregar o histórico de amigos"
             },
             "label": {
-                "showing": "Exibindo",
-                "of": "de",
-                "log_row": "registro",
-                "log_rows": "registros",
+                "showing_summary": "Mostrando <b>{shown}</b> de <b>{count}</b>",
                 "broaden_the_type_filters_or_search_query_to_see_more_history": "Amplie os filtros de tipo ou a busca para ver mais histórico"
             },
             "empty": {
@@ -1748,10 +1750,8 @@
             "label": {
                 "friend_details_are_already_loaded": "Os detalhes do amigo já estão carregados",
                 "shared_connections_are_opted_out_for_the_current_account": "As conexões compartilhadas estão desativadas para a conta atual",
-                "showing": "Exibindo",
-                "of": "de",
+                "showing_summary": "Mostrando <b>{shown}</b> de <b>{count}</b>",
                 "friend": "amigo",
-                "friends": "amigos",
                 "try_turning_off_favorites_only_or_broadening_the_search_query": "Tente desativar a opção apenas favoritos ou ampliar a busca",
                 "favorites_are_still_hydrating": "Os favoritos ainda estão carregando",
                 "try_a_different_segment_or_broaden_the_search_query": "Tente outro segmento ou amplie a busca",
@@ -2286,7 +2286,7 @@
                 "submit": "Enviar",
                 "submitting": "A enviar…",
                 "thanks": "Obrigado pelo seu feedback!",
-                "cooldown": "Pode enviar novamente dentro de {{seconds}} s",
+                "cooldown": "Pode enviar novamente dentro de {seconds} s",
                 "reply_note": "Se precisares de uma resposta, inclui o teu e-mail no feedback.",
                 "more_help": "Também podes contactar-nos ou anexar registos aqui:",
                 "error_generic": "Não foi possível enviar o feedback. Tente novamente mais tarde."
@@ -2314,13 +2314,15 @@
                     "description": "Obtém periodicamente as biografias públicas dos amigos e mostra as alterações no Feed. As atualizações podem atrasar e algumas alterações podem não ser registadas."
                 },
                 "hidden_feed": {
-                    "header": "Amigos ocultos no Feed",
-                    "description": "Oculta amigos selecionados no Feed sem excluir dados guardados.",
+                    "header": "Amigos com mudanças de localização ocultas",
+                    "description": "Oculta no Feed as mudanças de localização dos amigos selecionados. A restante atividade continua visível e os dados guardados não são excluídos.",
                     "add": "Adicionar amigo",
                     "search_placeholder": "Pesquisar amigos",
                     "empty": "Ainda não ocultou ninguém.",
                     "remove": "Remover amigo oculto",
-                    "unknown_friend": "Amigo desconhecido"
+                    "unknown_friend": "Amigo desconhecido",
+                    "hide_notifications": "Ocultar também nas notificações",
+                    "hide_notifications_description": "As mudanças de localização também não aparecem nas notificações do ambiente de trabalho, TTS, overlays de VR, webhooks nem nas notificações da app."
                 }
             },
             "vr": {
@@ -3174,6 +3176,18 @@
             },
             "toast": {
                 "failed_to_look_up_this_player": "Falha ao buscar este jogador"
+            },
+            "mutual_friends": {
+                "query": "Consultar amigos mútuos",
+                "graph_fetch_running": "O grafo de amigos mútuos está sendo obtido. Consulte quando terminar.",
+                "summary": "{count} jogadores têm amigos mútuos com você",
+                "circles_prefix": "principalmente das comunidades de",
+                "circles_suffix": "",
+                "cell_tooltip": "{names} · {count} amigos mútuos",
+                "cell_tooltip_circle": "{names} · {count} amigos mútuos · principalmente da comunidade de {circle}",
+                "requery": "Consultar novamente",
+                "show": "Mostrar resultados",
+                "hide": "Ocultar"
             }
         },
         "auth": {
@@ -3593,6 +3607,8 @@
             "group_count": "{count} grupo(s)",
             "edit_mode": "Editar",
             "exit_edit_mode": "Concluir",
+            "section_own": "Meus grupos",
+            "section_joined": "Grupos em que participo",
             "order_hint": "Arraste os grupos para definir a ordem em que aparecem no VRChat.",
             "order_game_running": "O VRChat está em execução. As mudanças de ordem podem ser sobrescritas ao fechar o jogo.",
             "order_unavailable": "Não é possível alterar a ordem dos grupos: {reason}",
@@ -3855,6 +3871,9 @@
                     "alphabetical": "Ordem Alfabética",
                     "last_active": "Último Ativo",
                     "friend_order": "Ordem de Amizade"
+                },
+                "view": {
+                    "list": "Lista"
                 }
             },
             "activity": {
@@ -4109,6 +4128,12 @@
                 "public_count": "Público {count}",
                 "private_count": "Privado {count}",
                 "capacity_count": "Capacidade {count} ({max})",
+                "pin_to_sidebar": "Fixar na barra lateral",
+                "pinned_to_sidebar": "Fixado na barra lateral",
+                "pin_to_sidebar_failed": "Não foi possível fixar na barra lateral",
+                "unpin_from_sidebar": "Desafixar da barra lateral",
+                "unpinned_from_sidebar": "Desafixado da barra lateral",
+                "unpin_from_sidebar_failed": "Não foi possível desafixar da barra lateral",
                 "instance_creator": "Criador da Instância"
             },
             "info": {
@@ -4202,8 +4227,7 @@
                 "add_domain": "Adicionar domínio"
             },
             "loading": {
-                "loading_world_profile": "Carregando perfil do mundo",
-                "fetching_the_current_vrchat_world_snapshot_for_this_dialog": "Carregando detalhes do mundo"
+                "loading_world_profile": "Carregando perfil do mundo"
             },
             "error": {
                 "world_profile_unavailable": "Perfil do mundo indisponível",
@@ -4480,7 +4504,12 @@
                 "moderation_tools": "Ferramentas de Moderação",
                 "leave": "Sair do Grupo",
                 "block": "Bloquear Grupo",
-                "unblock": "Desbloquear Grupo"
+                "unblock": "Desbloquear Grupo",
+                "edit_profile": "Editar detalhes do grupo",
+                "edit_profile_media": "Editar banner e ícone",
+                "use_banner": "Usar como banner",
+                "use_group_icon": "Usar como ícone do grupo",
+                "delete": "Excluir grupo"
             },
             "overview": {
                 "header": "Visão Geral",
@@ -4544,7 +4573,9 @@
                 "loaded_of_total": "{loaded} de {total} carregados",
                 "search_results": "{count} resultados",
                 "export_loaded": "Exportar carregados ({count})",
-                "export_all": "Exportar todos ({count})"
+                "export_all": "Exportar todos ({count})",
+                "failed_to_load": "Falha ao carregar os membros",
+                "failed_to_search": "Falha ao pesquisar membros"
             },
             "gallery": {
                 "header": "Fotos"
@@ -4590,7 +4621,9 @@
                 "name_a_z": "Nome A-Z",
                 "name_z_a": "Nome Z-A",
                 "role": "Cargo",
-                "all_roles": "Todos os cargos"
+                "all_roles": "Todos os cargos",
+                "banner": "Banner",
+                "group_icon": "Ícone do grupo"
             },
             "success": {
                 "group_join_request_cancelled": "Solicitação de entrada no grupo cancelada",
@@ -4620,7 +4653,11 @@
                 "group_post_created": "Publicação do grupo criada",
                 "failed_to_save_group_post": "Falha ao salvar a publicação do grupo",
                 "failed_to_send_group_invite": "Falha ao enviar o convite de grupo",
-                "failed_to_delete_group_post": "Falha ao excluir a publicação do grupo"
+                "failed_to_delete_group_post": "Falha ao excluir a publicação do grupo",
+                "group_profile_updated": "Grupo atualizado",
+                "failed_to_update_group_profile": "Falha ao atualizar o grupo",
+                "group_deleted": "Grupo excluído",
+                "failed_to_delete_group": "Falha ao excluir o grupo"
             },
             "modal": {
                 "leave_group": "Sair do grupo?",
@@ -4629,7 +4666,9 @@
                 "delete_group_post": "Excluir publicação do grupo?",
                 "block_group": "Bloquear grupo?",
                 "unblock_group": "Desbloquear grupo?",
-                "invite_to_group": "Convidar para o grupo"
+                "invite_to_group": "Convidar para o grupo",
+                "delete_group": "Excluir grupo?",
+                "delete": "Excluir"
             },
             "dynamic": {
                 "leave_value": "Sair de {value}?",
@@ -4637,7 +4676,19 @@
                 "value_completed": "{value} concluído",
                 "search_value": "Pesquisar {value}",
                 "no_value": "Nenhum {value}",
-                "value_copied": "{value} copiado"
+                "value_copied": "{value} copiado",
+                "delete_value": "Excluir {value}? Ninguém mais terá acesso ao grupo."
+            },
+            "edit": {
+                "short_code": "Código curto",
+                "short_code_hint": "De 3 a 6 letras maiúsculas ou números. Alterá-lo também muda o link do grupo.",
+                "add_link": "Adicionar link",
+                "remove_link": "Remover link",
+                "join_state_open": "Qualquer pessoa",
+                "join_state_request": "Mediante pedido",
+                "join_state_invite": "Somente por convite",
+                "join_state_closed": "Fechado",
+                "allow_join_prompt": "Convidar quem está em instâncias do grupo a entrar"
             }
         },
         "favorite": {
@@ -5357,7 +5408,8 @@
             "send": "Enviar",
             "recent": "Recentes",
             "inventory_emojis": "Inventário",
-            "no_inventory_emojis": "Ainda não há emojis de boop no seu inventário"
+            "no_inventory_emojis": "Ainda não há emojis de boop no seu inventário",
+            "failed_to_load_emojis": "Falha ao carregar os emojis"
         },
         "vrcx_updater": {
             "latest_version": "O VRCX-0 está atualizado.",
@@ -5420,7 +5472,6 @@
         },
         "favorite_import": {
             "action": {
-                "import": "importar",
                 "clear_table": "Limpar tabela",
                 "clear_errors": "Limpar erros",
                 "exclude": "Excluir"
@@ -5436,7 +5487,6 @@
                 "name": "Nome",
                 "detail": "Detalhe",
                 "actions": "Ações",
-                "rows_yet": "linhas ainda",
                 "import_to": "Importar para",
                 "local": "Local",
                 "select_group": "Selecione um grupo"
@@ -5452,7 +5502,14 @@
                 "detected_count": "{count} detectados"
             },
             "empty": {
-                "no_parsed": "Nada processado"
+                "avatar": "Ainda não há avatares para importar",
+                "world": "Ainda não há mundos para importar",
+                "friend": "Ainda não há amigos para importar"
+            },
+            "title": {
+                "avatar": "Importar avatares",
+                "world": "Importar mundos",
+                "friend": "Importar amigos"
             }
         },
         "tools": {
@@ -5908,7 +5965,8 @@
             "bioLink": "Links da Bio",
             "note": "Nota",
             "user": "Usuário",
-            "location": "Localização"
+            "location": "Localização",
+            "mutualFriends": "Amigos mútuos"
         },
         "friendLog": {
             "date": "Data",
@@ -6068,12 +6126,6 @@
                 "failed_to_remove_favorite": "Falha ao remover favorito",
                 "failed_to_add_local_favorite": "Falha ao adicionar favorito local",
                 "failed_to_remove_local_favorite": "Falha ao remover favorito local"
-            },
-            "modal": {
-                "remove_vrchat_favorite": "Remover favorito do VRChat?"
-            },
-            "dynamic": {
-                "remove_value_from_vrchat_favorites": "Remover {value} dos favoritos do VRChat?"
             }
         },
         "friend_location_card": {
@@ -6178,6 +6230,14 @@
             }
         },
         "groups_sidebar": {
+            "toast": {
+                "failed_to_launch_instance": "Falha ao iniciar a instância",
+                "failed_to_send_self_invite": "Falha ao enviar autoconvite"
+            }
+        },
+        "world_rooms_sidebar": {
+            "empty": "Nenhuma instância ativa no momento",
+            "failed": "Não foi possível carregar as instâncias",
             "toast": {
                 "failed_to_launch_instance": "Falha ao iniciar a instância",
                 "failed_to_send_self_invite": "Falha ao enviar autoconvite"
@@ -6428,5 +6488,9 @@
         "restore": "Restaurar e reiniciar",
         "keep": "Exibição normal, manter",
         "failed": "Não foi possível alterar a configuração gráfica. Tente novamente."
+    },
+    "mutual_graph_hint": {
+        "build": "Ainda não há grafo de amigos mútuos · Criar",
+        "room_scan_running": "Consultando amigos mútuos desta instância. Tente novamente quando terminar."
     }
 }

@@ -79,7 +79,7 @@ function hasPersistedOverlayActivityFilters(value: unknown): boolean {
     }
     const source = asRecord(value);
     const wrist = asRecord(source.wrist);
-    return Boolean(wrist.types || wrist.categories);
+    return Boolean(wrist.types);
 }
 
 export function parseOverlayActivityFiltersPreference(value?: unknown) {
@@ -402,6 +402,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
     },
     localFavoriteFriendsGroups: [],
     feedHiddenUsers: [],
+    feedHiddenUsersHideNotifications: true,
     overlayActivityFilters: DEFAULT_OVERLAY_ACTIVITY_FILTERS,
     vrNotificationActivityFilters: DEFAULT_VR_NOTIFICATION_ACTIVITY_FILTERS,
     hmdNotificationActivityFilters: DEFAULT_HMD_NOTIFICATION_ACTIVITY_FILTERS,
@@ -643,6 +644,9 @@ export function normalizePreferenceSnapshot(snapshot: unknown = {}) {
               )
             : [],
         feedHiddenUsers: normalizeFeedHiddenUsers(next.feedHiddenUsers),
+        feedHiddenUsersHideNotifications: normalizeBool(
+            next.feedHiddenUsersHideNotifications
+        ),
         overlayActivityFilters: parseOverlayActivityFiltersPreference(
             next.overlayActivityFilters
         ),

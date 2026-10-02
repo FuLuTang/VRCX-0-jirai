@@ -28,13 +28,11 @@ describe('string utils', () => {
         expect(normalizeString(true)).toBe('true');
     });
 
-    it('normalizes bio symbols and removes emoji code points', () => {
+    it('normalizes bio symbols', () => {
         expect(replaceBioSymbols('Hi  ＠＃≺tag≻＼path  ')).toBe(
             'Hi @#<tag>\\path'
         );
         expect(replaceBioSymbols(null)).toBe('');
-        expect(removeEmojis('Hello 😊 world ✨')).toBe('Hello world');
-        expect(removeEmojis(null)).toBe('');
     });
 
     it('keeps unchanged Bio lines and marks additions and removals', () => {

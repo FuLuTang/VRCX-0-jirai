@@ -6,9 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useFriendLocationTimeStore } from '@/state/friendLocationTimeStore';
 import { useFriendRosterStore } from '@/state/friendRosterStore';
+import { offlinePresence, onlinePresence } from '@/test/presenceFixtures';
 
 const mocks = vi.hoisted(() => ({
-    getGroupProfile: vi.fn(),
     openRow: vi.fn()
 }));
 
@@ -52,12 +52,6 @@ vi.mock('@/services/entityMediaService', () => ({
     userImage: () => ''
 }));
 
-vi.mock('@/repositories/groupProfileRepository', () => ({
-    default: {
-        getGroupProfile: mocks.getGroupProfile
-    }
-}));
-
 vi.mock('@/state/runtimeStore', () => ({
     useRuntimeStore: <T,>(
         selector: (state: {
@@ -82,6 +76,24 @@ vi.mock('./userDialogEntityNavigation', () => ({
 }));
 
 import { EntityList } from './UserDialogEntityList';
+
+function seedInstanceDwell(userId: string) {
+    useFriendRosterStore.getState().applyFriendPatch({
+        userId,
+        presence: { rev: 1, view: onlinePresence('wrld_test:1') },
+        patch: {
+            id: userId
+        }
+    });
+    useFriendLocationTimeStore.getState().replaceSnapshot([
+        {
+            userId,
+            location: 'wrld_test:1',
+            source: 'realtime',
+            sinceMs: 1_700_000_000_000
+        }
+    ]);
+}
 
 describe('UserDialog EntityList', () => {
     beforeEach(() => {
@@ -181,13 +193,11 @@ describe('UserDialog EntityList', () => {
     it('shows the instance timer instead of the status signature', () => {
         useFriendRosterStore.getState().applyFriendPatch({
             userId: 'usr_friend',
+            presence: { rev: 1, view: onlinePresence('wrld_test:1') },
             patch: {
                 id: 'usr_friend',
-                displayName: 'Friend',
-                state: 'online',
-                location: 'wrld_test:1'
-            },
-            stateBucketAuthority: 'explicit'
+                displayName: 'Friend'
+            }
         });
         useFriendLocationTimeStore.getState().replaceSnapshot([
             {
@@ -204,8 +214,7 @@ describe('UserDialog EntityList', () => {
                     {
                         id: 'usr_friend',
                         displayName: 'Friend',
-                        state: 'online',
-                        location: 'wrld_test:1',
+                        $presence: onlinePresence('wrld_test:1'),
                         statusDescription: 'World hopping'
                     }
                 ]}
@@ -220,13 +229,11 @@ describe('UserDialog EntityList', () => {
     it('uses the displayed instance for an online friend with a hidden presence location', () => {
         useFriendRosterStore.getState().applyFriendPatch({
             userId: 'usr_friend',
+            presence: { rev: 1, view: onlinePresence('private') },
             patch: {
                 id: 'usr_friend',
-                displayName: 'Friend',
-                state: 'online',
-                location: 'private'
-            },
-            stateBucketAuthority: 'explicit'
+                displayName: 'Friend'
+            }
         });
         useFriendLocationTimeStore.getState().replaceSnapshot([
             {
@@ -243,8 +250,7 @@ describe('UserDialog EntityList', () => {
                     {
                         id: 'usr_friend',
                         displayName: 'Friend',
-                        state: 'online',
-                        location: 'private',
+                        $presence: onlinePresence('private'),
                         statusDescription: 'Do not disturb'
                     }
                 ]}
@@ -258,6 +264,7 @@ describe('UserDialog EntityList', () => {
     });
 
     it('shows a creator icon and label without a timer for a friend creator', () => {
+        seedInstanceDwell('usr_owner');
         render(
             <EntityList
                 kind="user"
@@ -269,7 +276,7 @@ describe('UserDialog EntityList', () => {
                         $isInstanceCreator: true,
                         $subtitle: 'dialog.user.info.instance_creator',
                         statusDescription: 'Friend signature',
-                        $location_at: 1_700_000_000_000
+                        $presence: onlinePresence('wrld_test:1')
                     }
                 ]}
                 showInstanceDuration
@@ -282,11 +289,12 @@ describe('UserDialog EntityList', () => {
         expect(
             screen.getByText('dialog.user.info.instance_creator')
         ).toBeTruthy();
-        expect(screen.queryByTestId('instance-timer')).toBeNull();
+        expect(screen.queryByText('10m')).toBeNull();
         expect(screen.queryByText('Friend signature')).toBeNull();
     });
 
-    it('shows a creator icon and label for a non-friend creator', () => {
+    it('shows a creator icon and label without a timer for a non-friend creator', () => {
+        seedInstanceDwell('usr_owner');
         render(
             <EntityList
                 kind="user"
@@ -297,7 +305,7 @@ describe('UserDialog EntityList', () => {
                         isFriend: false,
                         $isInstanceCreator: true,
                         statusDescription: 'Owner signature',
-                        $location_at: 1_700_000_000_000
+                        $presence: onlinePresence('wrld_test:1')
                     }
                 ]}
                 showInstanceDuration
@@ -311,7 +319,7 @@ describe('UserDialog EntityList', () => {
             screen.getByText('dialog.user.info.instance_creator')
         ).toBeTruthy();
         expect(screen.queryByText('Owner signature')).toBeNull();
-        expect(screen.queryByTestId('instance-timer')).toBeNull();
+        expect(screen.queryByText('10m')).toBeNull();
     });
 
     it('keeps the Creator label when a non-friend creator has no signature', () => {
@@ -325,7 +333,7 @@ describe('UserDialog EntityList', () => {
                         isFriend: false,
                         $isInstanceCreator: true,
                         statusDescription: '',
-                        state: 'offline'
+                        $presence: offlinePresence
                     }
                 ]}
                 showInstanceDuration
@@ -336,7 +344,6 @@ describe('UserDialog EntityList', () => {
             screen.getByText('dialog.user.info.instance_creator')
         ).toBeTruthy();
         expect(screen.queryByText('dialog.user.status.offline')).toBeNull();
-        expect(screen.queryByTestId('instance-timer')).toBeNull();
     });
 
     it('does not treat a profile refresh timestamp as a join time', () => {
@@ -359,7 +366,7 @@ describe('UserDialog EntityList', () => {
         expect(screen.queryByText('10m')).toBeNull();
     });
 
-    it('renders group list data without requesting every group profile', () => {
+    it('renders group name and member count', () => {
         render(
             <EntityList
                 kind="group"
@@ -375,6 +382,5 @@ describe('UserDialog EntityList', () => {
 
         expect(screen.getByText('Group from membership list')).toBeTruthy();
         expect(screen.getByText('42 members')).toBeTruthy();
-        expect(mocks.getGroupProfile).not.toHaveBeenCalled();
     });
 });

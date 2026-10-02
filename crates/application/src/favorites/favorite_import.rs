@@ -13,7 +13,6 @@ use serde_json::Value;
 use vrcx_0_application_core::{
     vrchat_api::VrchatApiResponse, FavoriteEntityKind, TaskStopToken, VrchatFavoriteType,
 };
-use vrcx_0_contracts::CacheEntityInput;
 use vrcx_0_core::json::RawJson;
 use vrcx_0_core::vrchat_ids::{is_avatar_id, is_user_id, is_world_id};
 use vrcx_0_core::vrchat_json::response_error_message;
@@ -21,8 +20,8 @@ use vrcx_0_core::vrchat_json::response_error_message;
 use super::local_favorites::read_config_string_array;
 
 use vrcx_0_application_core::{
-    Error, RemoteMutationGate, Result, RuntimeAuthScope, RuntimeAuthScopeSnapshot, RuntimeEventBus,
-    TaskSupervisor, WorldCache,
+    AvatarCache, Error, RemoteMutationGate, Result, RuntimeAuthScope, RuntimeAuthScopeSnapshot,
+    RuntimeEventBus, TaskSupervisor, WorldCache,
 };
 
 use super::local_favorites::local_group_config_key;
@@ -144,6 +143,7 @@ pub struct FavoriteImportRuntime {
     store: Arc<dyn super::FavoriteStore>,
     remote: Arc<dyn super::FavoriteRemote>,
     world_cache: Arc<WorldCache>,
+    avatar_cache: Arc<AvatarCache>,
     event_bus: RuntimeEventBus,
     tasks: TaskSupervisor,
     auth_scope: RuntimeAuthScope,
@@ -155,6 +155,7 @@ pub struct FavoriteImportRuntimeDeps {
     pub store: Arc<dyn super::FavoriteStore>,
     pub remote: Arc<dyn super::FavoriteRemote>,
     pub world_cache: Arc<WorldCache>,
+    pub avatar_cache: Arc<AvatarCache>,
     pub event_bus: RuntimeEventBus,
     pub tasks: TaskSupervisor,
     pub auth_scope: RuntimeAuthScope,
@@ -168,6 +169,7 @@ impl FavoriteImportRuntimeDeps {
         store: Arc<dyn super::FavoriteStore>,
         remote: Arc<dyn super::FavoriteRemote>,
         world_cache: Arc<WorldCache>,
+        avatar_cache: Arc<AvatarCache>,
         event_bus: RuntimeEventBus,
         tasks: TaskSupervisor,
         auth_scope: RuntimeAuthScope,
@@ -178,6 +180,7 @@ impl FavoriteImportRuntimeDeps {
             store,
             remote,
             world_cache,
+            avatar_cache,
             event_bus,
             tasks,
             auth_scope,
@@ -216,6 +219,7 @@ impl FavoriteImportRuntime {
             store: deps.store,
             remote: deps.remote,
             world_cache: deps.world_cache,
+            avatar_cache: deps.avatar_cache,
             event_bus: deps.event_bus,
             tasks: deps.tasks,
             auth_scope: deps.auth_scope,
@@ -445,10 +449,13 @@ impl FavoriteImportRuntime {
         }
         match hydration_cache(kind) {
             FavoriteImportHydrationCache::Avatar => {
-                self.store.cache_upsert(
-                    super::FavoriteCacheKind::Avatar,
-                    cache_entity_from_payload(&payload),
-                )?;
+                if self
+                    .avatar_cache
+                    .hydrate_from_payload(&scope.current_user_id, &scope.endpoint, payload.clone())
+                    .is_none()
+                {
+                    tracing::warn!(avatar_id = %id, "favorite import avatar payload was not cached");
+                }
             }
             FavoriteImportHydrationCache::World => {
                 self.world_cache
@@ -808,11 +815,6 @@ fn hydration_cache(kind: FavoriteImportKind) -> FavoriteImportHydrationCache {
     }
 }
 
-#[cfg(test)]
-fn kind_name(kind: FavoriteImportKind) -> &'static str {
-    kind.as_str()
-}
-
 fn kind_label(kind: FavoriteImportKind) -> &'static str {
     match kind {
         FavoriteImportKind::Avatar => "Avatar",
@@ -833,33 +835,6 @@ fn is_entity_id(kind: FavoriteImportKind, value: &str) -> bool {
     }
 }
 
-fn cache_entity_from_payload(payload: &Value) -> CacheEntityInput {
-    CacheEntityInput {
-        id: payload.get("id").cloned().unwrap_or_default(),
-        author_id: payload.get("authorId").cloned().unwrap_or_default(),
-        author_name: payload.get("authorName").cloned().unwrap_or_default(),
-        created_at: payload
-            .get("created_at")
-            .or_else(|| payload.get("createdAt"))
-            .cloned()
-            .unwrap_or_default(),
-        description: payload.get("description").cloned().unwrap_or_default(),
-        image_url: payload.get("imageUrl").cloned().unwrap_or_default(),
-        name: payload.get("name").cloned().unwrap_or_default(),
-        release_status: payload.get("releaseStatus").cloned().unwrap_or_default(),
-        thumbnail_image_url: payload
-            .get("thumbnailImageUrl")
-            .cloned()
-            .unwrap_or_default(),
-        updated_at: payload
-            .get("updated_at")
-            .or_else(|| payload.get("updatedAt"))
-            .cloned()
-            .unwrap_or_default(),
-        version: payload.get("version").cloned().unwrap_or_default(),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -867,56 +842,6 @@ mod tests {
     const AVATAR_ID: &str = "avtr_00000000-0000-0000-0000-000000000001";
     const WORLD_ID: &str = "wrld_00000000-0000-0000-0000-000000000002";
     const FRIEND_ID: &str = "usr_00000000-0000-0000-0000-000000000003";
-
-    #[test]
-    fn entity_by_location_matrix_preserves_hydration_and_write_ownership() {
-        let rows = [
-            (
-                FavoriteImportKind::Avatar,
-                FavoriteImportHydrationCache::Avatar,
-                "avatar",
-                VrchatFavoriteType::Avatar,
-            ),
-            (
-                FavoriteImportKind::World,
-                FavoriteImportHydrationCache::World,
-                "world",
-                VrchatFavoriteType::World,
-            ),
-            (
-                FavoriteImportKind::Friend,
-                FavoriteImportHydrationCache::None,
-                "friend",
-                VrchatFavoriteType::Friend,
-            ),
-        ];
-        for (kind, expected_cache, expected_kind, favorite_type) in rows {
-            assert_eq!(hydration_cache(kind), expected_cache);
-            assert_eq!(kind_name(kind), expected_kind);
-            for location in [
-                FavoriteImportLocation::Remote,
-                FavoriteImportLocation::Local,
-            ] {
-                let prepared = prepare_favorite_import(FavoriteImportStartInput {
-                    kind,
-                    operation: FavoriteImportOperation::Import,
-                    ids: vec![match kind {
-                        FavoriteImportKind::Avatar => AVATAR_ID,
-                        FavoriteImportKind::World => WORLD_ID,
-                        FavoriteImportKind::Friend => FRIEND_ID,
-                    }
-                    .into()],
-                    target: Some(FavoriteImportTarget {
-                        location,
-                        group: "target".into(),
-                        favorite_type: Some(favorite_type),
-                    }),
-                })
-                .unwrap();
-                assert_eq!(prepared.target.unwrap().location, location);
-            }
-        }
-    }
 
     #[test]
     fn prepare_deduplicates_and_rejects_ids_from_other_entity_types() {

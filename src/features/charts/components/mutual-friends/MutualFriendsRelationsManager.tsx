@@ -9,7 +9,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { FriendMultiSelectList } from '@/components/search/FriendMultiSelectList';
-import vrchatFriendRepository from '@/repositories/vrchatFriendRepository';
+import userProfileRepository from '@/repositories/userProfileRepository';
 import { Button } from '@/ui/shadcn/button';
 import { Input } from '@/ui/shadcn/input';
 
@@ -17,7 +17,7 @@ import type {
     MutualFriendManualLink,
     MutualFriendPickerOption,
     MutualFriendTrackedUser
-} from '../../mutual-friends/mutualFriendsTypes';
+} from '@/lib/mutual-friends/mutualFriendsTypes';
 
 export function MutualFriendsRelationsManager({
     manualLinks,
@@ -75,7 +75,10 @@ export function MutualFriendsRelationsManager({
         setVerifyError('');
         setIsVerifying(true);
         try {
-            const user = await vrchatFriendRepository.getUser({ userId: id });
+            const user = await userProfileRepository.getUserProfile({
+                userId: id,
+                force: true
+            });
             const verifiedId = typeof user.id === 'string' ? user.id : '';
             if (!verifiedId) {
                 throw new Error('User response did not include an id.');

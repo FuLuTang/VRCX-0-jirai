@@ -23,10 +23,7 @@ use vrcx_0_application_core::{
 };
 use vrcx_0_application_core::{RuntimeTask, RuntimeTaskExecutor, RuntimeTaskHandle};
 use vrcx_0_core::{proxy::with_remote_dns, realtime::RealtimeWsStatusPayload};
-use vrcx_0_host_desktop::host_capabilities::{is_host_capability_available, HostCapability};
-use vrcx_0_runtime_host_desktop::notification::{
-    DesktopNotificationAction, DesktopNotifier, NotificationDoNotDisturbSnapshot,
-};
+use vrcx_0_runtime_host_desktop::notification::{DesktopNotificationAction, DesktopNotifier};
 use vrcx_0_runtime_host_desktop::RuntimeHostActions;
 
 use crate::state::AppState;
@@ -49,28 +46,7 @@ impl TauriRuntimeEventSink {
 impl RuntimeEventSink for TauriRuntimeEventSink {
     fn emit(&self, event: &str, payload: serde_json::Value) {
         log_gui_background_runtime_info(&self.app_handle, event, &payload);
-        if event == RuntimeVrchatAuthFailurePayload::EVENT_NAME {
-            let Some(failure) =
-                serde_json::from_value::<RuntimeVrchatAuthFailurePayload>(payload.clone()).ok()
-            else {
-                tracing::warn!(event, "failed to deserialize runtime auth failure payload");
-                return;
-            };
-            handle_runtime_auth_failure_recovery(&self.app_handle, &failure);
-            handle_runtime_auth_failure_notification(&self.app_handle, &failure);
-        }
-        if event == NotificationDoNotDisturbSnapshot::EVENT_NAME {
-            if let Some(state) = self.app_handle.try_state::<AppState>() {
-                if let Err(error) = super::refresh_tray_menu(&self.app_handle, &state) {
-                    tracing::warn!(error = %error, "failed to refresh tray menu for do not disturb state");
-                }
-            }
-        }
-        let frontend_event = match event {
-            "runtimeGameLogEvent" => "addGameLogEvent",
-            event => event,
-        };
-        emit_to_main_window_if_visible(&self.app_handle, frontend_event, payload);
+        emit_to_main_window_if_visible(&self.app_handle, event, payload);
     }
 }
 
@@ -175,11 +151,7 @@ fn windows_notification_app_id(app: &tauri::AppHandle) -> Result<String, String>
     Ok(app.config().identifier.clone())
 }
 
-pub fn emit_to_main_window_if_visible<S>(
-    app_handle: &tauri::AppHandle,
-    event: &str,
-    payload: S,
-) -> bool
+fn emit_to_main_window_if_visible<S>(app_handle: &tauri::AppHandle, event: &str, payload: S) -> bool
 where
     S: Serialize + Clone,
 {
@@ -307,10 +279,23 @@ impl RuntimeHostActions for TauriRuntimeHostActions {
     fn set_tray_icon_notification(&self, notify: bool) {
         crate::commands::host::window::set_tray_icon_notification(&self.app_handle, notify);
     }
+
+    fn vrchat_auth_failed(&self, failure: &RuntimeVrchatAuthFailurePayload) {
+        handle_runtime_auth_failure_recovery(&self.app_handle, failure);
+        handle_runtime_auth_failure_notification(&self.app_handle, failure);
+    }
+
+    fn refresh_tray_menu(&self) {
+        if let Some(state) = self.app_handle.try_state::<AppState>() {
+            if let Err(error) = super::refresh_tray_menu(&self.app_handle, &state) {
+                tracing::warn!(error = %error, "failed to refresh tray menu");
+            }
+        }
+    }
 }
 
 #[derive(Clone)]
-struct TauriRuntimeTaskExecutor;
+pub(super) struct TauriRuntimeTaskExecutor;
 
 struct TauriRuntimeTaskHandle(tauri::async_runtime::JoinHandle<()>);
 
@@ -372,21 +357,10 @@ pub(super) fn start_host_services(app: &tauri::AppHandle, state: &AppState) {
     state
         .runtime_host()
         .set_runtime_host_actions(TauriRuntimeHostActions::new(app.clone()));
-    state
-        .runtime_host()
-        .set_runtime_task_executor(TauriRuntimeTaskExecutor);
     state.runtime_host().start_telemetry_runtime();
     state.runtime_host().start_data_services();
     state.runtime_host().start_game_services();
     state.runtime_host().start_desktop_services();
-
-    #[cfg(any(target_os = "windows", target_os = "linux"))]
-    if is_host_capability_available(HostCapability::GameLogWatcher) {
-        state.log_watcher_compat_bridge().start(
-            app.clone(),
-            state.runtime_host().log_watcher_for_compatibility(),
-        );
-    }
 }
 
 #[derive(Clone)]

@@ -166,7 +166,10 @@
         "note_local": "Lokální poznámka",
         "note_synced": "VRChat poznámka",
         "last_online": "Naposledy online před {duration}",
-        "in_private_world": "V soukromém světě"
+        "in_private_world": "V soukromém světě",
+        "mutual_friends": "Společní přátelé: {count}",
+        "no_mutual_friends": "Žádní společní přátelé",
+        "name_separator": ", "
     },
     "deep_link": {
         "import_collection": {
@@ -887,12 +890,22 @@
         "self_menu": "Nabídka účtu",
         "filter_friends": "Filtrovat přátele",
         "filter_groups": "Filtrovat skupiny",
+        "filter_instances": "Filtrovat instance",
         "filter_no_results": "Žádné shody",
         "self_more_actions": "Více",
         "switch_account": "Přepnout účet",
         "favorite": "Oblíbení",
         "same_instance": "Stejná instance",
         "you_are_here": "Jste zde",
+        "visited_minutes_ago_one": "Navštíveno před {count} min",
+        "visited_minutes_ago_few": "Navštíveno před {count} min",
+        "visited_minutes_ago_many": "Navštíveno před {count} min",
+        "visited_minutes_ago_other": "Navštíveno před {count} min",
+        "visited_hours_ago_one": "Navštíveno před {count} h",
+        "visited_hours_ago_few": "Navštíveno před {count} h",
+        "visited_hours_ago_many": "Navštíveno před {count} h",
+        "visited_hours_ago_other": "Navštíveno před {count} h",
+        "visited_at": "Poslední vstup: {time}",
         "online": "Online",
         "active": "Aktivní",
         "offline": "Offline",
@@ -931,6 +944,7 @@
                 "display_hint": "Jak karty vypadají v postranním panelu.",
                 "layout_hint": "Přetažením změníte pořadí. Přátelé a Skupiny jsou vestavěné – přidejte oblíbené skupiny jako vlastní karty.",
                 "system_badge": "Vestavěné",
+                "world_badge": "Svět",
                 "always_visible": "Vždy viditelné",
                 "move_up": "Nahoru",
                 "move_down": "Dolů",
@@ -1142,16 +1156,12 @@
                 "value_copied": "{value} zkopírováno"
             },
             "context": {
-                "hide_user": "Skrýt z Feedu",
-                "unhide_user": "Zobrazit ve Feedu"
+                "hide_user": "Skrýt změny polohy z Feedu",
+                "unhide_user": "Zobrazit změny polohy ve Feedu"
             }
         },
         "friends_locations": {
             "online": "Online",
-            "world_friends_one": "{count} přítel",
-            "world_friends_few": "{count} přátelé",
-            "world_friends_many": "{count} přátel",
-            "world_friends_other": "{count} přátel",
             "view_people": "Zobrazení přátel",
             "view_worlds": "Zobrazení světů",
             "world_instances_one": "{count} instance",
@@ -1213,10 +1223,7 @@
                 "start": "Začátek",
                 "end": "Konec",
                 "game_log_is_disabled": "Zápis do GameLogu je vypnutý",
-                "showing": "Zobrazeno",
-                "of": "z",
-                "game_log_row": "položka záznamu hry",
-                "game_log_rows": "položky záznamu hry"
+                "showing_summary": "Zobrazeno <b>{shown}</b> z <b>{count}</b>"
             },
             "success": {
                 "game_log_row_deleted": "Položka záznamu hry byla odstraněna",
@@ -1312,10 +1319,8 @@
                 "grid_density_dense": "Hustá",
                 "click_to_wear": "Kliknutím obléknete",
                 "impostor_queued_for_creation": "Impostor zařazen do fronty k vytvoření",
-                "showing": "Zobrazeno",
-                "of": "z",
+                "showing_summary": "Zobrazeno <b>{shown}</b> z <b>{count}</b>",
                 "avatar": "avatar",
-                "avatars": "avatarů",
                 "broaden_the_filters_or_search_query_to_see_more_avatars": "Rozšiřte filtry nebo vyhledávací dotaz, chcete-li zobrazit další avatary",
                 "make_public": "Zveřejnit",
                 "make_private": "Zneviditelnit",
@@ -1408,6 +1413,8 @@
                 "search": "Vyhledávání",
                 "search_mode_name": "Název",
                 "search_mode_tag": "Štítek",
+                "search_mode": "Hledat podle",
+                "search_tags": "Hledat štítky",
                 "vrchat_favorites": "VRChat Oblíbené",
                 "local_favorites": "Lokální Oblíbené",
                 "new_group": "Nová skupina"
@@ -1589,10 +1596,7 @@
                 "friend_history_failed_to_load": "Historii přátel se nepodařilo načíst"
             },
             "label": {
-                "showing": "Zobrazeno",
-                "of": "z",
-                "log_row": "záznam",
-                "log_rows": "záznamů",
+                "showing_summary": "Zobrazeno <b>{shown}</b> z <b>{count}</b>",
                 "broaden_the_type_filters_or_search_query_to_see_more_history": "Pro zobrazení další historie rozšiřte filtry typu nebo hledaný výraz"
             },
             "empty": {
@@ -1756,10 +1760,8 @@
             "label": {
                 "friend_details_are_already_loaded": "Podrobnosti o příteli jsou již načteny",
                 "shared_connections_are_opted_out_for_the_current_account": "Tento účet má sdílená spojení vypnutá",
-                "showing": "Zobrazeno",
-                "of": "z",
+                "showing_summary": "Zobrazeno <b>{shown}</b> z <b>{count}</b>",
                 "friend": "přítel",
-                "friends": "přátel",
                 "try_turning_off_favorites_only_or_broadening_the_search_query": "Zkuste vypnout zobrazení pouze oblíbených nebo rozšířit hledaný výraz",
                 "favorites_are_still_hydrating": "Oblíbené se stále načítají",
                 "try_a_different_segment_or_broaden_the_search_query": "Zkuste jiný segment nebo rozšiřte hledaný výraz",
@@ -2294,7 +2296,7 @@
                 "submit": "Odeslat",
                 "submitting": "Odesílání…",
                 "thanks": "Děkujeme za zpětnou vazbu!",
-                "cooldown": "Znovu odeslat můžete za {{seconds}} s",
+                "cooldown": "Znovu odeslat můžete za {seconds} s",
                 "reply_note": "Chcete odpověď? Uveďte ve zprávě svou e-mailovou adresu.",
                 "more_help": "Kontaktovat nás nebo přiložit logy můžete také zde:",
                 "error_generic": "Zpětnou vazbu se nepodařilo odeslat. Zkuste to prosím později."
@@ -2322,13 +2324,15 @@
                     "description": "Pravidelně načítá veřejná bio přátel a změny zobrazuje ve Feedu. Aktualizace se mohou zpozdit a některé změny mohou být vynechány."
                 },
                 "hidden_feed": {
-                    "header": "Skrytí přátelé ve Feedu",
-                    "description": "Skryje vybrané přátele ve Feedu bez odstranění uložených dat.",
+                    "header": "Přátelé se skrytými změnami polohy",
+                    "description": "Skryje ve Feedu změny polohy vybraných přátel. Jejich ostatní aktivita se dál zobrazuje a uložená data se neodstraní.",
                     "add": "Přidat přítele",
                     "search_placeholder": "Hledat přátele",
                     "empty": "Zatím jste nikoho neskryli.",
                     "remove": "Odebrat skrytého přítele",
-                    "unknown_friend": "Neznámý přítel"
+                    "unknown_friend": "Neznámý přítel",
+                    "hide_notifications": "Skrýt i v oznámeních",
+                    "hide_notifications_description": "Jejich změny polohy se nezobrazí ani v oznámeních na ploše, TTS, VR overlayích, webhoocích ani v oznámeních v aplikaci."
                 }
             },
             "vr": {
@@ -3182,6 +3186,18 @@
             },
             "toast": {
                 "failed_to_look_up_this_player": "Nepodařilo se vyhledat tohoto hráče"
+            },
+            "mutual_friends": {
+                "query": "Zjistit společné přátele",
+                "graph_fetch_running": "Právě se načítá graf společných přátel. Zjistěte to po dokončení.",
+                "summary": "Hráči se společnými přáteli: {count}",
+                "circles_prefix": "hlavně z komunit",
+                "circles_suffix": "",
+                "cell_tooltip": "{names} · společní přátelé: {count}",
+                "cell_tooltip_circle": "{names} · společní přátelé: {count} · hlavně z komunity {circle}",
+                "requery": "Zjistit znovu",
+                "show": "Zobrazit výsledky",
+                "hide": "Skrýt"
             }
         },
         "auth": {
@@ -3605,6 +3621,8 @@
             "group_count": "Skupin: {count}",
             "edit_mode": "Upravit",
             "exit_edit_mode": "Hotovo",
+            "section_own": "Vlastní skupiny",
+            "section_joined": "Skupiny, ve kterých jste členem",
             "order_hint": "Přetažením skupin nastavíte pořadí, v jakém se zobrazují ve VRChatu.",
             "order_game_running": "VRChat běží. Změny pořadí mohou být při ukončení hry přepsány.",
             "order_unavailable": "Pořadí skupin není k dispozici: {reason}",
@@ -3735,6 +3753,7 @@
             },
             "group_invite": {
                 "select_group": "Vyberte skupinu...",
+                "description": "Vyberte skupinu, do které chcete pozvat {value}.",
                 "loading": "Načítání skupin, do kterých můžete posílat pozvánky...",
                 "no_groups": "Nemáte žádnou skupinu, do které můžete posílat pozvánky",
                 "load_failed": "Skupiny se nepodařilo načíst",
@@ -3866,6 +3885,9 @@
                     "alphabetical": "Abecedně",
                     "last_active": "Naposledy aktivní",
                     "friend_order": "Pořadí přátel"
+                },
+                "view": {
+                    "list": "Seznam"
                 }
             },
             "activity": {
@@ -4122,6 +4144,12 @@
                 "public_count": "Veřejné {count}",
                 "private_count": "Soukromé {count}",
                 "capacity_count": "Kapacita {count} ({max})",
+                "pin_to_sidebar": "Připnout na postranní panel",
+                "pinned_to_sidebar": "Připnuto na postranní panel",
+                "pin_to_sidebar_failed": "Připnutí na postranní panel se nezdařilo",
+                "unpin_from_sidebar": "Odepnout z postranního panelu",
+                "unpinned_from_sidebar": "Odepnuto z postranního panelu",
+                "unpin_from_sidebar_failed": "Odepnutí z postranního panelu se nezdařilo",
                 "instance_creator": "Tvůrce instance"
             },
             "info": {
@@ -4215,8 +4243,7 @@
                 "add_domain": "Přidat doménu"
             },
             "loading": {
-                "loading_world_profile": "Načítání profilu světa",
-                "fetching_the_current_vrchat_world_snapshot_for_this_dialog": "Načítání podrobností světa"
+                "loading_world_profile": "Načítání profilu světa"
             },
             "error": {
                 "world_profile_unavailable": "Profil světa není dostupný",
@@ -4493,7 +4520,12 @@
                 "moderation_tools": "Nástroje moderace",
                 "leave": "Opustit skupinu",
                 "block": "Zablokovat skupinu",
-                "unblock": "Odblokovat skupinu"
+                "unblock": "Odblokovat skupinu",
+                "edit_profile": "Upravit údaje skupiny",
+                "edit_profile_media": "Upravit banner a ikonu",
+                "use_banner": "Použít jako banner",
+                "use_group_icon": "Použít jako ikonu skupiny",
+                "delete": "Smazat skupinu"
             },
             "overview": {
                 "header": "Přehled",
@@ -4557,7 +4589,9 @@
                 "loaded_of_total": "Načteno {loaded} z {total}",
                 "search_results": "{count} výsledků",
                 "export_loaded": "Exportovat načtené ({count})",
-                "export_all": "Exportovat vše ({count})"
+                "export_all": "Exportovat vše ({count})",
+                "failed_to_load": "Nepodařilo se načíst členy",
+                "failed_to_search": "Nepodařilo se vyhledat členy"
             },
             "gallery": {
                 "header": "Fotografie"
@@ -4603,7 +4637,9 @@
                 "name_a_z": "Název A-Z",
                 "name_z_a": "Název Z-A",
                 "role": "Role",
-                "all_roles": "Všechny role"
+                "all_roles": "Všechny role",
+                "banner": "Banner",
+                "group_icon": "Ikona skupiny"
             },
             "success": {
                 "group_join_request_cancelled": "Žádost o vstup do skupiny zrušena",
@@ -4633,7 +4669,11 @@
                 "group_post_created": "Příspěvek skupiny vytvořen",
                 "failed_to_save_group_post": "Nepodařilo se uložit příspěvek skupiny",
                 "failed_to_send_group_invite": "Nepodařilo se odeslat pozvánku do skupiny",
-                "failed_to_delete_group_post": "Nepodařilo se smazat příspěvek skupiny"
+                "failed_to_delete_group_post": "Nepodařilo se smazat příspěvek skupiny",
+                "group_profile_updated": "Skupina aktualizována",
+                "failed_to_update_group_profile": "Skupinu se nepodařilo aktualizovat",
+                "group_deleted": "Skupina smazána",
+                "failed_to_delete_group": "Skupinu se nepodařilo smazat"
             },
             "modal": {
                 "leave_group": "Opustit skupinu?",
@@ -4642,7 +4682,9 @@
                 "delete_group_post": "Smazat příspěvek skupiny?",
                 "block_group": "Zablokovat skupinu?",
                 "unblock_group": "Odblokovat skupinu?",
-                "invite_to_group": "Pozvat do skupiny"
+                "invite_to_group": "Pozvat do skupiny",
+                "delete_group": "Smazat skupinu?",
+                "delete": "Smazat"
             },
             "dynamic": {
                 "leave_value": "Opustit {value}?",
@@ -4650,7 +4692,19 @@
                 "value_completed": "{value} dokončeno",
                 "search_value": "Hledat {value}",
                 "no_value": "Žádné {value}",
-                "value_copied": "{value} zkopírováno"
+                "value_copied": "{value} zkopírováno",
+                "delete_value": "Smazat {value}? Ke skupině pak už nebude mít nikdo přístup."
+            },
+            "edit": {
+                "short_code": "Krátký kód",
+                "short_code_hint": "3–6 velkých písmen nebo číslic. Jeho změnou se změní i odkaz na skupinu.",
+                "add_link": "Přidat odkaz",
+                "remove_link": "Odebrat odkaz",
+                "join_state_open": "Kdokoli",
+                "join_state_request": "Na žádost",
+                "join_state_invite": "Jen na pozvánku",
+                "join_state_closed": "Uzavřeno",
+                "allow_join_prompt": "Nabízet připojení lidem v instancích skupiny"
             }
         },
         "favorite": {
@@ -5370,7 +5424,8 @@
             "send": "Odeslat",
             "recent": "Nedávno použité",
             "inventory_emojis": "Inventář",
-            "no_inventory_emojis": "V inventáři zatím nejsou žádná emoji pro boop"
+            "no_inventory_emojis": "V inventáři zatím nejsou žádná emoji pro boop",
+            "failed_to_load_emojis": "Nepodařilo se načíst emoji"
         },
         "vrcx_updater": {
             "latest_version": "VRCX-0 is up to date.",
@@ -5433,7 +5488,6 @@
         },
         "favorite_import": {
             "action": {
-                "import": "importovat",
                 "clear_table": "Vymazat tabulku",
                 "clear_errors": "Vymazat chyby",
                 "exclude": "Vyloučit"
@@ -5449,7 +5503,6 @@
                 "name": "Název",
                 "detail": "Podrobnosti",
                 "actions": "Akce",
-                "rows_yet": "řádků zatím",
                 "import_to": "Importovat do",
                 "local": "Místní",
                 "select_group": "Vyberte skupinu"
@@ -5465,7 +5518,14 @@
                 "detected_count": "Nalezeno: {count}"
             },
             "empty": {
-                "no_parsed": "Nezpracováno"
+                "avatar": "Zatím nejsou žádné avatary k importu",
+                "world": "Zatím nejsou žádné světy k importu",
+                "friend": "Zatím nejsou žádní přátelé k importu"
+            },
+            "title": {
+                "avatar": "Importovat avatary",
+                "world": "Importovat světy",
+                "friend": "Importovat přátele"
             }
         },
         "tools": {
@@ -5921,7 +5981,8 @@
             "bioLink": "Odkazy v bio",
             "note": "Poznámka",
             "user": "Uživatel",
-            "location": "Lokace"
+            "location": "Lokace",
+            "mutualFriends": "Společní přátelé"
         },
         "friendLog": {
             "date": "Datum",
@@ -6081,12 +6142,6 @@
                 "failed_to_remove_favorite": "Nepodařilo se odebrat oblíbenou položku",
                 "failed_to_add_local_favorite": "Nepodařilo se přidat místní oblíbenou položku",
                 "failed_to_remove_local_favorite": "Nepodařilo se odebrat místní oblíbenou položku"
-            },
-            "modal": {
-                "remove_vrchat_favorite": "Odebrat oblíbenou položku VRChat?"
-            },
-            "dynamic": {
-                "remove_value_from_vrchat_favorites": "Odebrat {value} z oblíbených VRChat?"
             }
         },
         "friend_location_card": {
@@ -6191,6 +6246,14 @@
             }
         },
         "groups_sidebar": {
+            "toast": {
+                "failed_to_launch_instance": "Nepodařilo se spustit instanci",
+                "failed_to_send_self_invite": "Nepodařilo se odeslat pozvánku sobě"
+            }
+        },
+        "world_rooms_sidebar": {
+            "empty": "Momentálně nejsou žádné aktivní instance",
+            "failed": "Instance se nepodařilo načíst",
             "toast": {
                 "failed_to_launch_instance": "Nepodařilo se spustit instanci",
                 "failed_to_send_self_invite": "Nepodařilo se odeslat pozvánku sobě"
@@ -6441,5 +6504,9 @@
         "restore": "Obnovit a restartovat",
         "keep": "Zobrazení je správné, ponechat",
         "failed": "Nepodařilo se změnit nastavení vykreslování. Zkus to znovu."
+    },
+    "mutual_graph_hint": {
+        "build": "Graf společných přátel zatím neexistuje · Vytvořit",
+        "room_scan_running": "Probíhá zjišťování společných přátel v této instanci. Zkuste to po dokončení znovu."
     }
 }

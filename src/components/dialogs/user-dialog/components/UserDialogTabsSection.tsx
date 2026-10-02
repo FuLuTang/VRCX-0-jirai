@@ -261,8 +261,7 @@ export function UserDialogTabsSection({
         actions: {
             onRefreshLocation,
             onShowInstanceHistory: onOpenInstanceHistory
-        },
-        profile
+        }
     };
     const notesSection: UserDialogNotesSectionProps = {
         profile,
@@ -312,7 +311,7 @@ export function UserDialogTabsSection({
                 activitySummarySection={activitySummarySection}
             />
             <UserDialogMutualTab
-                userId={typeof profile.id === 'string' ? profile.id : ''}
+                profile={profile}
                 mutualFriends={mutualFriends}
                 filteredMutualFriends={filteredMutualFriends}
                 visibleMutualFriends={visibleMutualFriends}

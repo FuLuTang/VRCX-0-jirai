@@ -22,8 +22,8 @@ use vrcx_0_application_core::{
     RealtimeUserProjection, RuntimeVrchatAuthFailurePayload, VrcStatusSnapshot,
 };
 use vrcx_0_application_game::{
-    AddGameLogEventPayload, GameClientEvent, GameLogPersistenceFallbackPayload, GameLogProjection,
-    GameLogSideEffectEvent, RuntimeWorkerErrorPayload,
+    GameClientEvent, GameLogPersistenceFallbackPayload, GameLogProjection, GameLogSideEffectEvent,
+    RuntimeGameLogEventPayload, RuntimeWorkerErrorPayload,
 };
 use vrcx_0_application_realtime::RealtimeFeedProjection;
 use vrcx_0_assistant::{
@@ -45,7 +45,7 @@ use crate::commands;
 #[serde(rename_all = "camelCase")]
 #[allow(dead_code)]
 struct BackendRuntimeEventPayloadMap {
-    add_game_log_event: AddGameLogEventPayload,
+    add_game_log_event: RuntimeGameLogEventPayload,
     authenticated_session_projection: AuthenticatedSessionProjection,
     authenticated_runtime_phase: AuthenticatedRuntimePhaseSnapshot,
     app_update_status: AppUpdateStatusSnapshot,
@@ -105,7 +105,7 @@ pub fn builder() -> Builder<tauri::Wry> {
         .typ::<AssistantErrorEvent>()
         .typ::<BackendRuntimeEventPayloadMap>()
         .typ::<BackendRuntimeTelemetry>()
-        .typ::<crate::deep_link::DeepLinkAction>()
+        .typ::<vrcx_0_runtime_host_desktop::deep_link::DeepLinkAction>()
         .typ::<FriendProjection>()
         .typ::<GameLogProjection>()
         .typ::<HostSessionProjection>()
@@ -243,11 +243,11 @@ pub fn builder() -> Builder<tauri::Wry> {
             commands::application::overlay_activity::app__notification_activity_filters_set,
             commands::application::presence_automation::app__presence_automation_rules_get,
             commands::application::presence_automation::app__presence_automation_rules_set,
+            commands::application::presence_automation::app__presence_automation_rule_enabled_set,
             commands::application::favorite_transfer::app__favorites_transfer_selection,
             commands::application::favorite_transfer::app__favorites_remove_selection,
             commands::application::vr_overlay::app__vr_overlay_enabled_set,
             commands::application::vr_overlay::app__vr_overlay_test_mode_set,
-            commands::application::vr_overlay::app__vr_overlay_config_reload,
             commands::application::registry_backup::app__registry_backup_list,
             commands::application::registry_backup::app__registry_backup_create,
             commands::application::registry_backup::app__registry_backup_restore,
@@ -280,9 +280,6 @@ pub fn builder() -> Builder<tauri::Wry> {
             commands::local::browse_history::app__browse_history_retention_days_set,
             commands::local::database_maintenance::app__user_tables_ensure,
             commands::local::database_maintenance::app__database_maintenance_table_sizes_get,
-            commands::local::database_maintenance::app__database_maintenance_max_friend_log_number_get,
-            commands::local::database_maintenance::app__database_maintenance_broken_leave_entries_get,
-            commands::local::database_maintenance::app__database_maintenance_broken_game_log_display_names_get,
             commands::local::avatars::app__avatar_get,
             commands::local::avatars::app__avatar_find_by_image_url,
             commands::local::avatars::app__avatar_history_list,
@@ -363,7 +360,6 @@ pub fn builder() -> Builder<tauri::Wry> {
             commands::local::tracked_nonfriends::app__tracked_nonfriends_update_name,
             commands::local::notifications::app__notification_list_query,
             commands::local::notifications::app__notification_add_v1,
-            commands::local::notifications::app__notification_add_v2,
             commands::local::notifications::app__notification_v2_expire,
             commands::local::notifications::app__notification_v2_mark_seen,
             commands::local::notifications::app__notification_update_expired,
@@ -434,7 +430,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             commands::vrchat::groups::service::app__vrchat_group_block,
             commands::vrchat::groups::service::app__vrchat_group_gallery_get,
             commands::vrchat::groups::service::app__vrchat_group_get,
-            commands::vrchat::groups::service::app__vrchat_group_member_get,
+            commands::vrchat::groups::service::app__vrchat_group_member_role_ids_get,
             commands::vrchat::groups::service::app__vrchat_group_invite_delete,
             commands::vrchat::groups::service::app__vrchat_group_invite_send,
             commands::vrchat::groups::service::app__vrchat_group_invites_get,
@@ -451,6 +447,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             commands::vrchat::groups::service::app__vrchat_group_member_unban,
             commands::vrchat::groups::service::app__vrchat_group_members_get,
             commands::vrchat::groups::service::app__vrchat_group_members_search,
+            commands::vrchat::groups::service::app__vrchat_group_update,
+            commands::vrchat::groups::service::app__vrchat_group_delete,
             commands::vrchat::groups::service::app__vrchat_group_post_create,
             commands::vrchat::groups::service::app__vrchat_group_post_delete,
             commands::vrchat::groups::service::app__vrchat_group_post_edit,
@@ -596,7 +594,6 @@ pub fn builder() -> Builder<tauri::Wry> {
             commands::host::updater::app__app_update_release_get,
             commands::host::updater::app__app_update_download_status_get,
             commands::host::updater::app__app_update_install_confirm,
-            commands::host::legacy_migration::app__check_legacy_vrcx_available,
             commands::host::legacy_migration::app__get_legacy_vrcx_force_migration_status,
             commands::host::legacy_migration::app__get_legacy_vrcx_migration_status,
             commands::host::legacy_migration::app__is_legacy_vrcx_running,
@@ -618,6 +615,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             commands::host::app_launcher::app__app_launcher_snapshot_get,
             commands::host::app_launcher::app__app_launcher_enabled_set,
             commands::host::app_launcher::app__app_launcher_entries_set,
+            commands::host::app_launcher::app__app_launcher_entry_enabled_set,
             commands::host::app_launcher::app__app_launcher_entry_test,
             commands::host::app_launcher::app__app_launcher_test_run_stop,
             commands::host::app_launcher::app__app_launcher_target_pick,

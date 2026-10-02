@@ -811,18 +811,6 @@ fn concurrent_reads_survive_a_vacuum_instead_of_failing_busy() -> Result<(), Err
 }
 
 #[test]
-fn page_stats_come_from_a_single_snapshot() -> Result<(), Error> {
-    let dir = TestDir::new("vacuum-stats");
-    let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3"))?;
-
-    let (free_pages, page_count) = read_page_stats(&db)?;
-    assert!(page_count > 0);
-    assert!(free_pages >= 0);
-    assert!(free_pages <= page_count);
-    Ok(())
-}
-
-#[test]
 fn import_upstream_print_favorites_merges_rows_into_config_and_drops_table() -> Result<(), Error> {
     let (_dir, db) = cleanup_test_db("import-upstream-print-favorites")?;
     crate::config::set_json(
@@ -856,5 +844,37 @@ fn import_upstream_print_favorites_merges_rows_into_config_and_drops_table() -> 
         crate::config::get_json(&db, PRINT_FAVORITE_IDS_CONFIG_KEY, Value::Null)?,
         serde_json::json!(["prnt_local", "prnt_both", "prnt_older", "prnt_newer"])
     );
+    Ok(())
+}
+
+#[test]
+fn repair_expired_notifications_seen_marks_every_user_table() -> Result<(), Error> {
+    let dir = TestDir::new("notification-expired-seen-repair");
+    let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3"))?;
+    for prefix in ["usra", "usrb"] {
+        ensure_realtime_tables(&db, prefix)?;
+        db.execute_non_query(
+            &format!(
+                "INSERT INTO {prefix}_notifications (id, created_at, type, expired, seen) VALUES ('active', '2026-08-20T11:00:00Z', 'friendRequest', 0, 0), ('expired', '2026-08-20T10:00:00Z', 'friendRequest', 1, 0)"
+            ),
+            &Default::default(),
+        )?;
+    }
+
+    database_maintenance_run(&db, DatabaseMaintenanceTask::RepairExpiredNotificationsSeen)?;
+
+    for prefix in ["usra", "usrb"] {
+        let rows = db.execute(
+            &format!("SELECT id, seen FROM {prefix}_notifications ORDER BY id"),
+            &Default::default(),
+        )?;
+        assert_eq!(
+            rows,
+            vec![
+                vec![serde_json::json!("active"), serde_json::json!(0)],
+                vec![serde_json::json!("expired"), serde_json::json!(1)]
+            ]
+        );
+    }
     Ok(())
 }

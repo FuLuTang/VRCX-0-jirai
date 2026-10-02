@@ -2,9 +2,9 @@ use std::sync::{Arc, Mutex};
 
 use vrcx_0_application::auth::AuthCredentialStore;
 use vrcx_0_application_activity::notification::{
-    extract_file_version, fallback_file_version, load_overlay_activity_filters,
-    normalize_avatar_image_url_128, CachedNotificationUserImageResolver, NotificationConfig,
-    RealtimeUserImageResolverSlot,
+    extract_file_version, fallback_file_version, load_location_hidden_user_ids,
+    load_overlay_activity_filters, normalize_avatar_image_url_128,
+    CachedNotificationUserImageResolver, NotificationConfig, RealtimeUserImageResolverSlot,
 };
 use vrcx_0_application_activity::{
     OverlayActivityRuntime, OverlayActivitySink, OverlayActivitySinkRegistry,
@@ -84,9 +84,13 @@ impl DesktopRuntimeServices {
         let tts: Arc<dyn TtsEngine> = Arc::new(SystemTtsEngine::new());
         let notification_desktop_notifier = DesktopNotifierSlot::default();
         let realtime_user_image_resolver = RealtimeUserImageResolverSlot::default();
+        let host = RuntimeHost::new();
+        deps.auth_scope
+            .add_vrchat_auth_failure_observer(Arc::new(host.clone()));
         let notification_do_not_disturb = NotificationDoNotDisturbRuntime::new(
             deps.config.clone(),
             deps.event_bus.clone(),
+            host.clone(),
             deps.tasks.clone(),
         )?;
         let privacy_lock = Arc::new(PrivacyLockRuntime::new(
@@ -94,7 +98,6 @@ impl DesktopRuntimeServices {
             deps.event_bus,
         )?);
         deps.auth_scope.add_observer(privacy_lock.clone());
-        let host = RuntimeHost::new();
         let notification_indicator = Arc::new(RealtimeNotificationIndicator::new(
             Arc::clone(&deps.db),
             deps.config.clone(),
@@ -147,6 +150,10 @@ impl DesktopRuntimeServices {
     pub fn reload_overlay_activity_filters(&self) {
         self.overlay_activity
             .set_filters(load_overlay_activity_filters(
+                self.notification_config.as_ref(),
+            ));
+        self.overlay_activity
+            .set_location_hidden_user_ids(load_location_hidden_user_ids(
                 self.notification_config.as_ref(),
             ));
     }
@@ -250,7 +257,7 @@ impl DesktopRuntimeServices {
             return;
         };
         for patch in &projection.patches {
-            if !StateBucket::Online.matches(&patch.patch.state) {
+            if patch.presence.view.section() != StateBucket::Online {
                 continue;
             }
             let user_id = patch.user_id.as_str();

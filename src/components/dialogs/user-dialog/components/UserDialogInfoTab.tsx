@@ -44,6 +44,7 @@ import {
 import type { UserDialogPreviousInstance } from '@/services/userDialogSessionCacheService';
 import type { UserDialogRelationshipEvent } from '@/services/userDialogSessionCacheService';
 import { useRuntimeStore } from '@/state/runtimeStore';
+import { parseLocation } from '@/shared/utils/location';
 import { Button } from '@/ui/shadcn/button';
 import {
     Card,
@@ -62,6 +63,7 @@ import { Separator } from '@/ui/shadcn/separator';
 import { Spinner } from '@/ui/shadcn/spinner';
 
 import { EntityDialogTabContent } from '../../EntityDialogScaffold';
+import type { UserDialogProfileRecord } from '../userDialogProfileTypes';
 import { buildInlineBioDiff, groupBioHistoryRows } from '../bioHistory';
 import { formatStatsDuration } from '../userDialogRows';
 import { EntityList } from '../UserDialogViewParts';
@@ -69,9 +71,6 @@ import { buildStatusDistribution } from './statusDistribution';
 
 type OpenGroupDialog =
     (typeof import('@/services/dialogService'))['openGroupDialog'];
-type UserDialogInfoProfile = UserProfileEntity & {
-    $location?: { groupName?: string; shortName?: string };
-};
 type PresenceModel = {
     visiblePresenceLocation?: string;
     locationInstance?: EntityRecord & {
@@ -115,11 +114,10 @@ export type UserDialogPresenceSectionProps = {
         onRefreshLocation?: (requestLocation: string) => void;
         onShowInstanceHistory?: () => void;
     };
-    profile: UserDialogInfoProfile;
 };
 
 export type UserDialogNotesSectionProps = {
-    profile: UserDialogInfoProfile;
+    profile: UserProfileEntity;
     hideUserNotes: boolean;
     memo: string;
     hideUserMemos: boolean;
@@ -127,7 +125,7 @@ export type UserDialogNotesSectionProps = {
 };
 
 export type UserDialogBioSectionProps = {
-    profile: UserDialogInfoProfile;
+    profile: UserProfileEntity;
     bioLinks: string[];
 };
 
@@ -137,7 +135,7 @@ export type UserDialogProfileLinksSectionProps = {
     representedGroupStatus: string;
     representedGroup: RepresentedGroup | null;
     openGroupDialog: OpenGroupDialog;
-    profile: UserDialogInfoProfile;
+    profile: UserProfileEntity;
     visibleHomeLocationTarget: string;
 };
 
@@ -150,7 +148,7 @@ export type UserDialogActivitySummarySectionProps = {
     onOpenFeed?: () => void;
     onOpenInstanceHistory?: () => void;
     presenceActivityAt: string | null | undefined;
-    profile: UserDialogInfoProfile;
+    profile: UserProfileEntity;
     userTimeSpent: number | null | undefined;
     userJoinCount: number | null | undefined;
 };
@@ -346,8 +344,7 @@ function handlePanelKeyDown(
 
 function UserDialogPresenceSection({
     presence,
-    actions,
-    profile
+    actions
 }: UserDialogPresenceSectionProps) {
     const { t } = useTranslation();
     const {
@@ -385,11 +382,7 @@ function UserDialogPresenceSection({
                                     locationInstance?.recommendedCapacity
                             }}
                             currentUserId={currentUserId}
-                            grouphint={
-                                locationInstance?.groupName ||
-                                profile.$location?.groupName ||
-                                ''
-                            }
+                            grouphint={locationInstance?.groupName || ''}
                             endpoint={currentEndpoint}
                             hint={locationWorldTitle}
                             instanceClickAction="world"
@@ -402,7 +395,8 @@ function UserDialogPresenceSection({
                                 location: visiblePresenceLocation,
                                 shortName:
                                     locationInstance?.shortName ||
-                                    profile?.$location?.shortName ||
+                                    parseLocation(visiblePresenceLocation)
+                                        .shortName ||
                                     '',
                                 worldName: locationWorldTitle
                             }}
@@ -471,7 +465,7 @@ function UserDialogNotesPanel({
             <div
                 role="button"
                 tabIndex={0}
-                className="hover:bg-muted focus-visible:border-ring focus-visible:ring-ring/50 rounded-md p-2 text-left transition-colors outline-none focus-visible:ring-3"
+                className="focus-visible:border-ring focus-visible:ring-ring/50 rounded-md p-2 text-left transition-colors outline-none hover:bg-(--state-hover-surface) focus-visible:ring-3"
                 onClick={onEditMemo}
                 onKeyDown={(event) => handlePanelKeyDown(event, onEditMemo)}
             >
@@ -578,7 +572,7 @@ function UserDialogProfileLinksPanel({
                     <Button
                         type="button"
                         variant="ghost"
-                        className="hover:text-primary h-auto max-w-full justify-start gap-2 p-0 text-left text-xs font-normal whitespace-normal text-inherit hover:bg-transparent"
+                        className="hover:text-foreground h-auto max-w-full justify-start gap-2 p-0 text-left text-xs font-normal whitespace-normal text-inherit hover:bg-transparent"
                         onClick={() =>
                             openGroupDialog({
                                 groupId: representedGroup.groupId,
@@ -917,7 +911,7 @@ function UserDialogBioPanel({ profile, bioLinks }: UserDialogBioSectionProps) {
 export function UserDialogStatusDistributionPanel({
     profile
 }: {
-    profile: UserDialogInfoProfile;
+    profile: UserDialogProfileRecord;
 }) {
     const { t } = useTranslation();
     const currentUserId = useRuntimeStore((state) => state.auth.currentUserId);
@@ -975,7 +969,7 @@ export function UserDialogStatusDistributionPanel({
                 rows,
                 targetUserId,
                 undefined,
-                profile.state
+                typeof profile.state === 'string' ? profile.state : undefined
             ),
         [rows, targetUserId, profile.state]
     );
@@ -1220,13 +1214,12 @@ export function UserDialogInfoTab({
     const { profile, bioLinks } = bioSection;
 
     return (
-        <EntityDialogTabContent value="info" className="px-px pt-3 pb-px">
+        <EntityDialogTabContent value="info" className="pt-3">
             <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
                 <div className="flex min-w-0 flex-col gap-4">
                     <UserDialogPresenceSection
                         presence={presenceSection.presence}
                         actions={presenceSection.actions}
-                        profile={presenceSection.profile}
                     />
                     <UserDialogNotesPanel
                         profile={notesSection.profile}

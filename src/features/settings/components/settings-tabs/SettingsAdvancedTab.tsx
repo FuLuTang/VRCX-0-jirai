@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { commands } from '@/platform/tauri/bindings';
+import { formatDataDirMigrationBytes } from '@/services/dataDirMigrationI18n';
 import { toast } from '@/services/toastService';
 import { normalizeAvatarAutoCleanupPreference } from '@/shared/constants/settings';
 import { dataDirectoryPathForDisplay } from '@/shared/utils/dataDirectoryPath';
@@ -179,7 +180,7 @@ export function SettingsAdvancedTabContent({
         onClearConfigTreeData,
         onAnonymousUsageTelemetryChange
     } = advanced;
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const appDataDirSourceLabel = appDataDirState
         ? t(
               `view.settings.advanced.advanced.data_directory.source_${appDataDirState.source}`
@@ -367,8 +368,11 @@ export function SettingsAdvancedTabContent({
                                     {
                                         path: appDataDirState.cleanupPending
                                             .oldDir,
-                                        size: appDataDirState.cleanupPending
-                                            .bytes
+                                        size: formatDataDirMigrationBytes(
+                                            appDataDirState.cleanupPending
+                                                .bytes,
+                                            i18n.language
+                                        )
                                     }
                                 )}
                             </p>

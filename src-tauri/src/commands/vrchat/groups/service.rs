@@ -7,7 +7,7 @@ use vrcx_0_application::social::{
     VrchatGroupMemberRoleInput, VrchatGroupMembersInput, VrchatGroupMembersSearchInput,
     VrchatGroupPagedInput, VrchatGroupPostCreateInput, VrchatGroupPostDeleteInput,
     VrchatGroupPostEditInput, VrchatGroupProfileInput, VrchatGroupRepresentationInput,
-    VrchatGroupUserGroupsInput, VrchatGroupUserInput,
+    VrchatGroupUpdateInput, VrchatGroupUserGroupsInput, VrchatGroupUserInput,
 };
 use vrcx_0_application_core::vrchat_api::VrchatApiResponse;
 
@@ -58,14 +58,14 @@ pub async fn app__vrchat_group_posts_get(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn app__vrchat_group_member_get(
+pub async fn app__vrchat_group_member_role_ids_get(
     state: State<'_, AppState>,
     input: VrchatGroupUserInput,
-) -> Result<VrchatApiResponse, AppError> {
+) -> Result<Option<Vec<String>>, AppError> {
     state
         .runtime_host()
         .groups()
-        .member(input)
+        .member_role_ids(input)
         .await
         .map_err(AppError::from)
 }
@@ -192,6 +192,34 @@ pub async fn app__vrchat_group_user_instances_get(
         .runtime_host()
         .groups()
         .user_instances(input)
+        .await
+        .map_err(AppError::from)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__vrchat_group_update(
+    state: State<'_, AppState>,
+    input: VrchatGroupUpdateInput,
+) -> Result<VrchatApiResponse, AppError> {
+    state
+        .runtime_host()
+        .groups()
+        .update(input)
+        .await
+        .map_err(AppError::from)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__vrchat_group_delete(
+    state: State<'_, AppState>,
+    input: VrchatGroupIdInput,
+) -> Result<VrchatApiResponse, AppError> {
+    state
+        .runtime_host()
+        .groups()
+        .delete(input)
         .await
         .map_err(AppError::from)
 }
