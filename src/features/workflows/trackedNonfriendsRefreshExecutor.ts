@@ -1,7 +1,7 @@
-import userProfileRepository from '@/repositories/userProfileRepository';
 import { useRuntimeStore } from '@/state/runtimeStore';
 import { useTrackedNonfriendsStore } from '@/state/trackedNonfriendsStore';
 
+import { fetchRawProfile } from './profileFetchRequest';
 import type {
     SyncWorkflowActionContext,
     SyncWorkflowActionOutcome
@@ -11,7 +11,7 @@ import {
     type TrackedNonfriendsRefreshExecutor
 } from './syncWorkflowActions';
 
-const REFRESH_INTERVAL_MS = 250;
+const REFRESH_INTERVAL_MS = 3_000;
 
 export type TrackedNonfriendsRefreshResult = {
     refreshed: number;
@@ -30,7 +30,7 @@ type Dependencies = {
         userId: string,
         displayName: string
     ) => Promise<boolean>;
-    getUserProfile: typeof userProfileRepository.getUserProfile;
+    getUserProfile: typeof fetchRawProfile;
     wait: (milliseconds: number, signal: AbortSignal) => Promise<void>;
 };
 
@@ -141,7 +141,8 @@ export function createTrackedNonfriendsRefreshExecutor(
             const profile = await dependencies.getUserProfile({
                 userId: entry.userId,
                 force: true,
-                isFriend: false
+                isFriend: false,
+                signal: context.signal
             });
             abortIfNeeded(context.signal);
             if (!dependencies.isAccountCurrent(accountId)) {
@@ -153,6 +154,7 @@ export function createTrackedNonfriendsRefreshExecutor(
                 };
             }
             refreshed += 1;
+            context.profiles?.set(entry.userId, profile);
             nextRequestAt = Date.now() + REFRESH_INTERVAL_MS;
             if (!dependencies.isTracked(entry.userId)) {
                 skippedRemoved += 1;
@@ -188,7 +190,7 @@ export const trackedNonfriendsRefreshExecutor =
             useTrackedNonfriendsStore
                 .getState()
                 .updateName(accountId, userId, displayName),
-        getUserProfile: userProfileRepository.getUserProfile,
+        getUserProfile: fetchRawProfile,
         wait: waitWithAbort
     });
 

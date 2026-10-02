@@ -16,6 +16,7 @@ export interface VrchatRequestError extends Error {
     status: number;
     endpoint: string;
     payload: unknown;
+    retryAfter?: string;
 }
 
 export type VrchatResponseEnvelope = HttpApiExecuteResponse;
@@ -163,6 +164,8 @@ export function unwrapVrchatResponse<TJson = unknown>(
             endpoint,
             json
         );
+        const retryAfter = (response as VrchatResponseEnvelope & { retryAfter?: string }).retryAfter;
+        if (typeof retryAfter === 'string') requestError.retryAfter = retryAfter;
         throw requestError;
     }
 

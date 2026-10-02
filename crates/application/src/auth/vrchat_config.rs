@@ -79,6 +79,7 @@ mod tests {
                 .push(format!("fetch:{endpoint}"));
             Box::pin(async {
                 Ok(VrchatApiResponse {
+                    retry_after: None,
                     status: 200,
                     data: "fresh".into(),
                 })
@@ -89,6 +90,7 @@ mod tests {
     #[tokio::test]
     async fn get_returns_the_cached_response_without_clearing_or_fetching() {
         let port = Arc::new(RecordingPort::new(Some(VrchatApiResponse {
+            retry_after: None,
             status: 200,
             data: "cached".into(),
         })));

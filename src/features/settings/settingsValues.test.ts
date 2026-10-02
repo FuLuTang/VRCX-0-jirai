@@ -21,6 +21,26 @@ import {
 } from './settingsValues';
 
 describe('settingsValues', () => {
+    it('enables possible-friend hints in both surfaces while allowing an explicit off', () => {
+        const defaults = normalizeOverlayActivityFilters(null);
+        expect(defaults.wrist.types.RelationshipRecommendation.scope).toBe(
+            'on'
+        );
+        expect(defaults.hmd.types.RelationshipRecommendation.scope).toBe('on');
+        const disabled = normalizeOverlayActivityFilters({
+            version: 1,
+            wrist: { types: {} },
+            hmd: {
+                types: {
+                    RelationshipRecommendation: {
+                        scope: 'off',
+                        favoriteGroupKeys: 'all'
+                    }
+                }
+            }
+        });
+        expect(disabled.hmd.types.RelationshipRecommendation.scope).toBe('off');
+    });
     it('places AI settings before integrations', () => {
         const tabValues = settingsTabs.map(([value]) => value);
         expect(tabValues.indexOf('ai')).toBeGreaterThanOrEqual(0);

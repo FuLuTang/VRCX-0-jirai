@@ -561,6 +561,17 @@ const generatedCommands = {
             filters
         });
     },
+    async appRelationshipRecommendationsSet(
+        accountId: string,
+        authScopeGeneration: number,
+        pairs: RelationshipRecommendationPair[]
+    ): Promise<null> {
+        return await TAURI_INVOKE('app__relationship_recommendations_set', {
+            accountId,
+            authScopeGeneration,
+            pairs
+        });
+    },
     async appNotificationActivityFiltersSet(
         input: NotificationActivityFiltersSetInput
     ): Promise<null> {
@@ -907,6 +918,11 @@ const generatedCommands = {
         input: ProfileFeedReconcileInput
     ): Promise<ProfileFeedReconcileOutput> {
         return await TAURI_INVOKE('app__profile_feed_reconcile', { input });
+    },
+    async appSelfStatusHistoryQuery(
+        input: SelfStatusHistoryInput
+    ): Promise<FeedRowOutput[]> {
+        return await TAURI_INVOKE('app__self_status_history_query', { input });
     },
     async appFeedLatestQuery(
         query: FeedLatestQueryInput
@@ -4927,7 +4943,11 @@ export type HostSessionProjection = {
     steamvrChanged: boolean;
     changedAt: string;
 };
-export type HttpApiExecuteResponse = { status: number; data: string };
+export type HttpApiExecuteResponse = {
+    status: number;
+    data: string;
+    retryAfter?: string | null;
+};
 export type ImageAnimationStyle =
     | 'aura'
     | 'bats'
@@ -6087,6 +6107,13 @@ export type RegistryBackupSnapshot = {
     name: string;
     date: string;
 };
+export type RelationshipRecommendationPair = {
+    userIdA: string;
+    userIdB: string;
+    nameA: string;
+    nameB: string;
+    score: number;
+};
 export type ReleaseStatusFilter = 'all' | 'hidden' | 'private' | 'public';
 export type RemoteModerationRow = {
     id: string;
@@ -6274,6 +6301,7 @@ export type ScreenshotSearchResult = {
     height: number | null;
     metadata: ScreenshotMetadata;
 };
+export type SelfStatusHistoryInput = { expectedOwnerUserId: string };
 export type SendResult = { sessionId: string; turnId: string };
 export type Session = {
     id: string;

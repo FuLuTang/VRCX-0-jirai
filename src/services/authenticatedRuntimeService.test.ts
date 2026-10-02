@@ -12,7 +12,8 @@ import {
     applyAuthenticatedRuntimePhaseSnapshot,
     handleAuthenticatedRuntimeRealtimeStatus,
     registerAuthenticatedRuntimeOnlineBackfill,
-    resetAuthenticatedRuntimeMirror
+    resetAuthenticatedRuntimeMirror,
+    subscribeAuthenticatedRuntimeEnhancedBaseline
 } from './authenticatedRuntimeService';
 
 function phaseSnapshot(
@@ -178,6 +179,29 @@ describe('authenticatedRuntimeService', () => {
             phaseSnapshot({ friendBaselineRevision: 2 })
         );
         expect(backfill).toHaveBeenCalledTimes(2);
+    });
+
+    it('notifies enhanced collection only for a newly completed baseline revision', () => {
+        const listener = vi.fn();
+        const unsubscribe =
+            subscribeAuthenticatedRuntimeEnhancedBaseline(listener);
+        try {
+            applyAuthenticatedRuntimePhaseSnapshot(phaseSnapshot());
+            applyAuthenticatedRuntimePhaseSnapshot(phaseSnapshot());
+            expect(listener).toHaveBeenCalledTimes(1);
+            expect(listener).toHaveBeenLastCalledWith('usr_self', 'startup');
+            applyAuthenticatedRuntimePhaseSnapshot(
+                phaseSnapshot({ friendBaselineRevision: 2 })
+            );
+            expect(listener).toHaveBeenCalledTimes(2);
+            expect(listener).toHaveBeenLastCalledWith('usr_self', 'periodic');
+            applyAuthenticatedRuntimePhaseSnapshot(
+                phaseSnapshot({ runId: 8, friendBaselineRevision: 1 })
+            );
+            expect(listener).toHaveBeenLastCalledWith('usr_self', 'reconnect');
+        } finally {
+            unsubscribe();
+        }
     });
 
     it('applies a newer friend baseline revision within the same runtime run', () => {

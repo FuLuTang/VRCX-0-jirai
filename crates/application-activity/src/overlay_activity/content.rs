@@ -53,6 +53,20 @@ pub(super) fn build_activity_content(
     };
 
     let mut content = match activity_type {
+        "RelationshipRecommendation" => titled_body(
+            "instance",
+            &title_name,
+            OverlayActivityText::message(
+                OverlayMessage::notifications_relationship_recommendation(
+                    &payload.trimmed_text("nameA"),
+                    &payload.trimmed_text("nameB"),
+                    &payload
+                        .get("score")
+                        .map(Value::to_string)
+                        .unwrap_or_default(),
+                ),
+            ),
+        ),
         "OnPlayerJoining" => titled_body(
             "instance",
             &title_name,

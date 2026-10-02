@@ -168,9 +168,32 @@ pub struct GameLogProcessor {
     scan_cursor: Arc<Mutex<Option<crate::GameLogScanCursor>>>,
     replayed_departures: Arc<Mutex<Vec<String>>>,
     pending_write: Arc<Mutex<Option<PendingGameLogWrite>>>,
+    recommendations: Arc<
+        Mutex<
+            crate::overlay_activity::relationship_recommendations::RelationshipRecommendationCache,
+        >,
+    >,
 }
 
 impl GameLogProcessor {
+    pub fn set_relationship_recommendations(
+        &self,
+        account_id: String,
+        auth_scope_generation: u64,
+        pairs: Vec<crate::RelationshipRecommendationPair>,
+    ) {
+        let scope = self.deps.auth_scope.snapshot();
+        if scope.current_user_id != account_id
+            || scope.generation != auth_scope_generation
+            || !scope.active
+        {
+            return;
+        }
+        if let Ok(mut cache) = self.recommendations.lock() {
+            cache.set(account_id, auth_scope_generation, pairs);
+        }
+    }
+
     pub fn new(deps: GameLogProcessorDeps) -> Self {
         let mut engine = GameLogIngestEngine::default();
         let checkpoint = match deps.store.get_string("gameLogReplayCheckpoint", "") {
@@ -204,6 +227,7 @@ impl GameLogProcessor {
         }
         Self {
             stop_requested: Arc::new(AtomicBool::new(false)),
+            recommendations: Arc::new(Mutex::new(Default::default())),
             pending_write: Arc::new(Mutex::new(None)),
             scan_cursor: Arc::new(Mutex::new(scan_cursor)),
             replayed_departures: Arc::new(Mutex::new(replayed_departures)),
@@ -542,7 +566,7 @@ impl GameLogProcessor {
         }
 
         self.enrich_ingest_output_world_names(&mut output);
-        self.ingest_overlay_activity(&output);
+        self.ingest_overlay_activity(&output, origin == GameLogEventOrigin::InitialScan);
         if let Some(projection) = output.projection {
             self.deps.event_bus.emit_game_log_projection(projection);
         }
@@ -579,7 +603,7 @@ impl GameLogProcessor {
         }
         let side_effects = std::mem::take(&mut output.side_effects);
         if deliver_activity {
-            self.ingest_overlay_activity(&output);
+            self.ingest_overlay_activity(&output, false);
         }
         let has_write = !output.batch.is_empty();
         {
@@ -631,13 +655,55 @@ impl GameLogProcessor {
         Ok(())
     }
 
-    fn ingest_overlay_activity(&self, output: &GameLogIngestOutput) {
+    fn ingest_overlay_activity(&self, output: &GameLogIngestOutput, historical: bool) {
         let Ok(snapshot) = self.with_engine(|engine| engine.runtime_snapshot()) else {
             return;
         };
         let current_location = snapshot.location.clone();
         let current_started_at = snapshot.started_at.clone();
-        let current_user_id = self.deps.auth_scope.snapshot().current_user_id;
+        let scope = self.deps.auth_scope.snapshot();
+        let current_user_id = scope.current_user_id.clone();
+        let present = snapshot.players.iter().map(|p| p.user_id.clone()).collect();
+        let joined = output
+            .batch
+            .join_leave
+            .iter()
+            .filter(|e| e.event_type == "OnPlayerJoined" && e.location == snapshot.location)
+            .map(|e| e.user_id.clone())
+            .collect();
+        let departed = output
+            .batch
+            .join_leave
+            .iter()
+            .filter(|e| e.event_type == "OnPlayerLeft")
+            .map(|e| e.user_id.clone())
+            .collect();
+        let created_at = output
+            .batch
+            .join_leave
+            .last()
+            .map(|e| e.created_at.as_str())
+            .unwrap_or("");
+        if let Ok(mut cache) = self.recommendations.lock() {
+            let enabled = self
+                .deps
+                .store
+                .get_bool("relationshipRecommendationOverlayEnabled", true)
+                .unwrap_or(true);
+            for candidate in cache.live_candidates(
+                &current_user_id,
+                scope.generation,
+                &snapshot.location,
+                &present,
+                &joined,
+                &departed,
+                created_at,
+                enabled && scope.active && snapshot.ready,
+                historical,
+            ) {
+                self.deps.overlay_activity.ingest_candidate(candidate);
+            }
+        }
         let context = OverlayJoinLeaveSuppressionContext::from_output(
             output,
             current_location,

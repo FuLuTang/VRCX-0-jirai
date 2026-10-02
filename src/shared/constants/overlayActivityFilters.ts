@@ -131,6 +131,12 @@ function overlayActivityDefinitionByKey(
 
 export const OVERLAY_ACTIVITY_TYPE_DEFINITIONS: OverlayActivityTypeDefinition[] =
     [
+        defineType(
+            'systemSafety',
+            'RelationshipRecommendation',
+            BOOLEAN_SCOPES,
+            'on'
+        ),
         defineType('actionRequired', 'invite', DIRECT_ACTOR_SCOPES, 'friends'),
         defineType(
             'actionRequired',

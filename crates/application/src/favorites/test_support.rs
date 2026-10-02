@@ -64,6 +64,7 @@ impl TestFavoriteRemote {
 
 fn response(data: &str) -> VrchatApiResponse {
     VrchatApiResponse {
+        retry_after: None,
         status: 200,
         data: data.into(),
     }
@@ -135,12 +136,14 @@ impl FavoriteRemote for TestFavoriteRemote {
                 .push(world_id.clone());
             if world_id.contains("deleted") {
                 return Ok(VrchatApiResponse {
+                    retry_after: None,
                     status: 404,
                     data: r#"{"error":{"message":"not found"}}"#.into(),
                 });
             }
             if world_id.contains("unreachable") {
                 return Ok(VrchatApiResponse {
+                    retry_after: None,
                     status: 500,
                     data: r#"{"error":{"message":"boom"}}"#.into(),
                 });

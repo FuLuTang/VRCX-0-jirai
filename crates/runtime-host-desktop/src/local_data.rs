@@ -65,14 +65,16 @@ pub use vrcx_0_persistence::memos::{
     AvatarMemoOutput, MemoSaveResult, UserMemoOutput, UserNoteOutput, WorldMemoOutput,
 };
 pub use vrcx_0_persistence::mutual_graph::{
-    MutualGraphExtrasOutput, MutualGraphManualLinkSetInput, MutualGraphSnapshotOutput,
-    MutualGraphTrackedUserSetInput,
+    MutualGraphExtrasOutput, MutualGraphHistoryOutput, MutualGraphManualLinkSetInput,
+    MutualGraphSnapshotOutput, MutualGraphTrackedUserSetInput,
 };
 pub use vrcx_0_persistence::notifications::{
     NotificationListItemOutput, NotificationListQueryInput,
 };
 pub use vrcx_0_persistence::player_list::InstanceActivityRowOutput;
-pub use vrcx_0_persistence::realtime::{ProfileFeedReconcileInput, ProfileFeedReconcileOutput};
+pub use vrcx_0_persistence::realtime::{
+    ProfileFeedReconcileInput, ProfileFeedReconcileOutput, SelfStatusHistoryInput,
+};
 pub use vrcx_0_persistence::social_aggregates::{WorldFriendVisitRow, WorldFriendVisitsOutput};
 pub use vrcx_0_persistence::tracked_nonfriends::{
     TrackedNonFriendAddInput, TrackedNonFriendOutput, TrackedNonFriendUpdateNameInput,
@@ -319,15 +321,20 @@ impl LocalDataRuntime {
             ));
         }
         let target_user_id = input.target_user_id.trim();
-        let realtime_friend = self
+        let is_online_friend = self
             .realtime
             .friend_snapshot()
             .filter(|snapshot| snapshot.current_user_id == current_owner.as_str())
-            .and_then(|snapshot| snapshot.friends_by_id.get(target_user_id).cloned());
-        if current_owner.is_empty()
-            || !realtime_friend
-                .is_some_and(|friend| friend.state.as_str().eq_ignore_ascii_case("online"))
-        {
+            .is_some_and(|snapshot| {
+                snapshot.friends_by_id.contains_key(target_user_id)
+                    && snapshot
+                        .presence_by_id
+                        .get(target_user_id)
+                        .is_some_and(|presence| {
+                            presence.view.section() == vrcx_0_core::friends::StateBucket::Online
+                        })
+            });
+        if current_owner.is_empty() || !is_online_friend {
             return Err(vrcx_0_application_core::Error::PersistenceInvalidData(
                 "Startup online backfill target is not a current online friend.".into(),
             ));
@@ -352,10 +359,28 @@ impl LocalDataRuntime {
                 "Profile reconciliation account changed before persistence.".into(),
             ));
         }
-        Ok(vrcx_0_persistence::realtime::profile_feed_reconcile(
+        let (output, entries) = vrcx_0_persistence::realtime::profile_feed_reconcile_with_entries(
             self.db.as_ref(),
             &current_owner,
             input,
+        )?;
+        self.realtime
+            .emit_persisted_profile_entries(&current_owner, entries);
+        Ok(output)
+    }
+
+    pub fn self_status_history(
+        &self,
+        input: vrcx_0_persistence::realtime::SelfStatusHistoryInput,
+    ) -> Result<Vec<FeedRowOutput>> {
+        let owner = self.current_owner();
+        vrcx_0_persistence::realtime::validate_self_status_owner(
+            &input.expected_owner_user_id,
+            &owner,
+        )?;
+        Ok(vrcx_0_persistence::realtime::self_status_history(
+            self.db.as_ref(),
+            &owner,
         )?)
     }
 

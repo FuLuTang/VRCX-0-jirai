@@ -105,6 +105,16 @@ pub struct GameLogHostRuntimeDeps {
 }
 
 impl GameLogHostRuntime {
+    pub fn set_relationship_recommendations(
+        &self,
+        account_id: String,
+        auth_scope_generation: u64,
+        pairs: Vec<vrcx_0_application_game::RelationshipRecommendationPair>,
+    ) {
+        self.inner
+            .set_relationship_recommendations(account_id, auth_scope_generation, pairs);
+    }
+
     pub fn new(deps: GameLogHostRuntimeDeps) -> Self {
         let instance_media: Arc<dyn vrcx_0_application_game::InstanceMediaPort> =
             Arc::new(crate::game_media::DesktopGameMediaAdapter::new(

@@ -7,7 +7,7 @@ use tauri::State;
 use vrcx_0_runtime_host_desktop::local_data::{
     FeedLatestQueryInput, FeedReadModelOutput, FeedRowOutput, FeedRowsQueryInput,
     FeedSearchQueryInput, ProfileFeedReconcileInput, ProfileFeedReconcileOutput,
-    StartupOnlineBackfillInput, StartupOnlineBackfillOutput,
+    SelfStatusHistoryInput, StartupOnlineBackfillInput, StartupOnlineBackfillOutput,
 };
 
 #[tauri::command(async)]
@@ -61,6 +61,19 @@ pub async fn app__profile_feed_reconcile(
     tauri::async_runtime::spawn_blocking(move || local_data.profile_feed_reconcile(input))
         .await
         .map_err(|error| AppError::Custom(format!("profile feed reconcile task: {error}")))?
+        .map_err(AppError::from)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__self_status_history_query(
+    state: State<'_, AppState>,
+    input: SelfStatusHistoryInput,
+) -> Result<Vec<FeedRowOutput>, AppError> {
+    let local_data = state.runtime_host().local_data().clone();
+    tauri::async_runtime::spawn_blocking(move || local_data.self_status_history(input))
+        .await
+        .map_err(|error| AppError::Custom(format!("self status history query: {error}")))?
         .map_err(AppError::from)
 }
 

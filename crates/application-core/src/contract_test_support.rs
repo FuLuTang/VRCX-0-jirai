@@ -512,6 +512,7 @@ impl WorldCachePort for MemoryWorldCachePort {
             .world(world_id)
             .ok_or_else(|| Error::Custom("memory world cache miss".into()))?;
         Ok(vrcx_0_contracts::VrchatResponse {
+            retry_after: None,
             status: 200,
             data: world.to_string(),
         })

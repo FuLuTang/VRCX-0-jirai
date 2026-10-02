@@ -15,6 +15,98 @@ const context = (signal = new AbortController().signal) => ({
 });
 
 describe('profileFetchExecutor', () => {
+    it('counts an already saved status once across a public Bio retry', async () => {
+        const getUserProfile = vi
+            .fn()
+            .mockRejectedValueOnce(
+                Object.assign(createRequestError('limited', 429, 'profile/a'), {
+                    $jiraiStatusUpdated: true
+                })
+            )
+            .mockResolvedValue({
+                bio: 'bio',
+                status: 'active',
+                statusDescription: ''
+            });
+        const run = createProfileFetchExecutor({
+            getFriends: () => ({ usr_a: { id: 'usr_a' } }),
+            isAccountCurrent: () => true,
+            loadTracked: vi.fn().mockResolvedValue(undefined),
+            getTracked: () => ({ currentUserId: 'usr_owner', entries: [] }),
+            getUserProfile,
+            wait: vi.fn().mockResolvedValue(undefined),
+            reconcile: vi
+                .fn()
+                .mockResolvedValue({ bioUpdated: false, statusUpdated: false })
+        });
+        expect(await run(context())).toMatchObject({
+            result: { statusUpdated: 1, unchanged: 0, failed: 0, succeeded: 1 }
+        });
+    });
+    it('publishes real progress and pauses the queue on 429 before bounded retry', async () => {
+        const getUserProfile = vi
+            .fn()
+            .mockRejectedValueOnce(
+                Object.assign(
+                    createRequestError('limited', 429, 'users/usr_a'),
+                    { retryAfter: '7' }
+                )
+            )
+            .mockResolvedValueOnce({
+                bio: 'a',
+                status: 'active',
+                statusDescription: ''
+            })
+            .mockResolvedValueOnce({ status: 'active' });
+        const wait = vi.fn().mockResolvedValue(undefined);
+        const onProfileProgress = vi.fn();
+        const run = createProfileFetchExecutor({
+            getFriends: () => ({
+                usr_a: { id: 'usr_a' },
+                usr_b: { id: 'usr_b' }
+            }),
+            isAccountCurrent: () => true,
+            loadTracked: vi.fn().mockResolvedValue(undefined),
+            getTracked: () => ({ currentUserId: 'usr_owner', entries: [] }),
+            getUserProfile,
+            wait,
+            reconcile: vi
+                .fn()
+                .mockResolvedValue({ bioUpdated: false, statusUpdated: false })
+        });
+        const outcome = await run({ ...context(), onProfileProgress });
+        expect(wait).toHaveBeenCalledWith(7000, expect.any(AbortSignal));
+        expect(onProfileProgress).toHaveBeenCalledWith(
+            expect.objectContaining({ pauseReason: 'HTTP 429', processed: 0 })
+        );
+        expect(outcome).toMatchObject({
+            result: { processed: 2, succeeded: 2, unchanged: 1, incomplete: 1 }
+        });
+    });
+    it('uses the nonfriend profile from the same workflow round without fetching again', async () => {
+        const getUserProfile = vi.fn();
+        const run = createProfileFetchExecutor({
+            getFriends: () => ({}),
+            isAccountCurrent: () => true,
+            loadTracked: vi.fn().mockResolvedValue(undefined),
+            getTracked: () => ({
+                currentUserId: 'usr_owner',
+                entries: [{ userId: 'usr_tracked', displayName: 'Tracked' }]
+            }),
+            getUserProfile,
+            wait: vi.fn(),
+            reconcile: vi
+                .fn()
+                .mockResolvedValue({ bioUpdated: true, statusUpdated: false })
+        });
+        const profiles = new Map([
+            ['usr_tracked', { id: 'usr_tracked', bio: 'observed' }]
+        ]);
+        expect(await run({ ...context(), profiles })).toMatchObject({
+            result: { bioUpdated: 1, succeeded: 1 }
+        });
+        expect(getUserProfile).not.toHaveBeenCalled();
+    });
     it('deduplicates friends and tracked targets, retries once, and continues', async () => {
         const getUserProfile = vi
             .fn()
@@ -207,7 +299,7 @@ describe('profileFetchExecutor', () => {
         expect(reconcile).not.toHaveBeenCalled();
     });
 
-    it('stops the sweep after a persistent network failure', async () => {
+    it('records a persistent per-user network failure and continues the sweep', async () => {
         const reconcile = vi.fn();
         const getUserProfile = vi.fn().mockRejectedValue(new Error('offline'));
         const run = createProfileFetchExecutor({
@@ -222,12 +314,14 @@ describe('profileFetchExecutor', () => {
             reconcile,
             wait: vi.fn().mockResolvedValue(undefined)
         });
-        await expect(run(context())).rejects.toThrow('offline');
-        expect(getUserProfile).toHaveBeenCalledTimes(2);
+        await expect(run(context())).resolves.toMatchObject({
+            result: { failed: 2, processed: 2, succeeded: 0 }
+        });
+        expect(getUserProfile).toHaveBeenCalledTimes(4);
         expect(reconcile).not.toHaveBeenCalled();
     });
 
-    it.each([401, 429, 500])('stops immediately on HTTP %i', async (status) => {
+    it.each([401])('stops immediately on HTTP %i', async (status) => {
         const getUserProfile = vi
             .fn()
             .mockRejectedValue(
@@ -253,7 +347,7 @@ describe('profileFetchExecutor', () => {
         expect(wait).not.toHaveBeenCalled();
     });
 
-    it('stops on a typed platform rate-limit error', async () => {
+    it('pauses and retries a typed platform rate-limit error within the bounded budget', async () => {
         const getUserProfile = vi.fn().mockRejectedValue(
             Object.assign(new Error('limited'), {
                 code: 'vrchat_api',
@@ -272,8 +366,66 @@ describe('profileFetchExecutor', () => {
             reconcile: vi.fn(),
             wait: vi.fn().mockResolvedValue(undefined)
         });
-        await expect(run(context())).rejects.toMatchObject({ statusCode: 429 });
-        expect(getUserProfile).toHaveBeenCalledOnce();
+        await expect(run(context())).resolves.toMatchObject({
+            result: { failed: 2, processed: 2 }
+        });
+        expect(getUserProfile).toHaveBeenCalledTimes(4);
+    });
+    it('counts Bio and status already committed by native observers without double counting', async () => {
+        const run = createProfileFetchExecutor({
+            getFriends: () => ({ usr_a: { id: 'usr_a' } }),
+            isAccountCurrent: () => true,
+            loadTracked: vi.fn().mockResolvedValue(undefined),
+            getTracked: () => ({ currentUserId: 'usr_owner', entries: [] }),
+            getUserProfile: vi.fn().mockResolvedValue({
+                bio: 'canonical',
+                status: 'active',
+                statusDescription: '',
+                $jiraiBioUpdated: true,
+                $jiraiStatusUpdated: true
+            }),
+            reconcile: vi
+                .fn()
+                .mockResolvedValue({ bioUpdated: true, statusUpdated: true }),
+            wait: vi.fn()
+        });
+        expect(await run(context())).toMatchObject({
+            result: {
+                bioUpdated: 1,
+                statusUpdated: 1,
+                unchanged: 0,
+                succeeded: 1
+            }
+        });
+    });
+    it('continues to the next user after bounded server failures', async () => {
+        const getUserProfile = vi
+            .fn()
+            .mockRejectedValueOnce(createRequestError('server', 500, 'users/a'))
+            .mockRejectedValueOnce(createRequestError('server', 500, 'users/a'))
+            .mockResolvedValue({
+                bio: '',
+                status: 'active',
+                statusDescription: ''
+            });
+        const run = createProfileFetchExecutor({
+            getFriends: () => ({
+                usr_a: { id: 'usr_a' },
+                usr_b: { id: 'usr_b' }
+            }),
+            isAccountCurrent: () => true,
+            loadTracked: vi.fn().mockResolvedValue(undefined),
+            getTracked: () => ({ currentUserId: 'usr_owner', entries: [] }),
+            getUserProfile,
+            reconcile: vi
+                .fn()
+                .mockResolvedValue({ bioUpdated: false, statusUpdated: false }),
+            wait: vi.fn().mockResolvedValue(undefined)
+        });
+        expect(await run(context())).toMatchObject({
+            result: { failed: 1, succeeded: 1, processed: 2 }
+        });
+        expect(getUserProfile).toHaveBeenCalledTimes(3);
     });
 
     it('skips an unavailable profile but spaces the next request by three seconds', async () => {

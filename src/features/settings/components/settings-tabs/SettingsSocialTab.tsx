@@ -47,6 +47,7 @@ import { useSettingsPageSection } from '../../SettingsPageStateContext';
 import { SettingsCard } from '../SettingsCard';
 import { Field } from '../SettingsField';
 import { SettingsTabContent } from '../SettingsViewParts';
+import { EnhancedInfoFetchSetting } from './EnhancedInfoFetchSetting';
 
 type UserOption = {
     value: string;
@@ -234,6 +235,7 @@ export function SettingsSocialTab() {
                     />
                 </Field>
             </SettingsCard>
+            <EnhancedInfoFetchSetting />
             <SettingsCard
                 cardId="social.hidden-feed"
                 title={t('view.settings.social.hidden_feed.header')}

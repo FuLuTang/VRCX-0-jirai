@@ -6,10 +6,9 @@ use vrcx_0_application::social::{
     MutualGraphFriendRefreshInput, MutualGraphFriendRefreshOutput, UserMutualFriendsListInput,
     UserMutualFriendsListOutput,
 };
-use vrcx_0_persistence::mutual_graph::MutualGraphHistoryOutput;
 use vrcx_0_runtime_host_desktop::local_data::{
-    MutualGraphExtrasOutput, MutualGraphManualLinkSetInput, MutualGraphSnapshotOutput,
-    MutualGraphTrackedUserSetInput,
+    MutualGraphExtrasOutput, MutualGraphHistoryOutput, MutualGraphManualLinkSetInput,
+    MutualGraphSnapshotOutput, MutualGraphTrackedUserSetInput,
 };
 
 use crate::commands::blocking::run_blocking;

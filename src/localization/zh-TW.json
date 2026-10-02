@@ -5992,7 +5992,8 @@
         "blocked": "已封鎖你",
         "unblocked": "已解除對你的封鎖",
         "muted": "已將你靜音",
-        "unmuted": "已解除對你的靜音"
+        "unmuted": "已解除對你的靜音",
+        "relationship_recommendation": "{nameA} ↔ {nameB}：或許是好友（{score}）"
     },
     "location": {
         "offline": "離線",

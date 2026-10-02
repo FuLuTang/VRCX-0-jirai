@@ -66,9 +66,9 @@
         "context_rules_description": "Add a rule to change your status based on the instance, world, or friends around you."
     },
     "workflow": {
-        "title": "Account sync workflow",
+        "title": "Enhanced information fetching",
         "tools_description": "Run available account synchronization tasks and review skipped dependencies.",
-        "description": "Tasks run for the current account: {{account}}.",
+        "description": "Tasks run for the current account: {account}.",
         "action_list": "Synchronization tasks",
         "account_unavailable": "No current account",
         "ready": "Ready to run a new workflow.",
@@ -77,7 +77,7 @@
         "cancel_current": "Cancel current task",
         "progress_bar": "Workflow progress",
         "skip_reason": "Skip reason",
-        "summary": "Progress {{progress}}/{{total}} · Completed {{completed}} · Skipped {{skipped}} · Errors {{error}} · Running {{running}}",
+        "summary": "Progress {progress}/{total} · Completed {completed} · Skipped {skipped} · Errors {error} · Running {running}",
         "status": {
             "completed": "Completed",
             "skipped": "Skipped",
@@ -2125,7 +2125,8 @@
                 "registry_backup": "VRChat Registry Backup",
                 "registry_backup_description": "Create or restore a VRChat registry backup",
                 "llm_endpoints": "AI Connections",
-                "llm_endpoints_description": "AI connections for Social AI and translation"
+                "llm_endpoints_description": "AI connections for Social AI and translation",
+                "info_completion": "Enhanced information fetching"
             },
             "vrchat_log": {
                 "title": "VRChat Log Viewer",
@@ -4223,6 +4224,12 @@
                 "left_value_groups": "Left {value} groups",
                 "enable_value": "Enable {value}",
                 "disable_value": "Disable {value}"
+            },
+            "status_distribution": {
+                "bucket_scale": "Time bucket size",
+                "days_per_unit": "days/unit",
+                "insufficient_self_samples": "Insufficient recorded game-online intervals and status samples",
+                "self_scope": "Only recorded game-online intervals are counted, not all web or account online time."
             }
         },
         "world": {
@@ -5440,7 +5447,8 @@
                 "BlockedOnPlayerLeft": "Blocked Player Left",
                 "MutedOnPlayerJoined": "Muted Player Joined",
                 "MutedOnPlayerLeft": "Muted Player Left",
-                "VideoPlay": "Video Play"
+                "VideoPlay": "Video Play",
+                "RelationshipRecommendation": "Possible friendship"
             },
             "favorite_groups": {
                 "menu_label": "Favorite groups",
@@ -6115,7 +6123,8 @@
         "blocked": "has blocked you",
         "unblocked": "has unblocked you",
         "muted": "has muted you",
-        "unmuted": "has unmuted you"
+        "unmuted": "has unmuted you",
+        "relationship_recommendation": "{nameA} ↔ {nameB}: perhaps friends ({score})"
     },
     "location": {
         "offline": "Offline",
@@ -6687,5 +6696,79 @@
     "mutual_graph_hint": {
         "build": "No mutual friend graph yet · Build it",
         "room_scan_running": "Checking mutual friends for this instance. Try again when it finishes."
+    },
+    "enhanced_info_fetch": {
+        "system_tools": "System tools",
+        "tools_description": "Inspect enhanced fetching, manually fetch friends and tracked users, and compute relationship suggestions.",
+        "description": "Current account: {account}. Inspect profile fetching and relationship suggestions.",
+        "overview": "Run overview",
+        "strategy": "Layered strategy",
+        "results": "This run",
+        "progress": "Per-person fetching progress",
+        "processed": "Processed {processed} / {total} people",
+        "source": "Triggered by: {source}",
+        "target": "Current target: {target}",
+        "pause_reason": "Paused: {reason}",
+        "next_run": "Next run/retry: {time}",
+        "next_run_unknown": "Next run is not yet scheduled",
+        "strategy_auto": "Automatic: fetch friends and explicitly tracked users after startup, reconnect and hourly reconciliation; coordinate with Bio scanning.",
+        "strategy_profile": "On demand: fetch a snapshot when opening a profile; merge in-flight requests for the same account and target.",
+        "strategy_manual": "Manual: force-fetch all target profiles, then compute relationship suggestions; group and favorite maintenance remain unchanged.",
+        "results_note": "Processed people are not successful fetches. Bio and status updates count confirmed saved changes only; incomplete fields are shown separately and categories may overlap.",
+        "error_detail": "Run error: {error}",
+        "request_error": "The operation failed. Please try again.",
+        "background_hint": "Closing keeps the task running in the background. Reopen it from the status bar; only explicit cancellation stops this run.",
+        "run": "Fetch all manually",
+        "cancel": "Cancel this run",
+        "close": "Close",
+        "status_tooltip": "{phase} · Successful {succeeded} · Failed {failed} · Incomplete {incomplete}. Click for details.",
+        "setting_label": "Automatic enhanced information fetching",
+        "setting_description": "Automatically fetch friends and tracked users after startup, reconnect and hourly reconciliation. Disabling does not affect manual fetching or existing group/favorite maintenance.",
+        "setting_error": "Could not read or save the automatic fetching preference.",
+        "phase": {
+            "idle": "Idle",
+            "fetching": "Phase 1/2: fetching profiles",
+            "relationships": "Phase 2/2: computing relationship suggestions",
+            "paused": "Paused, waiting to retry",
+            "completed": "Completed",
+            "cancelled": "Cancelled",
+            "error": "Run failed"
+        },
+        "sources": {
+            "startup": "Startup",
+            "reconnect": "Reconnect",
+            "periodic": "Periodic reconciliation",
+            "manual": "Manual",
+            "profile": "On-demand profile"
+        },
+        "counts": {
+            "succeeded": "Successfully fetched people",
+            "unchanged": "Unchanged people",
+            "failed": "Failed people",
+            "incomplete": "People with incomplete fields",
+            "bioUpdated": "Saved Bio updates",
+            "statusUpdated": "Saved status updates"
+        }
+    },
+    "jirai": {
+        "relationship_recommendations": {
+            "title": "Perhaps friends",
+            "local_only": "Calculated from local records only, without fetching the entire relationship graph. Scores are circumstantial evidence, not confirmed friendships.",
+            "computing": "Calculating…",
+            "compute": "Calculate suggestions",
+            "confirmed": "Confirmed",
+            "confirm": "Confirm",
+            "ignore": "Ignore this run",
+            "evidence": "Evidence and score",
+            "overlay_setting": "Show possible friendship reminders on instance arrival",
+            "overlay_help": "Only shown for live arrivals while both people are present. Each pair is shown once per continuous shared stay; leaving allows a later reminder."
+        },
+        "relationship_evidence": {
+            "observed_peak": "Peak players observed in local logs",
+            "unknown": "Unknown",
+            "unknown_order": "Arrival order unknown (nearby records do not prove arriving together)",
+            "leftPlayer": "The left player appears later in the records",
+            "rightPlayer": "The right player appears later in the records"
+        }
     }
 }

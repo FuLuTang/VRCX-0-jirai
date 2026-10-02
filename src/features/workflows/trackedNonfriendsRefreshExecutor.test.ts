@@ -53,7 +53,8 @@ describe('tracked nonfriend refresh executor', () => {
         expect(getUserProfile).toHaveBeenCalledWith({
             userId: 'usr_first',
             force: true,
-            isFriend: false
+            isFriend: false,
+            signal: expect.any(AbortSignal)
         });
         expect(wait).toHaveBeenCalledTimes(1);
         expect(outcome).toEqual({

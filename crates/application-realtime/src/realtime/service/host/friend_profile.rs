@@ -26,6 +26,7 @@ pub(super) struct FriendProfileRefreshExpectation {
 }
 
 impl RealtimeHostRuntime {
+    #[cfg(test)]
     pub(super) fn apply_friend_profile_refresh(
         self: &Arc<Self>,
         endpoint: String,
@@ -33,13 +34,24 @@ impl RealtimeHostRuntime {
         profile: serde_json::Value,
         expectation: FriendProfileRefreshExpectation,
     ) -> Result<bool> {
+        self.apply_friend_profile_refresh_with_receipt(endpoint, user_id, profile, expectation)
+            .map(|(applied, _)| applied)
+    }
+
+    fn apply_friend_profile_refresh_with_receipt(
+        self: &Arc<Self>,
+        endpoint: String,
+        user_id: String,
+        profile: serde_json::Value,
+        expectation: FriendProfileRefreshExpectation,
+    ) -> Result<(bool, bool)> {
         let normalized_user_id = user_id.trim().to_string();
         if normalized_user_id.is_empty() {
-            return Ok(false);
+            return Ok((false, false));
         }
         let profile_user_id = json_string_field(profile.get("id"));
         if profile_user_id != normalized_user_id {
-            return Ok(false);
+            return Ok((false, false));
         }
         let requested_endpoint = endpoint.trim().to_string();
         let Some(active) = self
@@ -50,18 +62,21 @@ impl RealtimeHostRuntime {
             .active_context
             .clone()
         else {
-            return Ok(false);
+            return Ok((false, false));
         };
         if expectation.generation != active.generation
             || active.session.endpoint != requested_endpoint
-            || !self.apply_refetched_friend_profile(
-                &active,
-                &normalized_user_id,
-                expectation.rev,
-                profile,
-            )
         {
-            return Ok(false);
+            return Ok((false, false));
+        }
+        let (applied, status_updated) = self.apply_refetched_friend_profile_with_receipt(
+            &active,
+            &normalized_user_id,
+            expectation.rev,
+            profile,
+        );
+        if !applied {
+            return Ok((false, false));
         }
         let runtime = Arc::clone(self);
         self.deps.tasks.spawn(async move {
@@ -70,7 +85,7 @@ impl RealtimeHostRuntime {
                 .invalidate_user(&requested_endpoint, &normalized_user_id)
                 .await;
         });
-        Ok(true)
+        Ok((true, status_updated))
     }
 
     fn apply_refetched_friend_profile(
@@ -80,6 +95,17 @@ impl RealtimeHostRuntime {
         rev: u64,
         profile: Value,
     ) -> bool {
+        self.apply_refetched_friend_profile_with_receipt(active, user_id, rev, profile)
+            .0
+    }
+
+    fn apply_refetched_friend_profile_with_receipt(
+        self: &Arc<Self>,
+        active: &ActiveRealtimeContext,
+        user_id: &str,
+        rev: u64,
+        profile: Value,
+    ) -> (bool, bool) {
         let owner = self.lock_friend_owner();
         let current = match self.state.lock() {
             Ok(state) => self.is_message_current_locked(
@@ -94,7 +120,7 @@ impl RealtimeHostRuntime {
             }
         };
         if !current {
-            return false;
+            return (false, false);
         }
         match self.friends.apply_refetched_user_profile_if_rev(
             active.generation,
@@ -104,11 +130,27 @@ impl RealtimeHostRuntime {
             &chrono::Utc::now().to_rfc3339(),
         ) {
             RealtimeFriendApplyResult::Output(output) => {
-                self.apply_friend_output_owned(&owner, *output);
-                true
+                let has_status = output.persistence.feed_entries.iter().any(|entry| {
+                    matches!(
+                        entry,
+                        vrcx_0_contracts::feed_live::FeedLiveEntry::Status { .. }
+                    )
+                });
+                let persisted = matches!(
+                    self.apply_friend_output_owned(&owner, *output),
+                    super::fanout::FriendOutputApplyOutcome::Applied {
+                        persistence_succeeded: true
+                    }
+                );
+                (
+                    true,
+                    has_status
+                        && persisted
+                        && !self.feed_persistence_disabled.load(Ordering::Relaxed),
+                )
             }
             RealtimeFriendApplyResult::MissingBaseline | RealtimeFriendApplyResult::Ignored => {
-                false
+                (false, false)
             }
         }
     }
@@ -319,15 +361,21 @@ impl RealtimeHostRuntime {
             let was_fetched = fetched.load(Ordering::SeqCst);
             match serde_json::from_str::<Value>(&value.data) {
                 Ok(mut profile) => {
-                    if was_fetched {
+                    let status_updated = if was_fetched {
                         self.ingest_user_get_profile(
                             &endpoint,
                             &user_id,
                             &profile,
                             refresh_expectation,
-                        );
-                    }
+                        )
+                    } else {
+                        false
+                    };
                     if let Some(object) = profile.as_object_mut() {
+                        object.insert(
+                            "$jiraiStatusUpdated".into(),
+                            serde_json::Value::Bool(status_updated),
+                        );
                         vrcx_0_core::user_facts::apply_derived_fields(object);
                         if let Ok(data) = serde_json::to_string(&profile) {
                             value.data = data;
@@ -372,7 +420,7 @@ impl RealtimeHostRuntime {
         requested_user_id: &str,
         profile: &Value,
         expectation: Option<FriendProfileRefreshExpectation>,
-    ) {
+    ) -> bool {
         let profile_user_id = json_string_field(profile.get("id"));
         if profile_user_id != requested_user_id {
             tracing::warn!(
@@ -380,22 +428,26 @@ impl RealtimeHostRuntime {
                 profile_user_id = %profile_user_id,
                 "[Realtime] getUser response user mismatch; skipping merge"
             );
-            return;
+            return false;
         }
         self.record_user_profile(endpoint, profile);
         let Some(expectation) = expectation else {
-            return;
+            return false;
         };
-        if let Err(error) = self.apply_friend_profile_refresh(
+        match self.apply_friend_profile_refresh_with_receipt(
             endpoint.to_string(),
             requested_user_id.to_string(),
             profile.clone(),
             expectation,
         ) {
-            tracing::warn!(
-                user_id = %requested_user_id,
-                "getUser friend profile refresh failed: {error}"
-            );
+            Ok((_, status_updated)) => status_updated,
+            Err(error) => {
+                tracing::warn!(
+                    user_id = %requested_user_id,
+                    "getUser friend profile refresh failed: {error}"
+                );
+                false
+            }
         }
     }
 

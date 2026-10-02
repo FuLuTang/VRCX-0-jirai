@@ -186,6 +186,7 @@ mod tests {
                         &format!("usr_{index}"),
                     ),
                     Arc::new(VrchatApiResponse {
+                        retry_after: None,
                         status: 404,
                         data: "{}".into(),
                     }),

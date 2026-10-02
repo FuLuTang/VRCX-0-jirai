@@ -15,11 +15,19 @@ pub(in crate::state) async fn run_background_profile_bio_scan(
     context: &BackgroundTickContext<'_>,
     pacer: &ProfileBioScanPacer,
 ) {
-    let enabled = context
+    // Preserve the user's legacy switch. Enhanced sweeps own collection while
+    // enabled; disabling them restores the previous scan behavior unchanged.
+    let enhanced = context
         .runtime_context
         .config()
-        .get_bool(PROFILE_BIO_SCAN_CONFIG_KEY, false)
-        .unwrap_or(false);
+        .get_bool("enhancedInfoFetchEnabled", true)
+        .unwrap_or(true);
+    let enabled = !enhanced
+        && context
+            .runtime_context
+            .config()
+            .get_bool(PROFILE_BIO_SCAN_CONFIG_KEY, false)
+            .unwrap_or(false);
     let Some(session) =
         background_capability_session_identity(context.session_slot).filter(|_| enabled)
     else {

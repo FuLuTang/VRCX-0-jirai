@@ -45,6 +45,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/shadcn/tooltip';
 
 import { DoNotDisturbMenu } from './DoNotDisturbMenu';
+import { EnhancedInfoFetchStatus } from './EnhancedInfoFetchStatus';
 import {
     AppUptimeValue,
     ClockValue,
@@ -633,6 +634,9 @@ export const StatusBarFooter = forwardRef<HTMLElement, StatusBarFooterProps>(
                             })}
                             className="text-muted-foreground"
                         />
+                        {visibility.profileInfoSync !== false ? (
+                            <EnhancedInfoFetchStatus />
+                        ) : null}
                         <StatusSegment
                             visible={friendProfileLoadVisible}
                             showDot={false}

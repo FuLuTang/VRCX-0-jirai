@@ -128,6 +128,25 @@ pub fn profile_feed_reconcile(
     owner_user_id: &OwnerId,
     input: ProfileFeedReconcileInput,
 ) -> Result<ProfileFeedReconcileOutput, Error> {
+    profile_feed_reconcile_with_entries(db, owner_user_id, input).map(|(output, _)| output)
+}
+
+/// The saved entries are returned for live Feed notification only after the
+/// transaction commits. Observation paths share this comparison boundary.
+pub fn profile_feed_reconcile_with_entries(
+    db: &DatabaseService,
+    owner_user_id: &OwnerId,
+    input: ProfileFeedReconcileInput,
+) -> Result<(ProfileFeedReconcileOutput, Vec<FeedLiveEntry>), Error> {
+    profile_feed_reconcile_with_description_policy(db, owner_user_id, input, false)
+}
+
+pub fn profile_feed_reconcile_with_description_policy(
+    db: &DatabaseService,
+    owner_user_id: &OwnerId,
+    input: ProfileFeedReconcileInput,
+    preserve_status_description: bool,
+) -> Result<(ProfileFeedReconcileOutput, Vec<FeedLiveEntry>), Error> {
     let owner_user_id = OwnerId::new(normalize_user_id(owner_user_id.as_str()));
     if owner_user_id.is_empty() {
         return Err(Error::Database(
@@ -147,6 +166,11 @@ pub fn profile_feed_reconcile(
     }
     let user_prefix = normalize_user_table_prefix(owner_user_id.as_str())?;
     ensure_realtime_tables(db, &user_prefix)?;
+    // Keep the legacy progressive scanner's baseline in sync with explicit
+    // observations, without altering its enable flag or freshness policy.
+    if input.bio.is_some() {
+        crate::profile_bio::profile_bio_get(db, &owner_user_id, &user_id)?;
+    }
     db.write_transaction(|tx| {
         let bio_rows = tx.execute(
             &format!("SELECT bio FROM {user_prefix}_feed_bio WHERE user_id = @user_id ORDER BY created_at DESC, id DESC LIMIT 1"),
@@ -161,21 +185,33 @@ pub fn profile_feed_reconcile(
         let has_status = !status_rows.is_empty();
         let previous_status = status_rows.first().and_then(|row| row.first()).and_then(Value::as_str).unwrap_or("").to_string();
         let previous_status_description = status_rows.first().and_then(|row| row.get(1)).and_then(Value::as_str).unwrap_or("").to_string();
+        let status_description = if preserve_status_description { previous_status_description.clone() } else { input.status_description.clone() };
         let status = input.status.trim().to_lowercase();
         let bio_updated = input
             .bio
             .as_ref()
             .is_some_and(|bio| !has_bio || previous_bio != *bio);
         let status_updated = ["join me", "active", "ask me", "busy"].contains(&status.as_str())
-            && (!has_status || previous_status != status || previous_status_description != input.status_description);
-        let created_at = vrcx_0_core::time::now_iso();
-        if let Some(bio) = input.bio.as_ref().filter(|_| bio_updated) {
-            insert_feed_entry(tx, &user_prefix, &FeedLiveEntry::Bio { created_at: created_at.clone(), user_id: user_id.clone(), display_name: input.display_name.clone(), bio: bio.clone(), previous_bio, owner_user_id: owner_user_id.as_str().to_string() })?;
-        }
-        if status_updated {
-            insert_feed_entry(tx, &user_prefix, &FeedLiveEntry::Status { created_at, user_id: user_id.clone(), display_name: input.display_name.clone(), status, status_description: input.status_description.clone(), previous_status, previous_status_description, owner_user_id: owner_user_id.as_str().to_string() })?;
-        }
-        Ok(ProfileFeedReconcileOutput { bio_updated, status_updated })
+            && (!has_status || previous_status != status || previous_status_description != status_description);
+          let created_at = vrcx_0_core::time::now_iso();
+          let mut entries = Vec::new();
+          if let Some(bio) = input.bio.as_ref().filter(|_| bio_updated) {
+              let entry = FeedLiveEntry::Bio { created_at: created_at.clone(), user_id: user_id.clone(), display_name: input.display_name.clone(), bio: bio.clone(), previous_bio, owner_user_id: owner_user_id.as_str().to_string() };
+              insert_feed_entry(tx, &user_prefix, &entry)?;
+              entries.push(entry);
+          }
+          if status_updated {
+              let entry = FeedLiveEntry::Status { created_at: created_at.clone(), user_id: user_id.clone(), display_name: input.display_name.clone(), status, status_description, previous_status, previous_status_description, owner_user_id: owner_user_id.as_str().to_string() };
+              insert_feed_entry(tx, &user_prefix, &entry)?;
+              entries.push(entry);
+          }
+          if let Some(bio) = input.bio.as_ref() {
+              tx.execute_non_query(
+                  &format!("INSERT INTO {user_prefix}_profile_bio (user_id, bio, checked_at) VALUES (@user_id, @bio, @checked_at) ON CONFLICT(user_id) DO UPDATE SET bio = excluded.bio, checked_at = excluded.checked_at"),
+                  &ParamsBuilder::new().set("user_id", user_id.clone()).set("bio", bio.clone()).set("checked_at", created_at).build(),
+              )?;
+          }
+          Ok((ProfileFeedReconcileOutput { bio_updated, status_updated }, entries))
     })
 }
 

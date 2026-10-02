@@ -66,9 +66,9 @@
         "context_rules_description": "添加规则，根据所在房间、世界或身边好友自动调整状态。"
     },
     "workflow": {
-        "title": "账户同步任务",
+        "title": "增强型信息抓取",
         "tools_description": "运行可用的账户同步任务并查看被跳过的依赖。",
-        "description": "任务将对当前账户运行：{{account}}。",
+        "description": "任务将对当前账户运行：{account}。",
         "action_list": "同步任务",
         "account_unavailable": "没有当前账户",
         "ready": "已准备好运行新的任务流程。",
@@ -77,7 +77,7 @@
         "cancel_current": "取消当前任务",
         "progress_bar": "任务流程进度",
         "skip_reason": "跳过原因",
-        "summary": "进度 {{progress}}/{{total}} · 完成 {{completed}} · 跳过 {{skipped}} · 错误 {{error}} · 进行中 {{running}}",
+        "summary": "进度 {progress}/{total} · 完成 {completed} · 跳过 {skipped} · 错误 {error} · 进行中 {running}",
         "status": {
             "completed": "已完成",
             "skipped": "已跳过",
@@ -2110,7 +2110,8 @@
                 "registry_backup": "VRChat 设置数据备份工具",
                 "registry_backup_description": "创建或恢复 VRChat 的设置备份",
                 "llm_endpoints": "AI 连接",
-                "llm_endpoints_description": "AI 助手和翻译使用的 AI 连接"
+                "llm_endpoints_description": "AI 助手和翻译使用的 AI 连接",
+                "info_completion": "增强型信息抓取"
             },
             "vrchat_log": {
                 "title": "VRChat 日志查看器",
@@ -4204,6 +4205,12 @@
                 "left_value_groups": "已成功退出 {value} 个群组",
                 "enable_value": "启用 {value}",
                 "disable_value": "禁用 {value}"
+            },
+            "status_distribution": {
+                "bucket_scale": "时间分桶大小",
+                "days_per_unit": "天/单位",
+                "insufficient_self_samples": "有记录的游戏在线区间与灯色样本不足",
+                "self_scope": "仅统计有记录的游戏在线区间，不代表网页或账号的全部在线时长。"
             }
         },
         "world": {
@@ -5421,7 +5428,8 @@
                 "BlockedOnPlayerLeft": "已屏蔽玩家离开",
                 "MutedOnPlayerJoined": "已静音玩家加入",
                 "MutedOnPlayerLeft": "已静音玩家离开",
-                "VideoPlay": "视频播放"
+                "VideoPlay": "视频播放",
+                "RelationshipRecommendation": "或许是好友"
             },
             "favorite_groups": {
                 "menu_label": "收藏分组",
@@ -6096,7 +6104,8 @@
         "blocked": "屏蔽了你",
         "unblocked": "取消了对你的屏蔽",
         "muted": "屏蔽了你的语音",
-        "unmuted": "取消了对你的语音屏蔽"
+        "unmuted": "取消了对你的语音屏蔽",
+        "relationship_recommendation": "{nameA} ↔ {nameB}：或许是好友（{score}）"
     },
     "location": {
         "offline": "离线",
@@ -6668,5 +6677,79 @@
     "mutual_graph_hint": {
         "build": "尚未生成好友关系图，去生成",
         "room_scan_running": "正在查询本房间的共同好友，请稍后再试"
+    },
+    "enhanced_info_fetch": {
+        "system_tools": "系统工具",
+        "tools_description": "查看增强抓取进度，手动抓取好友与追踪对象的资料并计算关系建议。",
+        "description": "当前账号：{account}。查看资料抓取与关系建议计算。",
+        "overview": "运行概况",
+        "strategy": "分层策略",
+        "results": "本轮结果",
+        "progress": "逐人抓取进度",
+        "processed": "已处理 {processed} / {total} 人",
+        "source": "触发来源：{source}",
+        "target": "当前对象：{target}",
+        "pause_reason": "暂停原因：{reason}",
+        "next_run": "下次运行/重试：{time}",
+        "next_run_unknown": "下次运行时间尚未安排",
+        "strategy_auto": "自动：启动、重连和小时级对账后补采好友与显式追踪对象；协调 Bio 扫描。",
+        "strategy_profile": "按需：打开资料页时抓取该用户快照；同账号同对象的进行中请求合并。",
+        "strategy_manual": "手动：全量强刷目标资料，再计算关系建议；群组与收藏维护保持原有策略。",
+        "results_note": "处理人数不代表成功人数。Bio 与状态更新仅统计确认落盘的变更；缺字段单独显示，结果类别可能重叠。",
+        "error_detail": "运行错误：{error}",
+        "request_error": "操作失败，请稍后重试。",
+        "background_hint": "关闭弹窗后后台继续运行，可从状态栏重开。仅显式取消才停止本轮任务。",
+        "run": "手动全量抓取",
+        "cancel": "取消本轮",
+        "close": "关闭",
+        "status_tooltip": "{phase} · 成功 {succeeded} · 失败 {failed} · 缺字段 {incomplete}。点击查看详情。",
+        "setting_label": "自动增强型信息抓取",
+        "setting_description": "启动、重连与小时级对账后自动补采好友和追踪对象。关闭不影响手动抓取或原有群组、收藏维护。",
+        "setting_error": "无法读取或保存自动抓取设置。",
+        "phase": {
+            "idle": "待机",
+            "fetching": "阶段 1/2：抓取资料",
+            "relationships": "阶段 2/2：计算关系建议",
+            "paused": "已暂停，等待重试",
+            "completed": "已完成",
+            "cancelled": "已取消",
+            "error": "运行出错"
+        },
+        "sources": {
+            "startup": "启动",
+            "reconnect": "重连",
+            "periodic": "定时对账",
+            "manual": "手动",
+            "profile": "资料页按需"
+        },
+        "counts": {
+            "succeeded": "成功抓取人数",
+            "unchanged": "无变化人数",
+            "failed": "失败人数",
+            "incomplete": "缺字段人数",
+            "bioUpdated": "已落盘 Bio 更新",
+            "statusUpdated": "已落盘状态更新"
+        }
+    },
+    "jirai": {
+        "relationship_recommendations": {
+            "title": "或许是好友",
+            "local_only": "仅根据本地记录计算，不抓取完整关系网。分数是推测证据，并非好友确认。",
+            "computing": "计算中…",
+            "compute": "计算建议",
+            "confirmed": "已确认",
+            "confirm": "确认",
+            "ignore": "本次忽略",
+            "evidence": "证据与分数",
+            "overlay_setting": "进房时提醒「或许是好友」",
+            "overlay_help": "仅真实进入实例且双方同时在场时显示。连续同房只提醒一次，离开后再次同房可重触发。"
+        },
+        "relationship_evidence": {
+            "observed_peak": "本地记录峰值人数",
+            "unknown": "未知",
+            "unknown_order": "进入先后未知（近时记录不等于共同进入）",
+            "leftPlayer": "左侧玩家较晚出现于记录",
+            "rightPlayer": "右侧玩家较晚出现于记录"
+        }
     }
 }

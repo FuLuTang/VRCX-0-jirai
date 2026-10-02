@@ -5970,7 +5970,8 @@
         "blocked": "にブロックされました",
         "unblocked": "によるブロックが解除されました",
         "muted": "にミュートされました",
-        "unmuted": "によるミュートが解除されました"
+        "unmuted": "によるミュートが解除されました",
+        "relationship_recommendation": "{nameA} ↔ {nameB}：フレンドの可能性（{score}）"
     },
     "location": {
         "offline": "オフライン",

@@ -47,6 +47,13 @@ const GROUP_FAVORITE_SCOPES: &[OverlayActivityScope] = &[
 
 const ACTIVITY_TYPES: &[ActivityTypeDefinition] = &[
     definition(
+        "RelationshipRecommendation",
+        OverlayActivityCategory::SystemSafety,
+        BOOLEAN_SCOPES,
+        OverlayActivityScope::On,
+        &[],
+    ),
+    definition(
         "invite",
         OverlayActivityCategory::ActionRequired,
         DIRECT_ACTOR_SCOPES,

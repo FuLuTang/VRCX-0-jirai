@@ -33,6 +33,7 @@ impl WorldRemotePort for RecordingPort {
         self.calls.lock().unwrap().push((scope, operation));
         Box::pin(async {
             Ok(VrchatApiResponse {
+                retry_after: None,
                 status: 200,
                 data: r#"{"id":"wrld_test"}"#.into(),
             })

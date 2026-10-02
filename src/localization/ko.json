@@ -5914,7 +5914,8 @@
         "blocked": "나를 차단했습니다",
         "unblocked": "나에 대한 차단을 해제했습니다",
         "muted": "나를 음소거했습니다",
-        "unmuted": "나에 대한 음소거를 해제했습니다"
+        "unmuted": "나에 대한 음소거를 해제했습니다",
+        "relationship_recommendation": "{nameA} ↔ {nameB}: 친구일 가능성 ({score})"
     },
     "location": {
         "offline": "오프라인",

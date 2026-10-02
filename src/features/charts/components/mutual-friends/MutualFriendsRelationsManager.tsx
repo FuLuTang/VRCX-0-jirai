@@ -9,15 +9,16 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { FriendMultiSelectList } from '@/components/search/FriendMultiSelectList';
-import userProfileRepository from '@/repositories/userProfileRepository';
-import { Button } from '@/ui/shadcn/button';
-import { Input } from '@/ui/shadcn/input';
-
 import type {
     MutualFriendManualLink,
     MutualFriendPickerOption,
     MutualFriendTrackedUser
 } from '@/lib/mutual-friends/mutualFriendsTypes';
+import userProfileRepository from '@/repositories/userProfileRepository';
+import { Button } from '@/ui/shadcn/button';
+import { Input } from '@/ui/shadcn/input';
+
+import { RelationshipRecommendationsPanel } from '../../relationship-recommendations/RelationshipRecommendationsPanel';
 
 export function MutualFriendsRelationsManager({
     manualLinks,
@@ -304,6 +305,7 @@ export function MutualFriendsRelationsManager({
                     )}
                 </section>
             ) : null}
+            {mode === 'manual' ? <RelationshipRecommendationsPanel /> : null}
         </div>
     );
 }

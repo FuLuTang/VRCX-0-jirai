@@ -81,6 +81,7 @@ impl VrchatRequestPort for ScriptedRequestPort {
 
 fn response(status: i32, body: serde_json::Value) -> VrchatApiResponse {
     VrchatApiResponse {
+        retry_after: None,
         status,
         data: body.to_string(),
     }

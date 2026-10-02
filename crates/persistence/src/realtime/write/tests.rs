@@ -1162,6 +1162,7 @@ fn startup_online_backfill_writes_only_current_friends_with_native_now() -> Resu
             vip_list: Vec::new(),
             scoped_user_ids: vec!["usr_missing".into()],
             excluded_user_ids: Vec::new(),
+            location_hidden_user_ids: Vec::new(),
             max_entries: 10,
             date_from: String::new(),
             date_to: String::new(),
@@ -1289,5 +1290,64 @@ fn profile_feed_reconcile_does_not_clear_bio_when_field_is_missing() -> Result<(
     )?;
     assert_eq!(rows.len(), 2);
     assert_eq!(rows[1][0].as_str(), Some(""));
+    Ok(())
+}
+
+#[test]
+fn profile_feed_missing_description_preserves_last_phrase() -> Result<(), crate::Error> {
+    let dir = TestDir::new("profile-feed-missing-description");
+    let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3"))?;
+    let owner = OwnerId::new("usr_owner");
+    let input = |status: &str, description: &str| ProfileFeedReconcileInput {
+        expected_owner_user_id: "usr_owner".into(),
+        user_id: "usr_target".into(),
+        display_name: "Target".into(),
+        bio: None,
+        status: status.into(),
+        status_description: description.into(),
+    };
+    assert!(profile_feed_reconcile(&db, &owner, input("active", "keep me"))?.status_updated);
+    let (result, _) = crate::realtime::profile_feed_reconcile_with_description_policy(
+        &db,
+        &owner,
+        input("busy", ""),
+        true,
+    )?;
+    assert!(result.status_updated);
+    let rows = db.execute(
+        "SELECT status, status_description FROM usrowner_feed_status ORDER BY id DESC LIMIT 1",
+        &Default::default(),
+    )?;
+    assert_eq!(rows[0][0].as_str(), Some("busy"));
+    assert_eq!(rows[0][1].as_str(), Some("keep me"));
+    assert!(profile_feed_reconcile(&db, &owner, input("busy", ""))?.status_updated);
+    Ok(())
+}
+
+#[test]
+fn canonical_profile_receipt_reports_committed_change_before_batch_reconcile(
+) -> Result<(), crate::Error> {
+    let dir = TestDir::new("canonical-profile-receipt");
+    let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3"))?;
+    let owner = OwnerId::new("usr_owner");
+    let input = || ProfileFeedReconcileInput {
+        expected_owner_user_id: "usr_owner".into(),
+        user_id: "usr_target".into(),
+        display_name: "Target".into(),
+        bio: Some("Canonical".into()),
+        status: String::new(),
+        status_description: String::new(),
+    };
+    let (receipt, saved) =
+        crate::realtime::profile_feed_reconcile_with_entries(&db, &owner, input())?;
+    assert!(receipt.bio_updated);
+    assert_eq!(saved.len(), 1);
+    assert!(!profile_feed_reconcile(&db, &owner, input())?.bio_updated);
+    let (repeated, saved) =
+        crate::realtime::profile_feed_reconcile_with_entries(&db, &owner, input())?;
+    assert!(!repeated.bio_updated);
+    assert!(saved.is_empty());
+    let scanner_baseline = crate::profile_bio::profile_bio_get(&db, &owner, "usr_target")?.unwrap();
+    assert_eq!(scanner_baseline.bio, "Canonical");
     Ok(())
 }

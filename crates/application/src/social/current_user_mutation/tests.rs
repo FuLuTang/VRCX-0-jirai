@@ -43,6 +43,7 @@ impl CurrentUserMutationPort for FakePort {
                 auth_scope.set("usr_switched", "https://api.example.test/api/1");
             }
             Ok(VrchatApiResponse {
+                retry_after: None,
                 status: self.response_status,
                 data: "{}".to_string(),
             })

@@ -232,6 +232,8 @@ export const ConfigKeys = defineConfigKeys({
     friendLogNotificationDot: { type: 'bool', default: true },
     hideUnfriends: { type: 'bool', default: false },
     profileBioScanEnabled: { type: 'bool', default: false },
+    enhancedInfoFetchEnabled: { type: 'bool', default: true },
+    relationshipRecommendationOverlayEnabled: { type: 'bool', default: true },
     pcUptimeOnFeed: { type: 'bool', default: false },
     minimalFeed: { type: 'bool', default: false },
     recentActionCooldownEnabled: { type: 'bool', default: false },

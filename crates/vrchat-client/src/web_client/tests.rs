@@ -1,5 +1,28 @@
 use super::*;
 
+#[tokio::test]
+async fn api_read_preserves_retry_after_header() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = tokio::spawn(async move {
+        let (mut socket, _) = listener.accept().await.unwrap();
+        let mut buffer = [0; 4096];
+        socket.read(&mut buffer).await.unwrap();
+        socket.write_all(b"HTTP/1.1 429 Too Many Requests\r\nRetry-After: 120\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}").await.unwrap();
+    });
+    let client = WebClient::new(None, None, env!("CARGO_PKG_VERSION")).unwrap();
+    let response = client
+        .execute_with_retry_after(WebExecuteRequest::new(
+            format!("http://{address}/profile"),
+            "GET".into(),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response, (429, "{}".into(), Some("120".into())));
+    server.await.unwrap();
+}
+
 async fn serve_socks5_response() -> (String, tokio::task::JoinHandle<String>) {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;

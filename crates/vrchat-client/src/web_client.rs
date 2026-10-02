@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use cookie_store::{CookieStore, RawCookie};
-use reqwest::header::{HeaderName, HeaderValue, CONTENT_TYPE, REFERER};
+use reqwest::header::{HeaderName, HeaderValue, CONTENT_TYPE, REFERER, RETRY_AFTER};
 use reqwest::multipart::{Form, Part};
 use reqwest::redirect::Policy;
 use reqwest::{Client, Method, Proxy};
@@ -304,11 +304,26 @@ async fn execute_request(
     request: reqwest::Request,
     response_body_limit: Option<usize>,
 ) -> Result<(i32, String)> {
+    execute_request_with_retry_after(client, request, response_body_limit)
+        .await
+        .map(|(status, data, _)| (status, data))
+}
+
+async fn execute_request_with_retry_after(
+    client: &Client,
+    request: reqwest::Request,
+    response_body_limit: Option<usize>,
+) -> Result<(i32, String, Option<String>)> {
     let mut response = client
         .execute(request)
         .await
         .map_err(|e| Error::Custom(e.to_string()))?;
     let status = response.status().as_u16() as i32;
+    let retry_after = response
+        .headers()
+        .get(RETRY_AFTER)
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_owned);
     let content_type = response
         .headers()
         .get(CONTENT_TYPE)
@@ -347,7 +362,8 @@ async fn execute_request(
             }
             bytes.extend_from_slice(&chunk);
         }
-        return Ok(response_body_from_bytes(status, &content_type, &bytes));
+        let (status, data) = response_body_from_bytes(status, &content_type, &bytes);
+        return Ok((status, data, retry_after));
     }
 
     if content_type.starts_with("image/") || content_type == "application/octet-stream" {
@@ -355,13 +371,14 @@ async fn execute_request(
             .bytes()
             .await
             .map_err(|e| Error::Custom(e.to_string()))?;
-        Ok(response_body_from_bytes(status, &content_type, &bytes))
+        let (status, data) = response_body_from_bytes(status, &content_type, &bytes);
+        Ok((status, data, retry_after))
     } else {
         let body = response
             .text()
             .await
             .map_err(|e| Error::Custom(e.to_string()))?;
-        Ok((status, body))
+        Ok((status, body, retry_after))
     }
 }
 
@@ -493,6 +510,28 @@ impl WebClient {
         let result = self.do_execute(request).await;
 
         normalize_execute_result(result)
+    }
+
+    /// API reads preserve Retry-After; legacy callers keep the pair response.
+    pub async fn execute_with_retry_after(
+        &self,
+        mut request: WebExecuteRequest,
+    ) -> Result<(i32, String, Option<String>)> {
+        if !matches!(&request.upload, WebUploadMode::None) {
+            return self
+                .execute(request)
+                .await
+                .map(|(status, data)| (status, data, None));
+        }
+        let limit = request.response_body_limit;
+        let result = match self.build_standard_request(&mut request) {
+            Ok(request) => execute_request_with_retry_after(&self.client, request, limit).await,
+            Err(error) => Err(error),
+        };
+        match result {
+            Ok(response) => Ok(response),
+            Err(error) => Ok((-1, error.to_string(), None)),
+        }
     }
 
     pub async fn execute_without_redirects(

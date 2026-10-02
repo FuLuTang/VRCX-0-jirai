@@ -33,6 +33,7 @@ const VISIBILITY_MENU_ITEMS: Array<readonly [StatusBarVisibilityKey, string]> =
         ['steamvr', 'SteamVR'],
         ['instanceQueue', 'status_bar.instance_queue'],
         ['mutualGraph', 'status_bar.mutual_graph'],
+        ['profileInfoSync', 'view.tools.system_tools.info_completion'],
         ['ws', 'status_bar.realtime_connection'],
         ['uptime', 'status_bar.app_uptime_short'],
         ['zoom', 'status_bar.zoom'],
@@ -58,7 +59,11 @@ export function StatusBarContextMenuContent({
                 {VISIBILITY_MENU_ITEMS.map(([key, label]) => (
                     <ContextMenuCheckboxItem
                         key={key}
-                        checked={Boolean(visibility[key])}
+                        checked={
+                            key === 'profileInfoSync'
+                                ? visibility[key] !== false
+                                : Boolean(visibility[key])
+                        }
                         onClick={(event) => event.preventDefault()}
                         onCheckedChange={(checked) =>
                             onToggleVisibility(key, checked)

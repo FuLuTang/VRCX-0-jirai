@@ -106,18 +106,79 @@ impl DesktopVrchatRemoteFacade {
     }
 
     pub async fn user_profile(&self, user_id: String, as_self: bool) -> Result<VrchatApiResponse> {
+        let scope = self.profile_bio.scope();
         let (user_id, request) =
             profile_get_input(VRCHAT_API_DEFAULT_ENDPOINT.into(), user_id, as_self)?;
-        let response = self
-            .execute(
-                "app__vrchat_user_profile_get",
-                format!("Getting profile for user {user_id}."),
-                request,
-                VrchatScope::Vrchat,
+        let facade = self.clone();
+        let expected = scope.clone();
+        let request_id = user_id.clone();
+        self.profile_bio
+            .request(
+                &scope,
+                if as_self { "self-profile" } else { "profile" },
+                &request_id,
+                async move {
+                    let mut response = facade
+                        .execute(
+                            "app__vrchat_user_profile_get",
+                            format!("Getting profile for user {user_id}."),
+                            request,
+                            VrchatScope::Vrchat,
+                        )
+                        .await?;
+                    if let Some(output) = facade.profile_bio.observe(&response, &expected, true) {
+                        if let Ok(mut json) =
+                            serde_json::from_str::<serde_json::Value>(&response.data)
+                        {
+                            if let Some(object) = json.as_object_mut() {
+                                object.insert(
+                                    "$jiraiBioUpdated".into(),
+                                    serde_json::Value::Bool(output.bio_updated),
+                                );
+                                response.data = json.to_string();
+                            }
+                        }
+                    }
+                    Ok(response)
+                },
             )
-            .await?;
-        self.profile_bio.observe(&response);
-        Ok(response)
+            .await
+    }
+
+    pub fn observe_dialog_user(
+        &self,
+        response: &mut VrchatApiResponse,
+        scope: &vrcx_0_application_core::RuntimeAuthScopeSnapshot,
+    ) {
+        if let Some(output) = self.profile_bio.observe(response, scope, false) {
+            if let Ok(mut json) = serde_json::from_str::<serde_json::Value>(&response.data) {
+                if let Some(object) = json.as_object_mut() {
+                    let realtime_updated = object
+                        .get("$jiraiStatusUpdated")
+                        .and_then(serde_json::Value::as_bool)
+                        .unwrap_or(false);
+                    object.insert(
+                        "$jiraiStatusUpdated".into(),
+                        (output.status_updated || realtime_updated).into(),
+                    );
+                    response.data = json.to_string();
+                }
+            }
+        }
+    }
+
+    pub async fn share_user_request<F>(
+        &self,
+        scope: &vrcx_0_application_core::RuntimeAuthScopeSnapshot,
+        user_id: &str,
+        fetch: F,
+    ) -> Result<VrchatApiResponse>
+    where
+        F: std::future::Future<Output = Result<VrchatApiResponse>> + Send + 'static,
+    {
+        self.profile_bio
+            .request(scope, "user", user_id, fetch)
+            .await
     }
 
     pub async fn user_represented_group(&self, user_id: String) -> Result<VrchatApiResponse> {

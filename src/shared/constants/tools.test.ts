@@ -10,6 +10,7 @@ import {
 describe('tool catalog categories', () => {
     it('uses the intended category order and tool grouping', () => {
         expect(toolCategories.map((category) => category.key)).toEqual([
+            'system',
             'image',
             'shortcuts',
             'automation',
@@ -27,6 +28,7 @@ describe('tool catalog categories', () => {
                 ])
             )
         ).toEqual({
+            system: ['sync-workflow'],
             image: ['screenshot-metadata', 'gallery', 'inventory'],
             shortcuts: [
                 'vrc-photos',
@@ -36,7 +38,6 @@ describe('tool catalog categories', () => {
                 'crash-dumps'
             ],
             automation: [
-                'sync-workflow',
                 'app-launcher',
                 'presence-schedule',
                 'presence-room-rules',
@@ -59,6 +60,13 @@ describe('tool catalog categories', () => {
 });
 
 describe('tool navigation definitions', () => {
+    it('keeps the legacy workflow tool and dialog keys under system tools', () => {
+        expect(toolDefinitionMap.get('sync-workflow')).toMatchObject({
+            category: 'system',
+            titleKey: 'view.tools.system_tools.info_completion',
+            action: { type: 'dialog', dialogKey: 'sync-workflow' }
+        });
+    });
     it('dispatches every pinned tool through the shared tool owner', () => {
         for (const tool of toolDefinitionMap.values()) {
             expect(

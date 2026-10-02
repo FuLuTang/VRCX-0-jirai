@@ -57,6 +57,7 @@ const DEFAULT_VISIBILITY: StatusBarVisibility = {
     ws: true,
     instanceQueue: true,
     mutualGraph: true,
+    profileInfoSync: true,
     nowPlaying: true,
     uptime: false,
     zoom: true,

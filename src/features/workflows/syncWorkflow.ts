@@ -13,6 +13,25 @@ export type SyncWorkflowActionContext = {
     accountId: string;
     signal: AbortSignal;
     translate: (key: string) => string;
+    profiles?: Map<
+        string,
+        import('@/services/enhancedProfileFetchRequest').RawEnhancedProfile
+    >;
+    onProfileProgress?: (progress: ProfileFetchProgress) => void;
+};
+
+export type ProfileFetchProgress = {
+    currentTarget: { userId: string; displayName: string } | null;
+    total: number;
+    processed: number;
+    succeeded: number;
+    unchanged: number;
+    failed: number;
+    incomplete: number;
+    bioUpdated: number;
+    statusUpdated: number;
+    pauseReason: string | null;
+    nextRunAt: string | null;
 };
 
 export type SyncWorkflowAction = {
@@ -21,6 +40,7 @@ export type SyncWorkflowAction = {
     status: SyncWorkflowActionStatus;
     skipReason?: string;
     errorMessage?: string;
+    result?: unknown;
     run: (
         context: SyncWorkflowActionContext
     ) => Promise<SyncWorkflowActionOutcome | void>;
@@ -74,7 +94,8 @@ function cloneAction(action: SyncWorkflowAction): SyncWorkflowAction {
         ...action,
         status: 'pending',
         skipReason: undefined,
-        errorMessage: undefined
+        errorMessage: undefined,
+        result: undefined
     };
 }
 
@@ -130,6 +151,10 @@ export class SyncWorkflowRunner {
         }
 
         const runActions = actions.map(cloneAction);
+        const profiles = new Map<
+            string,
+            import('@/services/enhancedProfileFetchRequest').RawEnhancedProfile
+        >();
         this.cancellationRequested = false;
         this.snapshot = {
             runId: ++this.runId,
@@ -161,6 +186,7 @@ export class SyncWorkflowRunner {
             try {
                 const outcome = await action.run({
                     ...context,
+                    profiles,
                     signal: controller.signal
                 });
                 if (this.cancellationRequested || controller.signal.aborted) {
@@ -173,6 +199,10 @@ export class SyncWorkflowRunner {
                     action.skipReason = outcome.skipReason;
                 } else {
                     action.status = 'completed';
+                    action.result =
+                        outcome?.status === 'completed'
+                            ? outcome.result
+                            : undefined;
                 }
             } catch (error) {
                 if (

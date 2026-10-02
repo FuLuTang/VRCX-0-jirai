@@ -26,6 +26,30 @@ let startupOnlineBackfillHandler:
     | ((accountId: string, signal: AbortSignal) => Promise<unknown>)
     | null = null;
 
+type EnhancedBaselineSource = 'startup' | 'reconnect' | 'periodic';
+const enhancedBaselineListeners = new Set<
+    (accountId: string, source: EnhancedBaselineSource) => void
+>();
+export function subscribeAuthenticatedRuntimeEnhancedBaseline(
+    listener: (accountId: string, source: EnhancedBaselineSource) => void
+): () => void {
+    enhancedBaselineListeners.add(listener);
+    if (
+        latestSnapshot &&
+        matchesCurrentSession(latestSnapshot) &&
+        appliedFriendBaselineKey
+    )
+        listener(latestSnapshot.userId, 'startup');
+    return () => enhancedBaselineListeners.delete(listener);
+}
+function notifyEnhancedBaseline(
+    accountId: string,
+    source: EnhancedBaselineSource
+): void {
+    for (const listener of enhancedBaselineListeners)
+        listener(accountId, source);
+}
+
 export function registerAuthenticatedRuntimeOnlineBackfill(
     handler:
         | ((accountId: string, signal: AbortSignal) => Promise<unknown>)
@@ -142,7 +166,13 @@ function applyFriendStep(snapshot: AuthenticatedRuntimePhaseSnapshot): void {
     if (output?.friendLogChanged) {
         signalFriendLogChanged();
     }
+    const source = !appliedFriendBaselineKey
+        ? 'startup'
+        : appliedFriendBaselineKey.split(':')[0] !== String(snapshot.runId)
+          ? 'reconnect'
+          : 'periodic';
     appliedFriendBaselineKey = baselineKey;
+    notifyEnhancedBaseline(snapshot.userId, source);
 }
 
 function applyFavoritesStep(snapshot: AuthenticatedRuntimePhaseSnapshot): void {
@@ -315,12 +345,19 @@ function applyRealtimeStatus(
             sessionStore.setTransportStatus('pipeline-connecting');
             break;
         case 'connected':
+            const wasConnected = runtimeStore.transport.websocketConnected;
             runtimeStore.setTransportState({
                 websocketConnected: true,
                 websocketDomain,
                 lastConnectedAt: at
             });
             sessionStore.setTransportStatus('pipeline-connected');
+            if (
+                !wasConnected &&
+                appliedFriendBaselineKey &&
+                snapshot.friends.status === 'ready'
+            )
+                notifyEnhancedBaseline(snapshot.userId, 'reconnect');
             break;
         case 'error':
         case 'authFailure':

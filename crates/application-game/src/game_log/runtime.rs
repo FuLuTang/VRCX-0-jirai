@@ -83,6 +83,16 @@ pub struct GameLogRuntime {
 }
 
 impl GameLogRuntime {
+    pub fn set_relationship_recommendations(
+        &self,
+        account_id: String,
+        auth_scope_generation: u64,
+        pairs: Vec<crate::RelationshipRecommendationPair>,
+    ) {
+        self.processor
+            .set_relationship_recommendations(account_id, auth_scope_generation, pairs);
+    }
+
     pub fn new(deps: GameLogRuntimeDeps) -> Self {
         let session = deps.session.clone();
         let processor = GameLogProcessor::new(GameLogProcessorDeps {

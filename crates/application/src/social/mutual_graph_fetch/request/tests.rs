@@ -114,6 +114,7 @@ impl<F: Fn() + Send + Sync> VrchatRequestPort for ResponsePort<F> {
         Box::pin(async {
             (self.before_response)();
             Ok(VrchatApiResponse {
+                retry_after: None,
                 status: self.status,
                 data: self.rows.to_string(),
             })

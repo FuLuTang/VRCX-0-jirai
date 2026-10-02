@@ -141,6 +141,16 @@ impl FeedLiveCache {
 }
 
 impl RealtimeHostRuntime {
+    /// Publish observations already committed by profile reconciliation. This
+    /// does not synthesize a friend presence transition or persist them twice.
+    pub fn emit_persisted_profile_entries(&self, owner: &OwnerId, entries: Vec<FeedLiveEntry>) {
+        let Some((generation, active_owner)) = self.active_feed_scope() else {
+            return;
+        };
+        if &active_owner == owner {
+            self.emit_feed_entries(generation, owner, entries);
+        }
+    }
     pub(super) fn emit_feed_entries(
         &self,
         generation: u64,

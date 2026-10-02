@@ -13,6 +13,20 @@ use crate::state::AppState;
 
 #[tauri::command(async)]
 #[specta::specta]
+pub fn app__relationship_recommendations_set(
+    state: State<'_, AppState>,
+    account_id: String,
+    auth_scope_generation: u64,
+    pairs: Vec<vrcx_0_application_game::RelationshipRecommendationPair>,
+) -> Result<(), AppError> {
+    state
+        .runtime_host()
+        .set_relationship_recommendations(account_id, auth_scope_generation, pairs);
+    Ok(())
+}
+
+#[tauri::command(async)]
+#[specta::specta]
 pub fn app__overlay_activity_definitions_get(
 ) -> Result<Vec<OverlayActivityTypeDefinition>, AppError> {
     Ok(overlay_activity_type_definitions())

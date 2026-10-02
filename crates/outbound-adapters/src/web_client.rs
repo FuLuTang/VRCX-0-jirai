@@ -209,11 +209,16 @@ impl WebClient {
         }
         let field_log_context = crate::user_api_field_log::request_context(&input, scope);
         let request = self.build_api_request(input, scope)?;
-        let (status, data) = self.execute(request).await?;
+        let (status, data, retry_after) = self
+            .inner
+            .execute_with_retry_after(request)
+            .await
+            .map_err(crate::map_web_client_error)?;
         if let Some(context) = field_log_context {
             crate::user_api_field_log::record(self.db.db_path(), context, status, &data).await;
         }
-        let response = self.finish_api_request(status, data)?;
+        let mut response = self.finish_api_request(status, data)?;
+        response.retry_after = retry_after;
         if response.status == 200 {
             if let Some(endpoint) = vrchat_config_endpoint {
                 self.vrchat_config.store(endpoint, response.clone());

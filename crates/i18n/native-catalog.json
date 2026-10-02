@@ -7,6 +7,10 @@
             "coverage": "required",
             "messages": [
                 {
+                    "key": "notifications.relationship_recommendation",
+                    "source": "notifications.relationship_recommendation"
+                },
+                {
                     "key": "notifications.has_joined",
                     "source": "notifications.has_joined"
                 },

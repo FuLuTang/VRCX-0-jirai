@@ -4,12 +4,22 @@ import { createRoot } from 'react-dom/client';
 import '@/styles/globals.css';
 import { installDevPerformanceTimelineGuard } from '@/app/devPerformanceTimelineGuard';
 import { startupOnlineBackfillExecutor } from '@/features/workflows/startupOnlineBackfillExecutor';
+import { initializeRelationshipRecommendations } from '@/features/charts/relationship-recommendations/relationshipRecommendationsService';
 import { registerAuthenticatedRuntimeOnlineBackfill } from '@/services/authenticatedRuntimeService';
+import { initializeEnhancedInfoFetch } from '@/services/enhancedInfoFetchService';
 import { installErrorLogging } from '@/services/errorLogService';
 
 // only use in dev to prevent OOM from React dev tools User Timing measures
 installDevPerformanceTimelineGuard();
 installErrorLogging();
+const disposeRelationshipRecommendations = initializeRelationshipRecommendations();
+const disposeEnhancedInfoFetch = initializeEnhancedInfoFetch();
+if (import.meta.hot) {
+    import.meta.hot.dispose(() => {
+        disposeEnhancedInfoFetch();
+        disposeRelationshipRecommendations();
+    });
+}
 registerAuthenticatedRuntimeOnlineBackfill(async (accountId, signal) => {
     await startupOnlineBackfillExecutor({
         accountId,

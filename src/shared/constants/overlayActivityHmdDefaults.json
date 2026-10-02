@@ -1,4 +1,5 @@
 {
+    "RelationshipRecommendation": "on",
     "invite": "friends",
     "requestInvite": "friends",
     "inviteResponse": "friends",

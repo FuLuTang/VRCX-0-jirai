@@ -1,14 +1,12 @@
-import {
-    CheckCircle2Icon,
-    CircleDashedIcon,
-    CircleXIcon,
-    LoaderCircleIcon,
-    MinusCircleIcon
-} from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Badge } from '@/ui/shadcn/badge';
+import { formatDateTime } from '@/lib/dateTime';
+import { useEnhancedInfoFetchSnapshot } from '@/lib/useEnhancedInfoFetchSnapshot';
+import {
+    cancelEnhancedInfoFetch,
+    runEnhancedInfoFetch
+} from '@/services/enhancedInfoFetchService';
 import { Button } from '@/ui/shadcn/button';
 import {
     Dialog,
@@ -20,217 +18,218 @@ import {
 } from '@/ui/shadcn/dialog';
 import { Progress } from '@/ui/shadcn/progress';
 
-import './profileFetchExecutor';
-import './startupOnlineBackfillExecutor';
-import './trackedNonfriendsRefreshExecutor';
-import type {
-    SyncWorkflowAction,
-    SyncWorkflowActionStatus,
-    SyncWorkflowSnapshot
-} from './syncWorkflow';
-import {
-    createSyncWorkflowRunner,
-    summarizeSyncWorkflowActions,
-    type SyncWorkflowRunner
-} from './syncWorkflow';
-import { createSyncWorkflowActions } from './syncWorkflowActions';
-
 type SyncWorkflowDialogProps = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     accountId: string;
     accountLabel: string;
-    actionsFactory?: () => SyncWorkflowAction[];
-    runner?: SyncWorkflowRunner;
 };
-
-const statusIcon: Record<SyncWorkflowActionStatus, typeof CheckCircle2Icon> = {
-    completed: CheckCircle2Icon,
-    skipped: MinusCircleIcon,
-    error: CircleXIcon,
-    running: LoaderCircleIcon,
-    pending: CircleDashedIcon
-};
-
-const statusTone: Record<SyncWorkflowActionStatus, string> = {
-    completed: 'text-emerald-600 dark:text-emerald-400',
-    skipped: 'text-violet-600 dark:text-violet-400',
-    error: 'text-destructive',
-    running: 'text-primary',
-    pending: 'text-muted-foreground'
-};
-
-function statusBadgeVariant(status: SyncWorkflowActionStatus) {
-    if (status === 'error') return 'destructive' as const;
-    if (status === 'completed') return 'default' as const;
-    return 'secondary' as const;
-}
+const resultFields = [
+    'succeeded',
+    'unchanged',
+    'failed',
+    'incomplete',
+    'bioUpdated',
+    'statusUpdated'
+] as const;
 
 export function SyncWorkflowDialog({
     open,
     onOpenChange,
     accountId,
-    accountLabel,
-    actionsFactory,
-    runner: suppliedRunner
+    accountLabel
 }: SyncWorkflowDialogProps) {
     const { t } = useTranslation();
-    const runnerRef = useRef<SyncWorkflowRunner | null>(null);
-    if (!runnerRef.current) {
-        runnerRef.current = suppliedRunner ?? createSyncWorkflowRunner();
-    }
-    const runner = runnerRef.current;
-    const [snapshot, setSnapshot] = useState<SyncWorkflowSnapshot>(() =>
-        runner.getSnapshot()
-    );
-
-    useEffect(() => runner.subscribe(setSnapshot), [runner]);
-    useEffect(() => {
-        if (!open) return;
-        // Closing the dialog or switching accounts must stop the old workflow.
-        return () => {
-            runner.cancelCurrent();
-        };
-    }, [accountId, open, runner]);
-
-    const actions = useMemo(
-        () =>
-            actionsFactory
-                ? actionsFactory()
-                : createSyncWorkflowActions({ translate: t }),
-        [actionsFactory, t]
-    );
-    const displayActions =
-        snapshot.actions.length > 0 ? snapshot.actions : actions;
-    const displaySummary =
-        snapshot.actions.length > 0
-            ? snapshot.summary
-            : summarizeSyncWorkflowActions(displayActions);
-    const hasCurrentAccount = accountId.trim().length > 0;
-    const currentAccountLabel =
-        accountLabel || t('workflow.account_unavailable');
-    const progressPercent =
-        displaySummary.total === 0
-            ? 0
-            : Math.round(
-                  (displaySummary.progress / displaySummary.total) * 100
-              );
-
-    function runWorkflow() {
-        if (!hasCurrentAccount) {
-            return;
+    const snapshot = useEnhancedInfoFetchSnapshot();
+    const [requestError, setRequestError] = useState(false);
+    const [starting, setStarting] = useState(false);
+    // Never display the previous account's results under the new account.
+    const current = Boolean(accountId) && snapshot.accountId === accountId;
+    const running = current && snapshot.running;
+    const phase = current ? snapshot.phase : 'idle';
+    const total = current ? snapshot.total : 0;
+    const processed = current ? snapshot.processed : 0;
+    const progress =
+        total > 0 ? Math.min(100, Math.max(0, (processed / total) * 100)) : 0;
+    async function start() {
+        setRequestError(false);
+        setStarting(true);
+        try {
+            await runEnhancedInfoFetch('manual');
+        } catch {
+            setRequestError(true);
+        } finally {
+            setStarting(false);
         }
-        void runner.run(actions, { accountId, translate: t });
     }
-
+    async function cancel() {
+        try {
+            await cancelEnhancedInfoFetch();
+        } catch {
+            setRequestError(true);
+        }
+    }
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="flex max-h-[85vh] min-h-0 flex-col gap-0 overflow-hidden sm:max-w-2xl">
-                <DialogHeader className="border-b px-6 py-5">
-                    <DialogTitle>{t('workflow.title')}</DialogTitle>
+            <DialogContent className="flex max-h-[85vh] min-h-0 flex-col overflow-hidden sm:max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>
+                        {t('view.tools.system_tools.info_completion')}
+                    </DialogTitle>
                     <DialogDescription>
-                        {t('workflow.description', {
-                            account: currentAccountLabel
+                        {t('enhanced_info_fetch.description', {
+                            account:
+                                accountLabel ||
+                                t('workflow.account_unavailable')
                         })}
                     </DialogDescription>
                 </DialogHeader>
-
-                <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
-                    {!hasCurrentAccount ? (
-                        <p
-                            className="text-destructive mb-3 text-sm"
-                            role="status"
-                        >
-                            {t('workflow.skip_reason')}:{' '}
+                <div className="min-h-0 space-y-5 overflow-y-auto">
+                    {!accountId ? (
+                        <p role="status">
                             {t('workflow.skip.account_required')}
                         </p>
                     ) : null}
-                    <div
-                        className="space-y-2"
-                        aria-label={t('workflow.action_list')}
+                    <section
+                        aria-label={t('enhanced_info_fetch.overview')}
+                        className="space-y-2 rounded-md border p-3"
                     >
-                        {displayActions.map((action) => {
-                            const StatusIcon = statusIcon[action.status];
-                            const statusLabel = t(
-                                `workflow.status.${action.status}`
-                            );
-                            return (
-                                <div
-                                    key={action.id}
-                                    className="rounded-md border px-3 py-3"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <StatusIcon
-                                            aria-hidden="true"
-                                            className={`size-5 shrink-0 ${statusTone[action.status]} ${action.status === 'running' ? 'animate-spin' : ''}`}
-                                        />
-                                        <span className="min-w-0 flex-1 text-sm font-medium">
-                                            {action.label}
-                                        </span>
-                                        <Badge
-                                            variant={statusBadgeVariant(
-                                                action.status
-                                            )}
-                                            role="status"
-                                            aria-label={statusLabel}
-                                        >
-                                            {statusLabel}
-                                        </Badge>
-                                    </div>
-                                    {action.skipReason ? (
-                                        <p className="text-muted-foreground mt-2 pl-8 text-xs">
-                                            {t('workflow.skip_reason')}:{' '}
-                                            {action.skipReason}
-                                        </p>
-                                    ) : null}
-                                    {action.errorMessage ? (
-                                        <p className="text-destructive mt-2 pl-8 text-xs">
-                                            {action.errorMessage}
-                                        </p>
-                                    ) : null}
+                        <h2 className="text-sm font-medium">
+                            {t('enhanced_info_fetch.overview')}
+                        </h2>
+                        <p role="status" aria-live="polite">
+                            {t(`enhanced_info_fetch.phase.${phase}`)}
+                        </p>
+                        {current && snapshot.source ? (
+                            <p className="text-muted-foreground text-xs">
+                                {t('enhanced_info_fetch.source', {
+                                    source: t(
+                                        `enhanced_info_fetch.sources.${snapshot.source}`
+                                    )
+                                })}
+                            </p>
+                        ) : null}
+                        <Progress
+                            value={progress}
+                            aria-label={t('enhanced_info_fetch.progress')}
+                        />
+                        <p className="text-sm tabular-nums">
+                            {t('enhanced_info_fetch.processed', {
+                                processed,
+                                total
+                            })}
+                        </p>
+                        {current && snapshot.currentTarget ? (
+                            <p className="text-sm break-all">
+                                {t('enhanced_info_fetch.target', {
+                                    target:
+                                        snapshot.currentTarget.displayName ||
+                                        snapshot.currentTarget.userId
+                                })}
+                            </p>
+                        ) : null}
+                        {current && snapshot.pauseReason ? (
+                            <p role="status">
+                                {t('enhanced_info_fetch.pause_reason', {
+                                    reason: snapshot.pauseReason
+                                })}
+                            </p>
+                        ) : null}
+                        <p className="text-muted-foreground text-xs">
+                            {current && snapshot.nextRunAt
+                                ? t('enhanced_info_fetch.next_run', {
+                                      time: formatDateTime(snapshot.nextRunAt, {
+                                          year: 'numeric',
+                                          month: '2-digit',
+                                          day: '2-digit',
+                                          hour: '2-digit',
+                                          minute: '2-digit',
+                                          second: '2-digit'
+                                      })
+                                  })
+                                : t('enhanced_info_fetch.next_run_unknown')}
+                        </p>
+                    </section>
+                    <section
+                        aria-label={t('enhanced_info_fetch.strategy')}
+                        className="space-y-2 rounded-md border p-3 text-sm"
+                    >
+                        <h2 className="font-medium">
+                            {t('enhanced_info_fetch.strategy')}
+                        </h2>
+                        <ul className="list-disc space-y-2 pl-5">
+                            <li>{t('enhanced_info_fetch.strategy_auto')}</li>
+                            <li>{t('enhanced_info_fetch.strategy_profile')}</li>
+                            <li>{t('enhanced_info_fetch.strategy_manual')}</li>
+                        </ul>
+                    </section>
+                    <section
+                        aria-label={t('enhanced_info_fetch.results')}
+                        className="space-y-2 rounded-md border p-3"
+                    >
+                        <h2 className="text-sm font-medium">
+                            {t('enhanced_info_fetch.results')}
+                        </h2>
+                        <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+                            {resultFields.map((field) => (
+                                <div key={field}>
+                                    <dt className="text-muted-foreground">
+                                        {t(
+                                            `enhanced_info_fetch.counts.${field}`
+                                        )}
+                                    </dt>
+                                    <dd
+                                        className="tabular-nums"
+                                        data-testid={`count-${field}`}
+                                    >
+                                        {current ? snapshot[field] : 0}
+                                    </dd>
                                 </div>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                <div className="border-t px-6 py-4">
-                    <Progress
-                        value={progressPercent}
-                        aria-label={t('workflow.progress_bar')}
-                    />
-                    <p className="mt-3 text-sm tabular-nums" role="status">
-                        {t('workflow.summary', {
-                            progress: displaySummary.progress,
-                            total: displaySummary.total,
-                            completed: displaySummary.completed,
-                            skipped: displaySummary.skipped,
-                            error: displaySummary.error,
-                            running: displaySummary.running
-                        })}
+                            ))}
+                        </dl>
+                        <p className="text-muted-foreground text-xs">
+                            {t('enhanced_info_fetch.results_note')}
+                        </p>
+                    </section>
+                    {current && snapshot.errorMessage ? (
+                        <p role="alert" className="text-destructive">
+                            {t('enhanced_info_fetch.error_detail', {
+                                error: snapshot.errorMessage
+                            })}
+                        </p>
+                    ) : null}
+                    {requestError ? (
+                        <p role="alert" className="text-destructive">
+                            {t('enhanced_info_fetch.request_error')}
+                        </p>
+                    ) : null}
+                    <p className="text-muted-foreground text-xs">
+                        {t('enhanced_info_fetch.background_hint')}
                     </p>
                 </div>
-
-                <DialogFooter className="border-t px-6 py-4 sm:justify-between">
+                <DialogFooter>
                     <Button
-                        type="button"
-                        variant="outline"
-                        onClick={runWorkflow}
-                        disabled={snapshot.running || !hasCurrentAccount}
+                        disabled={
+                            !accountId.trim() || snapshot.running || starting
+                        }
+                        onClick={() => void start()}
                     >
-                        {snapshot.running
-                            ? t('workflow.running')
-                            : t('workflow.run')}
+                        {t('enhanced_info_fetch.run')}
                     </Button>
-                    {snapshot.running ? (
+                    {running ? (
                         <Button
-                            type="button"
                             variant="destructive"
-                            onClick={() => runner.cancelCurrent()}
+                            onClick={() => void cancel()}
                         >
-                            {t('workflow.cancel_current')}
+                            {t('enhanced_info_fetch.cancel')}
                         </Button>
                     ) : null}
+                    <Button
+                        variant="outline"
+                        onClick={() => onOpenChange(false)}
+                    >
+                        {t('enhanced_info_fetch.close')}
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

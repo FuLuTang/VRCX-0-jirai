@@ -21,8 +21,21 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@/repositories/feedRepository', () => ({
-    default: { queryFeedUserHistory: mocks.queryFeedUserHistory }
+    default: { queryFeedPage: mocks.queryFeedUserHistory }
 }));
+
+vi.mock('@/lib/echarts', () => ({
+    echarts: {
+        init: () => ({ setOption: vi.fn(), resize: vi.fn(), dispose: vi.fn() })
+    }
+}));
+vi.stubGlobal(
+    'ResizeObserver',
+    class {
+        observe() {}
+        disconnect() {}
+    }
+);
 
 vi.mock('@/state/runtimeStore', () => ({
     useRuntimeStore: (
@@ -78,8 +91,10 @@ describe('UserDialogStatusDistributionPanel', () => {
 
         expect(mocks.queryFeedUserHistory).toHaveBeenCalledWith({
             userId: 'usr_owner',
-            targetUserId: 'usr_target',
-            types: ['Status', 'Online', 'Offline']
+            scopedUserIds: ['usr_target'],
+            filters: ['Status', 'Online', 'Offline'],
+            maxEntries: 1000,
+            cursor: null
         });
         expect(
             await screen.findByText('dialog.user.info.status.active')

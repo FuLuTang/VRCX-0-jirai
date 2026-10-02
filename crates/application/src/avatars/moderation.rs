@@ -154,6 +154,7 @@ mod tests {
 
     fn response(status: i32, data: &str) -> VrchatApiResponse {
         VrchatApiResponse {
+            retry_after: None,
             status,
             data: data.into(),
         }

@@ -26,6 +26,7 @@ impl VrchatRequestPort for TestVrchatRequestPort {
     fn send(&self, _input: VrchatApiRequest, _scope: VrchatScope) -> VrchatRequestFuture<'_> {
         Box::pin(async {
             Ok(VrchatApiResponse {
+                retry_after: None,
                 status: 200,
                 data: "{}".into(),
             })
@@ -111,6 +112,7 @@ mod tests {
             self.requests.lock().unwrap().push(input);
             Box::pin(async {
                 Ok(VrchatApiResponse {
+                    retry_after: None,
                     status: 200,
                     data: "{}".into(),
                 })

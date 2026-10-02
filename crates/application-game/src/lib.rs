@@ -54,6 +54,7 @@ pub use game_log_watcher::{
     GameLogEventOrigin, GameLogEventSink, GameLogScanCursor, LogLocationSnapshot,
     LogLocationSnapshotScanner, LogWatcher, NoopLogLocationSnapshotScanner,
 };
+pub use overlay_activity::relationship_recommendations::RelationshipRecommendationPair;
 pub use overlay_activity::OverlayActivityGameIngestExt;
 pub use ports::{BackgroundRemoteApi, GameStateStore, InstanceMediaPort, VideoMetadataPort};
 pub use process_monitor::{GameProcessMonitorActions, GameProcessStatus, ProcessMonitor};

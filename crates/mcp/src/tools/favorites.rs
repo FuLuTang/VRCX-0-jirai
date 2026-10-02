@@ -502,6 +502,7 @@ mod favorite_kind_tests {
                 "wrld_test".into(),
                 "worlds1".into(),
                 vrchat_api::VrchatApiResponse {
+                    retry_after: None,
                     status,
                     data: "{}".into(),
                 },
