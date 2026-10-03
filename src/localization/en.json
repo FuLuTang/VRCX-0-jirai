@@ -1045,6 +1045,7 @@
         }
     },
     "tracked_nonfriends": {
+        "count": "Tracked users: {count}",
         "title": "Tracked users",
         "filter": "Filter tracked users",
         "add_user": "Track user",

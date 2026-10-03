@@ -68,13 +68,13 @@ VRCX 的其他功能，VRCX-0 同样具备。
 
 ## VRCX-jirai 功能还原核对表
 
-2026-10-02 本轮三条链路已接入，仍在最终集成验证；来源、当前文件及限制见 [三条功能链路还原记录](docs/jirai-port/三条功能链路还原记录.md)。
+2026-10-03 三条链路已接入；最近提交 `9118a2637` 修复 Bio／状态短语编码误报，`27dc74486` 简化增强抓取并重排任务面板。64 项相关前端测试、6 项 Bio 差异测试、类型检查与前端构建通过；真实账号、数据库与 VR 验收尚未完成。来源、当前文件及限制见 [三条功能链路还原记录](docs/jirai-port/三条功能链路还原记录.md)。
 
 VRCX-0-jirai 正在逐步还原并重写旧版 VRCX-jirai 的部分功能。**还原工作尚未完成。**旧版 README 本身已说明 VRCX-jirai 停止维护；本清单反映当前代码，不代表功能已完全一致，也不承诺恢复旧版的每种行为。盘点范围还包括旧仓库中 FuLuTang 的功能提交（截至 `c8b8f744`），不只依据 README 的功能清单。
 
 后续补全项、参考文件和实机验收清单见 [docs/jirai-feature-backlog.md](docs/jirai-feature-backlog.md)。
 
-清单于 2026-10-02 按 `562486290` 及此前 subagent 交付复核；建议先收尾资料采集、非好友历史与真实进度，再补双人关系细节和灯色占比图。搜索优化按用户决定暂缓。实施顺序见 [后续迁移计划](docs/jirai-port/后续迁移计划.md)，实机步骤见 [待手测清单](docs/jirai-port/待手测清单.md)。
+已修复追踪非好友列表的页签回跳，补上中文文案、总人数和点击打开玩家资料；下一项核对自己的资料历史接入。增强采集、双人关系细节、灯色占比及关系建议已有实现，按实机结果收尾，不再列为从零移植。搜索优化继续暂缓。实施顺序见 [后续迁移计划](docs/jirai-port/后续迁移计划.md)，实机步骤见 [待手测清单](docs/jirai-port/待手测清单.md)。
 
 注意：高级设置中的“自动加入开发者群”默认开启；进入“我的群组”并完成偏好设置加载后，若当前账号尚未加入，会尝试加入 VRCX-jirai 使用的群组。可在高级设置关闭。
 
@@ -83,6 +83,8 @@ VRCX-0-jirai 正在逐步还原并重写旧版 VRCX-jirai 的部分功能。**�
 验证记录：2026-09-30 的较早版本曾通过绑定生成、Rust 检查与相关测试、前端全量测试。**2026-10-02 合并后的验证另计**：类型检查、76 项相关前端测试、Rust 格式检查与 Vite 生产构建通过；全量前端测试因内存不足未完成，Rust 测试与完整 Rust 许可证清单受本机代理/依赖缓存阻塞。界面、真实数据库迁移和独立发布包启动仍待验收。
 
 ### 核心功能
+
+**已追踪陌生人列表：**展开右侧好友面板，点击最右侧窄栏的“人＋放大镜”图标，中文名称为“已追踪陌生人”。页签自动回跳已修复；显示当前账号的追踪总人数，可筛选、点击名字打开资料或停止追踪，名字按钮支持键盘操作。总人数不随筛选减少，其他账号的条目不显示。接入：`VRCX-0-jirai/src/components/sidebar/useSidePanelTabData.ts`、`SidePanel.tsx`、`TrackedNonfriendsSidebar.tsx`、`src/localization/zh-CN.json`。增强抓取窗口中的追踪人数是统计，不是名单入口。新增 8 项组件／页签测试通过；真实侧栏操作仍待实测。
 
 2026-10-03 增强型信息抓取修正：Bio 与状态短语比较兼容新旧标点编码，避免无实际内容变化的重复历史；增强采集的接口间和玩家间等待统一为 350 毫秒，保留限流退避。系统只保留一套刷新：启动基线就绪、每小时基线刷新完成、点击“立即刷新”共用执行器；资料采集与本地关系建议是并行任务，各有进度和状态。浮窗使用双任务卡片、好友／追踪非好友独立数字、本轮结果网格与周期倒计时。启动计时恢复和 Online 补线是独立功能，不纳入该面板。真实账号验收见 `docs/jirai-port/待手测清单.md`。
 
@@ -175,6 +177,26 @@ npm install
 ```bash
 npm run tauri:dev
 ```
+
+### 配置加载失败时的临时启动方式（2026-10-03）
+
+若启动时报 `sourcemapPathTransform ... returned object, but expected string`，这是 Vite 默认打包配置的加载步骤失败，不是 Rust 链接器错误。当前本机 Vite 8.3.2／Rolldown 1.2.12 可复现：`bundle` 失败，`runner` 成功；根因尚未定位到具体依赖，不能仅凭报错认定业务配置写错。本次未改默认 npm 脚本。
+
+两个 PowerShell 均先切到当前仓库。第一个运行前端并保持窗口开启：
+
+```powershell
+Set-Location 'C:\Users\tangh\Documents\GitHub\VRCX-0-jirai'
+npm run dev -- --configLoader runner
+```
+
+第二个先按上面的步骤加载 Visual Studio 开发环境，再运行后端／桌面程序：
+
+```powershell
+Set-Location 'C:\Users\tangh\Documents\GitHub\VRCX-0-jirai'
+cargo run --manifest-path src-tauri/Cargo.toml --no-default-features --features devtools,steamvr-overlay,openxr-overlay
+```
+
+该方式不再执行 Tauri 的 `beforeDevCommand`，因此不会重复启动失败的默认 Vite 命令；端口 9000 必须由第一个窗口的前端提供。不要同时再运行 `npm run tauri:dev`。这是开发运行，不是独立发布包。
 
 构建发布版（跳过签名和安装包）：
 

@@ -1,4 +1,14 @@
 {
+    "tracked_nonfriends": {
+        "title": "已追踪陌生人",
+        "filter": "筛选已追踪陌生人",
+        "count": "已追踪：{count} 人",
+        "add_user": "追踪玩家",
+        "remove_user": "停止追踪",
+        "empty": "没有符合条件的已追踪陌生人",
+        "load_error": "无法加载已追踪陌生人",
+        "mutation_error": "无法更新已追踪陌生人"
+    },
     "empty_state": {
         "dashboard_title": "搭建你的仪表板",
         "dashboard_description": "把常看的页面加进来，之后就能在一个地方快速查看重要信息。",

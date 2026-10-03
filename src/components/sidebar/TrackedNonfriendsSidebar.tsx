@@ -2,6 +2,7 @@ import { PlusIcon, Trash2Icon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { openUserDialog } from '@/services/dialogService';
 import { useRuntimeStore } from '@/state/runtimeStore';
 import { useTrackedNonfriendsStore } from '@/state/trackedNonfriendsStore';
 import { Button } from '@/ui/shadcn/button';
@@ -60,6 +61,14 @@ export function TrackedNonfriendsSidebar({
 
     return (
         <section className="flex h-full min-h-0 flex-col gap-2 px-1 pb-1">
+            <p className="text-muted-foreground px-2 text-xs" role="status">
+                {t('tracked_nonfriends.count', {
+                    count:
+                        currentUserId === accountId && accountId
+                            ? entries.length
+                            : 0
+                })}
+            </p>
             <div className="flex gap-1">
                 <Input
                     value={userId}
@@ -102,9 +111,19 @@ export function TrackedNonfriendsSidebar({
                         key={entry.userId}
                         className="hover:bg-accent flex items-center gap-2 rounded px-2 py-1.5"
                     >
-                        <span className="min-w-0 flex-1 truncate text-sm">
+                        <button
+                            type="button"
+                            className="focus-visible:outline-ring min-w-0 flex-1 truncate rounded text-left text-sm focus-visible:outline-2"
+                            title={entry.userId}
+                            onClick={() =>
+                                openUserDialog({
+                                    userId: entry.userId,
+                                    title: entry.displayName || entry.userId
+                                })
+                            }
+                        >
                             {entry.displayName || entry.userId}
-                        </span>
+                        </button>
                         <Button
                             size="icon-xs"
                             variant="ghost"

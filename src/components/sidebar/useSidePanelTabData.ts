@@ -171,6 +171,7 @@ export function useSidePanelTabData({
 
     useEffect(() => {
         if (
+            activeTab !== 'tracked-nonfriends' &&
             tabItems.length &&
             !tabItems.some((item) => item.value === activeTab)
         ) {
