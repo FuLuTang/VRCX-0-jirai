@@ -19,13 +19,26 @@ function createRepository() {
 describe('ConfigRepository', () => {
     it('enables Jirai enhancements by default without enabling the original Bio scan', async () => {
         const repository = createRepository();
-        await expect(repository.getBool('enhancedInfoFetchEnabled')).resolves.toBe(true);
-        await expect(repository.getBool('relationshipRecommendationOverlayEnabled')).resolves.toBe(true);
-        await expect(repository.getBool('profileBioScanEnabled')).resolves.toBe(false);
+        await expect(
+            repository.getBool('enhancedInfoFetchEnabled')
+        ).resolves.toBe(true);
+        await expect(
+            repository.getBool('relationshipRecommendationOverlayEnabled')
+        ).resolves.toBe(true);
+        await expect(repository.getBool('profileBioScanEnabled')).resolves.toBe(
+            false
+        );
         await repository.setBool('enhancedInfoFetchEnabled', false);
-        await repository.setBool('relationshipRecommendationOverlayEnabled', false);
-        await expect(repository.getBool('enhancedInfoFetchEnabled')).resolves.toBe(false);
-        await expect(repository.getBool('relationshipRecommendationOverlayEnabled')).resolves.toBe(false);
+        await repository.setBool(
+            'relationshipRecommendationOverlayEnabled',
+            false
+        );
+        await expect(
+            repository.getBool('enhancedInfoFetchEnabled')
+        ).resolves.toBe(false);
+        await expect(
+            repository.getBool('relationshipRecommendationOverlayEnabled')
+        ).resolves.toBe(false);
     });
 
     beforeEach(() => {

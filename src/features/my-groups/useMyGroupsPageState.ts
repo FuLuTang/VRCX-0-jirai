@@ -12,8 +12,8 @@ import { userFacingErrorMessage } from '@/lib/errorDisplay';
 import { commands } from '@/platform/tauri/bindings';
 import groupProfileRepository from '@/repositories/groupProfileRepository';
 import { toast } from '@/services/toastService';
-import { usePreferencesStore } from '@/state/preferencesStore';
 import { useMyGroupsRevisionStore } from '@/state/myGroupsRevisionStore';
+import { usePreferencesStore } from '@/state/preferencesStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
 
 import { moveGroupInOrder, normalizeGroupOrder } from './myGroupsOrder';

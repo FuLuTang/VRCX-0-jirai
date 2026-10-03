@@ -609,19 +609,16 @@ export function renderSigmaGraph({
             : isManual
               ? theme.edgeManualColor
               : isHistorical
-                ? mixGraphColors(
-                      ordinaryColor,
-                      theme.backgroundColor,
-                      0.62
-                  )
+                ? mixGraphColors(ordinaryColor, theme.backgroundColor, 0.62)
                 : ordinaryColor;
-        result.size = isManual && !isCurrent
-            ? isHistorical
-                ? 1.35
-                : 1.1
-            : isHistorical
-              ? 0.55
-              : data.size;
+        result.size =
+            isManual && !isCurrent
+                ? isHistorical
+                    ? 1.35
+                    : 1.1
+                : isHistorical
+                  ? 0.55
+                  : data.size;
         const restingColor =
             crossCommunityOnlyRef.current && !isCross
                 ? mixGraphColors(

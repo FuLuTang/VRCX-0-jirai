@@ -66,8 +66,8 @@ vi.mock('@/services/toastService', () => ({
 }));
 
 import { groupIdForRow } from '@/components/dialogs/user-dialog/userDialogGroupRows';
-import { usePreferencesStore } from '@/state/preferencesStore';
 import { useMyGroupsRevisionStore } from '@/state/myGroupsRevisionStore';
+import { usePreferencesStore } from '@/state/preferencesStore';
 
 import { useMyGroupsPageState } from './useMyGroupsPageState';
 

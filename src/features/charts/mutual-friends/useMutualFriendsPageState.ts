@@ -7,6 +7,7 @@ import {
     countIsolatedMutualFriendNodes,
     countUnknownMutualFriendNodes
 } from '@/lib/mutual-friends/mutualFriendsFilters';
+import { hideNonFriendNodes } from '@/lib/mutual-friends/mutualFriendsFilters';
 import {
     buildMutualFriendsBaseGraph,
     buildMutualFriendsCoverage
@@ -26,7 +27,7 @@ import { openUserDialog } from '@/services/dialogService';
 import { toast } from '@/services/toastService';
 import { useModalStore } from '@/state/modalStore';
 import { useMutualGraphRevisionStore } from '@/state/mutualGraphRevisionStore';
-import { hideNonFriendNodes } from '@/lib/mutual-friends/mutualFriendsFilters';
+
 import { useMutualFriendsGraphFetch } from './useMutualFriendsGraphFetch';
 import { useMutualFriendsRuntime } from './useMutualFriendsRuntime';
 import { useMutualFriendsSnapshot } from './useMutualFriendsSnapshot';

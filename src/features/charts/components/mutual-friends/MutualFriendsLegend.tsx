@@ -1,9 +1,9 @@
 import { useTranslation } from 'react-i18next';
 
 import { CommitSlider } from '@/components/mutual-friends/CommitSlider';
-import { buildMutualFriendsGraphTheme } from '@/lib/mutual-friends/mutualFriendsPalette';
 import { formatDateFilter } from '@/lib/dateTime';
 import { MUTUAL_GRAPH_MIN_DEGREE_LIMITS } from '@/lib/mutual-friends/mutualFriendsFilters';
+import { buildMutualFriendsGraphTheme } from '@/lib/mutual-friends/mutualFriendsPalette';
 import type {
     MutualFriendCommunity,
     MutualFriendsCoverage,

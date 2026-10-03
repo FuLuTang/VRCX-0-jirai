@@ -23,7 +23,9 @@ function captureRequestError(run: () => unknown) {
 describe('vrchat response unwrapping', () => {
     it('preserves the server retry delay on rate limiting', () => {
         const response = { status: 429, data: '{}', retryAfter: '120' };
-        const error = captureRequestError(() => unwrapVrchatResponse(response, 'users/usr_target'));
+        const error = captureRequestError(() =>
+            unwrapVrchatResponse(response, 'users/usr_target')
+        );
         expect(error.retryAfter).toBe('120');
         expect(error.status).toBe(429);
     });

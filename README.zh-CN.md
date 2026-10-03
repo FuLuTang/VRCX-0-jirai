@@ -106,10 +106,10 @@ VRCX-0-jirai 正在逐步还原并重写旧版 VRCX-jirai 的部分功能。**�
 | VRCX-jirai README 项目                                              | VRCX-0-jirai 当前状态与证据                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 快捷搜索：最近遇见的人/世界、非好友模糊匹配、即时检索、Bio/历史检索 | **【行为或 UI 有出入，暂缓】**旧版最近人/世界由 Copilot 的 `e8e862da` 引入、`30ba80f6` 修正；FuLu糖福禄的 `a94824c2` 加入本地 Bio 匹配，`1dc272ce` 调整查询。旧数据库只匹配每人最新保存的一条 Bio，不是遍历全部旧版本。当前最近项是最近打开的实体，日志来源与本地 Bio 补充未迁入。用户 2026-10-02 决定暂不优化搜索，移出近期计划。来源：`VRCX-jirai/src/stores/quickSearch.js`、`VRCX-jirai/src/services/database/feed.js::searchBiosByContent`；当前：`src/components/sidebar/quick-search/quickSearchHistory.ts`。 |
-| 为 Bio Diff 存档所有好友 Bio                                        | **【已接入，待实测】增强抓取使用公开 /profile Bio，启动／小时好友基线完成后补采；按钮使用同一刷新，重连不额外全扫。协调渐进扫描，不覆盖原扫描开关。见 src/services/enhancedInfoFetchService.ts。** |
+| 为 Bio Diff 存档所有好友 Bio                                        | **【已接入，待实测】增强抓取使用公开 /profile Bio，启动／小时好友基线完成后补采；按钮使用同一刷新，重连不额外全扫。协调渐进扫描，不覆盖原扫描开关。见 src/services/enhancedInfoFetchService.ts。**                                                                                                                                                                                                                                                                                                                   |
 | 打开资料页时保存 Bio/灯色快照                                       | **【已接入，待实测】好友与非好友的 Bio／有效灯色快照均复用原生比较落盘和 Feed 通知；缺状态短语保留旧值，缺 Bio 不清空。见 crates/runtime-host-desktop/src/profile_bio.rs。**                                                                                                                                                                                                                                                                                                                                         |
 | 自己的位置、头像、状态及上下线历史                                  | **【部分实现】**自身资料与游戏活动已有持久化；活动页热力图已使用 `isSelf` 查询，玩家资料页是否正确接自我数据仍需核查。位置、头像、Bio、灯色与上下线明细的统一历史展示尚缺。参考：`crates/application-realtime/src/realtime/current_user/self_profile.rs`、`src/features/activity/useActivityHeatmap.ts`、`src/components/dialogs/user-dialog/useUserActivityPanelController.ts`。                                                                                                                                    |
-| 启动/重连时全量补全                                                 | **【已接入并调整，待实测】Online 补线与计时恢复独立保留。增强抓取仅由启动／小时基线完成及按钮触发，资料采集与关系建议并行；每次强刷、只合并进行中的请求，账号变化取消旧任务。重连不另加增强全扫。** |
+| 启动/重连时全量补全                                                 | **【已接入并调整，待实测】Online 补线与计时恢复独立保留。增强抓取仅由启动／小时基线完成及按钮触发，资料采集与关系建议并行；每次强刷、只合并进行中的请求，账号变化取消旧任务。重连不另加增强全扫。**                                                                                                                                                                                                                                                                                                                  |
 | 重启后恢复好友房间停留计时                                          | **【待核实】**VRCX-0 有从游戏日志推导计时的路径和单元测试，但没有端到端测试证明应用重启后运行中的 UI 能恢复原始进入时间。证据：`crates/application-core/src/instance_dwell.rs`、`crates/application-game/src/game_log/processor.rs`。                                                                                                                                                                                                                                                                                |
 | 从历史实例添加伪造的同行记录                                        | **【未实现/缺失】**FuLuTang 的 `c4f1a461` 在历史实例详情中加入操作：把选定用户的五秒进出记录插入当前实例在本地记录的进入时间。VRCX-0-jirai 未找到手动/伪造游戏日志记录的等价入口。                                                                                                                                                                                                                                                                                                                                   |
 | 从 Feed 拖动文件到 Gallery 分类上传                                 | **【部分实现，待手动验收】**Friend Feed 已加入分类拖放提示并接入 Gallery 资源上传操作；前端单元测试已覆盖拖放和上传分流，实际文件、分类与失败提示仍需在运行中的软件里验收。证据：`src/features/feed/components/FeedImageDropOverlay.tsx`、`src/features/tools/useGalleryAssetActions.ts` 及测试。                                                                                                                                                                                                                    |
@@ -158,9 +158,13 @@ macOS 首次启动如被系统拦截，请前往 **系统设置 → 隐私与安
 Windows 用户还需安装 **Visual Studio Build Tools**，并勾选 **"使用 C++ 的桌面开发"**。若使用普通 PowerShell，先加载 VS 编译环境：
 
 ```powershell
-$vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-$vsPath = & $vswhere -latest -products Microsoft.VisualStudio.Product.BuildTools -version '[17.0,18.0)' -property installationPath
-& "$vsPath\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64
+$jiraiVsPath = 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools'
+if (!(Test-Path "$jiraiVsPath\Common7\Tools\Launch-VsDevShell.ps1")) {
+    throw '请改成实际安装的 Visual Studio 路径，或直接打开 Developer PowerShell。'
+}
+& "$jiraiVsPath\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64
+where.exe link.exe
+where.exe lld-link.exe
 ```
 
 然后运行 `npm run tauri:dev`。
@@ -178,9 +182,11 @@ npm install
 npm run tauri:dev
 ```
 
-### 配置加载失败时的临时启动方式（2026-10-03）
+### 配置加载失败的修复与备用启动方式（2026-10-03）
 
-若启动时报 `sourcemapPathTransform ... returned object, but expected string`，这是 Vite 默认打包配置的加载步骤失败，不是 Rust 链接器错误。当前本机 Vite 8.3.2／Rolldown 1.2.12 可复现：`bundle` 失败，`runner` 成功；根因尚未定位到具体依赖，不能仅凭报错认定业务配置写错。本次未改默认 npm 脚本。
+若启动时报 `sourcemapPathTransform ... returned object, but expected string`，这是 Vite 默认打包配置的加载步骤失败，不是 Rust 链接器错误。本机曾在 Vite 8.3.2／Rolldown 1.2.12 下复现。停止本仓库的开发／构建进程后运行 `npm ci --no-audit --no-fund`，依 lockfile 恢复为 Vite 8.3.1、Rolldown 及 Windows 原生绑定 1.2.11、Vitest 5.0.2 后，默认加载、前端 HTTP 200、普通测试和前端生产构建均通过。修复了本机依赖状态；尚不能单凭这个对照确定是原生文件混用还是新版本组合问题。不修改 lockfile，也不需要修改默认 npm 脚本。若文件被占用，先关闭该仓库的 Vite／Tauri 进程，不要强行混装依赖。
+
+完成上述修复并加载 VS 开发环境后，仍使用 `npm run tauri:dev` 同时启动前后端。下面的 runner 双窗口方式仅作备用，不是当前必需步骤；runner 是 [Vite 官方支持的配置加载方式](https://vite.dev/guide/cli)。
 
 两个 PowerShell 均先切到当前仓库。第一个运行前端并保持窗口开启：
 

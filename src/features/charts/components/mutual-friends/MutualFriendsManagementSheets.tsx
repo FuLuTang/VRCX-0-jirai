@@ -1,6 +1,11 @@
 import { Link2Icon, UsersIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import type {
+    MutualFriendManualLink,
+    MutualFriendPickerOption,
+    MutualFriendTrackedUser
+} from '@/lib/mutual-friends/mutualFriendsTypes';
 import { preserveAppTitleBarOnOpenChange } from '@/lib/overlayTitlebar';
 import { Button } from '@/ui/shadcn/button';
 import {
@@ -11,11 +16,6 @@ import {
     SheetTrigger
 } from '@/ui/shadcn/sheet';
 
-import type {
-    MutualFriendManualLink,
-    MutualFriendPickerOption,
-    MutualFriendTrackedUser
-} from '@/lib/mutual-friends/mutualFriendsTypes';
 import { MutualFriendsRelationsManager } from './MutualFriendsRelationsManager';
 
 interface ManagementProps {

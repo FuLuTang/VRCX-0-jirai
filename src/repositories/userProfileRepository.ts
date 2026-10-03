@@ -347,12 +347,14 @@ async function getAllMutualFriends({ userId, signal }: MutualFriendsInput) {
         );
     }
 
-    const { rows, persisted, observedAt } = await limitMutualFriendsRequest(() => {
-        signal?.throwIfAborted();
-        return commands.appUserMutualFriendsListGet({
-            userId: normalizedUserId
-        });
-    });
+    const { rows, persisted, observedAt } = await limitMutualFriendsRequest(
+        () => {
+            signal?.throwIfAborted();
+            return commands.appUserMutualFriendsListGet({
+                userId: normalizedUserId
+            });
+        }
+    );
     const candidates: unknown[] = rows;
     const mutualFriendRows = candidates.filter(isUserMutualFriendRow);
     setCachedQueryData(

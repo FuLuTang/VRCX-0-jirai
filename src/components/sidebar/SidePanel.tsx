@@ -252,9 +252,9 @@ export const SidePanel = forwardRef<HTMLElement, SidePanelProps>(
                 ? t('side_panel.filter_groups')
                 : activeTab === 'tracked-nonfriends'
                   ? t('tracked_nonfriends.filter')
-                : worldRoomsTabs.some((item) => item.id === activeTab)
-                  ? t('side_panel.filter_instances')
-                  : t('side_panel.filter_friends');
+                  : worldRoomsTabs.some((item) => item.id === activeTab)
+                    ? t('side_panel.filter_instances')
+                    : t('side_panel.filter_friends');
 
         const {
             favoriteGroupOrderDialogOpen,
