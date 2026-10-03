@@ -1,4 +1,5 @@
 import type { FeedRowOutput } from '@/platform/tauri/bindings';
+import { replaceBioSymbols } from '@/shared/utils/string';
 
 const BIO_CHANGE_MERGE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -71,8 +72,10 @@ export function buildInlineBioDiff(
     previousBio: unknown,
     bio: unknown
 ): BioInlineDiffSegment[] {
-    const previousTokens = tokenizeBio(String(previousBio ?? ''));
-    const currentTokens = tokenizeBio(String(bio ?? ''));
+    const previousTokens = tokenizeBio(
+        replaceBioSymbols(String(previousBio ?? ''))
+    );
+    const currentTokens = tokenizeBio(replaceBioSymbols(String(bio ?? '')));
     const rows = previousTokens.length + 1;
     const columns = currentTokens.length + 1;
     const lcs = Array.from({ length: rows }, () => new Uint32Array(columns));

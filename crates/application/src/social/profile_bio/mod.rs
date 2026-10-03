@@ -87,7 +87,9 @@ pub fn observe_profile_bio(
         store.record(owner, &observation.user_id, &record)?;
         return Ok(ProfileBioOutcome::Baseline);
     };
-    if last.bio == observation.bio {
+    if vrcx_0_core::text::comparable_bio(&last.bio)
+        == vrcx_0_core::text::comparable_bio(&observation.bio)
+    {
         store.record(owner, &observation.user_id, &record)?;
         return Ok(ProfileBioOutcome::Unchanged);
     }

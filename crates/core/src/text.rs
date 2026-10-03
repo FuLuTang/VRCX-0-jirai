@@ -2,6 +2,54 @@ pub fn normalize_text(value: impl AsRef<str>) -> String {
     value.as_ref().trim().to_string()
 }
 
+/// Compare API profile text with legacy records that decoded VRChat's symbols.
+/// Keep the original text for storage; decoding is only an equality policy.
+pub fn comparable_bio(value: &str) -> String {
+    comparable_profile_text(value)
+}
+
+pub fn comparable_profile_text(value: &str) -> String {
+    let decoded: String = value
+        .chars()
+        .map(|character| match character {
+            '＠' => '@',
+            '＃' => '#',
+            '＄' => '$',
+            '％' => '%',
+            '＆' => '&',
+            '＝' => '=',
+            '＋' => '+',
+            '⁄' => '/',
+            '＼' => '\\',
+            '˸' => ':',
+            '‚' => ',',
+            '？' => '?',
+            'ǃ' => '!',
+            '＂' => '"',
+            '≺' => '<',
+            '≻' => '>',
+            '․' => '.',
+            '＾' => '^',
+            '｛' => '{',
+            '｝' => '}',
+            '［' => '[',
+            '］' => ']',
+            '（' => '(',
+            '）' => ')',
+            '｜' => '|',
+            '∗' => '*',
+            other => other,
+        })
+        .collect();
+    let mut result = String::new();
+    for character in decoded.trim_end().chars() {
+        if character != ' ' || !result.ends_with(' ') {
+            result.push(character);
+        }
+    }
+    result
+}
+
 pub fn first_non_empty<'a>(values: impl IntoIterator<Item = &'a str>) -> &'a str {
     values
         .into_iter()

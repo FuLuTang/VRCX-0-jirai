@@ -190,9 +190,9 @@ pub fn profile_feed_reconcile_with_description_policy(
         let bio_updated = input
             .bio
             .as_ref()
-            .is_some_and(|bio| !has_bio || previous_bio != *bio);
+            .is_some_and(|bio| !has_bio || vrcx_0_core::text::comparable_bio(&previous_bio) != vrcx_0_core::text::comparable_bio(bio));
         let status_updated = ["join me", "active", "ask me", "busy"].contains(&status.as_str())
-            && (!has_status || previous_status != status || previous_status_description != status_description);
+            && (!has_status || previous_status != status || vrcx_0_core::text::comparable_profile_text(&previous_status_description) != vrcx_0_core::text::comparable_profile_text(&status_description));
           let created_at = vrcx_0_core::time::now_iso();
           let mut entries = Vec::new();
           if let Some(bio) = input.bio.as_ref().filter(|_| bio_updated) {

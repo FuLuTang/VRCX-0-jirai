@@ -46,6 +46,10 @@ fn patch_field_changed(patch: &Value, previous: &FriendRecord, key: &str) -> boo
     match patch.get(key) {
         None => false,
         Some(Value::Null) => !previous_value.is_empty(),
+        Some(Value::String(next)) if key == "statusDescription" => {
+            vrcx_0_core::text::comparable_profile_text(next)
+                != vrcx_0_core::text::comparable_profile_text(&previous_value)
+        }
         Some(Value::String(next)) => *next != previous_value,
         Some(_) => true,
     }
@@ -175,5 +179,35 @@ fn string_or_previous(patch: &Value, previous: &FriendRecord, key: &str) -> Stri
         record_string(previous, key)
     } else {
         value
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn status_phrase_encoding_does_not_create_a_realtime_change() {
+        let previous = FriendRecord {
+            status: "active".into(),
+            status_description: "AFK might be asleep. Mute".into(),
+            ..FriendRecord::default()
+        };
+        assert!(!patch_field_changed(
+            &json!({"statusDescription": "AFK might be asleep․ Mute"}),
+            &previous,
+            "statusDescription"
+        ));
+        assert!(patch_field_changed(
+            &json!({"statusDescription": "awake"}),
+            &previous,
+            "statusDescription"
+        ));
+        assert!(patch_field_changed(
+            &json!({"status": "busy"}),
+            &previous,
+            "status"
+        ));
     }
 }

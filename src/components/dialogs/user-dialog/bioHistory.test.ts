@@ -4,6 +4,20 @@ import type { FeedRowOutput } from '@/platform/tauri/bindings';
 
 import { buildInlineBioDiff, groupBioHistoryRows } from './bioHistory';
 
+it('does not highlight equivalent API and legacy Bio symbols as edits', () => {
+    expect(
+        buildInlineBioDiff(
+            'バカ (确信) o.O 20,000 night.',
+            'バカ （确信） o․O 20‚000 night․'
+        )
+    ).toEqual([{ type: 'equal', text: 'バカ (确信) o.O 20,000 night.' }]);
+    expect(buildInlineBioDiff('旧 （确信）', '新 (确信)')).toEqual([
+        { type: 'remove', text: '旧' },
+        { type: 'add', text: '新' },
+        { type: 'equal', text: ' (确信)' }
+    ]);
+});
+
 function bioRow(
     created_at: string,
     previousBio: string | null,

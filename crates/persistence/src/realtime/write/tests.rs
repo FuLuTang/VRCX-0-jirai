@@ -1294,6 +1294,74 @@ fn profile_feed_reconcile_does_not_clear_bio_when_field_is_missing() -> Result<(
 }
 
 #[test]
+fn profile_feed_ignores_legacy_symbol_encoding_but_records_real_edits() -> Result<(), crate::Error>
+{
+    let dir = TestDir::new("profile-feed-symbols");
+    let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3"))?;
+    let owner = OwnerId::new("usr_self");
+    let input = |bio: &str| ProfileFeedReconcileInput {
+        expected_owner_user_id: "usr_self".into(),
+        user_id: "usr_friend".into(),
+        display_name: "Friend".into(),
+        bio: Some(bio.into()),
+        status: String::new(),
+        status_description: String::new(),
+    };
+    assert!(
+        profile_feed_reconcile(&db, &owner, input("バカ (确信) o.O 20,000 night."))?.bio_updated
+    );
+    let encoded = "バカ （确信） o․O 20‚000 night․";
+    let (receipt, entries) =
+        crate::realtime::profile_feed_reconcile_with_entries(&db, &owner, input(encoded))?;
+    assert!(!receipt.bio_updated);
+    assert!(entries.is_empty());
+    assert_eq!(
+        crate::profile_bio::profile_bio_get(&db, &owner, "usr_friend")?
+            .unwrap()
+            .bio,
+        encoded
+    );
+    assert!(profile_feed_reconcile(&db, &owner, input("本当に変わった （确信）"))?.bio_updated);
+    assert!(profile_feed_reconcile(&db, &owner, input(""))?.bio_updated);
+    Ok(())
+}
+
+#[test]
+fn profile_feed_status_ignores_symbol_encoding_but_keeps_color_and_phrase_edits(
+) -> Result<(), crate::Error> {
+    let dir = TestDir::new("profile-feed-status-symbols");
+    let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3"))?;
+    let owner = OwnerId::new("usr_self");
+    let input = |status: &str, description: &str| ProfileFeedReconcileInput {
+        expected_owner_user_id: "usr_self".into(),
+        user_id: "usr_friend".into(),
+        display_name: "Friend".into(),
+        bio: None,
+        status: status.into(),
+        status_description: description.into(),
+    };
+    for (plain, encoded) in [
+        ("ヘッドホンOnline...", "ヘッドホンOnline․․․"),
+        ("AFK might be asleep. Mute", "AFK might be asleep․ Mute"),
+        ("VR / EEPY", "VR ⁄ EEPY"),
+        ("(o-_-o)", "（o-_-o）"),
+    ] {
+        assert!(profile_feed_reconcile(&db, &owner, input("active", plain))?.status_updated);
+        let (receipt, entries) = crate::realtime::profile_feed_reconcile_with_entries(
+            &db,
+            &owner,
+            input("active", encoded),
+        )?;
+        assert!(!receipt.status_updated);
+        assert!(entries.is_empty());
+    }
+    assert!(profile_feed_reconcile(&db, &owner, input("busy", "（o-_-o）"))?.status_updated);
+    assert!(profile_feed_reconcile(&db, &owner, input("busy", "new phrase"))?.status_updated);
+    assert!(profile_feed_reconcile(&db, &owner, input("busy", ""))?.status_updated);
+    Ok(())
+}
+
+#[test]
 fn profile_feed_missing_description_preserves_last_phrase() -> Result<(), crate::Error> {
     let dir = TestDir::new("profile-feed-missing-description");
     let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3"))?;
