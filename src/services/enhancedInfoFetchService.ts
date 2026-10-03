@@ -12,16 +12,8 @@ import {
 } from './enhancedProfileFetchExecutor';
 import { fetchRawProfile } from './enhancedProfileFetchRequest';
 
-export type EnhancedInfoFetchSource =
-    | 'startup'
-    | 'reconnect'
-    | 'periodic'
-    | 'manual'
-    | 'profile';
-export type EnhancedInfoFetchSnapshot = Omit<
-    ProfileFetchProgress,
-    'nextRunAt'
-> & {
+export type EnhancedInfoFetchSource = 'startup' | 'periodic' | 'manual';
+export type EnhancedInfoFetchSnapshot = ProfileFetchProgress & {
     accountId: string | null;
     running: boolean;
     source: EnhancedInfoFetchSource;
@@ -33,8 +25,23 @@ export type EnhancedInfoFetchSnapshot = Omit<
         | 'completed'
         | 'cancelled'
         | 'error';
-    nextRunAt: string | null;
     errorMessage: string | null;
+    friendsTotal: number;
+    trackedTotal: number;
+    collectionStatus:
+        | 'idle'
+        | 'running'
+        | 'paused'
+        | 'completed'
+        | 'cancelled'
+        | 'error';
+    relationshipStatus:
+        | 'waiting'
+        | 'running'
+        | 'completed'
+        | 'unavailable'
+        | 'error';
+    relationshipError: string | null;
 };
 const emptySnapshot = (): EnhancedInfoFetchSnapshot => ({
     accountId: null,
@@ -52,9 +59,15 @@ const emptySnapshot = (): EnhancedInfoFetchSnapshot => ({
     statusUpdated: 0,
     pauseReason: null,
     nextRunAt: null,
-    errorMessage: null
+    errorMessage: null,
+    friendsTotal: 0,
+    trackedTotal: 0,
+    collectionStatus: 'idle',
+    relationshipStatus: 'waiting',
+    relationshipError: null
 });
 let snapshot = emptySnapshot();
+let snapshotScope = '';
 const listeners = new Set<(snapshot: EnhancedInfoFetchSnapshot) => void>();
 let active: {
     controller: AbortController;
@@ -69,6 +82,25 @@ let recommendations: Recommendations | null = null;
 function publish(patch: Partial<EnhancedInfoFetchSnapshot>): void {
     snapshot = { ...snapshot, ...patch };
     for (const listener of listeners) listener(snapshot);
+}
+export function getEnhancedInfoFetchTargetCounts(accountId: string) {
+    const roster = useFriendRosterStore.getState();
+    const tracked = useTrackedNonfriendsStore.getState();
+    const friends = new Set(
+        roster.currentUserId === accountId
+            ? Object.entries(roster.friendsById)
+                  .map(([key, value]) => String(value.id || key).trim())
+                  .filter(Boolean)
+            : []
+    );
+    const nonfriends = new Set(
+        tracked.currentUserId === accountId
+            ? tracked.entries
+                  .map((entry) => entry.userId.trim())
+                  .filter((id) => id && !friends.has(id))
+            : []
+    );
+    return { friendsTotal: friends.size, trackedTotal: nonfriends.size };
 }
 export function getEnhancedInfoFetchSnapshot(): EnhancedInfoFetchSnapshot {
     return snapshot;
@@ -100,8 +132,18 @@ function currentScope(): string {
 export function cancelEnhancedInfoFetch(): void {
     active?.controller.abort();
     if (active)
-        publish({ phase: 'cancelled', pauseReason: null, nextRunAt: null });
+        publish({
+            phase: 'cancelled',
+            collectionStatus:
+                snapshot.collectionStatus === 'running' ||
+                snapshot.collectionStatus === 'paused'
+                    ? 'cancelled'
+                    : snapshot.collectionStatus,
+            pauseReason: null,
+            nextRunAt: null
+        });
 }
+
 export function waitForEnhancedFetch(
     milliseconds: number,
     signal: AbortSignal
@@ -134,21 +176,32 @@ export function runEnhancedInfoFetch(
     active = token;
     snapshot = {
         ...emptySnapshot(),
+        ...getEnhancedInfoFetchTargetCounts(accountId),
         accountId,
         source,
         running: true,
+        collectionStatus: 'running',
         phase: 'fetching'
     };
+    snapshotScope = scope;
     publish({});
     const isCurrent = () =>
         !controller.signal.aborted && currentScope() === scope;
+    const update = (patch: Partial<EnhancedInfoFetchSnapshot>) => {
+        if (active === token && isCurrent()) publish(patch);
+    };
+    const errorMessage = (error: unknown) =>
+        error instanceof Error ? error.message : String(error);
     const dependencies: ProfileFetchDependencies = {
         getFriends: () => useFriendRosterStore.getState().friendsById,
         isAccountCurrent: () =>
             isCurrent() &&
             useFriendRosterStore.getState().currentUserId === accountId &&
             useFriendRosterStore.getState().loadStatus === 'ready',
-        loadTracked: (id) => useTrackedNonfriendsStore.getState().load(id),
+        loadTracked: async (id) => {
+            await useTrackedNonfriendsStore.getState().load(id);
+            update(getEnhancedInfoFetchTargetCounts(id));
+        },
         getTracked: () => useTrackedNonfriendsStore.getState(),
         getUserProfile: fetchRawProfile,
         reconcile: commands.appProfileFeedReconcile,
@@ -158,46 +211,81 @@ export function runEnhancedInfoFetch(
     };
     token.promise = (async () => {
         try {
-            const outcome = await createProfileFetchExecutor(dependencies)({
+            const profiles = createProfileFetchExecutor(dependencies)({
                 accountId,
                 signal: controller.signal,
                 translate: (key) => key,
                 onProfileProgress: (progress) => {
-                    if (active === token && isCurrent())
-                        publish({
-                            ...progress,
-                            phase: progress.pauseReason ? 'paused' : 'fetching'
-                        });
-                }
-            });
-            if (!isCurrent() || outcome?.status === 'skipped') {
-                if (active === token)
-                    publish({
-                        phase:
-                            isCurrent() &&
-                            outcome?.status === 'skipped' &&
-                            outcome.skipReason ===
-                                'workflow.skip.profile_fetch_empty'
-                                ? 'completed'
-                                : 'cancelled'
+                    update({
+                        ...progress,
+                        collectionStatus: progress.pauseReason
+                            ? 'paused'
+                            : 'running',
+                        phase: progress.pauseReason ? 'paused' : 'fetching'
                     });
-                return;
-            }
-            if (recommendations) {
-                publish({ phase: 'relationships', currentTarget: null });
-                await recommendations({ accountId, signal: controller.signal });
-            }
-            if (active === token && isCurrent())
-                publish({ phase: 'completed' });
+                }
+            })
+                .then((outcome) => {
+                    const completed =
+                        outcome.status === 'completed' ||
+                        outcome.skipReason ===
+                            'workflow.skip.profile_fetch_empty';
+                    update({
+                        collectionStatus: completed ? 'completed' : 'cancelled',
+                        phase: 'relationships',
+                        currentTarget: null,
+                        pauseReason: null,
+                        nextRunAt: null
+                    });
+                    return outcome;
+                })
+                .catch((error: unknown) => {
+                    update({
+                        collectionStatus: 'error',
+                        phase: 'error',
+                        errorMessage: errorMessage(error)
+                    });
+                    throw error;
+                });
+            const relationships = (async () => {
+                if (!recommendations) {
+                    update({ relationshipStatus: 'unavailable' });
+                    return;
+                }
+                update({ relationshipStatus: 'running' });
+                try {
+                    await recommendations({
+                        accountId,
+                        signal: controller.signal
+                    });
+                } catch (error) {
+                    update({
+                        relationshipStatus: 'error',
+                        relationshipError: errorMessage(error)
+                    });
+                    throw error;
+                }
+                update({ relationshipStatus: 'completed' });
+            })();
+            // Recommendations consume local co-instance and graph history,
+            // not the Bio/status observations being fetched in this task.
+            const [profileResult, relationshipResult] =
+                await Promise.allSettled([profiles, relationships]);
+            if (profileResult.status === 'rejected') throw profileResult.reason;
+            if (relationshipResult.status === 'rejected')
+                throw relationshipResult.reason;
+            if (active === token)
+                publish({
+                    phase:
+                        isCurrent() && snapshot.collectionStatus === 'completed'
+                            ? 'completed'
+                            : 'cancelled'
+                });
         } catch (error) {
             if (active === token)
                 publish({
                     phase: !isCurrent() ? 'cancelled' : 'error',
-                    errorMessage: !isCurrent()
-                        ? null
-                        : error instanceof Error
-                          ? error.message
-                          : String(error)
+                    errorMessage: isCurrent() ? errorMessage(error) : null
                 });
         } finally {
             if (active === token) {
@@ -220,6 +308,7 @@ export function initializeEnhancedInfoFetch(): () => void {
     let disposed = false;
     const unsubscribeBaseline = subscribeAuthenticatedRuntimeEnhancedBaseline(
         (accountId, source) => {
+            if (source === 'reconnect') return;
             const baselineScope = currentScope();
             // Deliberately lazy: bootstrap owns configuration initialization. A
             // read failure is contained here and must never reject app bootstrap.
@@ -244,20 +333,39 @@ export function initializeEnhancedInfoFetch(): () => void {
         }
     );
     const unsubscribeRuntime = useRuntimeStore.subscribe(() => {
-        if (active && currentScope() !== active.scope) {
+        if (snapshotScope !== currentScope()) {
             cancelEnhancedInfoFetch();
+            snapshotScope = currentScope();
             snapshot = {
                 ...emptySnapshot(),
                 accountId: useRuntimeStore.getState().auth.currentUserId,
-                phase: 'cancelled'
+                phase: 'cancelled',
+                collectionStatus: 'cancelled'
             };
             publish({});
         }
     });
+    const updateCounts = () => {
+        if (!active) {
+            const accountId = useRuntimeStore.getState().auth.currentUserId;
+            if (snapshot.phase === 'idle' || snapshot.accountId !== accountId) {
+                snapshot = { ...emptySnapshot(), accountId };
+                publish(
+                    accountId ? getEnhancedInfoFetchTargetCounts(accountId) : {}
+                );
+            }
+        }
+    };
+    updateCounts();
+    const unsubscribeFriends = useFriendRosterStore.subscribe(updateCounts);
+    const unsubscribeTracked =
+        useTrackedNonfriendsStore.subscribe(updateCounts);
     return () => {
         disposed = true;
         unsubscribeBaseline();
         unsubscribeRuntime();
+        unsubscribeFriends();
+        unsubscribeTracked();
         cancelEnhancedInfoFetch();
     };
 }

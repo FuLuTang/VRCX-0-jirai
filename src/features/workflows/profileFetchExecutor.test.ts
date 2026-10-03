@@ -428,7 +428,7 @@ describe('profileFetchExecutor', () => {
         expect(getUserProfile).toHaveBeenCalledTimes(3);
     });
 
-    it('skips an unavailable profile but spaces the next request by three seconds', async () => {
+    it('skips an unavailable profile with short sequential pacing', async () => {
         const events: string[] = [];
         const getUserProfile = vi
             .fn()
@@ -462,7 +462,7 @@ describe('profileFetchExecutor', () => {
             wait
         });
         const outcome = await run(context());
-        expect(events).toEqual(['request:usr_a', 'wait:3000', 'request:usr_b']);
+        expect(events).toEqual(['request:usr_a', 'wait:350', 'request:usr_b']);
         expect(outcome).toMatchObject({ result: { failed: 1 } });
     });
 });

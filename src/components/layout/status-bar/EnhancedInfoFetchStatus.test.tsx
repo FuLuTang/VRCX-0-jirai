@@ -48,15 +48,22 @@ vi.mock('./StatusBarParts', () => ({
         value,
         tooltip,
         onClick,
-        warn
+        warn,
+        active
     }: {
         label: string;
         value: string;
         tooltip: string;
         onClick: () => void;
         warn: boolean;
+        active: boolean;
     }) => (
-        <button onClick={onClick} title={tooltip} data-warn={warn}>
+        <button
+            onClick={onClick}
+            title={tooltip}
+            data-warn={warn}
+            data-active={active}
+        >
             {label} {value}
         </button>
     )
@@ -80,7 +87,12 @@ beforeEach(() => {
         pauseReason: null,
         nextRunAt: null,
         errorMessage: null,
-        currentTarget: null
+        currentTarget: null,
+        friendsTotal: 7,
+        trackedTotal: 3,
+        relationshipStatus: 'waiting',
+        collectionStatus: 'idle',
+        relationshipError: null
     };
 });
 afterEach(() => {
@@ -88,6 +100,23 @@ afterEach(() => {
     state.listeners.clear();
 });
 describe('EnhancedInfoFetchStatus', () => {
+    it('marks the single periodic refresh active from flat running', () => {
+        render(<EnhancedInfoFetchStatus />);
+        expect(screen.getByRole('button').getAttribute('data-active')).toBe(
+            'true'
+        );
+        expect(screen.getByRole('button').textContent).toContain('7/10');
+    });
+    it('suppresses stale running flags after cancellation', () => {
+        state.snapshot = { ...state.snapshot, phase: 'cancelled' };
+        render(<EnhancedInfoFetchStatus />);
+        expect(screen.getByRole('button').getAttribute('data-active')).toBe(
+            'false'
+        );
+        expect(screen.getByRole('button').title).toContain(
+            'enhanced_info_fetch.phase.cancelled'
+        );
+    });
     it('reopens details rather than starting or cancelling a run', () => {
         render(<EnhancedInfoFetchStatus />);
         const button = screen.getByRole('button');

@@ -11,8 +11,9 @@ import {
     type RawEnhancedProfile
 } from './enhancedProfileFetchRequest';
 
-// Match the existing profile-Bio scan cadence for a full-account sweep.
-const REQUEST_INTERVAL_MS = 3_000;
+// Short sequential pacing; HTTP 429 owns the server-directed queue pause.
+const REQUEST_INTERVAL_MS = 350;
+const RETRY_INTERVAL_MS = 3_000;
 
 function requestStatus(error: unknown): number | null {
     if (isVrchatRequestError(error)) return error.status;
@@ -221,10 +222,7 @@ export function createProfileFetchExecutor(
                         failed += 1;
                         break;
                     }
-                    await dependencies.wait(
-                        REQUEST_INTERVAL_MS,
-                        context.signal
-                    );
+                    await dependencies.wait(RETRY_INTERVAL_MS, context.signal);
                 }
             }
             abortIfNeeded(context.signal);

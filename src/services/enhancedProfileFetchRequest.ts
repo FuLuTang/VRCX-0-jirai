@@ -37,7 +37,7 @@ function waitBetweenEndpoints(signal?: AbortSignal): Promise<void> {
         const timer = setTimeout(() => {
             signal?.removeEventListener('abort', onAbort);
             resolve();
-        }, 3_000);
+        }, 350);
         signal?.addEventListener('abort', onAbort, { once: true });
     });
 }

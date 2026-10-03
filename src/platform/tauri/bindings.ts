@@ -3331,6 +3331,7 @@ export type BackendRuntimeCombinedSnapshot = {
     backendRuntime: BackendRuntimeSnapshot;
     authenticatedRuntimePhase: AuthenticatedRuntimePhaseSnapshot;
     authenticatedSession: AuthenticatedSessionProjection;
+    backgroundJobs: RuntimeBackgroundJobSnapshot[];
 };
 export type BackendRuntimeEventPayloadMap = {
     addGameLogEvent: RuntimeGameLogEventPayload;
@@ -6127,6 +6128,18 @@ export type RemoteModerationRow = {
 export type RequestInviteRequest = { requestSlot?: number | null };
 export type ResolvedFriendLogName = { userId: string; displayName: string };
 export type Role = 'user' | 'assistant' | 'tool_call' | 'tool_result';
+export type RuntimeBackgroundJobSnapshot = {
+    name: string;
+    owner: string;
+    status: RuntimeOperationStatus;
+    cadenceSeconds: number | null;
+    lastStartedAt: string | null;
+    lastFinishedAt: string | null;
+    nextRunAt: string | null;
+    lastDetail: string;
+    lastError: string | null;
+    failureCount: number;
+};
 export type RuntimeGameLogEventPayload = { raw: string[] };
 export type RuntimeGroupInstancesProjection = {
     status: RuntimeGroupInstancesStatus;
