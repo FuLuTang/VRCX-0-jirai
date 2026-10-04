@@ -37,8 +37,8 @@ import {
 } from '@/services/entityMediaService';
 import type { UserDialogPreviousInstance } from '@/services/userDialogSessionCacheService';
 import type { UserDialogRelationshipEvent } from '@/services/userDialogSessionCacheService';
-import { useRuntimeStore } from '@/state/runtimeStore';
 import { parseLocation } from '@/shared/utils/location';
+import { useRuntimeStore } from '@/state/runtimeStore';
 import { Button } from '@/ui/shadcn/button';
 import {
     Card,
@@ -635,10 +635,15 @@ function UserDialogBioPanel({ profile, bioLinks }: UserDialogBioSectionProps) {
 
     useEffect(() => {
         if (!showHistory || !currentUserId || !profile.id) {
+            setHistoryRows([]);
+            setSelectedHistoryIndex(0);
+            setHistoryLoading(false);
             return;
         }
 
         let active = true;
+        setHistoryRows([]);
+        setSelectedHistoryIndex(0);
         setHistoryLoading(true);
         feedRepository
             .queryFeed({

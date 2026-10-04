@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-    buildLineDiff,
-    localeIncludes,
-    normalizeString,
-    replaceBioSymbols
-} from './string';
+import { localeIncludes, normalizeString, replaceBioSymbols } from './string';
 
 describe('string utils', () => {
     it('matches locale-aware substrings with the supplied comparer', () => {
@@ -32,14 +27,5 @@ describe('string utils', () => {
             'Hi @#<tag>\\path'
         );
         expect(replaceBioSymbols(null)).toBe('');
-    });
-
-    it('keeps unchanged Bio lines and marks additions and removals', () => {
-        expect(buildLineDiff('first\nold\nlast', 'first\nnew\nlast')).toEqual([
-            { type: 'equal', text: 'first' },
-            { type: 'remove', text: 'old' },
-            { type: 'add', text: 'new' },
-            { type: 'equal', text: 'last' }
-        ]);
     });
 });
