@@ -1,6 +1,6 @@
 [package]
 name = "vrcx-0"
-version = "2.30.0"
+version = "2.31.0"
 edition = "2021"
 license.workspace = true
 description = "VRCX-0 desktop shell"
@@ -76,6 +76,7 @@ windows-sys = { version = "0.61", features = [
 ] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
+libloading = "0.7"
 webkit2gtk-nvidia-quirk = "2"
 
 [features]
