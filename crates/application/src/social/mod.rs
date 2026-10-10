@@ -9,6 +9,7 @@ mod moderation_sync;
 mod mutual_graph_fetch;
 mod note_export;
 mod prints;
+mod profile_bio;
 mod quick_search_catalog;
 mod saved_group_favorites;
 mod social_baseline_refresh;
@@ -32,8 +33,9 @@ pub use batch_mutation::{
 pub use current_user_mutation::{
     ContentFilter, CurrentUserMutationFuture, CurrentUserMutationPort, CurrentUserMutationRequest,
     CurrentUserMutationRuntime, CurrentUserProfileUpdateRequest,
-    CurrentUserQueryInvalidationFuture, CurrentUserUpdateRequest, VrchatCurrentUserBadgeInput,
-    VrchatCurrentUserProfileUpdateInput, VrchatCurrentUserTagsInput, VrchatCurrentUserUpdateInput,
+    CurrentUserQueryInvalidationFuture, CurrentUserUpdateRequest, ProfileBackgroundType,
+    ProfileBannerType, VrchatCurrentUserBadgeInput, VrchatCurrentUserProfileUpdateInput,
+    VrchatCurrentUserTagsInput, VrchatCurrentUserUpdateInput,
 };
 pub use friend_log_names::{
     resolve_friend_log_names, FriendLogNameResolutionCoordinator, FriendLogNameResolutionDeps,
@@ -46,22 +48,23 @@ pub use group_calendar::{
     GroupCalendarRemoteFuture, GroupCalendarSnapshot,
 };
 pub use groups::{
-    add_member_role, ban_member, block_group, cancel_request, create_post, delete_invite,
-    delete_post, edit_post, get_audit_log_types, get_bans, get_gallery, get_group,
-    get_group_quick_moderation, get_invites, get_join_requests, get_logs, get_members, get_posts,
-    get_user_groups, get_user_instances, join_group, kick_member, leave_group, remove_member_role,
-    respond_join_request, run_group_quick_moderation_action, search_members, send_invite,
-    set_member_props, set_representation, unban_member, unblock_group, GroupApiDeps,
-    GroupBuiltRequest, GroupMemberPatch, GroupMemberSort, GroupMemberVisibility,
-    GroupMembershipRemoteRequests, GroupPostMutation, GroupPostVisibility,
-    GroupQuickModerationAction, GroupQuickModerationActionInput, GroupQuickModerationActionOutput,
-    GroupQuickModerationDeps, GroupQuickModerationGroup, GroupQuickModerationInput,
-    GroupQuickModerationOutput, GroupRemoteRequest, GroupRemoteRequests, VrchatGroupGalleryInput,
-    VrchatGroupIdInput, VrchatGroupJoinRequestRespondInput, VrchatGroupJoinRequestsInput,
-    VrchatGroupLogsInput, VrchatGroupMemberPropsInput, VrchatGroupMemberRoleInput,
-    VrchatGroupMembersInput, VrchatGroupMembersSearchInput, VrchatGroupPagedInput,
-    VrchatGroupPostCreateInput, VrchatGroupPostDeleteInput, VrchatGroupPostEditInput,
-    VrchatGroupProfileInput, VrchatGroupRepresentationInput, VrchatGroupUserGroupsInput,
+    add_member_role, ban_member, block_group, cancel_request, create_post, delete_group,
+    delete_invite, delete_post, edit_post, get_audit_log_types, get_bans, get_gallery, get_group,
+    get_group_quick_moderation, get_invites, get_join_requests, get_logs, get_member_role_ids,
+    get_members, get_posts, get_user_groups, get_user_instances, join_group, kick_member,
+    leave_group, remove_member_role, respond_join_request, run_group_quick_moderation_action,
+    search_members, send_invite, set_member_props, set_representation, unban_member, unblock_group,
+    update_group, GroupApiDeps, GroupBuiltRequest, GroupMemberPatch, GroupMemberSort,
+    GroupMemberVisibility, GroupMembershipRemoteRequests, GroupPostMutation, GroupPostVisibility,
+    GroupProfileJoinState, GroupProfileUpdate, GroupQuickModerationAction,
+    GroupQuickModerationActionInput, GroupQuickModerationActionOutput, GroupQuickModerationDeps,
+    GroupQuickModerationGroup, GroupQuickModerationInput, GroupQuickModerationOutput,
+    GroupRemoteRequest, GroupRemoteRequests, VrchatGroupGalleryInput, VrchatGroupIdInput,
+    VrchatGroupJoinRequestRespondInput, VrchatGroupJoinRequestsInput, VrchatGroupLogsInput,
+    VrchatGroupMemberPropsInput, VrchatGroupMemberRoleInput, VrchatGroupMembersInput,
+    VrchatGroupMembersSearchInput, VrchatGroupPagedInput, VrchatGroupPostCreateInput,
+    VrchatGroupPostDeleteInput, VrchatGroupPostEditInput, VrchatGroupProfileInput,
+    VrchatGroupRepresentationInput, VrchatGroupUpdateInput, VrchatGroupUserGroupsInput,
     VrchatGroupUserInput,
 };
 pub use groups::{
@@ -139,6 +142,12 @@ pub use prints::{
     PrintCleanupTrigger, PrintFavoriteBulkResult, PrintFavoriteState, PrintFavoritesStore,
     PrintRemote, PrintRemoteFuture, DEFAULT_AUTO_DELETE_PRINTS_LIMIT,
 };
+pub use profile_bio::{
+    observe_profile_bio, observe_profile_response, scan_next_profile_bio, ProfileBioObservation,
+    ProfileBioOutcome, ProfileBioRecord, ProfileBioRemoteRequests, ProfileBioScanDeps,
+    ProfileBioScanOutcome, ProfileBioScanPacer, ProfileBioStore, PROFILE_BIO_SCAN_CONFIG_KEY,
+    PROFILE_BIO_SCAN_INTERVAL, PROFILE_BIO_SCAN_MIN_AGE, PROFILE_BIO_SCAN_PAUSE,
+};
 pub use quick_search_catalog::{
     QuickSearchDetailStore, QuickSearchEntityType, QuickSearchMatchedField, QuickSearchQueryInput,
     QuickSearchQueryOutput, QuickSearchQueryStatus, QuickSearchRemoteRequests,
@@ -156,7 +165,8 @@ pub use social_maintenance::{
     BACKGROUND_GROUP_INSTANCE_NOTIFICATION_REFRESH_JOB, BACKGROUND_GROUP_INSTANCE_REFRESH_JOB,
     BACKGROUND_MODERATION_CADENCE_SECONDS, BACKGROUND_MODERATION_REFRESH_JOB,
     BACKGROUND_PRINT_CLEANUP_CADENCE_SECONDS, BACKGROUND_PRINT_CLEANUP_JOB,
-    BACKGROUND_SOCIAL_BASELINE_CADENCE_SECONDS, BACKGROUND_SOCIAL_BASELINE_REFRESH_JOB,
+    BACKGROUND_PROFILE_BIO_SCAN_JOB, BACKGROUND_SOCIAL_BASELINE_CADENCE_SECONDS,
+    BACKGROUND_SOCIAL_BASELINE_REFRESH_JOB,
 };
 #[cfg(any(test, feature = "test-utils"))]
 pub use social_mutation::TestSocialMutationRemoteRequests;

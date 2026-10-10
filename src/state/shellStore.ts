@@ -5,10 +5,6 @@ import {
     setTrayIconNotification
 } from '@/services/shellIntegrationService';
 import { DEFAULT_THEME_COLOR_KEY } from '@/shared/constants/themes';
-import {
-    DEFAULT_TIME_UNIT_LABELS,
-    type TimeUnitLabels
-} from '@/shared/utils/dateTime';
 import { normalizeThemeColor } from '@/shared/utils/themeColor';
 
 const MIN_NAV_WIDTH = 64;
@@ -19,64 +15,29 @@ export type TableDensity = 'standard' | 'compact';
 export type NotificationLayout = 'notification-center' | 'table';
 type WindowDisplayMode = 'normal' | 'sidebar';
 
-const WINDOW_DISPLAY_MODE_STORAGE_KEY = 'vrcx-main-window-display-mode';
+const WINDOW_DISPLAY_MODE_STORAGE_KEY = 'VRCX_0_WindowDisplayMode';
 
 function loadWindowDisplayMode(): WindowDisplayMode {
-    if (typeof window === 'undefined') {
-        return 'normal';
-    }
-    try {
-        return window.localStorage.getItem(WINDOW_DISPLAY_MODE_STORAGE_KEY) ===
-            'sidebar'
-            ? 'sidebar'
-            : 'normal';
-    } catch {
-        return 'normal';
-    }
+    return localStorage.getItem(WINDOW_DISPLAY_MODE_STORAGE_KEY) === 'sidebar'
+        ? 'sidebar'
+        : 'normal';
 }
 
 function saveWindowDisplayMode(windowDisplayMode: WindowDisplayMode): void {
-    if (typeof window === 'undefined') {
-        return;
-    }
-    try {
-        window.localStorage.setItem(
-            WINDOW_DISPLAY_MODE_STORAGE_KEY,
-            windowDisplayMode
-        );
-    } catch {
-        return;
-    }
+    localStorage.setItem(WINDOW_DISPLAY_MODE_STORAGE_KEY, windowDisplayMode);
 }
 
-const WINDOW_ALWAYS_ON_TOP_STORAGE_KEY = 'vrcx-main-window-always-on-top';
+const WINDOW_ALWAYS_ON_TOP_STORAGE_KEY = 'VRCX_0_WindowAlwaysOnTop';
 
 function loadWindowAlwaysOnTop(): boolean {
-    if (typeof window === 'undefined') {
-        return false;
-    }
-    try {
-        return (
-            window.localStorage.getItem(WINDOW_ALWAYS_ON_TOP_STORAGE_KEY) ===
-            'true'
-        );
-    } catch {
-        return false;
-    }
+    return localStorage.getItem(WINDOW_ALWAYS_ON_TOP_STORAGE_KEY) === 'true';
 }
 
 function saveWindowAlwaysOnTop(windowAlwaysOnTop: boolean): void {
-    if (typeof window === 'undefined') {
-        return;
-    }
-    try {
-        window.localStorage.setItem(
-            WINDOW_ALWAYS_ON_TOP_STORAGE_KEY,
-            String(windowAlwaysOnTop)
-        );
-    } catch {
-        return;
-    }
+    localStorage.setItem(
+        WINDOW_ALWAYS_ON_TOP_STORAGE_KEY,
+        String(windowAlwaysOnTop)
+    );
 }
 
 type ShellStore = {
@@ -92,13 +53,11 @@ type ShellStore = {
     windowAlwaysOnTop: boolean;
     notificationIconDot: boolean;
     taskbarIconDot: boolean;
-    displayVRCPlusIconsAsAvatar: boolean;
     hideNicknames: boolean;
     zoomLevel: number | null;
     dateCulture: string;
     dateIsoFormat: boolean;
     dateHour12: boolean;
-    timeUnitLabels: TimeUnitLabels;
     notifiedMenus: string[];
     lastSettingsTab: string;
     shortcutHintsVisible: boolean;
@@ -122,17 +81,13 @@ type ShellStore = {
     setWindowAlwaysOnTop(windowAlwaysOnTop: boolean): void;
     setNotificationIconDot(notificationIconDot: boolean): void;
     setTaskbarIconDot(taskbarIconDot: boolean): void;
-    setAppearancePreferences(options?: {
-        displayVRCPlusIconsAsAvatar?: boolean;
-        hideNicknames?: boolean;
-    }): void;
+    setAppearancePreferences(options?: { hideNicknames?: boolean }): void;
     setZoomLevel(zoomLevel: number): void;
     setDatePreferences(options: {
         dateCulture: string;
         dateIsoFormat: boolean;
         dateHour12: boolean;
     }): void;
-    setTimeUnitLabels(labels: TimeUnitLabels): void;
     setLastSettingsTab(lastSettingsTab: string): void;
     setShortcutHintsVisible(visible: boolean): void;
     setVrcUnseenNotificationCount(unseenCount: number): void;
@@ -161,7 +116,6 @@ type ShellStoreState = Omit<
     | 'setAppearancePreferences'
     | 'setZoomLevel'
     | 'setDatePreferences'
-    | 'setTimeUnitLabels'
     | 'setLastSettingsTab'
     | 'setShortcutHintsVisible'
     | 'setVrcUnseenNotificationCount'
@@ -184,13 +138,11 @@ const initialState: ShellStoreState = {
     windowAlwaysOnTop: loadWindowAlwaysOnTop(),
     notificationIconDot: true,
     taskbarIconDot: true,
-    displayVRCPlusIconsAsAvatar: true,
     hideNicknames: false,
     zoomLevel: null,
     dateCulture: 'en-gb',
     dateIsoFormat: false,
     dateHour12: false,
-    timeUnitLabels: DEFAULT_TIME_UNIT_LABELS,
     notifiedMenus: [],
     lastSettingsTab: 'system',
     shortcutHintsVisible: false,
@@ -297,15 +249,8 @@ export const useShellStore = create<ShellStore>((set, get) => ({
         set({ taskbarIconDot });
         get().updateTrayIconNotification(true);
     },
-    setAppearancePreferences({
-        displayVRCPlusIconsAsAvatar,
-        hideNicknames
-    } = {}) {
+    setAppearancePreferences({ hideNicknames } = {}) {
         set((state) => ({
-            displayVRCPlusIconsAsAvatar:
-                displayVRCPlusIconsAsAvatar === undefined
-                    ? state.displayVRCPlusIconsAsAvatar
-                    : displayVRCPlusIconsAsAvatar,
             hideNicknames:
                 hideNicknames === undefined
                     ? state.hideNicknames
@@ -321,9 +266,6 @@ export const useShellStore = create<ShellStore>((set, get) => ({
             dateIsoFormat,
             dateHour12
         });
-    },
-    setTimeUnitLabels(labels) {
-        set({ timeUnitLabels: labels });
     },
     setLastSettingsTab(lastSettingsTab) {
         set({ lastSettingsTab });
@@ -377,5 +319,3 @@ export const useShellStore = create<ShellStore>((set, get) => ({
         get().updateTrayIconNotification();
     }
 }));
-
-export { DEFAULT_TIME_UNIT_LABELS };

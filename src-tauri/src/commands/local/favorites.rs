@@ -5,7 +5,9 @@ use tauri::State;
 use crate::error::AppError;
 use crate::state::AppState;
 
-use vrcx_0_application::favorites::{FavoriteRow, LocalFavoriteSnapshot};
+use vrcx_0_application::favorites::{
+    FavoriteRow, LocalFavoriteSnapshot, LocalWorldDetailsRefreshOutput,
+};
 use vrcx_0_application_core::FavoriteEntityKind;
 use vrcx_0_contracts::{
     SavedGroupCollectionCreateInput, SavedGroupCollectionDeleteInput, SavedGroupFavoriteAddInput,
@@ -27,6 +29,19 @@ pub fn app__favorite_list(
 
 #[tauri::command(async)]
 #[specta::specta]
+pub fn app__favorite_local_custom_order(
+    state: State<'_, AppState>,
+    kind: FavoriteEntityKind,
+) -> Result<Vec<FavoriteRow>, AppError> {
+    state
+        .runtime_host()
+        .local_data()
+        .favorite_custom_order(kind)
+        .map_err(AppError::from)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
 pub fn app__favorite_local_snapshot(
     state: State<'_, AppState>,
     kind: FavoriteEntityKind,
@@ -36,6 +51,14 @@ pub fn app__favorite_local_snapshot(
         .local_data()
         .favorite_snapshot(kind)
         .map_err(AppError::from)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__favorite_local_world_details_refresh(
+    state: State<'_, AppState>,
+) -> Result<LocalWorldDetailsRefreshOutput, AppError> {
+    state.refresh_local_world_favorite_details().await
 }
 
 #[tauri::command(async)]

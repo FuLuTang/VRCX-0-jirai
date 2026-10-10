@@ -24,18 +24,11 @@ const labels: Record<string, string> = {
     'view.settings.advanced.advanced.data_directory.source_default':
         'default directory',
     'view.settings.advanced.advanced.data_directory.source_persisted':
-        'custom directory',
-    'view.settings.advanced.advanced_ui.behavior.deep_link_repair': 'Fix',
-    'view.settings.advanced.advanced_ui.behavior.focus_on_join_header':
-        'Bring VRChat to the front',
-    'view.settings.advanced.advanced_ui.troubleshooting.avatar_feed_history':
-        'Save avatar change history'
+        'custom directory'
 };
 
 const commandMocks = vi.hoisted(() => ({
-    appBrowseHistoryRetentionDaysGet: vi.fn(),
-    appDeepLinkRegistrationStatus: vi.fn(),
-    appDeepLinkRegistrationRepair: vi.fn()
+    appBrowseHistoryRetentionDaysGet: vi.fn()
 }));
 
 vi.mock('@/platform/tauri/bindings', () => ({
@@ -75,7 +68,6 @@ function createModel(
 ): SettingsAdvancedModel {
     return {
         appDataDirState: appDataDirState(),
-        hostPlatform: 'windows',
         avatarAutoCleanupOptions: ['Off'],
         configTreeData: {},
         onAnonymousUsageTelemetryChange: vi.fn(),
@@ -85,8 +77,6 @@ function createModel(
         onClearConfigTreeData: vi.fn(),
         onGameLogDisabledChange: vi.fn(),
         onFeedPersistenceDisabledChange: vi.fn(),
-        onAvatarFeedPersistenceDisabledChange: vi.fn(),
-        onFocusVrchatOnJoinChange: vi.fn(),
         onLogResourceLoadChange: vi.fn(),
         onMigrateLegacyVrcxData: vi.fn(),
         onOpenAppDataDirSelector: vi.fn(),
@@ -96,10 +86,8 @@ function createModel(
         onRefreshConfigTreeData: vi.fn(),
         onRefreshOnlineVisits: vi.fn(),
         onRefreshSqliteTableSizes: vi.fn(),
-        onRelaunchVRChatAfterCrashChange: vi.fn(),
         onResetAppDataDir: vi.fn(),
         onUdonExceptionLoggingChange: vi.fn(),
-        onVrcQuitFixChange: vi.fn(),
         onlineVisitCount: null,
         prefs: {
             anonymousUsageTelemetry: false,
@@ -108,12 +96,8 @@ function createModel(
             avatarAutoCleanup: 'Off',
             gameLogDisabled: false,
             feedPersistenceDisabled: false,
-            avatarFeedPersistenceDisabled: false,
-            focusVrchatOnJoin: false,
             logResourceLoad: false,
-            relaunchVRChatAfterCrash: false,
-            udonExceptionLogging: false,
-            vrcQuitFix: true
+            udonExceptionLogging: false
         },
         sqliteTableSizeRows: [],
         sqliteTableSizes: {},
@@ -138,12 +122,6 @@ describe('SettingsAdvancedTab data directory states', () => {
         commandMocks.appBrowseHistoryRetentionDaysGet
             .mockReset()
             .mockResolvedValue(30);
-        commandMocks.appDeepLinkRegistrationStatus
-            .mockReset()
-            .mockResolvedValue(null);
-        commandMocks.appDeepLinkRegistrationRepair
-            .mockReset()
-            .mockResolvedValue(true);
         vi.stubGlobal(
             'ResizeObserver',
             class {
@@ -152,36 +130,6 @@ describe('SettingsAdvancedTab data directory states', () => {
                 disconnect() {}
             }
         );
-    });
-
-    it('shows the cross-platform Fix action for registration errors', async () => {
-        commandMocks.appDeepLinkRegistrationStatus.mockRejectedValueOnce(
-            new Error('registry value is malformed')
-        );
-
-        renderTab(createModel());
-
-        expect(
-            await screen.findByRole('button', {
-                name: 'Fix'
-            })
-        ).not.toBeNull();
-        expect(screen.getByText('Open VRCX-0 links')).not.toBeNull();
-    });
-
-    it('keeps the repair action hidden on unsupported platforms', async () => {
-        renderTab(createModel());
-
-        await vi.waitFor(() => {
-            expect(
-                commandMocks.appDeepLinkRegistrationStatus
-            ).toHaveBeenCalledOnce();
-        });
-        expect(
-            screen.queryByRole('button', {
-                name: 'Fix'
-            })
-        ).toBeNull();
     });
 
     it('shows only Change folder for the default directory', () => {
@@ -259,20 +207,6 @@ describe('SettingsAdvancedTab data directory states', () => {
         ).toBeNull();
     });
 
-    it('offers the VRChat focus toggle switched off and turns it on', () => {
-        const onFocusVrchatOnJoinChange = vi.fn();
-        renderTab(createModel({ onFocusVrchatOnJoinChange }));
-
-        const toggle = screen.getByRole('switch', {
-            name: 'Bring VRChat to the front'
-        });
-        expect(toggle.getAttribute('aria-checked')).toBe('false');
-
-        fireEvent.click(toggle);
-
-        expect(onFocusVrchatOnJoinChange.mock.calls[0]?.[0]).toBe(true);
-    });
-
     it('shows the developer group toggle and reports changes', () => {
         const onAutoJoinGroupCertificationChange = vi.fn();
         renderTab(createModel({ onAutoJoinGroupCertificationChange }));
@@ -284,43 +218,6 @@ describe('SettingsAdvancedTab data directory states', () => {
         fireEvent.click(toggle);
         expect(onAutoJoinGroupCertificationChange.mock.calls[0]?.[0]).toBe(
             false
-        );
-    });
-
-    it('hides the VRChat focus toggle on platforms without window focus', () => {
-        renderTab(createModel({ hostPlatform: 'linux' }));
-
-        expect(
-            screen.queryByRole('switch', {
-                name: 'Bring VRChat to the front'
-            })
-        ).toBeNull();
-    });
-
-    it('disables avatar history persistence while Feed persistence is off', () => {
-        const model = createModel();
-        model.prefs.feedPersistenceDisabled = true;
-
-        renderTab(model);
-
-        const toggle = screen.getByRole('switch', {
-            name: 'Save avatar change history'
-        });
-        expect(toggle.hasAttribute('data-disabled')).toBe(true);
-    });
-
-    it('changes avatar history persistence without changing Feed persistence', () => {
-        const onAvatarFeedPersistenceDisabledChange = vi.fn();
-        renderTab(createModel({ onAvatarFeedPersistenceDisabledChange }));
-
-        fireEvent.click(
-            screen.getByRole('switch', {
-                name: 'Save avatar change history'
-            })
-        );
-
-        expect(onAvatarFeedPersistenceDisabledChange).toHaveBeenCalledWith(
-            true
         );
     });
 });

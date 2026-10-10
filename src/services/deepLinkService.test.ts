@@ -46,7 +46,8 @@ vi.mock('@/platform/tauri/bindings', () => ({
         appDrainPendingDeepLinks: mocks.appDrainPendingDeepLinks,
         appFavoriteLocalSnapshot: mocks.appFavoriteLocalSnapshot,
         appSharedCollectionImportStart: mocks.appSharedCollectionImportStart,
-        appSharedCollectionImportStatus: mocks.appSharedCollectionImportStatus
+        appSharedCollectionImportStatus: mocks.appSharedCollectionImportStatus,
+        appShareCollectionPreview: mocks.previewSharedCollection
     }
 }));
 
@@ -55,12 +56,6 @@ vi.mock('@/platform/tauri/client', () => ({
         events: {
             subscribe: mocks.subscribe
         }
-    }
-}));
-
-vi.mock('@/repositories/shareCollectionRepository', () => ({
-    default: {
-        previewSharedCollection: mocks.previewSharedCollection
     }
 }));
 
@@ -99,6 +94,7 @@ vi.mock('./i18nService', () => ({
     }
 }));
 
+import { useLaunchStore } from '@/state/launchStore';
 import { useWorldCollectionImportStore } from '@/state/worldCollectionImportStore';
 
 import {
@@ -131,6 +127,7 @@ function importStatus(
 describe('deepLinkService', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        useLaunchStore.getState().closeLaunchDialog();
         mocks.eventHandlers.clear();
         useWorldCollectionImportStore.getState().reset();
         mocks.appDrainPendingDeepLinks.mockResolvedValue([]);
@@ -442,6 +439,59 @@ describe('deepLinkService', () => {
         });
     });
 
+    it('opens world details before the exact instance invitation', async () => {
+        const instanceId = '12345~private(usr_owner)~nonce(abc)~region(jp)';
+        mocks.openWorldDialog.mockImplementationOnce(() => {
+            expect(useLaunchStore.getState().launchDialog.open).toBe(false);
+        });
+        mocks.appDrainPendingDeepLinks.mockResolvedValueOnce([
+            {
+                type: 'openInstance',
+                worldId: WORLD_ID,
+                instanceId,
+                shortName: 'inviteToken',
+                launchToken: 'inviteToken'
+            }
+        ]);
+        await drainPendingDeepLinks();
+        expect(useLaunchStore.getState().launchDialog).toMatchObject({
+            open: true,
+            tag: `${WORLD_ID}:${instanceId}`,
+            shortName: 'inviteToken',
+            launchToken: 'inviteToken'
+        });
+        expect(mocks.openWorldDialog).toHaveBeenCalledWith({
+            worldId: WORLD_ID
+        });
+    });
+
+    it('ignores malformed instance actions', () => {
+        handleDeepLinkAction({
+            type: 'openInstance',
+            worldId: WORLD_ID,
+            instanceId: '123&shortName=other',
+            shortName: '',
+            launchToken: ''
+        });
+        expect(useLaunchStore.getState().launchDialog.open).toBe(false);
+        expect(mocks.openWorldDialog).not.toHaveBeenCalled();
+    });
+
+    it('keeps a secure-only token separate from the short name', () => {
+        handleDeepLinkAction({
+            type: 'openInstance',
+            worldId: WORLD_ID,
+            instanceId: '12345~private(usr_owner)',
+            shortName: '',
+            launchToken: 'secureToken'
+        });
+        expect(useLaunchStore.getState().launchDialog).toMatchObject({
+            shortName: '',
+            launchToken: 'secureToken',
+            open: true
+        });
+    });
+
     it('opens avatars from actions', () => {
         handleDeepLinkAction({ type: 'openAvatar', avatarId: AVATAR_ID });
 
@@ -462,7 +512,12 @@ describe('deepLinkService', () => {
         });
 
         return vi.waitFor(() => {
-            expect(mocks.toastError).toHaveBeenCalled();
+            expect(mocks.toastError).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    type: 'error',
+                    title: 'deep_link.import_collection.toast.empty'
+                })
+            );
             expect(mocks.prompt).not.toHaveBeenCalled();
         });
     });

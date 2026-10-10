@@ -1,8 +1,5 @@
 import type { LoadStatus } from '@/domain/shared/types';
-import type {
-    CurrentUserPresenceGameState,
-    CurrentUserPresenceRecord
-} from '@/shared/utils/currentUserPresence';
+import type { CurrentUserPresenceRecord } from '@/shared/utils/currentUserPresence';
 
 export type UserDialogProfileRecord = CurrentUserPresenceRecord & {
     id?: string;
@@ -19,8 +16,7 @@ export type UserDialogProfileRecord = CurrentUserPresenceRecord & {
     avatarName?: string;
     currentAvatarImageUrl?: string;
     currentAvatarThumbnailImageUrl?: string;
-    profilePicOverride?: string;
-    profilePicOverrideThumbnail?: string;
+    iconUrl?: string;
 };
 
 export type UserDialogProfileSnapshot = UserDialogProfileRecord | null;
@@ -40,18 +36,10 @@ export type ActiveUserTarget = {
     endpoint?: string;
 };
 
-type UserDialogGameStateInput = Omit<
-    CurrentUserPresenceGameState,
-    'isGameRunning'
-> & {
-    isGameRunning?: boolean | null;
-};
-
 export type UseUserDialogProfileResourceInput = {
     activitySnapshot?: unknown;
     currentEndpoint?: string;
     currentUserSnapshot?: UserDialogProfileRecord | null;
-    gameState?: UserDialogGameStateInput | null;
     isFriend?: boolean;
     isTargetCurrentUser: boolean;
     localSnapshot?: unknown;

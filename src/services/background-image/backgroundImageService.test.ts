@@ -61,7 +61,8 @@ import {
     disableBackgroundImage,
     initializeBackgroundImage,
     setBackgroundImageCustomRotationIntervalMinutes,
-    setBackgroundImageMode
+    setBackgroundImageMode,
+    setBackgroundImageScrim
 } from './backgroundImageService';
 
 let nextRevision = 1;
@@ -101,6 +102,7 @@ describe('backgroundImageService', () => {
             undefined
         );
         useBackgroundImageStore.getState().setDecorationImageUrl('');
+        useBackgroundImageStore.getState().setScrim('balanced');
         useBackgroundImageStore.getState().applyProjection({
             mode: 'off',
             enabled: false,
@@ -122,6 +124,28 @@ describe('backgroundImageService', () => {
         expect(state.snapshot?.imageUrl).toBe(
             'https://epic.gsfc.nasa.gov/a.jpg'
         );
+        expect(mocks.syncBackgroundImageAppearance).toHaveBeenCalledWith(false);
+    });
+
+    it('restores the saved dimming level on initialize', async () => {
+        mocks.appBackgroundImageStateGet.mockResolvedValue(dailyProjection());
+        mocks.configGetString.mockImplementation(async (key: string) =>
+            key === 'backgroundImageScrim' ? 'subtle' : ''
+        );
+
+        await initializeBackgroundImage();
+
+        expect(useBackgroundImageStore.getState().scrim).toBe('subtle');
+    });
+
+    it('persists the dimming level and reapplies the appearance', async () => {
+        await setBackgroundImageScrim('clear');
+
+        expect(mocks.configSetString).toHaveBeenCalledWith(
+            'backgroundImageScrim',
+            'clear'
+        );
+        expect(useBackgroundImageStore.getState().scrim).toBe('clear');
         expect(mocks.syncBackgroundImageAppearance).toHaveBeenCalledWith(false);
     });
 
@@ -214,8 +238,17 @@ describe('backgroundImageService', () => {
 
     it('disables community themes before applying an enabling configure result', async () => {
         mocks.appBackgroundImageConfigure.mockResolvedValue(dailyProjection());
+        let enabledWhenDisablingThemes: boolean | null = null;
+        mocks.disableCommunityThemesForBackgroundImage.mockImplementationOnce(
+            async () => {
+                enabledWhenDisablingThemes =
+                    useBackgroundImageStore.getState().enabled;
+            }
+        );
 
         await expect(setBackgroundImageMode('daily')).resolves.toBe(true);
+
+        expect(enabledWhenDisablingThemes).toBe(false);
 
         expect(mocks.appBackgroundImageConfigure).toHaveBeenCalledWith({
             kind: 'enableDaily',

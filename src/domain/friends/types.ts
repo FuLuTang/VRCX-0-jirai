@@ -1,47 +1,35 @@
-import type { ParsedLocation } from '@/shared/utils/location';
-
 import type { LoadStatus } from '../shared/types';
+import type { PresenceEntry, PresenceView } from './presence';
 
 export type FriendRosterBucket = 'online' | 'active' | 'offline';
-export type FriendStateBucketAuthority = 'explicit' | 'preserve';
 type FriendRosterLoadStatus = LoadStatus;
 
-export type FriendLocationProjection = Record<string, unknown> &
-    Partial<ParsedLocation> & {
-        location?: string;
-    };
+export const FRIEND_PROFILE_STRING_FIELDS = [
+    'ageVerificationStatus',
+    'bannerColor',
+    'bannerType',
+    'bannerUrl',
+    'discordId',
+    'friendKey',
+    'iconFrame',
+    'iconUrl',
+    'nameplateEffect',
+    'profileEffect',
+    'status',
+    'statusDescription'
+] as const;
 
-export type FriendProfileFields = {
-    $location?: FriendLocationProjection | null;
-    $location_at?: number | string | null;
-    $previousLocation?: string | null;
-    $previousLocation_at?: number | string | null;
-    $travelingToLocation?: FriendLocationProjection | null;
-    $travelingToTime?: number | string | null;
-    ageVerificationStatus?: string | null;
-    ageVerified?: boolean;
-    allowAvatarCopying?: boolean;
-    badges?: unknown[];
-    bannerColor?: string | null;
-    bannerType?: string | null;
-    bannerUrl?: string | null;
-    bio?: string | null;
-    bioLinks?: string[];
-    currentAvatarAuthorId?: string | null;
-    currentAvatarImageUrl?: string | null;
-    currentAvatarName?: string | null;
-    currentAvatarTags?: string[];
-    currentAvatarThumbnailImageUrl?: string | null;
-    discordId?: string | null;
-    friendKey?: string | null;
-    iconFrame?: string | null;
-    iconUrl?: string | null;
-    profilePicOverride?: string | null;
-    profilePicOverrideThumbnail?: string | null;
-    status?: string | null;
-    statusDescription?: string | null;
-    userIcon?: string | null;
-};
+export const FRIEND_PROFILE_BOOLEAN_FIELDS = [
+    'ageVerified',
+    'allowAvatarCopying'
+] as const;
+
+export type FriendProfileFields = Partial<
+    Record<(typeof FRIEND_PROFILE_STRING_FIELDS)[number], string | null>
+> &
+    Partial<Record<(typeof FRIEND_PROFILE_BOOLEAN_FIELDS)[number], boolean>> & {
+        badges?: unknown[];
+    };
 
 export type FriendRecordInput = Record<string, unknown> & {
     id?: string;
@@ -54,8 +42,6 @@ export type FriendRecordInput = Record<string, unknown> & {
     platform?: string;
     last_platform?: string;
     lastPlatform?: string;
-    location?: string;
-    state?: string;
     $trustLevel?: string;
     $friendNumber?: number;
     $trustClass?: string;
@@ -65,6 +51,7 @@ export type FriendRecordInput = Record<string, unknown> & {
     $isProbableTroll?: boolean;
     $platform?: string;
     $profileSource?: string;
+    $presence?: PresenceView;
 };
 
 export type FriendRecord = FriendRecordInput &
@@ -72,7 +59,7 @@ export type FriendRecord = FriendRecordInput &
         id: string;
         displayName: string;
         tags: string[];
-        state: FriendRosterBucket;
+        $presence: PresenceView;
         $trustLevel: string;
         $friendNumber: number;
         $trustClass: string;
@@ -99,25 +86,26 @@ type FriendRosterSnapshot = FriendRosterOrdering & {
     detail?: string;
 };
 
-export type FriendRosterSnapshotInput = Partial<FriendRosterOrdering> & {
-    currentUserId?: string | null;
-    friendsById?: FriendRosterInputById | null;
-    detail?: string;
-};
+export type FriendPresenceById = Record<string, PresenceEntry>;
 
-export type FriendRosterSeedSnapshot = {
+export type FriendRosterSnapshotInput = {
     currentUserId?: string | null;
     friendsById?: FriendRosterInputById | null;
+    presenceById?: FriendPresenceById | null;
+    generation?: number | null;
     detail?: string;
 };
 
 export type FriendPatchEntry = {
     userId?: string;
     patch?: FriendRecordInput | null;
-    stateBucketAuthority?: FriendStateBucketAuthority;
+    presence?: PresenceEntry;
+    generation?: number;
 };
 
 export type FriendRosterState = FriendRosterSnapshot & {
+    presenceRevById: Record<string, number>;
+    presenceGeneration: number | null;
     loadStatus: FriendRosterLoadStatus;
     detail: string;
     lastLoadedAt: string | null;
@@ -126,7 +114,6 @@ export type FriendRosterState = FriendRosterSnapshot & {
 export type FriendRosterStore = FriendRosterState & {
     setRosterLoading(currentUserId: string, detail?: string): void;
     setRosterReady(detail?: string): void;
-    setRosterSeedSnapshot(snapshot: FriendRosterSeedSnapshot): void;
     setRosterSnapshot(snapshot: FriendRosterSnapshotInput): void;
     setRosterError(detail: string): void;
     applyFriendPatch(entry: FriendPatchEntry & { detail?: string }): void;

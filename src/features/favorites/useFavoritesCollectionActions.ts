@@ -2,15 +2,18 @@ import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { FavoriteKind } from '@/domain/favorites/types';
-import type {
-    AvatarCacheOutput,
-    FavoriteGroupVisibility
+import {
+    type AvatarCacheOutput,
+    commands,
+    type FavoriteGroupVisibility
 } from '@/platform/tauri/bindings';
 import avatarLocalRepository from '@/repositories/avatarLocalRepository';
 import favoritePersistenceRepository from '@/repositories/favoritePersistenceRepository';
 import vrchatFavoriteRepository from '@/repositories/vrchatFavoriteRepository';
 import { bootstrapFavorites } from '@/services/favoriteBootstrapService';
+import { renameLocalFriendGroupReferences } from '@/services/localFriendGroupRenameService';
 import { toast } from '@/services/toastService';
+import { useFavoriteRevisionStore } from '@/state/favoriteRevisionStore';
 import { useModalStore } from '@/state/modalStore';
 import type { CurrentUserSnapshotState } from '@/state/runtimeStore';
 
@@ -83,6 +86,10 @@ export function useFavoritesCollectionActions({
                 currentUserSnapshot
             });
             if (kind === 'world') {
+                if (!silent) {
+                    await commands.appFavoriteLocalWorldDetailsRefresh();
+                    useFavoriteRevisionStore.getState().bumpWorldDetails();
+                }
                 await reloadLocalWorldFavorites();
             }
             if (kind === 'avatar') {
@@ -410,6 +417,9 @@ export function useFavoritesCollectionActions({
                 groupName: group.key,
                 newGroupName: nextName
             });
+            if (kind === 'friend') {
+                await renameLocalFriendGroupReferences(group.key, nextName);
+            }
             if (selectedSource === 'local' && selectedGroupKey === group.key) {
                 setSelectedGroupKey(nextName);
             }
@@ -468,10 +478,29 @@ export function useFavoritesCollectionActions({
         }
     }
 
+    async function handleLocalGroupReorder(
+        groupNames: string[]
+    ): Promise<boolean> {
+        try {
+            await commands.appLocalFavoriteGroupReorder({ kind, groupNames });
+            return true;
+        } catch (error) {
+            toast.add({
+                type: 'error',
+                title:
+                    error instanceof Error
+                        ? error.message
+                        : t('view.favorites.toast.failed_to_save_order')
+            });
+            return false;
+        }
+    }
+
     return {
         exportCurrentFavorites,
         handleLocalGroupDelete,
         handleLocalGroupRename,
+        handleLocalGroupReorder,
         handleRemoveLocalFavorite,
         handleRemoveRemoteFavorite,
         handleRemoteGroupClear,

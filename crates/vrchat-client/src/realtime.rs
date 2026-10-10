@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::http_api::normalize_vrchat_api_endpoint;
+use futures_util::SinkExt;
 use hyper_util::client::legacy::connect::proxy::{SocksV5, Tunnel};
 use hyper_util::client::legacy::connect::HttpConnector;
 use serde_json::Value;
@@ -112,10 +112,6 @@ pub fn encode_uri_component(value: &str) -> String {
     percent_encoding::utf8_percent_encode(value, ENCODE_SET).to_string()
 }
 
-pub fn build_auth_url(endpoint: &str) -> String {
-    format!("{}/auth", normalize_vrchat_api_endpoint(Some(endpoint)))
-}
-
 pub fn extract_auth_token(body: &str) -> Result<String, Error> {
     let json: Value = serde_json::from_str(body)
         .map_err(|error| Error::Other(format!("auth response json: {error}")))?;
@@ -219,6 +215,13 @@ pub fn classify_websocket_frame(frame: Message) -> RealtimeFrame {
             RealtimeFrame::Other
         }
     }
+}
+
+pub async fn send_websocket_ping(stream: &mut RealtimeWebSocketStream) -> Result<(), Error> {
+    stream
+        .send(Message::Ping(Default::default()))
+        .await
+        .map_err(|error| Error::Other(format!("websocket ping: {error}")))
 }
 
 fn parse_url(value: &str, label: &str) -> Result<Url, Error> {

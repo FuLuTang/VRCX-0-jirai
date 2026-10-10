@@ -36,12 +36,11 @@ import {
     type PreviousInstanceVariant,
     rowDuration,
     rowLocation,
-    rowLocationObject,
-    rowOwnerUserId
+    rowLocationObject
 } from './previousInstancesRows';
 import {
     DialogEmptyState,
-    InstanceOwnerCell
+    InstanceCreatorCell
 } from './PreviousInstancesViewParts';
 
 type PreviousInstancesListTableProps<TRow extends PreviousInstanceRow> = {
@@ -282,7 +281,7 @@ export function PreviousInstancesListTable<TRow extends PreviousInstanceRow>({
                                             <Button
                                                 type="button"
                                                 variant="ghost"
-                                                className="hover:bg-muted absolute inset-0 h-full w-full rounded-none p-0"
+                                                className="absolute inset-0 h-full w-full rounded-none p-0 hover:bg-(--state-hover-surface)"
                                                 onClick={() =>
                                                     onOpenDetails(row)
                                                 }
@@ -309,8 +308,8 @@ export function PreviousInstancesListTable<TRow extends PreviousInstanceRow>({
                                         </DataTableCell>
                                         <DataTableCell className="align-middle text-xs">
                                             <div className="flex items-center">
-                                                <InstanceOwnerCell
-                                                    userId={rowOwnerUserId(row)}
+                                                <InstanceCreatorCell
+                                                    row={row}
                                                     endpoint={currentEndpoint}
                                                 />
                                             </div>

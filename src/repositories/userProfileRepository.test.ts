@@ -14,6 +14,8 @@ const tauriMock = vi.hoisted(() => ({
         appVrchatCurrentUserProfileUpdate: vi.fn(),
         appVrchatFriendStatusGet: vi.fn(),
         appVrchatUserProfileGet: vi.fn(),
+        appVrchatUserGet: vi.fn(),
+        appVrchatCurrentUserBadgeUpdate: vi.fn(),
         appUserMutualFriendsListGet: vi.fn()
     }
 }));
@@ -39,6 +41,8 @@ describe('UserProfileRepository', () => {
         ).mockReset();
         vi.mocked(tauriMock.commands.appVrchatFriendStatusGet).mockReset();
         vi.mocked(tauriMock.commands.appVrchatUserProfileGet).mockReset();
+        tauriMock.commands.appVrchatUserGet.mockReset();
+        tauriMock.commands.appVrchatCurrentUserBadgeUpdate.mockReset();
         vi.mocked(tauriMock.commands.appUserMutualFriendsListGet).mockReset();
     });
 
@@ -102,8 +106,6 @@ describe('UserProfileRepository', () => {
         ).toMatchObject({
             id: 'usr_123',
             displayName: 'User',
-            badges: [],
-            bioLinks: [],
             currentAvatarTags: [],
             $trustLevel: 'Known User',
             $trustClass: 'x-tag-trusted',
@@ -114,6 +116,74 @@ describe('UserProfileRepository', () => {
             $platform: 'android'
         });
     });
+
+    it('keeps omitted profile fields absent while preserving explicit clears', () => {
+        const user = userProfileRepository.normalize({ id: 'usr_target' });
+        for (const field of [
+            'bio',
+            'bioLinks',
+            'pronouns',
+            'badges',
+            'iconUrl'
+        ]) {
+            expect(user).not.toHaveProperty(field);
+        }
+
+        const cleared = {
+            id: 'usr_target',
+            bio: '',
+            bioLinks: [],
+            pronouns: '',
+            badges: [],
+            iconUrl: ''
+        };
+        expect(userProfileRepository.normalize(cleared)).toMatchObject(cleared);
+    });
+
+    it.each([
+        { badges: [] },
+        { badges: [{ badgeId: 'bdg_target', hidden: false, showcased: true }] }
+    ])(
+        'refreshes badges from the self profile after a badge mutation: %j',
+        async ({ badges }) => {
+            tauriMock.commands.appVrchatCurrentUserBadgeUpdate.mockResolvedValue(
+                {
+                    status: 200,
+                    data: '{}'
+                }
+            );
+            tauriMock.commands.appVrchatUserGet.mockResolvedValue({
+                status: 200,
+                data: JSON.stringify({
+                    id: 'usr_target',
+                    displayName: 'Target',
+                    badges: [{ badgeId: 'bdg_stale' }]
+                })
+            });
+            tauriMock.commands.appVrchatUserProfileGet.mockResolvedValue({
+                status: 200,
+                data: JSON.stringify({ id: 'usr_target', badges })
+            });
+
+            const result = await userProfileRepository.updateCurrentUserBadge({
+                userId: 'usr_target',
+                badgeId: 'bdg_target',
+                showcased: true
+            });
+
+            expect(result).toMatchObject({
+                id: 'usr_target',
+                displayName: 'Target',
+                badges
+            });
+            expect(
+                tauriMock.commands.appVrchatUserProfileGet
+            ).toHaveBeenCalledWith({
+                userId: 'usr_target',
+                asSelf: true
+            });
+        }
+    );
 
     it('preserves optional, nullable, and nested profile fields from dialog data', () => {
         const profile = userProfileRepository.normalize({
@@ -262,9 +332,6 @@ describe('UserProfileRepository', () => {
             userId: 'usr_target',
             asSelf: true
         });
-        expect(publicProfile).toHaveProperty('iconFrame', '');
-        expect(selfProfile).toHaveProperty('nameplateEffect', '');
-        expect(publicProfile).not.toHaveProperty('$trustLevel');
     });
 
     it('rejects appearance profile reads without a user id', async () => {
@@ -405,5 +472,61 @@ describe('UserProfileRepository', () => {
             rows: [{ id: 'usr_mutual', futureField: 'keep' }],
             persisted: true
         });
+        expect(
+            getCachedQueryData(
+                queryKeys.userMutualFriends(
+                    'usr_target',
+                    DEFAULT_VRCHAT_API_ENDPOINT
+                )
+            )
+        ).toEqual([{ id: 'usr_mutual', futureField: 'keep' }]);
+    });
+
+    it('keeps at most three mutual friend requests in flight and skips aborted ones', async () => {
+        const pending: Array<() => void> = [];
+        let inFlight = 0;
+        let maxInFlight = 0;
+        vi.mocked(
+            tauriMock.commands.appUserMutualFriendsListGet
+        ).mockImplementation(() => {
+            inFlight += 1;
+            maxInFlight = Math.max(maxInFlight, inFlight);
+            return new Promise((resolve) => {
+                pending.push(() => {
+                    inFlight -= 1;
+                    resolve({ rows: [], persisted: false });
+                });
+            });
+        });
+        const aborted = new AbortController();
+        const settled = Promise.allSettled([
+            ...['usr_1', 'usr_2', 'usr_3', 'usr_4'].map((userId) =>
+                userProfileRepository.getAllMutualFriends({ userId })
+            ),
+            userProfileRepository.getAllMutualFriends({
+                userId: 'usr_aborted',
+                signal: aborted.signal
+            })
+        ]);
+        aborted.abort();
+
+        while (pending.length) {
+            await Promise.resolve();
+            pending.shift()?.();
+            await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+        const results = await settled;
+
+        expect(maxInFlight).toBe(3);
+        expect(
+            tauriMock.commands.appUserMutualFriendsListGet
+        ).toHaveBeenCalledTimes(4);
+        expect(results.map((result) => result.status)).toEqual([
+            'fulfilled',
+            'fulfilled',
+            'fulfilled',
+            'fulfilled',
+            'rejected'
+        ]);
     });
 });

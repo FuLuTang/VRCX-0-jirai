@@ -20,31 +20,24 @@ export function SettingsInterfaceTab() {
             customFontPrimary: state.customFontPrimary,
             customFontSecondary: state.customFontSecondary,
             customFontOverride: state.customFontOverride,
-            notificationLayout: state.notificationLayout,
-            notificationIconDot: state.notificationIconDot,
-            taskbarIconDot: state.taskbarIconDot,
             tableDensity: state.tableDensity,
             dataTableStriped: state.dataTableStriped,
             reducedMotionAndBlur: state.reducedMotionAndBlur,
             accessibleStatusIndicators: state.accessibleStatusIndicators,
             showInstanceIdInLocation: state.showInstanceIdInLocation,
             isAgeGatedInstancesVisible: state.isAgeGatedInstancesVisible,
-            hideNicknames: state.hideNicknames,
-            displayVRCPlusIconsAsAvatar: state.displayVRCPlusIconsAsAvatar,
             showNewDashboardButton: state.showNewDashboardButton,
             dtHour12: state.dtHour12,
             dtIsoFormat: state.dtIsoFormat,
             weekStartsOn: state.weekStartsOn,
             feedTimeDisplayMode: state.feedTimeDisplayMode,
             randomUserColours: state.randomUserColours,
+            randomUserColourStyle: state.randomUserColourStyle,
             trustColor: state.trustColor
         }))
     );
     const isMacHost = useRuntimeStore(
         (state) => state.hostCapabilities.platform === 'macos'
-    );
-    const isWindowsHost = useRuntimeStore(
-        (state) => state.hostCapabilities.platform === 'windows'
     );
     const {
         locale,
@@ -54,18 +47,12 @@ export function SettingsInterfaceTab() {
         onCjkFontPackChange,
         onZoomInputChange,
         onZoomBlur,
-        notificationLayoutOptions,
-        onNotificationLayoutChange,
-        onNotificationIconDotChange,
-        onTaskbarIconDotChange,
         onTableDensityChange,
         onDataTableStripedChange,
         onAccessibleStatusIndicatorsChange,
         onReducedMotionAndBlurChange,
         onShowInstanceIdInLocationChange,
         onAgeGatedInstancesVisibleChange,
-        onHideNicknamesChange,
-        onDisplayVrcPlusIconsAsAvatarChange,
         onShowNewDashboardButtonChange,
         onOpenTablePageSizes,
         onOpenTableLimits,
@@ -74,6 +61,7 @@ export function SettingsInterfaceTab() {
         onWeekStartsOnChange,
         onFeedTimeDisplayModeChange,
         onRandomUserColoursChange,
+        onRandomUserColourStyleChange,
         onResetTrustColors,
         onSaveTrustColor,
         onTrustColorDraftChange
@@ -85,16 +73,11 @@ export function SettingsInterfaceTab() {
                 prefs={prefs}
                 zoomInput={zoomInput}
                 hideFontControls={isMacHost}
-                showTaskbarIconDot={isWindowsHost}
                 onLanguageChange={onLanguageChange}
                 onFontFamilyChange={onFontFamilyChange}
                 onCjkFontPackChange={onCjkFontPackChange}
                 onZoomInputChange={onZoomInputChange}
                 onZoomBlur={onZoomBlur}
-                notificationLayoutOptions={notificationLayoutOptions}
-                onNotificationLayoutChange={onNotificationLayoutChange}
-                onNotificationIconDotChange={onNotificationIconDotChange}
-                onTaskbarIconDotChange={onTaskbarIconDotChange}
                 onTableDensityChange={onTableDensityChange}
                 onDataTableStripedChange={onDataTableStripedChange}
                 onAccessibleStatusIndicatorsChange={
@@ -111,10 +94,6 @@ export function SettingsInterfaceTab() {
                 onAgeGatedInstancesVisibleChange={
                     onAgeGatedInstancesVisibleChange
                 }
-                onHideNicknamesChange={onHideNicknamesChange}
-                onDisplayVrcPlusIconsAsAvatarChange={
-                    onDisplayVrcPlusIconsAsAvatarChange
-                }
                 onShowNewDashboardButtonChange={onShowNewDashboardButtonChange}
                 onOpenTablePageSizes={onOpenTablePageSizes}
                 onOpenTableLimits={onOpenTableLimits}
@@ -126,6 +105,7 @@ export function SettingsInterfaceTab() {
             <SettingsInterfaceUserColorsCard
                 prefs={prefs}
                 onRandomUserColoursChange={onRandomUserColoursChange}
+                onRandomUserColourStyleChange={onRandomUserColourStyleChange}
                 onResetTrustColors={onResetTrustColors}
                 onSaveTrustColor={onSaveTrustColor}
                 onTrustColorDraftChange={onTrustColorDraftChange}

@@ -15,6 +15,7 @@ import { Switch } from '@/ui/shadcn/switch';
 import type { SettingsPageStateSections } from '../../settingsPageStateSections';
 import { SettingsCard } from '../SettingsCard';
 import { Field, SegmentedPreference } from '../SettingsField';
+import { SettingsInterfaceProfileAppearanceCard } from './SettingsInterfaceProfileAppearanceCard';
 import { SettingsInterfaceUserDialogCard } from './SettingsInterfaceUserDialogCard';
 
 type InterfaceState = SettingsPageStateSections['interface'];
@@ -22,8 +23,6 @@ type SettingsInterfaceDisplayPrefs = Pick<
     PreferencesSnapshot,
     | 'showInstanceIdInLocation'
     | 'isAgeGatedInstancesVisible'
-    | 'hideNicknames'
-    | 'displayVRCPlusIconsAsAvatar'
     | 'showNewDashboardButton'
     | 'dtHour12'
     | 'dtIsoFormat'
@@ -36,8 +35,6 @@ type SettingsInterfaceDisplayCardsProps = {
     InterfaceState,
     | 'onShowInstanceIdInLocationChange'
     | 'onAgeGatedInstancesVisibleChange'
-    | 'onHideNicknamesChange'
-    | 'onDisplayVrcPlusIconsAsAvatarChange'
     | 'onShowNewDashboardButtonChange'
     | 'onOpenTablePageSizes'
     | 'onOpenTableLimits'
@@ -62,8 +59,6 @@ export function SettingsInterfaceDisplayCards({
     prefs,
     onShowInstanceIdInLocationChange,
     onAgeGatedInstancesVisibleChange,
-    onHideNicknamesChange,
-    onDisplayVrcPlusIconsAsAvatarChange,
     onShowNewDashboardButtonChange,
     onOpenTablePageSizes,
     onOpenTableLimits,
@@ -104,33 +99,9 @@ export function SettingsInterfaceDisplayCards({
                         onCheckedChange={onAgeGatedInstancesVisibleChange}
                     />
                 </Field>
-
-                <Field
-                    label={t('view.settings.appearance.appearance.nicknames')}
-                    description={t(
-                        'view.settings.appearance.appearance.nicknames_description'
-                    )}
-                >
-                    <Switch
-                        checked={!prefs.hideNicknames}
-                        onCheckedChange={onHideNicknamesChange}
-                    />
-                </Field>
-
-                <Field
-                    label={t(
-                        'view.settings.appearance.appearance.vrcplus_profile_icons'
-                    )}
-                    description={t(
-                        'view.settings.appearance.appearance.vrcplus_profile_icons_description'
-                    )}
-                >
-                    <Switch
-                        checked={prefs.displayVRCPlusIconsAsAvatar}
-                        onCheckedChange={onDisplayVrcPlusIconsAsAvatarChange}
-                    />
-                </Field>
             </SettingsCard>
+
+            <SettingsInterfaceProfileAppearanceCard />
 
             <SettingsInterfaceUserDialogCard />
 

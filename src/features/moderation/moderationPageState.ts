@@ -6,10 +6,10 @@ import type {
 import {
     getDataTableStorageKey,
     readPersistedTableState,
-    safeJsonParse,
     writePersistedTableState
 } from '@/components/data-table/dataTablePersistence';
 import { moderationTypes } from '@/shared/constants/moderation';
+import { safeJsonParse } from '@/shared/utils/json';
 import { isRecord } from '@/shared/utils/record';
 
 import type { ModerationRow } from './moderationPageTypes';
@@ -149,8 +149,4 @@ export function getModerationRowKey(row: ModerationRow) {
     return [row.type, row.sourceUserId, row.targetUserId, row.created].join(
         ':'
     );
-}
-
-export function isSameModerationRow(left: ModerationRow, right: ModerationRow) {
-    return getModerationRowKey(left) === getModerationRowKey(right);
 }

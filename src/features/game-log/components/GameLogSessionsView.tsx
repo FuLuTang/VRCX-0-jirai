@@ -1,4 +1,4 @@
-import { ChevronRightIcon } from 'lucide-react';
+import { ChevronRightIcon, UserIcon } from 'lucide-react';
 import { Fragment, memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -9,7 +9,12 @@ import { useKnownUserFacts } from '@/lib/useKnownUser';
 import { cn } from '@/lib/utils';
 import { userImage } from '@/services/entityMediaService';
 import { openGameLogUser } from '@/services/gameLogUserDialogService';
-import { Avatar, AvatarFallback, AvatarImage } from '@/ui/shadcn/avatar';
+import {
+    Avatar,
+    AvatarFallback,
+    AvatarGroup,
+    AvatarImage
+} from '@/ui/shadcn/avatar';
 import { Badge } from '@/ui/shadcn/badge';
 import { Button } from '@/ui/shadcn/button';
 import {
@@ -35,6 +40,8 @@ import { useGameLogSessionAffinity } from '../gameLogSessionAffinity';
 import { buildGameLogSessionDurationDetails } from '../gameLogSessionDurations';
 import type { GameLogSession, GameLogSessionEvent } from '../gameLogTypes';
 import { SessionEventGroups } from './GameLogSessionEventRow';
+
+const FACEPILE_AVATAR_LIMIT = 5;
 
 const FACEPILE_CLASSES = [
     'bg-rose-800 text-rose-100',
@@ -90,7 +97,7 @@ function SessionFriendList({
                     friend.displayName ||
                     knownFriend?.displayName ||
                     friend.userId;
-                const avatarUrl = userImage(knownFriend, true, '64');
+                const avatarUrl = userImage(knownFriend, 64);
 
                 return (
                     <li
@@ -130,40 +137,67 @@ function SessionFriendFacepile({
     friends: readonly GameLogSessionFriend[];
 }) {
     const { t } = useTranslation();
-    const shown = friends.slice(0, 3);
+    const shown = friends.slice(0, FACEPILE_AVATAR_LIMIT);
     const extra = friends.length - shown.length;
     const friendsCountLabel = t('view.game_log.sessions.friends_count', {
         count: friends.length
     });
+    const shownUserIds = useMemo(
+        () =>
+            friends
+                .slice(0, FACEPILE_AVATAR_LIMIT)
+                .map((friend) => friend.userId)
+                .filter(Boolean),
+        [friends]
+    );
+    const knownFriendsById = useKnownUserFacts(shownUserIds);
 
     return (
         <div
             className="flex shrink-0 items-center"
             aria-label={friendsCountLabel}
         >
-            {shown.map((friend) => (
-                <UserHoverCard
-                    key={friend.key}
-                    userId={friend.userId}
-                    seed={friend}
-                >
-                    <button
-                        type="button"
-                        title={friend.displayName}
-                        aria-label={friend.displayName}
-                        onClick={(event) => {
-                            event.stopPropagation();
-                            openGameLogUser(friend, t);
-                        }}
-                        className={cn(
-                            'border-background relative -ml-1.5 flex size-[18px] cursor-pointer items-center justify-center rounded-full border text-[0.625rem] font-medium first:ml-0 hover:z-10',
-                            facepileClass(friend.key)
-                        )}
-                    >
-                        {facepileInitial(friend.displayName)}
-                    </button>
-                </UserHoverCard>
-            ))}
+            <AvatarGroup className="-space-x-1">
+                {shown.map((friend) => {
+                    const avatarUrl = userImage(
+                        knownFriendsById[friend.userId] || null,
+                        64
+                    );
+                    return (
+                        <UserHoverCard
+                            key={friend.key}
+                            userId={friend.userId}
+                            seed={friend}
+                        >
+                            <Avatar
+                                className="size-5 cursor-pointer hover:z-10"
+                                render={
+                                    <button
+                                        type="button"
+                                        title={friend.displayName}
+                                        aria-label={friend.displayName}
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                            openGameLogUser(friend, t);
+                                        }}
+                                    />
+                                }
+                            >
+                                {avatarUrl ? (
+                                    <AvatarImage
+                                        src={avatarUrl}
+                                        alt=""
+                                        loading="lazy"
+                                    />
+                                ) : null}
+                                <AvatarFallback>
+                                    <UserIcon className="size-3" />
+                                </AvatarFallback>
+                            </Avatar>
+                        </UserHoverCard>
+                    );
+                })}
+            </AvatarGroup>
             {extra > 0 ? (
                 <HoverCard>
                     <HoverCardTrigger
@@ -221,7 +255,7 @@ function SessionDayDivider({ session }: { session: GameLogSession }) {
     const label = formatDateFilter(value, 'date');
 
     return (
-        <div className="bg-background flex items-center gap-3 px-3 pt-2.5 pb-1">
+        <div className="flex items-center gap-3 px-3 pt-2.5 pb-1">
             <span className="text-muted-foreground shrink-0 text-xs font-medium tracking-wide tabular-nums">
                 {label}
             </span>
@@ -596,7 +630,7 @@ export function GameLogSessionsView({
                             {t('common.load_more')}...
                         </>
                     ) : hasMore ? (
-                        <span>{t('common.load_more')}...</span>
+                        <span>{t('common.load_more')}</span>
                     ) : (
                         <span>{t('common.no_more')}</span>
                     )}

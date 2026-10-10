@@ -5,6 +5,7 @@ import { formatDateTime } from '@/lib/dateTime';
 import { STATUS_BAR_CONFIG_KEYS } from '@/repositories/configKeys';
 import configRepository from '@/repositories/configRepository';
 import { startBackgroundModeForCurrentSession } from '@/services/backgroundModeService';
+import { copyTextToClipboard } from '@/services/clipboardService';
 import { wasMutualGraphFetchStartedInThisSession } from '@/services/mutualGraphFetchService';
 import { loadPreferenceSnapshot } from '@/services/preferencesService';
 import {
@@ -55,7 +56,6 @@ const DEFAULT_VISIBILITY: StatusBarVisibility = {
     proxy: true,
     ws: true,
     instanceQueue: true,
-    mutualGraph: true,
     nowPlaying: true,
     uptime: false,
     zoom: true,
@@ -821,6 +821,19 @@ export function AppStatusBar({
         vrcStatus,
         zoomLabel: formatZoomPercentage(currentZoomLevel),
         zoomLevel: currentZoomLevel,
+        onCopyMediaLink: () => {
+            if (!nowPlaying.url) {
+                return;
+            }
+            void copyTextToClipboard(nowPlaying.url, {
+                successMessage: t(
+                    'component.app_status_bar.toast.media_link_copied'
+                ),
+                errorMessage: t(
+                    'component.app_status_bar.toast.failed_to_copy_media_link'
+                )
+            });
+        },
         onOpenMediaLink: () => {
             if (!nowPlaying.url) {
                 return;

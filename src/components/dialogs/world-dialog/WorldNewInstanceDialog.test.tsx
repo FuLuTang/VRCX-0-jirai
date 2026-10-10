@@ -31,10 +31,6 @@ type InputGroupButtonMockProps = PropsWithChildren<
         Pick<ComponentProps<typeof InputGroupButton>, 'size'>
 >;
 
-vi.mock('react-i18next', () => ({
-    useTranslation: () => ({ t: (key: string) => key })
-}));
-
 vi.mock('@/ui/shadcn/button', () => ({
     Button: ({
         children,
@@ -355,7 +351,7 @@ describe('WorldNewInstanceDialog', () => {
         render(<WorldNewInstanceDialog {...props} />);
 
         await waitFor(() => {
-            expect(inputByLabel('dialog.world.label.display_name').value).toBe(
+            expect(inputByLabel('dialog.new_instance.display_name').value).toBe(
                 '  Alpha Room  '
             );
         });

@@ -1,9 +1,5 @@
 import { hasGroupIdPrefix } from '@/shared/constants/vrchatIds';
-import {
-    parseLocation,
-    resolveFriendPresenceLocation,
-    type FriendListMembership
-} from '@/shared/utils/location';
+import { parseLocation } from '@/shared/utils/location';
 import { isRecord } from '@/shared/utils/record';
 
 type InstanceRosterRecord = Record<string, unknown>;
@@ -16,6 +12,7 @@ export interface MergeInstanceUserOptions {
 }
 
 const INSTANCE_USER_PRESENCE_FIELDS = [
+    '$presence',
     'location',
     '$location',
     'worldId',
@@ -24,21 +21,9 @@ const INSTANCE_USER_PRESENCE_FIELDS = [
     'travelingToWorld',
     'travelingToInstance',
     '$travelingToLocation',
-    'state',
-    'stateBucket',
     'status',
-    'statusDescription',
-    'pendingOffline'
+    'statusDescription'
 ];
-
-interface ResolvePresenceLocationOptions {
-    preferTraveling?: boolean;
-    requireInstance?: boolean;
-    lastLocation?: {
-        friendList?: FriendListMembership;
-        location?: string | null;
-    } | null;
-}
 
 interface BuildInstanceRosterRowsInput {
     includeProfileFallback?: boolean;
@@ -55,12 +40,7 @@ export interface InstanceRosterRow extends InstanceRosterRecord {
     id: string;
     userId: string;
     displayName: string;
-    userIcon: string;
-    profilePicOverrideThumbnail: string;
-    profilePicOverride: string;
-    thumbnailUrl: string;
-    currentAvatarThumbnailImageUrl: string;
-    currentAvatarImageUrl: string;
+    iconUrl: string;
     $subtitle: string;
     joinedAt: InstanceRosterTimestamp;
 }
@@ -162,7 +142,7 @@ export function userDisplayName(user: unknown): string {
 }
 
 export function createInstanceUserRow(
-    user: InstanceRosterSource,
+    user: unknown,
     fallback: InstanceRosterRecord = {}
 ): InstanceRosterRow {
     const fallbackUserId = firstText(
@@ -208,35 +188,10 @@ export function createInstanceUserRow(
         id: userId || firstText(field(sourceRecord, 'id')),
         userId: firstText(field(sourceRecord, 'userId'), userId),
         displayName,
-        userIcon: firstText(
-            field(sourceRecord, 'userIcon'),
-            field(userObject, 'userIcon'),
-            field(fallback, 'userIcon')
-        ),
-        profilePicOverrideThumbnail: firstText(
-            field(sourceRecord, 'profilePicOverrideThumbnail'),
-            field(userObject, 'profilePicOverrideThumbnail'),
-            field(fallback, 'profilePicOverrideThumbnail')
-        ),
-        profilePicOverride: firstText(
-            field(sourceRecord, 'profilePicOverride'),
-            field(userObject, 'profilePicOverride'),
-            field(fallback, 'profilePicOverride')
-        ),
-        thumbnailUrl: firstText(
-            field(sourceRecord, 'thumbnailUrl'),
-            field(userObject, 'thumbnailUrl'),
-            field(fallback, 'thumbnailUrl')
-        ),
-        currentAvatarThumbnailImageUrl: firstText(
-            field(sourceRecord, 'currentAvatarThumbnailImageUrl'),
-            field(userObject, 'currentAvatarThumbnailImageUrl'),
-            field(fallback, 'currentAvatarThumbnailImageUrl')
-        ),
-        currentAvatarImageUrl: firstText(
-            field(sourceRecord, 'currentAvatarImageUrl'),
-            field(userObject, 'currentAvatarImageUrl'),
-            field(fallback, 'currentAvatarImageUrl')
+        iconUrl: firstText(
+            field(sourceRecord, 'iconUrl'),
+            field(userObject, 'iconUrl'),
+            field(fallback, 'iconUrl')
         ),
         $subtitle: firstText(
             field(fallback, 'subtitle'),
@@ -388,23 +343,6 @@ export function isSameInstanceLocation(left: unknown, right: unknown): boolean {
         leftLocation.worldId === rightLocation.worldId &&
         leftLocation.instanceId === rightLocation.instanceId
     );
-}
-
-export function resolvePresenceLocation(
-    profile: unknown,
-    options: ResolvePresenceLocationOptions = {}
-): string {
-    return resolveFriendPresenceLocation(profile, options);
-}
-
-export function userHasExplicitSameInstance(
-    user: unknown,
-    location: unknown
-): boolean {
-    const explicitLocation = resolvePresenceLocation(user, {
-        requireInstance: true
-    });
-    return isSameInstanceLocation(explicitLocation, location);
 }
 
 export function buildInstanceRosterRows({

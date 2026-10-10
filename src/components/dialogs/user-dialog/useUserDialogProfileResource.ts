@@ -2,11 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import userProfileRepository from '@/repositories/userProfileRepository';
 import { enrichEntityDialogHistory } from '@/services/dialogService';
-import {
-    buildCurrentUserPresenceView,
-    mergeCurrentUserPresenceFields,
-    type CurrentUserPresenceGameState
-} from '@/shared/utils/currentUserPresence';
+import { mergeCurrentUserPresenceFields } from '@/shared/utils/currentUserPresence';
 import { useFriendRosterStore } from '@/state/friendRosterStore';
 
 import {
@@ -18,7 +14,8 @@ import {
 } from './userDialogCurrentAvatar';
 import {
     mergeUserDialogProfileAppearance,
-    preserveUserDialogProfileAppearance
+    preserveUserDialogProfileAppearance,
+    retainUserDialogProfileAppearance
 } from './userDialogProfileAppearance';
 import {
     mergeActivityTimestampsIntoProfile,
@@ -49,7 +46,6 @@ export function useUserDialogProfileResource({
     activitySnapshot = null,
     currentEndpoint,
     currentUserSnapshot,
-    gameState,
     isFriend = false,
     isTargetCurrentUser,
     localSnapshot,
@@ -70,16 +66,6 @@ export function useUserDialogProfileResource({
     const normalizedActivitySnapshot = useMemo(
         () => normalizeTargetSnapshot(activitySnapshot, normalizedUserId),
         [activitySnapshot, normalizedUserId]
-    );
-    const normalizedGameState = useMemo<CurrentUserPresenceGameState | null>(
-        () =>
-            gameState
-                ? {
-                      ...gameState,
-                      isGameRunning: gameState.isGameRunning === true
-                  }
-                : null,
-        [gameState]
     );
     const localSnapshotRef = useRef(normalizedLocalSnapshot);
     localSnapshotRef.current = normalizedLocalSnapshot;
@@ -102,19 +88,19 @@ export function useUserDialogProfileResource({
             : null
     );
     const profile = useMemo(() => {
-        const base = isTargetCurrentUser
-            ? buildCurrentUserPresenceView(activeBaseProfile, {
-                  currentUserSnapshot: currentUserPresenceSnapshot,
-                  gameState: normalizedGameState
-              })
-            : activeBaseProfile;
+        const base =
+            isTargetCurrentUser && activeBaseProfile
+                ? mergeCurrentUserPresenceFields(
+                      activeBaseProfile,
+                      currentUserPresenceSnapshot
+                  )
+                : activeBaseProfile;
         return overlayFriendPresence(base, friendPresenceSource);
     }, [
         activeBaseProfile,
         currentUserPresenceSnapshot,
         isTargetCurrentUser,
-        friendPresenceSource,
-        normalizedGameState
+        friendPresenceSource
     ]);
     const profileRef = useRef(profile);
     profileRef.current = profile;
@@ -171,19 +157,12 @@ export function useUserDialogProfileResource({
             kind: 'user',
             entityId: profile.id,
             title,
-            imageUrl:
-                profile.profilePicOverrideThumbnail ||
-                profile.profilePicOverride ||
-                profile.currentAvatarThumbnailImageUrl ||
-                profile.currentAvatarImageUrl
+            imageUrl: profile.iconUrl
         });
     }, [
-        profile?.currentAvatarImageUrl,
-        profile?.currentAvatarThumbnailImageUrl,
         profile?.displayName,
+        profile?.iconUrl,
         profile?.id,
-        profile?.profilePicOverride,
-        profile?.profilePicOverrideThumbnail,
         profile?.username,
         updateEntityDialogMetadata
     ]);
@@ -252,22 +231,24 @@ export function useUserDialogProfileResource({
                                     currentProfile,
                                     normalizedUserId
                                 );
-                                const refreshedProfile = isTargetCurrentUser
-                                    ? mergeCurrentUserAvatarFields(
-                                          mergeCurrentUserPresenceFields(
-                                              remoteProfile,
+                                return isTargetCurrentUser
+                                    ? retainUserDialogProfileAppearance(
+                                          mergeCurrentUserAvatarFields(
+                                              mergeCurrentUserPresenceFields(
+                                                  remoteProfile,
+                                                  previousProfile
+                                              ),
                                               previousProfile
                                           ),
                                           previousProfile
                                       )
-                                    : mergeLocalSnapshotIntoProfile(
-                                          localSnapshotRef.current,
-                                          remoteProfile
+                                    : preserveUserDialogProfileAppearance(
+                                          mergeLocalSnapshotIntoProfile(
+                                              localSnapshotRef.current,
+                                              remoteProfile
+                                          ),
+                                          previousProfile
                                       );
-                                return preserveUserDialogProfileAppearance(
-                                    refreshedProfile,
-                                    previousProfile
-                                );
                             })(),
                             activitySnapshotRef.current
                         ),

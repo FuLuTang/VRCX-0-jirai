@@ -5,6 +5,11 @@ import { useTranslation } from 'react-i18next';
 import { CurrentUserSocialStatusDialog } from '@/components/dialogs/user-dialog/UserSelfEditDialogs';
 import { useLocationMetadata } from '@/components/location/useLocationMetadata';
 import {
+    ProfileAvatarFrame,
+    ProfileNameplate,
+    useDecorationHover
+} from '@/components/ProfileDecorations';
+import {
     CurrentUserActionItems,
     resolveCurrentUserStatusLabelKey
 } from '@/components/sidebar/friends-sidebar/FriendsSidebarActionItems';
@@ -13,14 +18,17 @@ import {
     resolveFriendRowLocationState,
     StaticSidebarLocation
 } from '@/components/sidebar/friends-sidebar/FriendsSidebarLocation';
-import { resolveSidebarStatusDotClassName } from '@/components/sidebar/friends-sidebar/friendsSidebarModel';
-import { buildCurrentUserDisplayRecord } from '@/components/sidebar/friends-sidebar/friendsSidebarVirtualRowBuilder';
+import {
+    resolveSidebarStatusDotClassName,
+    type SidebarFriendRecord
+} from '@/components/sidebar/friends-sidebar/friendsSidebarModel';
 import { useFriendsSidebarActions } from '@/components/sidebar/friends-sidebar/useFriendsSidebarActions';
 import { useFriendsSidebarPreferences } from '@/components/sidebar/friends-sidebar/useFriendsSidebarPreferences';
 import { SidePanelSelfAccountMenu } from '@/components/sidebar/side-panel/SidePanelSelfAccountMenu';
 import { useFriendsSidebarDisplayPreferences } from '@/components/sidebar/useFriendsSidebarDisplayPreferences';
 import { useFriendsSidebarRuntimeSnapshot } from '@/components/sidebar/useFriendsSidebarRuntimeSnapshot';
 import { UserStatusAvatar } from '@/components/UserStatusAvatar';
+import { presenceLocationTag, presenceOf } from '@/domain/friends/presence';
 import { cn } from '@/lib/utils';
 import { useModalStore } from '@/state/modalStore';
 import {
@@ -75,6 +83,7 @@ export function SidePanelSelfHeader() {
     const { t } = useTranslation();
     const [isEditingDescription, setIsEditingDescription] = useState(false);
     const [descriptionDraft, setDescriptionDraft] = useState('');
+    const decorationHover = useDecorationHover();
     const descriptionInputRef = useRef<HTMLInputElement | null>(null);
     const {
         currentEndpoint,
@@ -86,7 +95,10 @@ export function SidePanelSelfHeader() {
     const {
         ageGatedInstancesVisible,
         randomUserColours,
+        randomUserColourStyle,
         showInstanceIdInLocation,
+        showSidebarAvatarFrame,
+        showSidebarNameplate,
         trustColor
     } = useFriendsSidebarDisplayPreferences();
     const { statusPresets } = useFriendsSidebarPreferences();
@@ -104,18 +116,22 @@ export function SidePanelSelfHeader() {
         currentUserId
     });
 
-    const selfRow = useMemo(
-        () => buildCurrentUserDisplayRecord(currentUser, gameState),
-        [currentUser, gameState]
+    const selfRow = useMemo<SidebarFriendRecord | null>(
+        () => (currentUser ? { ...currentUser } : null),
+        [currentUser]
     );
     const { displaySource, imageUrl, displayName, nameStyle } =
         resolveFriendRowDisplay(selfRow, {
             randomUserColours,
+            randomUserColourStyle,
             isDarkMode,
             trustColor
         });
+    const selfPresence = presenceOf(selfRow);
     const locationMetadata = useLocationMetadata({
-        locationInfo: displaySource?.location || '',
+        locationInfo: selfPresence
+            ? presenceLocationTag(selfPresence, { preferTraveling: true })
+            : '',
         currentLocation: gameState?.currentLocation || '',
         endpoint: currentEndpoint || ''
     });
@@ -152,6 +168,10 @@ export function SidePanelSelfHeader() {
         'component.friends_sidebar.modal.edit_status_description'
     );
     const statusLabel = t(resolveCurrentUserStatusLabelKey(statusValue));
+    const iconFrameId = showSidebarAvatarFrame ? selfRow.iconFrame?.trim() : '';
+    const nameplateId = showSidebarNameplate
+        ? selfRow.nameplateEffect?.trim()
+        : '';
 
     function commitDescription() {
         setIsEditingDescription(false);
@@ -184,11 +204,20 @@ export function SidePanelSelfHeader() {
     };
 
     return (
-        <div className="vrcx-0-side-panel-self ml-2 flex shrink-0 flex-col pt-4 pr-1.5 pb-2 pl-2">
+        <div
+            className="vrcx-0-side-panel-self ml-2 flex shrink-0 items-center pt-4 pb-2 pl-2"
+            {...decorationHover.hoverProps}
+        >
             <ContextMenu>
                 <ContextMenuTrigger
                     render={
-                        <div className="flex w-full min-w-0 items-center gap-2.5 p-1.5">
+                        <div className="relative isolate mr-1.5 flex min-w-0 flex-1 items-center gap-2.5 rounded-lg p-1.5">
+                            {nameplateId ? (
+                                <ProfileNameplate
+                                    templateId={nameplateId}
+                                    active={decorationHover.active}
+                                />
+                            ) : null}
                             <button
                                 type="button"
                                 aria-label={`${displayName} · ${statusLabel}`}
@@ -200,13 +229,16 @@ export function SidePanelSelfHeader() {
                                     imageUrl={imageUrl}
                                     statusDotClassName={resolveSidebarStatusDotClassName(
                                         selfRow,
-                                        currentUser,
-                                        true,
-                                        {
-                                            isGameRunning:
-                                                gameState?.isGameRunning
-                                        }
+                                        { hideNonFriend: false }
                                     )}
+                                    frame={
+                                        iconFrameId ? (
+                                            <ProfileAvatarFrame
+                                                templateId={iconFrameId}
+                                                active={decorationHover.active}
+                                            />
+                                        ) : null
+                                    }
                                 />
                             </button>
                             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -282,7 +314,7 @@ export function SidePanelSelfHeader() {
                                                         'focus-visible:ring-ring -mx-1 h-4 min-w-0 cursor-text truncate rounded-md px-1 text-left text-xs leading-4 outline-none focus-visible:ring-2',
                                                         statusDescription
                                                             ? 'text-content-secondary'
-                                                            : 'text-content-tertiary'
+                                                            : 'text-content-disabled hover:text-content-tertiary'
                                                     )}
                                                     onClick={() => {
                                                         setDescriptionDraft(
@@ -310,7 +342,7 @@ export function SidePanelSelfHeader() {
                                 )}
                                 {showLocationSubline ? (
                                     <div
-                                        className="text-content-tertiary flex h-4 min-w-0 items-center text-xs leading-4"
+                                        className="text-content-secondary flex h-4 min-w-0 items-center text-xs leading-4"
                                         onContextMenu={(event) =>
                                             event.stopPropagation()
                                         }
@@ -321,6 +353,7 @@ export function SidePanelSelfHeader() {
                                             hint={metadataHint}
                                             metadata={locationMetadata}
                                             link
+                                            showGroupLink
                                             showInstanceIdInLocation={
                                                 showInstanceIdInLocation
                                             }
@@ -331,7 +364,6 @@ export function SidePanelSelfHeader() {
                                     </div>
                                 ) : null}
                             </div>
-                            <SidePanelSelfAccountMenu />
                         </div>
                     }
                 />
@@ -339,6 +371,9 @@ export function SidePanelSelfHeader() {
                     {renderActionItems(CONTEXT_MENU_SLOTS, true)}
                 </ContextMenuContent>
             </ContextMenu>
+            <div className="flex w-9 shrink-0 justify-center">
+                <SidePanelSelfAccountMenu />
+            </div>
             <CurrentUserSocialStatusDialog controller={socialStatusDialog} />
         </div>
     );

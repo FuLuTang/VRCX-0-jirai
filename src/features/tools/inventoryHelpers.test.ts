@@ -15,11 +15,9 @@ import { MAX_IMAGE_UPLOAD_BYTES } from '@/shared/constants/imageUpload';
 import {
     buildEmojiUploadParams,
     CATEGORY_DEFINITIONS,
-    INITIAL_INVENTORY_SUB_TABS,
     getLatestFileUrl,
     getUsefulDisplayName,
     parseEmojiUploadSettings,
-    sanitizeInventoryGridDensity,
     validateImageFile
 } from './inventoryHelpers';
 
@@ -135,12 +133,6 @@ describe('inventory helpers', () => {
         );
     });
 
-    it('sanitizes inventory grid density through gallery density options', () => {
-        expect(sanitizeInventoryGridDensity('compact')).toBe('compact');
-        expect(sanitizeInventoryGridDensity(' dense ')).toBe('dense');
-        expect(sanitizeInventoryGridDensity('comfortable')).toBe('standard');
-    });
-
     it('resolves inventory display fallbacks from nested item, template, and metadata fields', () => {
         const item = {
             id: 'inv_1',
@@ -194,40 +186,20 @@ describe('inventory helpers', () => {
         ).toBe('Readable Name');
     });
 
-    it('defines a profile decorations inventory scope and archives the same item types', () => {
+    it('archives every profile decoration item type', () => {
         const profileDecorations = CATEGORY_DEFINITIONS.cosmetics.tabs.find(
             (tab: { key: string }) => tab.key === 'profile-decorations'
         );
         const archived = CATEGORY_DEFINITIONS.cosmetics.tabs.find(
             (tab: { key: string }) => tab.key === 'archived'
         );
-        if (!archived) {
-            throw new Error('Expected archived cosmetics tab');
+        const decorationTypes = profileDecorations?.params.types;
+        if (!archived || !decorationTypes?.length) {
+            throw new Error('Expected profile decorations and archived tabs');
         }
 
-        expect(profileDecorations).toEqual({
-            key: 'profile-decorations',
-            labelKey: 'dialog.inventory.profile_decorations',
-            source: 'inventory',
-            params: {
-                types: ['iconFrame', 'profileEffect', 'nameplateEffect'],
-                notFlags: ['ugc'],
-                archived: false
-            }
-        });
-        expect(archived.params.types).toEqual([
-            'droneskin',
-            'portalskin',
-            'warpeffect',
-            'iconFrame',
-            'profileEffect',
-            'nameplateEffect'
-        ]);
-    });
-
-    it('opens cosmetics on profile decorations instead of drones', () => {
-        expect(INITIAL_INVENTORY_SUB_TABS.cosmetics).toBe(
-            'profile-decorations'
+        expect(archived.params.types).toEqual(
+            expect.arrayContaining(decorationTypes)
         );
     });
 
@@ -373,16 +345,7 @@ describe('inventory helpers', () => {
         ).toBe('');
     });
 
-    it('maps profile decoration item types to localized labels', () => {
-        expect(resolveProfileDecorationTypeLabelKey('iconFrame')).toBe(
-            'dialog.inventory.icon_frame'
-        );
-        expect(resolveProfileDecorationTypeLabelKey('profileEffect')).toBe(
-            'dialog.inventory.profile_effect'
-        );
-        expect(resolveProfileDecorationTypeLabelKey('nameplateEffect')).toBe(
-            'dialog.inventory.nameplate_effect'
-        );
+    it('has no profile decoration label for other item types', () => {
         expect(resolveProfileDecorationTypeLabelKey('portalskin')).toBeNull();
     });
 });

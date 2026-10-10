@@ -1,14 +1,11 @@
-use std::collections::HashMap;
-
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::common::{normalize_text, row_i64, row_json, row_string, value_as_i64, ParamsBuilder};
+use crate::common::{normalize_text, row_i64, row_string, value_as_i64, ParamsBuilder};
 use crate::database::schema::{
     add_column_if_missing, add_legacy_indexes, add_notification_indexes, add_v17_global_indexes,
-    backfill_vrcx0_schema_version, drop_column_if_exists, ensure_global_store_tables,
-    ensure_user_store_tables, read_vrcx0_schema_version, safe_identifier, select_table_names,
-    table_column_names, VRCX0_SCHEMA_VERSION,
+    drop_column_if_exists, ensure_global_store_tables, ensure_user_store_tables, safe_identifier,
+    select_table_names, table_column_names,
 };
 use crate::game_log::{claim_legacy_ownership, ensure_game_log_tables};
 use crate::ownership::OwnerId;
@@ -19,9 +16,11 @@ use super::DatabaseService;
 
 mod avatar_cleanup;
 mod copresence_repair;
+mod leave_location_repair;
 
 pub use avatar_cleanup::avatar_auto_cleanup_run;
 use copresence_repair::repair_zero_copresence_durations;
+use leave_location_repair::repair_empty_leave_locations;
 
 pub fn vacuum_after_secret_migration(db: &DatabaseService) -> Result<(), Error> {
     db.checkpoint_and_vacuum()
@@ -80,16 +79,8 @@ pub struct MaintenanceTableSizesOutput {
     pub resource_load: i64,
 }
 
-#[derive(Debug, Serialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct BrokenGameLogDisplayNameOutput {
-    pub id: Value,
-    pub display_name: Value,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DatabaseMaintenanceTask {
-    InitGlobalTables,
     Vacuum,
     Optimize,
     UpdateTableForGroupNames,
@@ -98,8 +89,6 @@ pub enum DatabaseMaintenanceTask {
     AddLegacyPerformanceIndexes,
     AddV17GlobalPerformanceIndexes,
     AddNotificationPerformanceIndexes,
-    AddV17PerformanceIndexes,
-    AddPerformanceIndexes,
     CleanLegendFromFriendLog,
     FixGameLogTraveling,
     FixNegativeGPS,
@@ -110,47 +99,15 @@ pub enum DatabaseMaintenanceTask {
     FixCancelFriendRequestTypo,
     FixBrokenGameLogDisplayNames,
     RepairZeroCopresenceDurations,
+    RepairEmptyLeaveLocations,
+    RepairExpiredNotificationsSeen,
+    ImportUpstreamPrintFavorites,
+    ImportUpstreamHmdNotificationSettings,
 }
 
 impl DatabaseMaintenanceTask {
-    pub fn parse(value: &str) -> Result<Self, Error> {
-        match normalize_text(value) {
-            task if task == "initGlobalTables" => Ok(Self::InitGlobalTables),
-            task if task == "vacuum" => Ok(Self::Vacuum),
-            task if task == "optimize" => Ok(Self::Optimize),
-            task if task == "updateTableForGroupNames" => Ok(Self::UpdateTableForGroupNames),
-            task if task == "addFriendLogFriendNumber" => Ok(Self::AddFriendLogFriendNumber),
-            task if task == "updateTableForAvatarHistory" => Ok(Self::UpdateTableForAvatarHistory),
-            task if task == "addLegacyPerformanceIndexes" => Ok(Self::AddLegacyPerformanceIndexes),
-            task if task == "addV17GlobalPerformanceIndexes" => {
-                Ok(Self::AddV17GlobalPerformanceIndexes)
-            }
-            task if task == "addNotificationPerformanceIndexes" => {
-                Ok(Self::AddNotificationPerformanceIndexes)
-            }
-            task if task == "addV17PerformanceIndexes" => Ok(Self::AddV17PerformanceIndexes),
-            task if task == "addPerformanceIndexes" => Ok(Self::AddPerformanceIndexes),
-            task if task == "cleanLegendFromFriendLog" => Ok(Self::CleanLegendFromFriendLog),
-            task if task == "fixGameLogTraveling" => Ok(Self::FixGameLogTraveling),
-            task if task == "fixNegativeGPS" => Ok(Self::FixNegativeGPS),
-            task if task == "fixBrokenLeaveEntries" => Ok(Self::FixBrokenLeaveEntries),
-            task if task == "fixBrokenGroupInvites" => Ok(Self::FixBrokenGroupInvites),
-            task if task == "fixBrokenNotifications" => Ok(Self::FixBrokenNotifications),
-            task if task == "fixBrokenGroupChange" => Ok(Self::FixBrokenGroupChange),
-            task if task == "fixCancelFriendRequestTypo" => Ok(Self::FixCancelFriendRequestTypo),
-            task if task == "fixBrokenGameLogDisplayNames" => {
-                Ok(Self::FixBrokenGameLogDisplayNames)
-            }
-            task if task == "repairZeroCopresenceDurations" => {
-                Ok(Self::RepairZeroCopresenceDurations)
-            }
-            task => Err(Error::Custom(format!("Unknown maintenance task: {task}"))),
-        }
-    }
-
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::InitGlobalTables => "initGlobalTables",
             Self::Vacuum => "vacuum",
             Self::Optimize => "optimize",
             Self::UpdateTableForGroupNames => "updateTableForGroupNames",
@@ -159,8 +116,6 @@ impl DatabaseMaintenanceTask {
             Self::AddLegacyPerformanceIndexes => "addLegacyPerformanceIndexes",
             Self::AddV17GlobalPerformanceIndexes => "addV17GlobalPerformanceIndexes",
             Self::AddNotificationPerformanceIndexes => "addNotificationPerformanceIndexes",
-            Self::AddV17PerformanceIndexes => "addV17PerformanceIndexes",
-            Self::AddPerformanceIndexes => "addPerformanceIndexes",
             Self::CleanLegendFromFriendLog => "cleanLegendFromFriendLog",
             Self::FixGameLogTraveling => "fixGameLogTraveling",
             Self::FixNegativeGPS => "fixNegativeGPS",
@@ -171,6 +126,10 @@ impl DatabaseMaintenanceTask {
             Self::FixCancelFriendRequestTypo => "fixCancelFriendRequestTypo",
             Self::FixBrokenGameLogDisplayNames => "fixBrokenGameLogDisplayNames",
             Self::RepairZeroCopresenceDurations => "repairZeroCopresenceDurations",
+            Self::RepairEmptyLeaveLocations => "repairEmptyLeaveLocations",
+            Self::RepairExpiredNotificationsSeen => "repairExpiredNotificationsSeen",
+            Self::ImportUpstreamPrintFavorites => "importUpstreamPrintFavorites",
+            Self::ImportUpstreamHmdNotificationSettings => "importUpstreamHmdNotificationSettings",
         }
     }
 }
@@ -198,8 +157,7 @@ pub fn database_maintenance_run(
 
 pub fn ensure_required_database_schema(db: &DatabaseService) -> Result<(), Error> {
     ensure_game_log_tables(db)?;
-    ensure_global_store_tables(db)?;
-    backfill_vrcx0_schema_version(db)
+    ensure_global_store_tables(db)
 }
 
 fn run_database_maintenance_task(
@@ -207,13 +165,6 @@ fn run_database_maintenance_task(
     task: DatabaseMaintenanceTask,
 ) -> Result<(), Error> {
     match task {
-        DatabaseMaintenanceTask::InitGlobalTables => {
-            ensure_required_database_schema(db)?;
-            add_legacy_indexes(db)?;
-            if read_vrcx0_schema_version(db)? >= VRCX0_SCHEMA_VERSION {
-                add_v17_global_indexes(db)?;
-            }
-        }
         DatabaseMaintenanceTask::Vacuum => {
             db.execute_non_query_exclusive("VACUUM", &Default::default())?;
             if let Err(error) = db.checkpoint_wal() {
@@ -261,15 +212,6 @@ fn run_database_maintenance_task(
         DatabaseMaintenanceTask::AddLegacyPerformanceIndexes => add_legacy_indexes(db)?,
         DatabaseMaintenanceTask::AddV17GlobalPerformanceIndexes => add_v17_global_indexes(db)?,
         DatabaseMaintenanceTask::AddNotificationPerformanceIndexes => add_notification_indexes(db)?,
-        DatabaseMaintenanceTask::AddV17PerformanceIndexes => {
-            add_v17_global_indexes(db)?;
-            add_notification_indexes(db)?;
-        }
-        DatabaseMaintenanceTask::AddPerformanceIndexes => {
-            add_legacy_indexes(db)?;
-            add_v17_global_indexes(db)?;
-            add_notification_indexes(db)?;
-        }
         DatabaseMaintenanceTask::CleanLegendFromFriendLog => {
             for table_name in select_table_names(db, "name LIKE '%_friend_log_history'")? {
                 db.execute_non_query(
@@ -410,7 +352,87 @@ fn run_database_maintenance_task(
         DatabaseMaintenanceTask::RepairZeroCopresenceDurations => {
             repair_zero_copresence_durations(db)?;
         }
+        DatabaseMaintenanceTask::RepairEmptyLeaveLocations => {
+            repair_empty_leave_locations(db)?;
+        }
+        DatabaseMaintenanceTask::RepairExpiredNotificationsSeen => {
+            for table_name in select_table_names(db, "name LIKE '%_notifications'")? {
+                if table_column_names(db, &table_name)?.contains("seen") {
+                    db.execute_non_query(
+                        &format!("UPDATE {table_name} SET seen = 1 WHERE expired = 1 AND seen = 0"),
+                        &Default::default(),
+                    )?;
+                }
+            }
+        }
+        DatabaseMaintenanceTask::ImportUpstreamPrintFavorites => {
+            import_upstream_print_favorites(db)?;
+        }
+        DatabaseMaintenanceTask::ImportUpstreamHmdNotificationSettings => {
+            import_upstream_hmd_notification_settings(db)?;
+        }
     }
+    Ok(())
+}
+
+const HMD_NOTIFICATION_POSITION_CONFIG_KEY: &str = "hmdNotificationPosition";
+const HMD_NOTIFICATION_TIMEOUT_CONFIG_KEY: &str = "hmdNotificationTimeout";
+const UPSTREAM_NOTIFICATION_POSITION_CONFIG_KEY: &str = "VRCX_notificationPosition";
+const UPSTREAM_NOTIFICATION_TIMEOUT_CONFIG_KEY: &str = "VRCX_notificationTimeout";
+
+fn import_upstream_hmd_notification_settings(db: &DatabaseService) -> Result<(), Error> {
+    if crate::config::get_raw(db, HMD_NOTIFICATION_POSITION_CONFIG_KEY)?.is_none() {
+        let position = crate::config::get_raw(db, UPSTREAM_NOTIFICATION_POSITION_CONFIG_KEY)?;
+        if let Some(position) = position.as_deref().and_then(|position| {
+            ["top", "center", "bottom"]
+                .into_iter()
+                .find(|prefix| position.trim().starts_with(prefix))
+        }) {
+            crate::config::set_string(db, HMD_NOTIFICATION_POSITION_CONFIG_KEY, position)?;
+        }
+    }
+    if crate::config::get_raw(db, HMD_NOTIFICATION_TIMEOUT_CONFIG_KEY)?.is_none() {
+        let timeout = crate::config::get_raw(db, UPSTREAM_NOTIFICATION_TIMEOUT_CONFIG_KEY)?
+            .and_then(|timeout| timeout.trim().parse::<u64>().ok())
+            .filter(|timeout| *timeout >= 1_000);
+        if let Some(timeout) = timeout {
+            crate::config::set_string(
+                db,
+                HMD_NOTIFICATION_TIMEOUT_CONFIG_KEY,
+                &timeout.min(30_000).to_string(),
+            )?;
+        }
+    }
+    Ok(())
+}
+
+pub const PRINT_FAVORITE_IDS_CONFIG_KEY: &str = "autoDeletePrintsFavoriteIds";
+
+fn import_upstream_print_favorites(db: &DatabaseService) -> Result<(), Error> {
+    if select_table_names(db, "name = 'favorite_print'")?.is_empty() {
+        return Ok(());
+    }
+    let existing = crate::config::get_json(db, PRINT_FAVORITE_IDS_CONFIG_KEY, Value::Null)?;
+    let imported = db.execute(
+        "SELECT print_id FROM favorite_print ORDER BY created_at, id",
+        &Default::default(),
+    )?;
+    let mut ids: Vec<String> = Vec::new();
+    for value in existing
+        .as_array()
+        .into_iter()
+        .flatten()
+        .chain(imported.iter().filter_map(|row| row.first()))
+    {
+        let Some(id) = value.as_str().map(str::trim).filter(|id| !id.is_empty()) else {
+            continue;
+        };
+        if !ids.iter().any(|seen| seen == id) {
+            ids.push(id.to_string());
+        }
+    }
+    crate::config::set_json(db, PRINT_FAVORITE_IDS_CONFIG_KEY, &Value::from(ids))?;
+    db.execute_non_query("DROP TABLE favorite_print", &Default::default())?;
     Ok(())
 }
 
@@ -452,79 +474,11 @@ pub fn database_maintenance_table_sizes_get(
     Ok(output)
 }
 
-pub fn database_maintenance_max_friend_log_number_get(
-    db: &DatabaseService,
-    user_id: String,
-) -> Result<i64, Error> {
-    let user_id = normalize_text(user_id);
-    if user_id.is_empty() {
-        return Ok(0);
-    }
-    let user_prefix = normalize_user_table_prefix(&user_id)?;
-    ensure_user_store_tables(db, &user_prefix)?;
-    max_friend_log_number(db, &user_prefix)
-}
-
-pub fn database_maintenance_broken_leave_entries_get(
-    db: &DatabaseService,
-) -> Result<Vec<Value>, Error> {
-    ensure_game_log_tables(db)?;
-    let mut instance_times = HashMap::<String, i64>::new();
-    for row in db.execute(
-        "SELECT location, time FROM gamelog_location",
-        &Default::default(),
-    )? {
-        let location = row_string(&row, 0);
-        let time = row_i64(&row, 1);
-        *instance_times.entry(location).or_default() += time;
-    }
-    let mut bad_entries = Vec::new();
-    for row in db.execute("SELECT location, time, id FROM gamelog_join_leave WHERE type = 'OnPlayerLeft' AND time > 0", &Default::default())? {
-        let location = row_string(&row, 0);
-        let time = row_i64(&row, 1);
-        if instance_times
-            .get(&location)
-            .is_some_and(|instance_time| time > *instance_time)
-        {
-            bad_entries.push(row_json(&row, 2));
-        }
-    }
-    Ok(bad_entries)
-}
-
-pub fn database_maintenance_broken_game_log_display_names_get(
-    db: &DatabaseService,
-) -> Result<Vec<BrokenGameLogDisplayNameOutput>, Error> {
-    ensure_game_log_tables(db)?;
-    Ok(db
-        .execute(
-            "SELECT id, display_name FROM gamelog_join_leave WHERE display_name LIKE '% (%'",
-            &Default::default(),
-        )?
-        .into_iter()
-        .map(|row| BrokenGameLogDisplayNameOutput {
-            id: row_json(&row, 0),
-            display_name: row_json(&row, 1),
-        })
-        .collect())
-}
-
 pub(crate) fn count_table(db: &DatabaseService, table_name: &str) -> Result<i64, Error> {
     let table_name = safe_identifier(table_name, "Table name")?;
     Ok(db
         .execute(
             &format!("SELECT COUNT(*) FROM {table_name}"),
-            &Default::default(),
-        )?
-        .first()
-        .map(|row| row_i64(row, 0))
-        .unwrap_or(0))
-}
-
-pub(crate) fn max_friend_log_number(db: &DatabaseService, user_prefix: &str) -> Result<i64, Error> {
-    Ok(db
-        .execute(
-            &format!("SELECT MAX(friend_number) FROM {user_prefix}_friend_log_current"),
             &Default::default(),
         )?
         .first()

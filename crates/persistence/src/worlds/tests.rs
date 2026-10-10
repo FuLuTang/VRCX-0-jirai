@@ -54,7 +54,7 @@ fn world_entry(id: &str, name: &str) -> CacheEntityInput {
 }
 
 #[test]
-fn get_many_fetches_requested_world_rows_in_one_query() {
+fn get_many_returns_requested_world_rows() {
     let (_dir, db) = test_db("get-many");
     world_cache_upsert(db.as_ref(), world_entry("wrld_a", "World A")).unwrap();
     world_cache_upsert(db.as_ref(), world_entry("wrld_b", "World B")).unwrap();
@@ -113,7 +113,7 @@ fn world_summary_preserves_unknown_release_status_as_a_string() {
 }
 
 #[test]
-fn cache_upsert_normalizes_world_id_for_get_and_remove() {
+fn cache_upsert_normalizes_world_id_for_get() {
     let (_dir, db) = test_db("normalized-cache-id");
 
     world_cache_upsert(db.as_ref(), world_entry("  wrld_spaced  ", "Spaced World")).unwrap();
@@ -122,11 +122,6 @@ fn cache_upsert_normalizes_world_id_for_get_and_remove() {
         .unwrap()
         .expect("normalized cache id should be readable");
     assert_eq!(cached.id, "wrld_spaced");
-
-    world_cache_remove(db.as_ref(), "  wrld_spaced  ".into()).unwrap();
-    assert!(world_cache_get(db.as_ref(), "wrld_spaced".into())
-        .unwrap()
-        .is_none());
 }
 
 #[test]
@@ -148,7 +143,7 @@ fn cache_upsert_rejects_invalid_entity_ids_without_writing_rows() {
 }
 
 #[test]
-fn cache_upsert_many_persists_a_typical_favourites_page_in_one_pass() {
+fn cache_upsert_many_persists_a_typical_favourites_page() {
     let (_dir, db) = test_db("upsert-many");
 
     let entries = (0..300)

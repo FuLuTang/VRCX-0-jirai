@@ -6,6 +6,7 @@ import { Button } from '@/ui/shadcn/button';
 import { Switch } from '@/ui/shadcn/switch';
 
 import { LinuxRenderingSetting } from '../LinuxRenderingSetting';
+import { PrivacyLockSetting } from '../PrivacyLockSetting';
 import { SettingsCard } from '../SettingsCard';
 import { Field } from '../SettingsField';
 import { SettingsTabContent } from '../SettingsViewParts';
@@ -26,6 +27,9 @@ type SettingsSystemTabContentProps = {
     systemWindowFrame?: boolean;
     proxyEnabled?: boolean;
     proxyServer?: string;
+    relaunchVRChatAfterCrash?: boolean;
+    vrcQuitFix?: boolean;
+    focusVrchatOnJoin?: boolean;
     showPostUpdateChangelogToast?: boolean;
     updateCheckDisabled?: boolean;
     onAutoInstallUpdatesOnStartupChange: (checked: boolean) => void;
@@ -33,14 +37,17 @@ type SettingsSystemTabContentProps = {
     onBackgroundModeEnabledChange: (checked: boolean) => void;
     onBackgroundModeDelayEnabledChange: (checked: boolean) => void;
     onCloseToTrayChange: (checked: boolean) => void;
+    onFocusVrchatOnJoinChange: (checked: boolean) => void;
     onPromptAutoLoginDelaySeconds: () => void;
     onPromptBackgroundModeDelayMinutes: () => void;
     onProxyEnabledChange: (checked: boolean) => void | Promise<void>;
     onProxySettings: () => void;
     onPostUpdateChangelogToastChange: (checked: boolean) => void;
+    onRelaunchVRChatAfterCrashChange: (checked: boolean) => void;
     onStartAsMinimizedChange: (checked: boolean) => void;
     onStartAtWindowsStartupChange: (checked: boolean) => void;
     onSystemWindowFrameChange: (checked: boolean) => void | Promise<void>;
+    onVrcQuitFixChange: (checked: boolean) => void;
 };
 
 export function SettingsSystemTab() {
@@ -64,6 +71,9 @@ export function SettingsSystemTabContent({
     backgroundModeDelayMinutes,
     proxyEnabled,
     proxyServer,
+    relaunchVRChatAfterCrash,
+    vrcQuitFix,
+    focusVrchatOnJoin,
     onStartAtWindowsStartupChange,
     onStartAsMinimizedChange,
     onCloseToTrayChange,
@@ -76,7 +86,10 @@ export function SettingsSystemTabContent({
     onAutoInstallUpdatesOnStartupChange,
     onPostUpdateChangelogToastChange,
     onProxyEnabledChange,
-    onProxySettings
+    onProxySettings,
+    onRelaunchVRChatAfterCrashChange,
+    onVrcQuitFixChange,
+    onFocusVrchatOnJoinChange
 }: SettingsSystemTabContentProps) {
     const { t } = useTranslation();
     const isWindows = hostPlatform === 'windows';
@@ -95,8 +108,8 @@ export function SettingsSystemTabContent({
     return (
         <SettingsTabContent value="system">
             <SettingsCard
-                cardId="system.application"
-                title={t('view.settings.general.application.header')}
+                cardId="system.startup"
+                title={t('view.settings.general.application.startup_header')}
             >
                 <Field label={startupLabel} description={startupDescription}>
                     <Switch
@@ -110,6 +123,11 @@ export function SettingsSystemTabContent({
                         onCheckedChange={onStartAsMinimizedChange}
                     />
                 </Field>
+            </SettingsCard>
+            <SettingsCard
+                cardId="system.window"
+                title={t('view.settings.general.application.window_header')}
+            >
                 <Field
                     label={t('view.settings.general.application.tray')}
                     description={t(
@@ -122,6 +140,7 @@ export function SettingsSystemTabContent({
                     />
                 </Field>
                 {isWindows ? <TrayShortcutSetting /> : null}
+                <PrivacyLockSetting />
                 {hostPlatform === 'linux' ? <LinuxRenderingSetting /> : null}
                 <Field
                     label={t(
@@ -196,6 +215,57 @@ export function SettingsSystemTabContent({
                         />
                     </Field>
                 ) : null}
+            </SettingsCard>
+            <SettingsCard
+                cardId="system.vrchat"
+                title={t('view.settings.advanced.advanced_ui.behavior.header')}
+            >
+                <Field
+                    label={t(
+                        'view.settings.advanced.advanced.relaunch_vrchat.header'
+                    )}
+                    description={t(
+                        'view.settings.advanced.advanced.relaunch_vrchat.description'
+                    )}
+                >
+                    <Switch
+                        checked={relaunchVRChatAfterCrash}
+                        onCheckedChange={onRelaunchVRChatAfterCrashChange}
+                    />
+                </Field>
+                <Field
+                    label={t(
+                        'view.settings.advanced.advanced_ui.behavior.quit_header'
+                    )}
+                    description={t(
+                        'view.settings.advanced.advanced_ui.behavior.quit_description'
+                    )}
+                >
+                    <Switch
+                        checked={vrcQuitFix}
+                        onCheckedChange={onVrcQuitFixChange}
+                    />
+                </Field>
+                {isWindows ? (
+                    <Field
+                        label={t(
+                            'view.settings.advanced.advanced_ui.behavior.focus_on_join_header'
+                        )}
+                        description={t(
+                            'view.settings.advanced.advanced_ui.behavior.focus_on_join_description'
+                        )}
+                    >
+                        <Switch
+                            checked={focusVrchatOnJoin}
+                            onCheckedChange={onFocusVrchatOnJoinChange}
+                        />
+                    </Field>
+                ) : null}
+            </SettingsCard>
+            <SettingsCard
+                cardId="system.updates"
+                title={t('view.settings.general.application.updates_header')}
+            >
                 {updateCheckDisabled ? (
                     <Field
                         label={t(
@@ -241,6 +311,11 @@ export function SettingsSystemTabContent({
                         onCheckedChange={onPostUpdateChangelogToastChange}
                     />
                 </Field>
+            </SettingsCard>
+            <SettingsCard
+                cardId="system.network"
+                title={t('view.settings.general.application.network_header')}
+            >
                 <Field
                     label={t('view.settings.general.logging.auto_login_delay')}
                 >

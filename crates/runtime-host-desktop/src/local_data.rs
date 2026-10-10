@@ -4,7 +4,7 @@ use std::sync::Arc;
 use serde_json::Value;
 use vrcx_0_application::avatars::AvatarFeedCleanupOutcome;
 use vrcx_0_application::favorites::{
-    FavoriteMutationCoordinator, FavoriteRow, LocalFavoriteSnapshot,
+    FavoriteMutationCoordinator, FavoriteRow, LocalFavoriteSnapshot, LocalWorldDetailsRefreshOutput,
 };
 use vrcx_0_application::social::{
     get_user_mutual_friends_list, refresh_mutual_graph_friend, MutualGraphFetchCancelInput,
@@ -12,11 +12,11 @@ use vrcx_0_application::social::{
     MutualGraphFriendRefreshInput, MutualGraphFriendRefreshOutput, MutualGraphRequestDeps,
     UserMutualFriendsListInput, UserMutualFriendsListOutput,
 };
-use vrcx_0_application_activity::OverlayActivityRuntime;
+use vrcx_0_application_activity::ActivityRouter;
 use vrcx_0_application_core::vrchat_api::VrchatApiResponse;
 use vrcx_0_application_core::{
-    AvatarCache, FavoriteEntityKind, Result, RuntimeAuthScope, TaskSupervisor, WebClient,
-    WorldCache,
+    AvatarCache, FavoriteEntityKind, FileCache, Result, RuntimeAuthScope, TaskSupervisor,
+    WebClient, WorldCache,
 };
 use vrcx_0_application_game::{
     GameLogSessionDto, GameLogSessionsQueryInput, InstanceHistoryEntryOutput,
@@ -24,14 +24,18 @@ use vrcx_0_application_game::{
 };
 use vrcx_0_application_realtime::RealtimeHostRuntime;
 use vrcx_0_contracts::{
-    SavedGroupCollectionCreateInput, SavedGroupCollectionDeleteInput, SavedGroupFavoriteAddInput,
-    SavedGroupFavoriteRemoveInput, SavedGroupFavoritesSnapshot,
+    FileMetadataOutput, SavedGroupCollectionCreateInput, SavedGroupCollectionDeleteInput,
+    SavedGroupFavoriteAddInput, SavedGroupFavoriteRemoveInput, SavedGroupFavoritesSnapshot,
 };
+use vrcx_0_core::files::extract_file_id;
 use vrcx_0_core::json::RawJson;
 use vrcx_0_core::vrchat_endpoints::VRCHAT_API_DEFAULT_ENDPOINT;
 use vrcx_0_persistence::DatabaseService;
 
 pub use vrcx_0_application_activity::activity_page::{ActivityPageBuildInput, ActivityPageView};
+pub use vrcx_0_contracts::activity_page::{
+    ActivityJourneyDayInput, ActivityJourneyDaysInput, ActivityJourneyVisit,
+};
 pub use vrcx_0_core::OwnerId;
 pub use vrcx_0_persistence::activity::{
     ActivityOverlapViewBuildInput, ActivityOverlapViewOutput, ActivityViewBuildInput,
@@ -39,7 +43,7 @@ pub use vrcx_0_persistence::activity::{
 };
 pub use vrcx_0_persistence::avatars::{
     AvatarCacheOutput, AvatarTagInput, AvatarTagOutput, AvatarTagsPatchInput,
-    AvatarTimeSpentOutput, AvatarUsageRow,
+    AvatarTimeSpentOutput, AvatarUsageRow, AvatarWearSegment,
 };
 pub use vrcx_0_persistence::browse_history::{
     BrowseHistoryEntityKind, BrowseHistoryPageOutput, BrowseHistoryQueryInput,
@@ -61,7 +65,7 @@ pub use vrcx_0_persistence::game_log::{
 pub use vrcx_0_persistence::local_moderation::LocalModerationOutput;
 pub use vrcx_0_persistence::manual_relations::ManualRelationOutput;
 pub use vrcx_0_persistence::maintenance::{
-    BrokenGameLogDisplayNameOutput, MaintenanceTableSizesOutput, UserTableContextOutput,
+    MaintenanceTableSizesOutput, UserTableContextOutput,
 };
 pub use vrcx_0_persistence::memos::{
     AvatarMemoOutput, MemoSaveResult, UserMemoOutput, UserNoteOutput, WorldMemoOutput,
@@ -125,6 +129,7 @@ pub struct LocalDataRuntime {
     tasks: TaskSupervisor,
     avatar_cache: Arc<AvatarCache>,
     world_cache: Arc<WorldCache>,
+    file_cache: FileCache,
     realtime: Arc<RealtimeHostRuntime>,
     saved_group_favorites: vrcx_0_application::social::SavedGroupFavoritesRuntime,
     favorite_mutations: FavoriteMutationCoordinator,
@@ -144,8 +149,9 @@ impl LocalDataRuntime {
         tasks: TaskSupervisor,
         avatar_cache: Arc<AvatarCache>,
         world_cache: Arc<WorldCache>,
+        file_cache: FileCache,
         realtime: Arc<RealtimeHostRuntime>,
-        overlay_activity: OverlayActivityRuntime,
+        activity_router: ActivityRouter,
         favorite_mutations: FavoriteMutationCoordinator,
         mutual_graph_fetch: MutualGraphFetchRuntime,
     ) -> Self {
@@ -159,7 +165,7 @@ impl LocalDataRuntime {
             Arc::new(
                 vrcx_0_outbound_adapters::LocalSavedGroupFavoritesAdapter::new(
                     Arc::clone(&db),
-                    overlay_activity,
+                    activity_router,
                 ),
             ),
             auth_scope.clone(),
@@ -172,6 +178,7 @@ impl LocalDataRuntime {
             tasks,
             avatar_cache,
             world_cache,
+            file_cache,
             realtime,
             saved_group_favorites,
             favorite_mutations,
@@ -242,12 +249,16 @@ impl LocalDataRuntime {
             .await
     }
 
-    pub fn set_feed_persistence_disabled(&self, disabled: bool) -> Result<()> {
-        self.realtime.set_feed_persistence_disabled(disabled)
+    pub async fn file_metadata_get(&self, file_url_or_id: String) -> Option<FileMetadataOutput> {
+        let file_id = extract_file_id(&file_url_or_id)?;
+        let auth_scope = self.auth_scope.snapshot();
+        self.file_cache
+            .resolve(self.web.as_ref(), &auth_scope.endpoint, &file_id)
+            .await
     }
 
-    pub fn set_avatar_feed_persistence_disabled(&self, disabled: bool) -> Result<()> {
-        self.realtime.set_avatar_feed_persistence_disabled(disabled)
+    pub fn set_feed_persistence_disabled(&self, disabled: bool) -> Result<()> {
+        self.realtime.set_feed_persistence_disabled(disabled)
     }
 
     /// Atomically appends an observed-now Online edge if this owner's latest
@@ -346,10 +357,6 @@ impl LocalDataRuntime {
         self.saved_group_favorites.remove_group(input)
     }
 
-    pub fn mutual_graph_fetch_status(&self) -> MutualGraphFetchStatus {
-        self.mutual_graph_fetch.status()
-    }
-
     pub fn mutual_graph_fetch_cancel(
         &self,
         input: MutualGraphFetchCancelInput,
@@ -428,6 +435,26 @@ impl LocalDataRuntime {
         )
     }
 
+    pub fn activity_journey_visits(
+        &self,
+        input: ActivityJourneyDayInput,
+    ) -> Result<Vec<ActivityJourneyVisit>> {
+        Ok(vrcx_0_persistence::activity_page::read_journey_visits(
+            self.db.as_ref(),
+            &input.owner_user_id,
+            input.from_ms,
+            input.to_ms,
+        )?)
+    }
+
+    pub fn activity_journey_days(&self, input: ActivityJourneyDaysInput) -> Result<Vec<String>> {
+        Ok(vrcx_0_persistence::activity_page::read_journey_days(
+            self.db.as_ref(),
+            &input.owner_user_id,
+            input.utc_offset_minutes,
+        )?)
+    }
+
     pub fn avatar_history_clear(&self, user_id: String) -> Result<()> {
         Ok(vrcx_0_persistence::avatars::avatar_history_clear(
             self.db.as_ref(),
@@ -452,6 +479,20 @@ impl LocalDataRuntime {
             self.db.as_ref(),
             user_id,
             limit,
+        )?)
+    }
+
+    pub fn avatar_wear_segments(
+        &self,
+        user_id: String,
+        from_ms: i64,
+        to_ms: i64,
+    ) -> Result<Vec<AvatarWearSegment>> {
+        Ok(vrcx_0_persistence::avatars::avatar_wear_segments(
+            self.db.as_ref(),
+            user_id,
+            from_ms,
+            to_ms,
         )?)
     }
 
@@ -529,20 +570,6 @@ impl LocalDataRuntime {
             self.db.as_ref(),
             avatar_id,
             entries,
-        )?)
-    }
-
-    pub fn avatar_time_spent_add(
-        &self,
-        user_id: String,
-        avatar_id: String,
-        time_spent: i64,
-    ) -> Result<()> {
-        Ok(vrcx_0_persistence::avatars::avatar_time_spent_add(
-            self.db.as_ref(),
-            user_id,
-            avatar_id,
-            time_spent,
         )?)
     }
 
@@ -637,31 +664,6 @@ impl LocalDataRuntime {
         vrcx_0_application::profile::set_config_values(self.profile_config.as_ref(), entries)
     }
 
-    pub fn broken_game_log_display_names(&self) -> Result<Vec<BrokenGameLogDisplayNameOutput>> {
-        Ok(
-            vrcx_0_persistence::maintenance::database_maintenance_broken_game_log_display_names_get(
-                self.db.as_ref(),
-            )?,
-        )
-    }
-
-    pub fn broken_leave_entries(&self) -> Result<Vec<Value>> {
-        Ok(
-            vrcx_0_persistence::maintenance::database_maintenance_broken_leave_entries_get(
-                self.db.as_ref(),
-            )?,
-        )
-    }
-
-    pub fn max_friend_log_number(&self, user_id: String) -> Result<i64> {
-        Ok(
-            vrcx_0_persistence::maintenance::database_maintenance_max_friend_log_number_get(
-                self.db.as_ref(),
-                user_id,
-            )?,
-        )
-    }
-
     pub fn maintenance_table_sizes(&self, user_id: String) -> Result<MaintenanceTableSizesOutput> {
         Ok(
             vrcx_0_persistence::maintenance::database_maintenance_table_sizes_get(
@@ -683,6 +685,15 @@ impl LocalDataRuntime {
         vrcx_0_application::favorites::list_local_favorites(&store, &self.current_owner(), kind)
     }
 
+    pub fn favorite_custom_order(&self, kind: FavoriteEntityKind) -> Result<Vec<FavoriteRow>> {
+        let store = vrcx_0_outbound_adapters::LocalFavoriteStore::new(Arc::clone(&self.db));
+        vrcx_0_application::favorites::list_local_favorite_custom_order(
+            &store,
+            &self.current_owner(),
+            kind,
+        )
+    }
+
     pub fn favorite_snapshot(&self, kind: FavoriteEntityKind) -> Result<LocalFavoriteSnapshot> {
         let store = vrcx_0_outbound_adapters::LocalFavoriteStore::new(Arc::clone(&self.db));
         vrcx_0_application::favorites::get_local_favorite_snapshot(
@@ -690,6 +701,29 @@ impl LocalDataRuntime {
             &self.current_owner(),
             kind,
         )
+    }
+
+    pub async fn favorite_local_world_details_refresh(
+        &self,
+    ) -> Result<LocalWorldDetailsRefreshOutput> {
+        let store = vrcx_0_outbound_adapters::LocalFavoriteStore::new(Arc::clone(&self.db));
+        let auth_scope = self.auth_scope.snapshot();
+        let endpoint = if auth_scope.endpoint.is_empty() {
+            VRCHAT_API_DEFAULT_ENDPOINT
+        } else {
+            auth_scope.endpoint.as_str()
+        };
+        let remote = vrcx_0_outbound_adapters::CachedLocalWorldDetailsRemote::new(
+            self.world_cache.as_ref(),
+            self.web.as_ref(),
+        );
+        vrcx_0_application::favorites::refresh_local_world_details(
+            &store,
+            &OwnerId::new(auth_scope.current_user_id.clone()),
+            &remote,
+            endpoint,
+        )
+        .await
     }
 
     pub fn cleanup_avatar_feed_history(
@@ -817,6 +851,29 @@ impl LocalDataRuntime {
                 &self.current_owner(),
                 location,
             )?,
+        )
+    }
+
+    pub fn game_log_import_inspect(
+        &self,
+        paths: Vec<String>,
+        game_running: bool,
+    ) -> Result<Vec<vrcx_0_application_game::GameLogImportFile>> {
+        crate::game_log_import::inspect_game_log_import(&self.current_owner(), &paths, game_running)
+    }
+
+    pub fn game_log_import(
+        &self,
+        paths: Vec<String>,
+        consent: vrcx_0_application_game::GameLogImportConsent,
+        game_running: bool,
+    ) -> Result<Vec<vrcx_0_application_game::GameLogImportFile>> {
+        crate::game_log_import::import_game_log(
+            &self.db,
+            &self.current_owner(),
+            &paths,
+            consent,
+            game_running,
         )
     }
 
@@ -1017,14 +1074,6 @@ impl LocalDataRuntime {
 
     pub fn notification_add_v1(&self, user_id: String, notification: Value) -> Result<()> {
         Ok(vrcx_0_persistence::notifications::notification_add_v1(
-            self.db.as_ref(),
-            user_id,
-            notification,
-        )?)
-    }
-
-    pub fn notification_add_v2(&self, user_id: String, notification: Value) -> Result<()> {
-        Ok(vrcx_0_persistence::notifications::notification_add_v2(
             self.db.as_ref(),
             user_id,
             notification,

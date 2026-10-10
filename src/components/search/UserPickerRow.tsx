@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 import { FadeInImage } from '@/components/media/FadeInImage';
 import { cn } from '@/lib/utils';
 import { userImage } from '@/services/entityMediaService';
-import { Checkbox } from '@/ui/shadcn/checkbox';
 
 type UserPickerOption = {
     degree?: number;
@@ -15,7 +14,6 @@ type UserPickerOption = {
 };
 
 type UserPickerRowProps = {
-    multiple?: boolean;
     option?: UserPickerOption | null;
     selected?: boolean;
     showSelection?: boolean;
@@ -24,12 +22,11 @@ type UserPickerRowProps = {
 export function UserPickerRow({
     option,
     selected = false,
-    multiple = false,
     showSelection = true
 }: UserPickerRowProps) {
     const { t } = useTranslation();
 
-    const imageUrl = option?.user ? userImage(option.user, true, '64') : '';
+    const imageUrl = option?.user ? userImage(option.user, 64) : '';
 
     return (
         <span className="flex w-full items-center p-1.5 text-left text-sm">
@@ -59,21 +56,12 @@ export function UserPickerRow({
                 ) : null}
             </span>
             {showSelection ? (
-                multiple ? (
-                    <Checkbox
-                        checked={selected}
-                        tabIndex={-1}
-                        aria-hidden="true"
-                        className="ml-auto"
-                    />
-                ) : (
-                    <CheckIcon
-                        className={cn(
-                            'ml-auto size-4',
-                            selected ? 'opacity-100' : 'opacity-0'
-                        )}
-                    />
-                )
+                <CheckIcon
+                    className={cn(
+                        'ml-auto size-4',
+                        selected ? 'opacity-100' : 'opacity-0'
+                    )}
+                />
             ) : null}
         </span>
     );

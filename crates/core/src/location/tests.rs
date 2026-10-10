@@ -152,7 +152,7 @@ fn serde_maps_known_group_access_types() {
 }
 
 #[test]
-fn serde_maps_known_instance_types_and_preserves_unknown_values() {
+fn serde_maps_known_instance_types() {
     for (value, expected) in [
         ("friends", InstanceType::Friends),
         ("group", InstanceType::Group),
@@ -165,17 +165,10 @@ fn serde_maps_known_instance_types_and_preserves_unknown_values() {
         assert_eq!(instance_type, expected, "{value}");
         assert_eq!(serde_json::to_value(instance_type).unwrap(), json!(value));
     }
-
-    let instance_type: InstanceType = serde_json::from_value(json!("future")).unwrap();
-    assert_eq!(instance_type, InstanceType::Unknown("future".into()));
-    assert_eq!(
-        serde_json::to_value(instance_type).unwrap(),
-        json!("future")
-    );
 }
 
 #[test]
-fn serde_maps_known_instance_regions_and_preserves_unknown_values() {
+fn serde_maps_known_instance_regions() {
     for (value, expected) in [
         ("eu", InstanceRegion::Eu),
         ("jp", InstanceRegion::Jp),
@@ -190,10 +183,6 @@ fn serde_maps_known_instance_regions_and_preserves_unknown_values() {
         assert_eq!(region, expected, "{value}");
         assert_eq!(serde_json::to_value(region).unwrap(), json!(value));
     }
-
-    let region: InstanceRegion = serde_json::from_value(json!("future")).unwrap();
-    assert_eq!(region, InstanceRegion::Unknown("future".into()));
-    assert_eq!(serde_json::to_value(region).unwrap(), json!("future"));
 }
 
 #[test]
@@ -362,29 +351,32 @@ fn display_location_can_format_instance_access_with_labels() {
     };
 
     assert_eq!(
-        format_display_location_with_labels(
+        format_display_location_with_labels_and_instance(
             &parse_location("wrld_a:1~group(grp_a)~groupAccessType(plus)"),
             "Group World",
             "Group Name",
             &labels,
+            false,
         ),
         "Group World Group+(Group Name)"
     );
     assert_eq!(
-        format_display_location_with_labels(
+        format_display_location_with_labels_and_instance(
             &parse_location("wrld_a:1~friends(usr_a)"),
             "Friend World",
             "",
             &labels,
+            false,
         ),
         "Friend World Friends"
     );
     assert_eq!(
-        format_display_location_with_labels(
+        format_display_location_with_labels_and_instance(
             &parse_location("wrld_a:1~hidden(usr_a)"),
             "Plus World",
             "",
             &labels,
+            false,
         ),
         "Plus World Friends+"
     );
@@ -519,4 +511,37 @@ fn region_label_preserves_specific_uppercase_codes() {
     assert_eq!(region_label("jp"), "JP");
     assert_eq!(region_label("  eu  "), "EU");
     assert_eq!(region_label(""), "");
+}
+
+#[test]
+fn rejects_empty_local_and_sentinel_locations() {
+    for location in [
+        "",
+        "local",
+        "local:1234",
+        ":",
+        "offline",
+        "offline:offline",
+        "private",
+        "private:private",
+        "traveling",
+        "traveling:traveling",
+    ] {
+        assert!(!is_real_instance(location), "{location}");
+    }
+}
+
+#[test]
+fn accepts_world_instance_tags() {
+    for location in ["wrld_a:12345", "wrld_a:12345~region(us)", "wrld_a"] {
+        assert!(is_real_instance(location), "{location}");
+    }
+}
+
+#[test]
+fn trims_whitespace_and_folds_case_before_matching_sentinels() {
+    assert!(!is_real_instance("  offline  "));
+    assert!(!is_real_instance("OFFLINE"));
+    assert!(!is_real_instance("Private:Private"));
+    assert!(!is_real_instance("  Traveling  "));
 }

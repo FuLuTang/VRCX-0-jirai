@@ -2,7 +2,6 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { AppToastOptions } from '@/services/toastService';
 import type { Button } from '@/ui/shadcn/button';
 
 const mocks = vi.hoisted(() => ({
@@ -12,37 +11,20 @@ const mocks = vi.hoisted(() => ({
         instanceName: '12345',
         isClosed: false,
         groupName: '',
+        groupNamePending: false,
         worldName: 'Test World',
-        worldNameHint: ''
+        worldNameHint: '',
+        worldNamePending: false
     },
     preferencesState: {
         preferencesHydrated: true,
         isAgeGatedInstancesVisible: false,
         showInstanceIdInLocation: false
-    },
-    showLaunchDialog: vi.fn(),
-    copyTextToClipboard: vi.fn(),
-    openGroupDialog: vi.fn(),
-    openWorldDialog: vi.fn(),
-    directAccessParse: vi.fn(),
-    selfInviteToInstance: vi.fn(),
-    toastSuccess: vi.fn(),
-    toastError: vi.fn()
+    }
 }));
 
-vi.mock('@/services/toastService', () => ({
-    toast: {
-        add: (options: AppToastOptions) => {
-            switch (options.type) {
-                case 'success':
-                    return mocks.toastSuccess(options);
-                case 'error':
-                    return mocks.toastError(options);
-                default:
-                    throw new Error('Unhandled toast type: ' + options.type);
-            }
-        }
-    }
+vi.mock('@/services/i18nService', () => ({
+    default: { t: (key: string) => key }
 }));
 
 vi.mock('@/components/location/LocationContextMenu', async () => {
@@ -73,34 +55,6 @@ vi.mock('@/components/location/useLocationPreviousInstancesDialog', () => ({
     })
 }));
 
-vi.mock('@/services/clipboardService', () => ({
-    copyTextToClipboard: mocks.copyTextToClipboard
-}));
-
-vi.mock('@/services/dialogService', () => ({
-    openGroupDialog: mocks.openGroupDialog,
-    openWorldDialog: mocks.openWorldDialog
-}));
-
-vi.mock('@/services/directAccessService', () => ({
-    directAccessParse: mocks.directAccessParse
-}));
-
-vi.mock('@/services/launchService', () => ({
-    selfInviteToInstance: mocks.selfInviteToInstance
-}));
-
-vi.mock('@/state/launchStore', () => ({
-    useLaunchStore: <T,>(
-        selector: (state: {
-            showLaunchDialog: typeof mocks.showLaunchDialog;
-        }) => T
-    ) =>
-        selector({
-            showLaunchDialog: mocks.showLaunchDialog
-        })
-}));
-
 vi.mock('@/state/preferencesStore', () => ({
     usePreferencesStore: <T,>(
         selector: (state: typeof mocks.preferencesState) => T
@@ -109,8 +63,6 @@ vi.mock('@/state/preferencesStore', () => ({
 
 vi.mock('react-i18next', () => {
     const translations: Record<string, string> = {
-        'component.location.toast.failed_to_send_self_invite':
-            'Failed to send self invite',
         'component.region_code_badge.dynamic.region_value': 'Region',
         'dialog.new_instance.access_type_group': 'Group',
         'dialog.new_instance.access_type_public': 'Public',
@@ -121,9 +73,7 @@ vi.mock('react-i18next', () => {
         'dialog.user.info.instance_closed': 'Instance closed',
         'location.offline': 'Offline',
         'location.private': 'Private',
-        'location.traveling': 'Traveling',
-        'message.invite.self_sent': 'Self invite sent',
-        'message.world.url_copied': 'World URL copied'
+        'location.traveling': 'Traveling'
     };
 
     return {
@@ -214,19 +164,13 @@ describe('Location', () => {
         mocks.metadata.instanceName = '12345';
         mocks.metadata.isClosed = false;
         mocks.metadata.groupName = '';
+        mocks.metadata.groupNamePending = false;
         mocks.metadata.worldName = 'Test World';
         mocks.metadata.worldNameHint = '';
+        mocks.metadata.worldNamePending = false;
         mocks.preferencesState.preferencesHydrated = true;
         mocks.preferencesState.isAgeGatedInstancesVisible = false;
         mocks.preferencesState.showInstanceIdInLocation = false;
-        mocks.showLaunchDialog.mockReset();
-        mocks.copyTextToClipboard.mockReset();
-        mocks.openGroupDialog.mockReset();
-        mocks.openWorldDialog.mockReset();
-        mocks.directAccessParse.mockReset();
-        mocks.selfInviteToInstance.mockReset();
-        mocks.toastSuccess.mockReset();
-        mocks.toastError.mockReset();
     });
 
     it('renders a world instance with region, access type, group, and instance id', () => {
@@ -261,6 +205,42 @@ describe('Location', () => {
 
         expect(html).toContain('loading');
         expect(html).toContain('Test World · Public');
+    });
+
+    it('shows a placeholder instead of the raw world id while the name is pending', () => {
+        mocks.metadata.worldName = '';
+        mocks.metadata.worldNamePending = true;
+
+        const html = renderLocation({
+            location: 'wrld_test:12345~region(jp)'
+        });
+
+        expect(html).toContain('data-slot="location-pending"');
+        expect(html).not.toContain('wrld_test');
+    });
+
+    it('shows the world name with a group placeholder while the group is pending', () => {
+        mocks.metadata.groupNamePending = true;
+
+        const html = renderLocation({
+            location: 'wrld_test:12345~region(jp)~group(grp_test)',
+            showGroupLink: true
+        });
+
+        expect(html).toContain('Test World · Group');
+        expect(html).toContain('data-slot="location-pending"');
+        expect(html).not.toContain('grp_test');
+    });
+
+    it('falls back to the raw world id once the lookup settles without a name', () => {
+        mocks.metadata.worldName = '';
+
+        const html = renderLocation({
+            location: 'wrld_test:12345~region(jp)'
+        });
+
+        expect(html).not.toContain('data-slot="location-pending"');
+        expect(html).toContain('wrld_test · Public');
     });
 
     it('renders sentinel location labels without world metadata', () => {

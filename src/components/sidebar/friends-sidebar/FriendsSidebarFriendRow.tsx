@@ -5,13 +5,21 @@ import {
     FriendInstanceTimer,
     FriendLocationTimer
 } from '@/components/friends/FriendInstanceTimer';
+import { usePendingOfflineBlink } from '@/components/friends/usePendingOfflineBlink';
+import { useRecentlyOnline } from '@/components/friends/useRecentlyOnline';
 import type { LocationMetadata } from '@/components/location/useLocationMetadata';
+import {
+    ProfileAvatarFrame,
+    ProfileNameplate,
+    useDecorationHover
+} from '@/components/ProfileDecorations';
 import { UserHoverCard } from '@/components/user-hover-card/UserHoverCard';
 import { UserDetailContent } from '@/components/UserDetailTile';
 import type { InstanceRosterTimestamp } from '@/domain/instances/instanceRoster';
 import type { UserStatus } from '@/platform/tauri/bindings';
 import { getNameColour, userImage } from '@/services/entityMediaService';
 import { TRUST_COLOR_DEFAULTS } from '@/shared/constants/trustColors';
+import type { UserNameColourStyle } from '@/shared/utils/entityMedia';
 import { type TrustColorMap } from '@/shared/utils/trustColors';
 import type { FriendLocationTimeEntry } from '@/state/friendLocationTimeStore';
 import { useShellStore } from '@/state/shellStore';
@@ -45,7 +53,6 @@ import {
     StaticSidebarLocation
 } from './FriendsSidebarLocation';
 import {
-    readFriendRef,
     resolveSidebarStatusDotClassName,
     resolveTrustNameColour,
     type SidebarFriendRecord
@@ -56,18 +63,26 @@ export function resolveFriendRowDisplay(
     friend: SidebarFriendRecord | null | undefined,
     {
         randomUserColours = false,
+        randomUserColourStyle = 'classic',
         isDarkMode = false,
         trustColor = TRUST_COLOR_DEFAULTS
     }: {
         randomUserColours?: boolean;
+        randomUserColourStyle?: UserNameColourStyle;
         isDarkMode?: boolean;
         trustColor?: TrustColorMap;
     }
 ) {
-    const displaySource = readFriendRef(friend);
+    const displaySource = friend;
     const nameStyle: CSSProperties =
         randomUserColours && friend?.id
-            ? { color: getNameColour(friend.id, isDarkMode) }
+            ? {
+                  color: getNameColour(
+                      friend.id,
+                      isDarkMode,
+                      randomUserColourStyle
+                  )
+              }
             : {
                   color:
                       displaySource?.$userColour ||
@@ -75,7 +90,7 @@ export function resolveFriendRowDisplay(
               };
     return {
         displaySource,
-        imageUrl: userImage(displaySource, true, '64'),
+        imageUrl: userImage(displaySource, 64),
         displayName:
             displaySource?.displayName ||
             displaySource?.username ||
@@ -113,15 +128,16 @@ type FriendRowCommands = {
 
 type FriendRowAppearance = {
     randomUserColours?: boolean;
+    randomUserColourStyle?: UserNameColourStyle;
     isDarkMode?: boolean;
     trustColor?: TrustColorMap;
-    currentUserSnapshot?: SidebarFriendRecord | null;
-    isGameRunning?: boolean | null;
     recentActionVersion?: number;
     locationMetadata?: LocationMetadata | null;
     showInstanceIdInLocation?: boolean;
     ageGatedInstancesVisible?: boolean;
     currentLocationStartedAt?: InstanceRosterTimestamp | null;
+    showAvatarFrame?: boolean;
+    showNameplate?: boolean;
 };
 
 type FriendRowProps = {
@@ -165,30 +181,34 @@ export function FriendRow({
     } = rowCommands || {};
     const {
         randomUserColours = false,
+        randomUserColourStyle = 'classic',
         isDarkMode = false,
         trustColor = TRUST_COLOR_DEFAULTS,
-        currentUserSnapshot = null,
-        isGameRunning = undefined,
         recentActionVersion = 0,
         locationMetadata = null,
         showInstanceIdInLocation = false,
         ageGatedInstancesVisible = false,
-        currentLocationStartedAt = null
+        currentLocationStartedAt = null,
+        showAvatarFrame = false,
+        showNameplate = false
     } = appearance || {};
+    const decorationHover = useDecorationHover();
+    const recentlyOnline = useRecentlyOnline(friend.id || '');
+    const decorationActive = decorationHover.active || recentlyOnline;
+    const iconFrameId = showAvatarFrame ? friend.iconFrame?.trim() : '';
+    const nameplateId = showNameplate ? friend.nameplateEffect?.trim() : '';
     const { displaySource, imageUrl, displayName, nameStyle } =
         resolveFriendRowDisplay(friend, {
             randomUserColours,
+            randomUserColourStyle,
             isDarkMode,
             trustColor
         });
-    const statusDotClassName = resolveSidebarStatusDotClassName(
-        friend,
-        currentUserSnapshot,
-        isCurrentUser,
-        { isGameRunning }
-    );
+    const statusDotClassName = resolveSidebarStatusDotClassName(friend, {
+        hideNonFriend: !isCurrentUser
+    });
     const {
-        statusSource,
+        isPendingOffline,
         friendLocation,
         parsedFriendLocation,
         isTraveling,
@@ -212,12 +232,15 @@ export function FriendRow({
         parsedFriendLocation.worldId &&
         parsedFriendLocation.instanceId
     );
-    const subline = statusSource?.pendingOffline
+    const podButtonRef =
+        usePendingOfflineBlink<HTMLButtonElement>(isPendingOffline);
+    const subline = isPendingOffline
         ? t('side_panel.pending_offline')
         : String(displaySource?.statusDescription || '');
 
     const podButton = (
         <button
+            ref={podButtonRef}
             type="button"
             data-slot="button"
             data-variant="ghost"
@@ -225,13 +248,32 @@ export function FriendRow({
             className={buttonVariants({
                 variant: 'ghost',
                 className:
-                    'h-auto w-full min-w-0 justify-start gap-2 p-1.5 text-left font-normal'
+                    'relative isolate h-auto w-full min-w-0 justify-start gap-2 p-1.5 text-left font-normal'
             })}
+            data-pending-offline={isPendingOffline || undefined}
             onClick={sidebarWindowMode ? undefined : onOpen}
+            {...decorationHover.hoverProps}
         >
+            {nameplateId ? (
+                <ProfileNameplate
+                    templateId={nameplateId}
+                    active={decorationActive}
+                />
+            ) : null}
             <UserDetailContent
                 imageUrl={imageUrl}
                 statusDotClassName={statusDotClassName}
+                avatarFrame={
+                    iconFrameId ? (
+                        <ProfileAvatarFrame
+                            templateId={iconFrameId}
+                            active={
+                                decorationActive ||
+                                (showLocationSubline && isTraveling)
+                            }
+                        />
+                    ) : null
+                }
                 displayName={displayName}
                 nameStyle={nameStyle}
                 subline={

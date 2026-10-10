@@ -47,6 +47,27 @@ export function buildSocialSection({
         commit,
         onAddFeedHiddenUser: addFeedHiddenUser,
         onRemoveFeedHiddenUser: removeFeedHiddenUser,
+        onFeedHiddenUsersHideNotificationsChange: (checked: boolean) => {
+            saveBoolPreference(
+                'feedHiddenUsersHideNotifications',
+                'feedHiddenUsersHideNotifications',
+                checked
+            );
+        },
+        onAutoDeclineFriendRequestsChange: (checked: boolean) => {
+            saveBoolPreference(
+                'autoDeclineFriendRequests',
+                'autoDeclineFriendRequests',
+                checked
+            );
+        },
+        onHidePrivateFromFeedChange: (checked: boolean) => {
+            saveBoolPreference(
+                'hidePrivateFromFeed',
+                'hidePrivateFromFeed',
+                checked
+            );
+        },
         setRecentActionCooldownEnabledPreference,
         setRecentActionCooldownMinutesPreference,
         toggleLocalFavoriteFriendsGroup,
@@ -54,10 +75,10 @@ export function buildSocialSection({
         onHideUnfriendsChange: (checked: boolean) => {
             saveBoolPreference('hideUnfriends', 'hideUnfriends', checked);
         },
-        onFriendLogNotificationDotChange: (checked: boolean) => {
+        onProfileBioScanEnabledChange: (checked: boolean) => {
             saveBoolPreference(
-                'friendLogNotificationDot',
-                'friendLogNotificationDot',
+                'profileBioScanEnabled',
+                'profileBioScanEnabled',
                 checked
             );
         },

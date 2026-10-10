@@ -18,6 +18,7 @@ import {
 import { HoverCard, HoverCardTrigger } from '@/ui/shadcn/hover-card';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/shadcn/tooltip';
 
+import { NotificationMessage } from '../components/NotificationMessage';
 import {
     NOTIFICATION_ROW_HOVER_REVEAL,
     NotificationEmojiPreview,
@@ -164,7 +165,7 @@ export function NotificationDrawerRow({
                 delay={400}
                 closeDelay={100}
                 render={
-                    <div className="group hover:bg-accent/50 border-border/50 relative flex items-start gap-3 border-b px-4 py-3 transition-colors last:border-b-0">
+                    <div className="group border-border/50 relative flex items-start gap-3 border-b px-4 py-3 transition-colors last:border-b-0 hover:bg-(--state-hover-surface)">
                         <div className="flex shrink-0 items-start gap-1.5">
                             <span className="mt-1.5 flex w-2 shrink-0 justify-center">
                                 {showUnreadDot ? (
@@ -206,7 +207,7 @@ export function NotificationDrawerRow({
                                         <button
                                             type="button"
                                             className={cn(
-                                                'max-w-full min-w-0 truncate text-left hover:underline',
+                                                'hover:text-foreground max-w-full min-w-0 truncate text-left',
                                                 isBroadcast
                                                     ? 'text-muted-foreground text-xs'
                                                     : 'text-sm',
@@ -346,7 +347,10 @@ export function NotificationDrawerRow({
                                 <div className="mt-0.5 flex min-w-0 items-center gap-2">
                                     {previewMessage ? (
                                         <p className="text-muted-foreground line-clamp-2 min-w-0 text-xs text-pretty break-words">
-                                            {previewMessage}
+                                            <NotificationMessage
+                                                notification={notification}
+                                                message={previewMessage}
+                                            />
                                         </p>
                                     ) : null}
                                     {view.emoji ? (

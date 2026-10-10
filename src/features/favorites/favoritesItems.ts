@@ -1,25 +1,24 @@
-import { convertFileUrlToImageUrl } from '@/services/entityMediaService';
-export { resolveCurrentInviteLocation } from '@/shared/utils/invite';
-
 import type { FavoriteKind } from '@/domain/favorites/types';
 import type { VrchatFavoriteType } from '@/platform/tauri/bindings';
+import { convertFileUrlToImageUrl } from '@/services/entityMediaService';
 
 type SortableFavoriteItem = {
     id: string;
     title?: string;
     orderIndex?: number;
+    customIndex?: number;
     playerCount?: number;
 };
 
-export type FavoriteSortValue = 'name' | 'date' | 'players';
+export type FavoriteSortValue = 'name' | 'date' | 'players' | 'custom';
 
 const SORT_VALUES_BY_KIND: Record<
     FavoriteKind,
     ReadonlySet<FavoriteSortValue>
 > = {
-    friend: new Set(['name', 'date']),
-    world: new Set(['name', 'date', 'players']),
-    avatar: new Set(['name', 'date'])
+    friend: new Set(['name', 'date', 'custom']),
+    world: new Set(['name', 'date', 'players', 'custom']),
+    avatar: new Set(['name', 'date', 'custom'])
 };
 const DEFAULT_SORT_VALUE: FavoriteSortValue = 'date';
 
@@ -31,7 +30,8 @@ export function normalizeFavoriteSortValue(
     if (
         normalizedValue === 'name' ||
         normalizedValue === 'date' ||
-        normalizedValue === 'players'
+        normalizedValue === 'players' ||
+        normalizedValue === 'custom'
     ) {
         return SORT_VALUES_BY_KIND[kind].has(normalizedValue)
             ? normalizedValue
@@ -64,7 +64,15 @@ export function sortFavoriteItems<TItem extends SortableFavoriteItem>(
             return 0;
         }
 
-        if (sortValue === 'date') {
+        if (sortValue === 'custom') {
+            const customDelta =
+                (left.customIndex ?? -1) - (right.customIndex ?? -1);
+            if (customDelta !== 0) {
+                return customDelta;
+            }
+        }
+
+        if (sortValue === 'date' || sortValue === 'custom') {
             const orderDelta =
                 (left.orderIndex ?? Number.MAX_SAFE_INTEGER) -
                 (right.orderIndex ?? Number.MAX_SAFE_INTEGER);
@@ -96,13 +104,7 @@ export function shrinkFavoriteImage(url: unknown): string {
     if (typeof url !== 'string') {
         return '';
     }
-    const normalized = convertFileUrlToImageUrl(url, 128);
-    if (!normalized) {
-        return '';
-    }
-    return normalized.includes('/256')
-        ? normalized.replace('/256', '/128')
-        : normalized;
+    return convertFileUrlToImageUrl(url, 128);
 }
 
 export function favoriteGroupType(

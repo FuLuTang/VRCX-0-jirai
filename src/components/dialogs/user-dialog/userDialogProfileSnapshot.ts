@@ -2,7 +2,10 @@ import userProfileRepository from '@/repositories/userProfileRepository';
 import { mergeCurrentUserPresenceFields } from '@/shared/utils/currentUserPresence';
 import { isRecord } from '@/shared/utils/record';
 
-import { preserveUserDialogProfileAppearance } from './userDialogProfileAppearance';
+import {
+    preserveUserDialogProfileAppearance,
+    retainUserDialogProfileAppearance
+} from './userDialogProfileAppearance';
 import type {
     UserDialogProfileRecord,
     UserDialogProfileSnapshot
@@ -29,33 +32,20 @@ type MergeUserDialogLocalSnapshotInput = {
 const SNAPSHOT_DEFAULT_FIELDS = [
     '$location',
     '$location_at',
-    '$online_for',
-    '$travelingToTime',
-    '$active_for'
+    '$travelingToTime'
 ];
 
-const FRIEND_PRESENCE_OVERRIDE_FIELDS = [
-    'state',
-    'stateBucket',
-    'location',
-    'status',
-    'travelingToLocation',
-    'travelingToTime',
-    '$travelingToTime',
-    '$location_at',
-    'locationAt',
-    'pendingOffline'
-];
+const FRIEND_PRESENCE_OVERRIDE_FIELDS = ['$presence', 'status'];
 
 const ACTIVITY_TIMESTAMP_FIELDS = ['last_activity', 'last_login'];
 
 const LOCAL_SNAPSHOT_REFRESH_FIELDS = [
+    '$presence',
     'friendNumber',
     '$friendNumber',
     'status',
     'statusDescription',
     'state',
-    'stateBucket',
     'location',
     '$location',
     '$location_at',
@@ -249,14 +239,16 @@ export function mergeSnapshotIntoCurrentProfile({
     targetUserId
 }: MergeSnapshotIntoCurrentProfileInput) {
     const previousProfile = previousTargetProfile(currentProfile, targetUserId);
-    const mergedProfile =
+    const nextProfile =
         isTargetCurrentUser && snapshot
-            ? mergeCurrentUserPresenceFields(snapshot, previousProfile)
-            : mergeLocalSnapshotIntoProfile(snapshot, previousProfile);
-    const nextProfile = preserveUserDialogProfileAppearance(
-        mergedProfile,
-        previousProfile
-    );
+            ? retainUserDialogProfileAppearance(
+                  mergeCurrentUserPresenceFields(snapshot, previousProfile),
+                  previousProfile
+              )
+            : preserveUserDialogProfileAppearance(
+                  mergeLocalSnapshotIntoProfile(snapshot, previousProfile),
+                  previousProfile
+              );
     return preserveProfileIdentity(currentProfile, nextProfile, targetUserId);
 }
 

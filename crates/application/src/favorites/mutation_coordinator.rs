@@ -3,7 +3,7 @@ use std::sync::Arc;
 use vrcx_0_application_core::{
     FavoriteChangeScope, FavoritesChangedPayload, RemoteMutationGate, RuntimeAuthScope,
     RuntimeAuthScopeSnapshot, RuntimeDiagnostics, RuntimeEventBus, RuntimeOperationStatus,
-    RuntimeSyncEngine,
+    RuntimeSyncEngine, WorldCache,
 };
 use vrcx_0_contracts::social_aggregates::{FavoriteLocalInput, FavoriteOutput};
 use vrcx_0_core::FavoriteEntityKind;
@@ -13,7 +13,8 @@ use super::favorite_transfer::{transfer_favorite_selection, FavoriteTransferDeps
 use super::local_favorites::{
     add_local_favorite_scoped, create_local_favorite_group_scoped,
     delete_local_favorite_group_scoped, remove_local_favorite_scoped,
-    rename_local_favorite_group_scoped, LocalFavoriteMutationDeps,
+    rename_local_favorite_group_scoped, reorder_local_favorite_groups_scoped,
+    reorder_local_favorites_scoped, LocalFavoriteMutationDeps,
 };
 use super::remote_favorites::{
     add_remote_favorite, clear_remote_favorite_group, delete_remote_favorite,
@@ -37,6 +38,7 @@ pub struct FavoriteMutationCoordinator {
     event_bus: RuntimeEventBus,
     auth_scope: RuntimeAuthScope,
     remote_mutations: Arc<RemoteMutationGate>,
+    world_cache: Arc<WorldCache>,
 }
 
 #[derive(Clone)]
@@ -46,6 +48,7 @@ pub struct FavoriteMutationRuntimeDeps {
     event_bus: RuntimeEventBus,
     auth_scope: RuntimeAuthScope,
     remote_mutations: Arc<RemoteMutationGate>,
+    world_cache: Arc<WorldCache>,
 }
 
 impl FavoriteMutationRuntimeDeps {
@@ -55,6 +58,7 @@ impl FavoriteMutationRuntimeDeps {
         event_bus: RuntimeEventBus,
         auth_scope: RuntimeAuthScope,
         remote_mutations: Arc<RemoteMutationGate>,
+        world_cache: Arc<WorldCache>,
     ) -> Self {
         Self {
             diagnostics,
@@ -62,6 +66,7 @@ impl FavoriteMutationRuntimeDeps {
             event_bus,
             auth_scope,
             remote_mutations,
+            world_cache,
         }
     }
 }
@@ -80,6 +85,7 @@ impl FavoriteMutationCoordinator {
             event_bus: runtime.event_bus,
             auth_scope: runtime.auth_scope,
             remote_mutations: runtime.remote_mutations,
+            world_cache: runtime.world_cache,
         }
     }
 
@@ -188,6 +194,32 @@ impl FavoriteMutationCoordinator {
         )
     }
 
+    pub fn reorder_local_groups(
+        &self,
+        kind: FavoriteEntityKind,
+        group_names: Vec<String>,
+    ) -> Result<Vec<String>> {
+        reorder_local_favorite_groups_scoped(
+            &self.local_deps("Local favorite mutation")?,
+            kind,
+            group_names,
+        )
+    }
+
+    pub fn reorder_local(
+        &self,
+        kind: FavoriteEntityKind,
+        group_name: String,
+        entity_ids: Vec<String>,
+    ) -> Result<i64> {
+        reorder_local_favorites_scoped(
+            &self.local_deps("Local favorite mutation")?,
+            kind,
+            group_name,
+            entity_ids,
+        )
+    }
+
     pub fn mutate_local(
         &self,
         label: &'static str,
@@ -274,6 +306,7 @@ impl FavoriteMutationCoordinator {
             &FavoriteTransferDeps {
                 store: self.store.as_ref(),
                 remote: self.remote.as_ref(),
+                world_cache: self.world_cache.as_ref(),
                 mutation,
             },
             input,

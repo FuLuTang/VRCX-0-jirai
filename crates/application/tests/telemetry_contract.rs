@@ -2,7 +2,7 @@ use serde_json::{json, Value};
 
 use vrcx_0_application::telemetry::{build_error_detail, sanitize_error_summary};
 use vrcx_0_contracts::telemetry::{
-    TelemetryConfigSnapshot, TelemetryContext, TelemetryRuntimeMode,
+    TelemetryConfigSnapshot, TelemetryContext, TelemetryRuntimeMode, TelemetryVrcxOrigin,
 };
 
 const SYNTHETIC_PROVIDER_ORG_ID: &str = "org_TESTPROVIDER123456789";
@@ -14,11 +14,6 @@ const SYNTHETIC_PROVIDER_LONG_TOKEN: &str = "fakeToken0123456789ABCDEFGHIJKLMNOP
 #[test]
 fn config_snapshot_matches_worker_contract_fields() {
     let snapshot = TelemetryConfigSnapshot {
-        background_mode_enabled: true,
-        wrist_overlay_enabled: false,
-        ovrt_wrist_notifications: false,
-        hmd_notifications_enabled: true,
-        webhook_enabled: false,
         auto_state_change_enabled: false,
         auto_accept_invite_requests: "off".into(),
         avatar_auto_cleanup: "off".into(),
@@ -28,6 +23,7 @@ fn config_snapshot_matches_worker_contract_fields() {
         gamelog_rows_bucket: "100k_1m".into(),
         friend_log_rows_bucket: "lt10k".into(),
         friend_count_bucket: "100_500".into(),
+        vrcx_origin: TelemetryVrcxOrigin::VrcxDetected,
     };
 
     let value = serde_json::to_value(&snapshot).unwrap();
@@ -42,21 +38,18 @@ fn config_snapshot_matches_worker_contract_fields() {
         "autoAcceptInviteRequests",
         "autoStateChangeEnabled",
         "avatarAutoCleanup",
-        "backgroundModeEnabled",
         "dbSizeBucket",
         "feedRowsBucket",
         "friendCountBucket",
         "friendLogRowsBucket",
         "gamelogRowsBucket",
-        "hmdNotificationsEnabled",
-        "ovrtWristNotifications",
         "themeMode",
-        "webhookEnabled",
-        "wristOverlayEnabled",
+        "vrcxOrigin",
     ];
     let mut sorted = keys.clone();
     sorted.sort_unstable();
     assert_eq!(sorted, expected);
+    assert_eq!(value.get("vrcxOrigin"), Some(&json!("vrcx_detected")));
 }
 
 #[test]
@@ -73,13 +66,13 @@ fn context_omits_session_ended_unless_true() {
         local_weekday: 4,
         local_hour: 17,
         session_ended: None,
+        vrchat_seen: None,
     };
 
     let value = serde_json::to_value(&context).unwrap();
 
     assert_eq!(value.get("installId"), Some(&json!("install")));
     assert_eq!(value.get("mode"), Some(&json!("foreground")));
-    assert!(value.get("vrchatRunning").is_none());
     assert!(value.get("sessionEnded").is_none());
 
     let ended = TelemetryContext {

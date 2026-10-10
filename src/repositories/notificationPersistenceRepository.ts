@@ -16,6 +16,7 @@ import { unwrapVrchatResponse } from './vrchatRequest';
 type NotificationDetails = Record<string, unknown> & {
     displayLocation?: string;
     emojiId?: unknown;
+    inventoryItemId?: unknown;
     groupId?: string;
     groupName?: string;
     imageUrl?: string;
@@ -74,6 +75,7 @@ interface NotificationActionOptions {
     receiverUserId?: string;
     userId?: string;
     emojiId?: string;
+    inventoryItemId?: string;
     params?: RequestInviteRequest;
 }
 
@@ -82,6 +84,7 @@ export const NOTIFICATION_TYPES = Object.freeze([
     'invite',
     'requestInviteResponse',
     'inviteResponse',
+    'invite.instance.contentGated',
     'friendRequest',
     'ignoredFriendRequest',
     'message',
@@ -90,6 +93,8 @@ export const NOTIFICATION_TYPES = Object.freeze([
     'groupChange',
     'group.announcement',
     'group.event.created',
+    'group.event.starting',
+    'group.post',
     'group.informative',
     'group.invite',
     'group.joinRequest',
@@ -98,11 +103,18 @@ export const NOTIFICATION_TYPES = Object.freeze([
     'moderation.warning.group',
     'moderation.report.closed',
     'moderation.contentrestriction',
+    'moderation.notice',
+    'votetokick',
     'instance.closed',
     'economy.alert',
     'economy.received.gift',
     'badge.earned',
-    'vrcplus.gift'
+    'vrcplus.gift',
+    'avatarreview.success',
+    'avatarreview.failure',
+    'promo.redeem',
+    'twitchdrop.fulfilled',
+    'text.adventure'
 ]);
 
 function normalizeUserId(value?: string | null): string {
@@ -185,59 +197,6 @@ async function queryNotifications({
     } satisfies NotificationListQueryInput;
     const rows = await commands.appNotificationListQuery(query);
     return rows.map(normalizeNotificationListRow);
-}
-
-async function addNotificationToDatabase({
-    userId,
-    notification
-}: NotificationUserOptions & { notification?: NotificationRecord } = {}) {
-    const normalizedUserId = normalizeUserId(userId);
-    if (!normalizedUserId) {
-        return;
-    }
-
-    const notificationDetails = isRecord(notification?.details)
-        ? notification.details
-        : {};
-    const entry: NotificationRecord & { details: Record<string, unknown> } = {
-        id: '',
-        created_at: '',
-        type: '',
-        senderUserId: '',
-        senderUsername: '',
-        receiverUserId: '',
-        message: '',
-        ...notification,
-        details: {
-            worldId: '',
-            worldName: '',
-            imageUrl: '',
-            inviteMessage: '',
-            requestMessage: '',
-            responseMessage: '',
-            ...notificationDetails
-        }
-    };
-    if (entry.imageUrl && !entry.details.imageUrl) {
-        entry.details.imageUrl = entry.imageUrl;
-    }
-    if (!entry.created_at || !entry.type || !entry.id) {
-        throw new Error('Notification is missing required field');
-    }
-
-    await commands.appNotificationAddV1(normalizedUserId, entry);
-}
-
-async function addNotificationV2ToDatabase({
-    userId,
-    notification
-}: NotificationUserOptions & { notification?: NotificationRecord } = {}) {
-    const normalizedUserId = normalizeUserId(userId);
-    if (!normalizedUserId || !notification?.id) {
-        return;
-    }
-
-    await commands.appNotificationAddV2(normalizedUserId, notification);
 }
 
 async function expireNotificationV2({
@@ -354,17 +313,18 @@ async function sendRequestInvitePhoto({
 
 async function sendBoop({
     userId,
-    emojiId = ''
+    emojiId = '',
+    inventoryItemId = ''
 }: NotificationActionOptions = {}) {
     const normalizedUserId = userId?.trim() ?? '';
     if (!normalizedUserId) {
         return null;
     }
 
-    const normalizedEmojiId = emojiId.trim();
     const input = {
         userId: normalizedUserId,
-        emojiId: normalizedEmojiId
+        emojiId: emojiId.trim(),
+        inventoryItemId: inventoryItemId.trim()
     } satisfies VrchatBoopInput;
     const response = await commands.appVrchatBoopSend(input);
     return unwrapVrchatNotificationResponse(
@@ -374,8 +334,6 @@ async function sendBoop({
 }
 
 const notificationPersistenceRepository = Object.freeze({
-    addNotificationToDatabase,
-    addNotificationV2ToDatabase,
     expireNotificationV2,
     queryNotifications,
     deleteNotification,
@@ -387,5 +345,5 @@ const notificationPersistenceRepository = Object.freeze({
     updateNotificationExpired
 });
 
-export { addNotificationToDatabase, queryNotifications };
+export { queryNotifications };
 export default notificationPersistenceRepository;

@@ -10,14 +10,14 @@ import { useTranslation } from 'react-i18next';
 import { FadeInImage } from '@/components/media/FadeInImage';
 import type { FriendRecord } from '@/domain/friends/types';
 import { formatDateFilter } from '@/lib/dateTime';
+import type {
+    MutualFriendCommunity,
+    MutualFriendNode
+} from '@/lib/mutual-friends/mutualFriendsTypes';
 import { userImage } from '@/services/entityMediaService';
 import { Button } from '@/ui/shadcn/button';
 import { Spinner } from '@/ui/shadcn/spinner';
 
-import type {
-    MutualFriendCommunity,
-    MutualFriendNode
-} from '../../mutual-friends/mutualFriendsTypes';
 import { MutualFriendsSurface } from './MutualFriendsSurface';
 
 export function MutualFriendsNodeCard({
@@ -42,7 +42,7 @@ export function MutualFriendsNodeCard({
     user: FriendRecord | null;
 }) {
     const { t } = useTranslation();
-    const imageUrl = user ? userImage(user, true, '128') : '';
+    const imageUrl = user ? userImage(user, 128) : '';
 
     return (
         <MutualFriendsSurface className="animate-in fade-in-0 slide-in-from-bottom-2 pointer-events-auto absolute right-3 bottom-3 z-10 w-72 p-3 duration-200 ease-out">
@@ -87,7 +87,7 @@ export function MutualFriendsNodeCard({
                 <button
                     type="button"
                     onClick={onFocusCommunity}
-                    className="hover:bg-foreground/5 mt-3 flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors duration-150 ease-out active:translate-y-px"
+                    className="mt-3 flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors duration-150 ease-out hover:bg-(--state-hover-surface) active:translate-y-px"
                 >
                     <span
                         className="size-2.5 shrink-0 rounded-full"

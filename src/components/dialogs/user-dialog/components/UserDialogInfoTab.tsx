@@ -2,12 +2,14 @@ import {
     ChevronRightIcon,
     ExternalLinkIcon,
     HistoryIcon,
+    PencilIcon,
     RefreshCwIcon
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { AvatarInfoLine } from '@/components/feed/FeedAvatarInfoLine';
+import { useAvatarImageInfo } from '@/components/feed/useAvatarImageInfo';
 import { InstanceActionBar } from '@/components/instances/InstanceActionBar';
 import { Location } from '@/components/Location';
 import { LocationWorld } from '@/components/LocationWorld';
@@ -35,6 +37,7 @@ import {
 } from '@/services/entityMediaService';
 import type { UserDialogPreviousInstance } from '@/services/userDialogSessionCacheService';
 import type { UserDialogRelationshipEvent } from '@/services/userDialogSessionCacheService';
+import { parseLocation } from '@/shared/utils/location';
 import { buildLineDiff } from '@/shared/utils/string';
 import { useRuntimeStore } from '@/state/runtimeStore';
 import { Button } from '@/ui/shadcn/button';
@@ -53,6 +56,7 @@ import {
 } from '@/ui/shadcn/popover';
 import { Separator } from '@/ui/shadcn/separator';
 import { Spinner } from '@/ui/shadcn/spinner';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/shadcn/tooltip';
 
 import { EntityDialogTabContent } from '../../EntityDialogScaffold';
 import { formatStatsDuration } from '../userDialogRows';
@@ -61,9 +65,6 @@ import { buildStatusDistribution } from './statusDistribution';
 
 type OpenGroupDialog =
     (typeof import('@/services/dialogService'))['openGroupDialog'];
-type UserDialogInfoProfile = UserProfileEntity & {
-    $location?: { groupName?: string; shortName?: string };
-};
 type PresenceModel = {
     visiblePresenceLocation?: string;
     locationInstance?: EntityRecord & {
@@ -107,11 +108,10 @@ export type UserDialogPresenceSectionProps = {
         onRefreshLocation?: (requestLocation: string) => void;
         onShowInstanceHistory?: () => void;
     };
-    profile: UserDialogInfoProfile;
 };
 
 export type UserDialogNotesSectionProps = {
-    profile: UserDialogInfoProfile;
+    profile: UserProfileEntity;
     hideUserNotes: boolean;
     memo: string;
     hideUserMemos: boolean;
@@ -119,8 +119,9 @@ export type UserDialogNotesSectionProps = {
 };
 
 export type UserDialogBioSectionProps = {
-    profile: UserDialogInfoProfile;
+    profile: UserProfileEntity;
     bioLinks: string[];
+    onEditBio?: () => void;
 };
 
 export type UserDialogProfileLinksSectionProps = {
@@ -129,7 +130,7 @@ export type UserDialogProfileLinksSectionProps = {
     representedGroupStatus: string;
     representedGroup: RepresentedGroup | null;
     openGroupDialog: OpenGroupDialog;
-    profile: UserDialogInfoProfile;
+    profile: UserProfileEntity;
     visibleHomeLocationTarget: string;
 };
 
@@ -142,7 +143,7 @@ export type UserDialogActivitySummarySectionProps = {
     onOpenFeed?: () => void;
     onOpenInstanceHistory?: () => void;
     presenceActivityAt: string | null | undefined;
-    profile: UserDialogInfoProfile;
+    profile: UserProfileEntity;
     userTimeSpent: number | null | undefined;
     userJoinCount: number | null | undefined;
 };
@@ -171,9 +172,12 @@ function InfoPanel({
     return (
         <Card
             size="sm"
-            className={cn('min-w-0 border shadow-none ring-0', className)}
+            className={cn(
+                'ring-stroke-subtle min-w-0 border-0 shadow-none',
+                className
+            )}
         >
-            <CardHeader className="border-b pb-3">
+            <CardHeader className="border-stroke-subtle border-b pb-3">
                 <CardTitle className="min-w-0 truncate text-sm">
                     {title}
                 </CardTitle>
@@ -335,8 +339,7 @@ function handlePanelKeyDown(
 
 function UserDialogPresenceSection({
     presence,
-    actions,
-    profile
+    actions
 }: UserDialogPresenceSectionProps) {
     const { t } = useTranslation();
     const {
@@ -374,11 +377,7 @@ function UserDialogPresenceSection({
                                     locationInstance?.recommendedCapacity
                             }}
                             currentUserId={currentUserId}
-                            grouphint={
-                                locationInstance?.groupName ||
-                                profile.$location?.groupName ||
-                                ''
-                            }
+                            grouphint={locationInstance?.groupName || ''}
                             endpoint={currentEndpoint}
                             hint={locationWorldTitle}
                             instanceClickAction="world"
@@ -391,7 +390,8 @@ function UserDialogPresenceSection({
                                 location: visiblePresenceLocation,
                                 shortName:
                                     locationInstance?.shortName ||
-                                    profile?.$location?.shortName ||
+                                    parseLocation(visiblePresenceLocation)
+                                        .shortName ||
                                     '',
                                 worldName: locationWorldTitle
                             }}
@@ -460,7 +460,7 @@ function UserDialogNotesPanel({
             <div
                 role="button"
                 tabIndex={0}
-                className="hover:bg-muted focus-visible:border-ring focus-visible:ring-ring/50 rounded-md p-2 text-left transition-colors outline-none focus-visible:ring-3"
+                className="focus-visible:border-ring focus-visible:ring-ring/50 rounded-md p-2 text-left transition-colors outline-none hover:bg-(--state-hover-surface) focus-visible:ring-3"
                 onClick={onEditMemo}
                 onKeyDown={(event) => handlePanelKeyDown(event, onEditMemo)}
             >
@@ -524,31 +524,39 @@ function UserDialogProfileLinksPanel({
     visibleHomeLocationTarget
 }: UserDialogProfileLinksSectionProps) {
     const { t } = useTranslation();
-    const avatarInfoTitle =
-        !isCurrentUser &&
-        profile?.profilePicOverride &&
-        profile?.currentAvatarImageUrl
-            ? t('dialog.user.info.avatar_info_last_seen')
-            : t('dialog.user.info.avatar_info');
-    const currentAvatarImageUrl =
-        profile?.currentAvatarImageUrl ||
-        profile?.currentAvatarThumbnailImageUrl;
+    const iconInfo = useAvatarImageInfo({
+        imageUrl: isCurrentUser ? '' : profile?.iconUrl
+    });
+    const avatarInfo = isCurrentUser
+        ? {
+              avatarName: currentAvatarDisplayName,
+              avatarTags: profile?.currentAvatarTags,
+              imageUrl:
+                  profile?.currentAvatarImageUrl ||
+                  profile?.currentAvatarThumbnailImageUrl
+          }
+        : iconInfo.status === 'ready' && iconInfo.avatarName
+          ? {
+                avatarName: iconInfo.avatarName,
+                ownerId: iconInfo.ownerId,
+                imageUrl: profile?.iconUrl
+            }
+          : null;
 
     return (
         <InfoPanel title={t('dialog.user.info.profile_details')}>
-            <InfoStat label={avatarInfoTitle}>
-                <AvatarInfoLine
-                    avatarName={
-                        isCurrentUser ? currentAvatarDisplayName : undefined
-                    }
-                    avatarTags={profile?.currentAvatarTags}
-                    compact
-                    imageUrl={currentAvatarImageUrl}
-                    userId={profile?.id}
-                />
-            </InfoStat>
-
-            <Separator />
+            {avatarInfo ? (
+                <>
+                    <InfoStat label={t('dialog.user.info.avatar_info')}>
+                        <AvatarInfoLine
+                            {...avatarInfo}
+                            compact
+                            userId={profile?.id}
+                        />
+                    </InfoStat>
+                    <Separator />
+                </>
+            ) : null}
 
             <InfoStat label={t('dialog.user.info.represented_group')}>
                 {representedGroupStatus === 'running' ? (
@@ -559,7 +567,7 @@ function UserDialogProfileLinksPanel({
                     <Button
                         type="button"
                         variant="ghost"
-                        className="hover:text-primary h-auto max-w-full justify-start gap-2 p-0 text-left text-xs font-normal whitespace-normal text-inherit hover:bg-transparent"
+                        className="hover:text-foreground h-auto max-w-full justify-start gap-2 p-0 text-left text-xs font-normal whitespace-normal text-inherit hover:bg-transparent"
                         onClick={() =>
                             openGroupDialog({
                                 groupId: representedGroup.groupId,
@@ -619,8 +627,13 @@ function UserDialogProfileLinksPanel({
     );
 }
 
-function UserDialogBioPanel({ profile, bioLinks }: UserDialogBioSectionProps) {
+export function UserDialogBioPanel({
+    profile,
+    bioLinks,
+    onEditBio
+}: UserDialogBioSectionProps) {
     const { i18n, t } = useTranslation();
+    const editLabel = t('dialog.user.actions.edit_profile_details');
     const currentUserId = useRuntimeStore((state) => state.auth.currentUserId);
     const [showHistory, setShowHistory] = useState(false);
     const [historyRows, setHistoryRows] = useState<FeedRowOutput[]>([]);
@@ -707,6 +720,24 @@ function UserDialogBioPanel({ profile, bioLinks }: UserDialogBioSectionProps) {
                                 <HistoryIcon />
                             </Button>
                             {action}
+                            {onEditBio ? (
+                                <Tooltip>
+                                    <TooltipTrigger
+                                        render={
+                                            <Button
+                                                type="button"
+                                                size="icon-xs"
+                                                variant="outline"
+                                                aria-label={editLabel}
+                                                onClick={onEditBio}
+                                            >
+                                                <PencilIcon data-icon="inline-start" />
+                                            </Button>
+                                        }
+                                    />
+                                    <TooltipContent>{editLabel}</TooltipContent>
+                                </Tooltip>
+                            ) : null}
                         </div>
                     }
                 >
@@ -815,7 +846,7 @@ function UserDialogBioPanel({ profile, bioLinks }: UserDialogBioSectionProps) {
 export function UserDialogStatusDistributionPanel({
     profile
 }: {
-    profile: UserDialogInfoProfile;
+    profile: UserProfileEntity;
 }) {
     const { t } = useTranslation();
     const currentUserId = useRuntimeStore((state) => state.auth.currentUserId);
@@ -1095,16 +1126,15 @@ export function UserDialogInfoTab({
     profileLinksSection,
     activitySummarySection
 }: UserDialogInfoTabProps) {
-    const { profile, bioLinks } = bioSection;
+    const { profile, bioLinks, onEditBio } = bioSection;
 
     return (
-        <EntityDialogTabContent value="info" className="px-px pt-3 pb-px">
+        <EntityDialogTabContent value="info" className="pt-3">
             <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
                 <div className="flex min-w-0 flex-col gap-4">
                     <UserDialogPresenceSection
                         presence={presenceSection.presence}
                         actions={presenceSection.actions}
-                        profile={presenceSection.profile}
                     />
                     <UserDialogNotesPanel
                         profile={notesSection.profile}
@@ -1113,7 +1143,11 @@ export function UserDialogInfoTab({
                         hideUserMemos={notesSection.hideUserMemos}
                         onEditMemo={notesSection.onEditMemo}
                     />
-                    <UserDialogBioPanel profile={profile} bioLinks={bioLinks} />
+                    <UserDialogBioPanel
+                        profile={profile}
+                        bioLinks={bioLinks}
+                        onEditBio={onEditBio}
+                    />
                 </div>
                 <div className="flex min-w-0 flex-col gap-4">
                     <UserDialogProfileLinksPanel

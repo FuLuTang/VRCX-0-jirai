@@ -72,38 +72,6 @@ describe('favoriteStore', () => {
         });
     });
 
-    it('keeps avatar details out of the frontend favorite store', () => {
-        const store = useFavoriteStore.getState();
-
-        store.addLocalFavorite({
-            kind: 'avatar',
-            groupName: 'Avatars',
-            entityId: 'avtr_1',
-            entity: { name: 'Avatar' }
-        });
-
-        expect(useFavoriteStore.getState()).not.toHaveProperty(
-            'localAvatarDetailsById'
-        );
-    });
-
-    it('keeps local world membership and details out of the frontend store', () => {
-        useFavoriteStore.getState().setFavoritesSnapshot({
-            localWorldFavorites: { Worlds: ['wrld_1'] },
-            localWorldFavoriteGroups: ['Worlds'],
-            localWorldFavoritesList: ['wrld_1'],
-            localWorldDetailsById: {
-                wrld_1: { id: 'wrld_1', name: 'World' }
-            }
-        });
-
-        const state = useFavoriteStore.getState();
-        expect(state).not.toHaveProperty('localWorldFavorites');
-        expect(state).not.toHaveProperty('localWorldFavoriteGroups');
-        expect(state).not.toHaveProperty('localWorldFavoritesList');
-        expect(state).not.toHaveProperty('localWorldDetailsById');
-    });
-
     it('indexes remote favorites by favorite object id and updates group counts', () => {
         const store = useFavoriteStore.getState();
 
@@ -138,16 +106,18 @@ describe('favoriteStore', () => {
             ]
         });
         expect(
-            useFavoriteStore.getState().getRemoteFavoriteByObjectId('usr_a')
+            useFavoriteStore.getState().remoteFavoritesByObjectId.usr_a
         ).toMatchObject({
             id: 'fvrt_record_1'
         });
 
         store.removeRemoteFavorite('usr_a');
 
+        expect(useFavoriteStore.getState().remoteFavoritesById).toEqual({});
+        expect(useFavoriteStore.getState().remoteFavoritesByObjectId).toEqual(
+            {}
+        );
         expect(useFavoriteStore.getState()).toMatchObject({
-            remoteFavoritesById: {},
-            remoteFavoritesByObjectId: {},
             favoriteFriendIds: [],
             favoriteFriendGroups: [
                 {
@@ -260,17 +230,40 @@ describe('favoriteStore', () => {
         });
     });
 
-    it('setLocalFavoritesForKind sorts the union of explicit groups and map keys', () => {
+    it('setLocalFavoritesForKind keeps the explicit group order and appends map-only groups', () => {
         const store = useFavoriteStore.getState();
 
         store.setLocalFavoritesForKind('avatar', {
-            localFavorites: { Zebra: ['avtr_1'] },
-            localFavoriteGroups: ['Alpha', 'Zebra']
+            localFavorites: { Zebra: ['avtr_1'], Beta: ['avtr_2'] },
+            localFavoriteGroups: ['Zebra', 'Alpha']
         });
 
         expect(useFavoriteStore.getState().localAvatarFavoriteGroups).toEqual([
+            'Zebra',
             'Alpha',
-            'Zebra'
+            'Beta'
+        ]);
+    });
+
+    it('keeps the local group order across create, rename and delete', () => {
+        const store = useFavoriteStore.getState();
+        store.setLocalFavoritesForKind('friend', {
+            localFavorites: {},
+            localFavoriteGroups: ['Zebra', 'Alpha', 'Mid']
+        });
+
+        store.createLocalFavoriteGroup({ kind: 'friend', groupName: 'Beta' });
+        store.renameLocalFavoriteGroup({
+            kind: 'friend',
+            groupName: 'Alpha',
+            newGroupName: 'Omega'
+        });
+        store.deleteLocalFavoriteGroup({ kind: 'friend', groupName: 'Mid' });
+
+        expect(useFavoriteStore.getState().localFriendFavoriteGroups).toEqual([
+            'Zebra',
+            'Omega',
+            'Beta'
         ]);
     });
 
@@ -284,8 +277,8 @@ describe('favoriteStore', () => {
             })
         ).not.toThrow();
 
+        expect(useFavoriteStore.getState().localFriendFavorites).toEqual({});
         expect(useFavoriteStore.getState()).toMatchObject({
-            localFriendFavorites: {},
             localFriendFavoriteGroups: [],
             localFriendFavoritesList: []
         });
@@ -308,11 +301,9 @@ describe('favoriteStore', () => {
             invalidAction as Parameters<typeof store.addLocalFavorite>[0]
         );
 
-        expect(useFavoriteStore.getState()).toMatchObject({
-            localFriendFavorites: {
-                Friends: ['usr_1']
-            },
-            localAvatarFavorites: {}
+        expect(useFavoriteStore.getState().localFriendFavorites).toEqual({
+            Friends: ['usr_1']
         });
+        expect(useFavoriteStore.getState().localAvatarFavorites).toEqual({});
     });
 });

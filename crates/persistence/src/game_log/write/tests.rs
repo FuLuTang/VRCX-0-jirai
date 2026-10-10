@@ -14,8 +14,8 @@ use super::super::types::{
     GameLogResourceLoadEntry, GameLogWriteBatch,
 };
 use super::{
-    insert_event, insert_join_leave, insert_location, insert_portal_spawn, insert_resource_load,
-    update_location_time, write_batch,
+    fill_location_group_name, insert_event, insert_join_leave, insert_location,
+    insert_portal_spawn, insert_resource_load, update_location_time, write_batch,
 };
 use crate::ownership::OwnerId;
 
@@ -52,19 +52,6 @@ fn test_db(name: &str) -> Result<TestDatabase, Error> {
     let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3"))?;
     ensure_game_log_tables(&db)?;
     Ok(TestDatabase { _dir: dir, db })
-}
-
-#[test]
-fn creates_all_game_log_tables_from_schema_builder() -> Result<(), Error> {
-    let test_db = test_db("store-gamelog-schema-builder")?;
-    let db = &test_db.db;
-
-    let rows = db.execute(
-    "SELECT COUNT(*) FROM sqlite_schema WHERE type = 'table' AND name IN ('gamelog_location', 'gamelog_join_leave', 'gamelog_portal_spawn', 'gamelog_video_play', 'gamelog_resource_load', 'gamelog_event', 'gamelog_external')",
-    &Default::default(),
-)?;
-    assert_eq!(rows[0][0], serde_json::json!(7));
-    Ok(())
 }
 
 #[test]
@@ -204,6 +191,49 @@ fn updates_location_duration_by_created_at() -> Result<(), Error> {
     update_location_time(db, "2026-05-14T03:00:00.000Z", 2500)?;
     let rows = db.execute("SELECT time FROM gamelog_location", &Default::default())?;
     assert_eq!(rows[0][0], serde_json::json!(2500));
+    Ok(())
+}
+
+#[test]
+fn fills_only_the_matching_location_group_name_once() -> Result<(), Error> {
+    let test_db = test_db("store-gamelog-group-name")?;
+    let db = &test_db.db;
+    let location = "wrld_group:1~group(grp_owner)~groupAccessType(public)";
+    let mut batch = GameLogWriteBatch::default();
+    for created_at in ["2026-05-14T03:00:00.000Z", "2026-05-14T04:00:00.000Z"] {
+        batch.locations.push(GameLogLocationEntry {
+            created_at: created_at.into(),
+            location: location.into(),
+            world_id: "wrld_group".into(),
+            world_name: "Group World".into(),
+            time: 0,
+            group_name: "".into(),
+        });
+    }
+    let owner = OwnerId::new("usr_test");
+    write_batch(db, &owner, &batch)?;
+
+    assert_eq!(
+        fill_location_group_name(
+            db,
+            &owner,
+            "2026-05-14T03:00:00.000Z",
+            location,
+            "Owner Group"
+        )?,
+        1
+    );
+    assert_eq!(
+        fill_location_group_name(db, &owner, "2026-05-14T03:00:00.000Z", location, "Renamed")?,
+        0
+    );
+
+    let rows = db.execute(
+        "SELECT group_name FROM gamelog_location ORDER BY created_at",
+        &Default::default(),
+    )?;
+    assert_eq!(rows[0][0], serde_json::json!("Owner Group"));
+    assert_eq!(rows[1][0], serde_json::json!(""));
     Ok(())
 }
 
@@ -746,11 +776,22 @@ fn get_last_location_returns_latest_by_id() -> Result<(), Error> {
             group_name: "".into(),
         },
     )?;
+    insert_location(
+        db,
+        &GameLogLocationEntry {
+            created_at: "2026-05-14T08:00:00.000Z".into(),
+            location: "wrld_c:1".into(),
+            world_id: "wrld_c".into(),
+            world_name: "C".into(),
+            time: 0,
+            group_name: "".into(),
+        },
+    )?;
 
     let last = crate::game_log::get_last_game_log_location(db)?;
     assert_eq!(
         last.map(|entry| entry.location),
-        Some("wrld_b:1".to_string())
+        Some("wrld_c:1".to_string())
     );
     Ok(())
 }

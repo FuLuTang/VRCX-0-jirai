@@ -9,7 +9,7 @@ import type {
     ActivityCompanionOrder,
     ActivityPageCompanionRow,
     ActivityPagePeople
-} from '@/repositories/activityPageRepository';
+} from '@/platform/tauri/bindings';
 import { openUserDialog } from '@/services/dialogService';
 import { Skeleton } from '@/ui/shadcn/skeleton';
 
@@ -18,11 +18,11 @@ import { Exhibit } from './ActivityExhibit';
 import { ActivityFadingList } from './ActivityFadingList';
 import { OptionSegmented } from './ActivityViewOption';
 
-function hours(minutes: number) {
+export function hours(minutes: number) {
     return (minutes / 60).toFixed(1);
 }
 
-function Face({ url, className }: { url: string; className: string }) {
+export function Face({ url, className }: { url: string; className: string }) {
     const fallback = (
         <span className="flex size-full items-center justify-center rounded-full bg-[var(--act-track)]">
             <UserIcon className="text-muted-foreground size-1/2" />
@@ -207,7 +207,7 @@ export function ActivityPeopleExhibit({
                                             </span>
                                             <span
                                                 className={cn(
-                                                    'shrink-0 text-xs tabular-nums',
+                                                    'w-16 shrink-0 text-right text-xs tabular-nums',
                                                     order === 'days'
                                                         ? 'text-foreground font-medium'
                                                         : 'text-muted-foreground'

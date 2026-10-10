@@ -3,7 +3,7 @@ import type {
     ActivityPageAccessSlice,
     ActivityPageSummary,
     ActivityPageView
-} from '@/repositories/activityPageRepository';
+} from '@/platform/tauri/bindings';
 import { ACTIVITY_PAGE_CONFIG_KEYS } from '@/repositories/configKeys';
 
 export const ACTIVITY_PAGE_RANGE_KEY = ACTIVITY_PAGE_CONFIG_KEYS.range;
@@ -53,16 +53,6 @@ export function averageMinutesPerDay(summary: ActivityPageSummary): number {
     return summary.windowDays > 0
         ? Math.round(summary.totalMinutes / summary.windowDays)
         : 0;
-}
-
-export function changePercent(
-    current: number,
-    previous: number
-): number | null {
-    if (previous <= 0) {
-        return null;
-    }
-    return Math.round(((current - previous) / previous) * 100);
 }
 
 export function accessShare(minutes: number, totalMinutes: number): number {

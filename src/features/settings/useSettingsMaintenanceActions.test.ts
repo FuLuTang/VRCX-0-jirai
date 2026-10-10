@@ -3,13 +3,6 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AppToastOptions } from '@/services/toastService';
 
 import { createDefaultSettingsPrefs } from './settingsDefaultPrefs';
-import {
-    DEFAULT_HMD_NOTIFICATION_ACTIVITY_FILTERS,
-    DEFAULT_OVERLAY_ACTIVITY_FILTERS,
-    DEFAULT_TTS_NOTIFICATION_ACTIVITY_FILTERS,
-    DEFAULT_VR_NOTIFICATION_ACTIVITY_FILTERS,
-    DEFAULT_WEBHOOK_ACTIVITY_FILTERS
-} from './settingsValues';
 import { createSettingsMaintenanceActions } from './useSettingsMaintenanceActions';
 
 function createMaintenanceActions({
@@ -22,7 +15,6 @@ function createMaintenanceActions({
     isGameRunning = false,
     setGameLogPersistenceDisabledPreference = async () => undefined,
     setFeedPersistenceDisabledPreference = async () => undefined,
-    setAvatarFeedPersistenceDisabledPreference = async () => undefined,
     setPurgeDialogOpen = () => undefined,
     toastWarning = () => undefined,
     toastError = () => undefined
@@ -41,9 +33,6 @@ function createMaintenanceActions({
         disabled: boolean
     ) => Promise<void>;
     setFeedPersistenceDisabledPreference?: (disabled: boolean) => Promise<void>;
-    setAvatarFeedPersistenceDisabledPreference?: (
-        disabled: boolean
-    ) => Promise<void>;
     setPurgeDialogOpen?: (open: boolean) => void;
     toastWarning?: (options: AppToastOptions) => void;
     toastError?: (options: AppToastOptions) => void;
@@ -51,31 +40,17 @@ function createMaintenanceActions({
     const prefs = createDefaultSettingsPrefs();
     return createSettingsMaintenanceActions({
         alert: async () => ({ ok: true, reason: 'ok' }),
-        avatarFeedHistoryRepository: {
-            cleanupAvatarFeedHistory
-        },
+        cleanupAvatarFeedHistory,
         commit: async () => true,
         confirm,
         gameState: {
             isGameRunning
         },
-        mediaRepository: {
-            cropAllPrints: async () => null,
-            getUgcPhotoLocation: async () => ''
-        },
+        cropAllPrints: async () => null,
+        getUgcPhotoLocation: async () => '',
         prefs: {
             ...prefs,
-            desktopNotificationActivityFilters:
-                DEFAULT_VR_NOTIFICATION_ACTIVITY_FILTERS,
-            hmdNotificationActivityFilters:
-                DEFAULT_HMD_NOTIFICATION_ACTIVITY_FILTERS,
-            notificationTTS: 'Never',
-            overlayActivityFilters: DEFAULT_OVERLAY_ACTIVITY_FILTERS,
-            ttsNotificationActivityFilters:
-                DEFAULT_TTS_NOTIFICATION_ACTIVITY_FILTERS,
-            vrNotificationActivityFilters:
-                DEFAULT_VR_NOTIFICATION_ACTIVITY_FILTERS,
-            webhookActivityFilters: DEFAULT_WEBHOOK_ACTIVITY_FILTERS
+            notificationTTS: 'Never'
         },
         prompt: async () => ({ ok: false }),
         purgePeriod: '180',
@@ -88,7 +63,6 @@ function createMaintenanceActions({
         setCropInstancePrintsPreference: async () => undefined,
         setGameLogPersistenceDisabledPreference,
         setFeedPersistenceDisabledPreference,
-        setAvatarFeedPersistenceDisabledPreference,
         setIntConfigPreference: async () => 0,
         setPrefs: () => undefined,
         setPurgeDialogOpen,
@@ -202,26 +176,6 @@ describe('handleFeedPersistenceDisabledChange', () => {
         await actions.handleFeedPersistenceDisabledChange(true);
 
         expect(setFeedPersistenceDisabledPreference).toHaveBeenCalledWith(true);
-    });
-});
-
-describe('handleAvatarFeedPersistenceDisabledChange', () => {
-    it('switches avatar Feed persistence without confirmation', async () => {
-        const confirm = vi.fn(async () => ({ ok: false }));
-        const setAvatarFeedPersistenceDisabledPreference = vi.fn(
-            async () => undefined
-        );
-        const actions = createMaintenanceActions({
-            confirm,
-            setAvatarFeedPersistenceDisabledPreference
-        });
-
-        await actions.handleAvatarFeedPersistenceDisabledChange(true);
-
-        expect(confirm).not.toHaveBeenCalled();
-        expect(setAvatarFeedPersistenceDisabledPreference).toHaveBeenCalledWith(
-            true
-        );
     });
 });
 

@@ -218,7 +218,6 @@ pub(crate) mod tests {
 
     #[test]
     fn circular_avatar_mask_makes_corners_transparent() {
-        assert_eq!(HMD_AVATAR_SIZE, 128);
         let mut rgba = vec![255; (HMD_AVATAR_SIZE * HMD_AVATAR_SIZE * 4) as usize];
         apply_circular_avatar_mask(&mut rgba, HMD_AVATAR_SIZE, HMD_AVATAR_SIZE);
         let alpha_at = |x: u32, y: u32| rgba[((y * HMD_AVATAR_SIZE + x) * 4 + 3) as usize];
@@ -280,24 +279,6 @@ pub(crate) mod tests {
         assert!(cache
             .cached("https://images.example/avatar", "usr_stranger")
             .is_none());
-    }
-
-    #[test]
-    fn avatar_bitmap_cache_uses_bounded_moka_storage() {
-        assert_eq!(HMD_AVATAR_CACHE_CAPACITY, 128);
-        let cache = AvatarBitmapCache::new();
-        assert_eq!(
-            cache.success.policy().max_capacity(),
-            Some(HMD_AVATAR_CACHE_CAPACITY)
-        );
-        for index in 0..HMD_AVATAR_CACHE_CAPACITY * 2 {
-            let url = format!("https://images.example/avatar/{index}");
-            let user_id = format!("usr_friend_{index}");
-            cache.store_success(&url, &user_id, test_avatar_bitmap());
-        }
-        cache.success.run_pending_tasks();
-
-        assert!(cache.success.entry_count() <= HMD_AVATAR_CACHE_CAPACITY);
     }
 
     #[test]

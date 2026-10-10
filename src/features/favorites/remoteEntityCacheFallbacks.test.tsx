@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
     EMPTY_FALLBACKS,
+    filterRemoteEntityCacheFallbacksById,
     getRemoteEntityCacheFallbackIds,
     loadRemoteEntityCacheFallbacksById,
     useRemoteEntityCacheFallbackLoader
@@ -72,6 +73,20 @@ describe('remoteEntityCacheFallbacks', () => {
         ).resolves.toBe(EMPTY_FALLBACKS);
     });
 
+    it('filters stale fallback rows when the current ids change', () => {
+        const fallbacks = filterRemoteEntityCacheFallbacksById(
+            {
+                wrld_old: { id: 'wrld_old', name: 'Old World' },
+                wrld_new: { id: 'wrld_new', name: 'New World' }
+            },
+            ['wrld_new']
+        );
+
+        expect(fallbacks).toEqual({
+            wrld_new: { id: 'wrld_new', name: 'New World' }
+        });
+    });
+
     it('ignores stale async results after the requested id set changes', async () => {
         const first = deferred<{ id: string; name: string }>();
         const second = deferred<{ id: string; name: string }>();
@@ -99,5 +114,40 @@ describe('remoteEntityCacheFallbacks', () => {
         expect(result.current).toEqual({
             wrld_second: { id: 'wrld_second', name: 'Second' }
         });
+    });
+
+    it('reloads the same ids when the revision changes without dropping loaded details', async () => {
+        let imageUrl = 'https://example.test/old.png';
+        const fetchById = vi.fn(async (id: string) => ({
+            id,
+            name: 'World',
+            imageUrl
+        }));
+        const { result, rerender } = renderHook(
+            ({ revision }) =>
+                useRemoteEntityCacheFallbackLoader(
+                    ['wrld_a'],
+                    fetchById,
+                    revision
+                ),
+            { initialProps: { revision: 0 } }
+        );
+        await waitFor(() => {
+            expect(result.current.wrld_a).toMatchObject({
+                imageUrl: 'https://example.test/old.png'
+            });
+        });
+
+        imageUrl = 'https://example.test/new.png';
+        rerender({ revision: 1 });
+        expect(result.current.wrld_a).toMatchObject({
+            imageUrl: 'https://example.test/old.png'
+        });
+        await waitFor(() => {
+            expect(result.current.wrld_a).toMatchObject({
+                imageUrl: 'https://example.test/new.png'
+            });
+        });
+        expect(fetchById).toHaveBeenCalledTimes(2);
     });
 });

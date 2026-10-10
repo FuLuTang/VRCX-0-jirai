@@ -1,3 +1,4 @@
+pub mod activity;
 pub mod activity_page;
 mod avatar;
 pub mod background_image;
@@ -19,16 +20,18 @@ mod media;
 pub mod notifications;
 mod persistence;
 mod profile_backup;
+pub mod profile_bio;
 mod profile_config;
 pub mod realtime;
 pub mod social_aggregates;
 pub mod telemetry;
 mod translation;
 pub mod vrchat_api;
+pub mod vrchat_requests;
 mod web;
 pub mod world_collections;
 
-pub use avatar::{AvatarTagOutput, AvatarTimeSpentOutput, AvatarUsageRow};
+pub use avatar::{AvatarTagOutput, AvatarTimeSpentOutput, AvatarUsageRow, AvatarWearSegment};
 pub use community_theme::{
     CommunityThemeAuthor, CommunityThemeCatalog, CommunityThemeManifest, CommunityThemeStatsById,
     CommunityThemeStatsEntry,
@@ -39,7 +42,9 @@ pub use data_dir_migration::{
     DATA_DIR_MIGRATION_SPACE_MARGIN_BYTES,
 };
 pub use database_upgrade::DatabaseUpgradeStatus;
-pub use entity_cache::{AvatarCacheOutput, CacheEntityInput, WorldSummaryOutput};
+pub use entity_cache::{
+    AvatarCacheOutput, CacheEntityInput, FileMetadataOutput, WorldSummaryOutput,
+};
 pub use favorites::{
     FavoriteRow, SavedGroupCollection, SavedGroupCollectionCreateInput,
     SavedGroupCollectionDeleteInput, SavedGroupFavoriteAddInput, SavedGroupFavoriteRemoveInput,

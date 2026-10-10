@@ -2,13 +2,15 @@ import { RotateCcwIcon, Settings2Icon, XIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { UserPickerRow } from '@/components/search/UserPickerRow';
+import { MutualFriendsLayoutControls } from '@/components/mutual-friends/MutualFriendsLayoutControls';
+import { FriendMultiSelectList } from '@/components/search/FriendMultiSelectList';
+import type {
+    MutualFriendPickerOption,
+    MutualFriendsLayoutSettingKey,
+    MutualFriendsLayoutSettings
+} from '@/lib/mutual-friends/mutualFriendsTypes';
 import { preserveAppTitleBarOnOpenChange } from '@/lib/overlayTitlebar';
 import { Button } from '@/ui/shadcn/button';
-import { Checkbox } from '@/ui/shadcn/checkbox';
-import { Field, FieldLabel } from '@/ui/shadcn/field';
-import { Input } from '@/ui/shadcn/input';
-import { ScrollArea } from '@/ui/shadcn/scroll-area';
 import { Separator } from '@/ui/shadcn/separator';
 import {
     Sheet,
@@ -19,53 +21,6 @@ import {
     SheetTitle,
     SheetTrigger
 } from '@/ui/shadcn/sheet';
-
-import { MUTUAL_GRAPH_LAYOUT_LIMITS } from '../../mutual-friends/mutualFriendsSettings';
-import type {
-    MutualFriendPickerOption,
-    MutualFriendsLayoutSettingKey,
-    MutualFriendsLayoutSettings
-} from '../../mutual-friends/mutualFriendsTypes';
-import { CommitSlider } from './CommitSlider';
-
-interface LayoutControl {
-    key: MutualFriendsLayoutSettingKey;
-    labelKey: string;
-    helpKey: string;
-    step: number;
-    format: (value: number) => string;
-}
-
-const layoutControls: LayoutControl[] = [
-    {
-        key: 'layoutIterations',
-        labelKey: 'view.charts.mutual_friend.settings.layout_iterations',
-        helpKey: 'view.charts.mutual_friend.settings.layout_iterations_help',
-        step: 100,
-        format: (value) => String(value)
-    },
-    {
-        key: 'layoutSpacing',
-        labelKey: 'view.charts.mutual_friend.settings.layout_spacing',
-        helpKey: 'view.charts.mutual_friend.settings.layout_spacing_help',
-        step: 1,
-        format: (value) => String(value)
-    },
-    {
-        key: 'edgeCurvature',
-        labelKey: 'view.charts.mutual_friend.settings.edge_curvature',
-        helpKey: 'view.charts.mutual_friend.settings.edge_curvature_help',
-        step: 0.01,
-        format: (value) => value.toFixed(2)
-    },
-    {
-        key: 'communitySeparation',
-        labelKey: 'view.charts.mutual_friend.settings.community_separation',
-        helpKey: 'view.charts.mutual_friend.settings.community_separation_help',
-        step: 0.1,
-        format: (value) => value.toFixed(1)
-    }
-];
 
 function SettingsStat({ label, value }: { label: string; value: number }) {
     return (
@@ -88,27 +43,21 @@ function SectionLabel({ children }: { children: ReactNode }) {
 
 export function MutualFriendsSettingsSheet({
     edgeCount,
-    excludeSearchQuery,
-    excludedCount,
-    excludedFriendIdSet,
-    filteredExcludeOptions,
+    excludePickerOptions,
+    excludedFriendIds,
     layoutSettings,
     nodeCount,
-    onExcludeSearchQueryChange,
+    onExcludedFriendIdsChange,
     onResetLayoutAndHidden,
-    onToggleExcludedFriendId,
     setLayoutSetting
 }: {
     edgeCount: number;
-    excludeSearchQuery: string;
-    excludedCount: number;
-    excludedFriendIdSet: Set<string>;
-    filteredExcludeOptions: MutualFriendPickerOption[];
+    excludePickerOptions: MutualFriendPickerOption[];
+    excludedFriendIds: string[];
     layoutSettings: MutualFriendsLayoutSettings;
     nodeCount: number;
-    onExcludeSearchQueryChange: (value: string) => void;
+    onExcludedFriendIdsChange: (next: string[]) => void;
     onResetLayoutAndHidden: () => void;
-    onToggleExcludedFriendId: (friendId: string) => void;
     setLayoutSetting: (
         key: MutualFriendsLayoutSettingKey,
         value: number
@@ -168,7 +117,7 @@ export function MutualFriendsSettingsSheet({
                                 label={t(
                                     'view.charts.mutual_friend.settings.stat_hidden'
                                 )}
-                                value={excludedCount}
+                                value={excludedFriendIds.length}
                             />
                         </div>
 
@@ -180,106 +129,37 @@ export function MutualFriendsSettingsSheet({
                                     'view.charts.mutual_friend.settings.layout_section'
                                 )}
                             </SectionLabel>
-                            {layoutControls.map((control) => (
-                                <CommitSlider
-                                    key={control.key}
-                                    label={t(control.labelKey)}
-                                    help={t(control.helpKey)}
-                                    format={control.format}
-                                    min={
-                                        MUTUAL_GRAPH_LAYOUT_LIMITS[control.key]
-                                            .min
-                                    }
-                                    max={
-                                        MUTUAL_GRAPH_LAYOUT_LIMITS[control.key]
-                                            .max
-                                    }
-                                    step={control.step}
-                                    value={layoutSettings[control.key]}
-                                    onCommit={(next) =>
-                                        setLayoutSetting(control.key, next)
-                                    }
-                                />
-                            ))}
+                            <MutualFriendsLayoutControls
+                                layoutSettings={layoutSettings}
+                                setLayoutSetting={setLayoutSetting}
+                            />
                         </section>
 
                         <Separator />
 
                         <section className="flex flex-col gap-2">
-                            <div className="flex items-center justify-between">
-                                <SectionLabel>
-                                    {t(
-                                        'view.charts.mutual_friend.settings.exclude_friends'
-                                    )}
-                                </SectionLabel>
-                                {excludedCount ? (
-                                    <span className="bg-muted text-muted-foreground rounded-full px-1.5 text-xs font-medium tabular-nums">
-                                        {excludedCount}
-                                    </span>
-                                ) : null}
-                            </div>
+                            <SectionLabel>
+                                {t(
+                                    'view.charts.mutual_friend.settings.exclude_friends'
+                                )}
+                            </SectionLabel>
                             <p className="text-muted-foreground text-xs">
                                 {t(
                                     'view.charts.mutual_friend.settings.exclude_friends_help'
                                 )}
                             </p>
-                            <Input
-                                value={excludeSearchQuery}
-                                onChange={(event) =>
-                                    onExcludeSearchQueryChange(
-                                        event.target.value
-                                    )
-                                }
+                            <FriendMultiSelectList
+                                options={excludePickerOptions}
+                                values={excludedFriendIds}
+                                onChange={onExcludedFriendIdsChange}
                                 placeholder={t(
                                     'view.charts.mutual_friend.settings.exclude_friends_placeholder'
                                 )}
+                                emptyContent={t(
+                                    'view.charts.empty.no_friends_match_this_search'
+                                )}
+                                listClassName="bg-muted/30 h-64"
                             />
-                            <ScrollArea className="bg-muted/30 h-64 rounded-md border">
-                                <div className="flex flex-col gap-0.5 p-1 pr-2">
-                                    {filteredExcludeOptions.map((option) => {
-                                        const selected =
-                                            excludedFriendIdSet.has(
-                                                option.value
-                                            );
-                                        return (
-                                            <Field
-                                                key={option.value}
-                                                orientation="horizontal"
-                                                className="hover:bg-muted gap-0 rounded-md p-0 transition-colors duration-150 ease-out"
-                                            >
-                                                <Checkbox
-                                                    id={`mutual-excluded-friend-${option.value}`}
-                                                    checked={selected}
-                                                    onCheckedChange={() =>
-                                                        onToggleExcludedFriendId(
-                                                            option.value
-                                                        )
-                                                    }
-                                                    className="ml-2"
-                                                />
-                                                <FieldLabel
-                                                    htmlFor={`mutual-excluded-friend-${option.value}`}
-                                                    className="min-w-0 flex-1 cursor-pointer font-normal"
-                                                >
-                                                    <UserPickerRow
-                                                        option={option}
-                                                        selected={selected}
-                                                        multiple
-                                                        showSelection={false}
-                                                    />
-                                                </FieldLabel>
-                                            </Field>
-                                        );
-                                    })}
-                                    {!filteredExcludeOptions.length ? (
-                                        <div className="text-muted-foreground p-3 text-xs">
-                                            {t(
-                                                'view.charts.empty.no_friends_match_this_search'
-                                            )}
-                                        </div>
-                                    ) : null}
-                                </div>
-                            </ScrollArea>
                         </section>
                     </div>
                 </div>

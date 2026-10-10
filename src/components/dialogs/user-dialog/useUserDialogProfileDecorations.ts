@@ -2,12 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { resolveProfileDecorationMutation } from '@/domain/entities/inventory';
-import mediaRepository, {
+import type { CurrentUserProfileUpdateRequest } from '@/platform/tauri/bindings';
+import userProfileRepository from '@/repositories/userProfileRepository';
+import vrchatMediaRepository, {
     type InventoryItemRecord
-} from '@/repositories/mediaRepository';
-import userProfileRepository, {
-    type ProfileBackgroundUpdate
-} from '@/repositories/userProfileRepository';
+} from '@/repositories/vrchatMediaRepository';
 import { refreshCurrentUser } from '@/services/backgroundMaintenanceSessionService';
 import { toast } from '@/services/toastService';
 import { useRuntimeStore } from '@/state/runtimeStore';
@@ -39,7 +38,7 @@ type ProfileDecorationMutation =
           equipSlot: ProfileDecorationSlot;
           inventoryId: string;
       }
-    | { action: 'background'; params: ProfileBackgroundUpdate };
+    | { action: 'background'; params: CurrentUserProfileUpdateRequest };
 
 export const UNEQUIP_PENDING_KEY = 'unequip';
 
@@ -155,7 +154,7 @@ export function useUserDialogProfileDecorations({
         setLoading(true);
         try {
             const { items: rows, truncated } =
-                await mediaRepository.collectInventoryItems({
+                await vrchatMediaRepository.collectInventoryItems({
                     types: [...PROFILE_DECORATION_SLOTS],
                     notFlags: ['ugc'],
                     archived: false
@@ -260,12 +259,12 @@ export function useUserDialogProfileDecorations({
 
             const isUnequip = mutation.action === 'unequip';
             if (isUnequip) {
-                await mediaRepository.unequipProfileDecoration({
+                await vrchatMediaRepository.unequipProfileDecoration({
                     expectedUserId: target.userId,
                     equipSlot: mutation.equipSlot
                 });
             } else {
-                await mediaRepository.equipProfileDecoration({
+                await vrchatMediaRepository.equipProfileDecoration({
                     expectedUserId: target.userId,
                     inventoryId: mutation.inventoryId,
                     equipSlot: mutation.equipSlot
@@ -341,7 +340,10 @@ export function useUserDialogProfileDecorations({
         });
     }
 
-    function updateBackground(key: string, params: ProfileBackgroundUpdate) {
+    function updateBackground(
+        key: string,
+        params: CurrentUserProfileUpdateRequest
+    ) {
         runMutation(key, { action: 'background', params });
     }
 

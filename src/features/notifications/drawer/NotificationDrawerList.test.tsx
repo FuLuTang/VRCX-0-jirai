@@ -7,14 +7,6 @@ import type { NotificationCategories } from '@/state/vrcNotificationStore';
 
 import { NotificationDrawerList } from './NotificationDrawerList';
 
-vi.mock('react-i18next', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('react-i18next')>();
-    return {
-        ...actual,
-        useTranslation: () => ({ t: (key: string) => key })
-    };
-});
-
 afterEach(cleanup);
 
 describe('NotificationDrawerList', () => {
@@ -35,6 +27,7 @@ describe('NotificationDrawerList', () => {
                     onAcceptRequestInvite: vi.fn(),
                     onDeleteNotification: vi.fn(),
                     onHideNotification: vi.fn(),
+                    onIgnoreNotificationLocally: vi.fn(),
                     onJoinQueueReady: vi.fn(),
                     onMarkSeen: vi.fn(),
                     onSendInviteResponseWithMessage: vi.fn(),

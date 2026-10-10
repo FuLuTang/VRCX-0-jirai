@@ -83,10 +83,6 @@ impl StateBucket {
     pub fn normalize(value: &str) -> Option<Self> {
         Self::from_exact(value.trim().to_ascii_lowercase().as_str())
     }
-
-    pub fn matches(self, value: &str) -> bool {
-        value == self.as_str()
-    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -99,18 +95,6 @@ pub struct FriendRecord {
     pub display_name: CompactString,
     #[serde(default)]
     pub username: String,
-    #[serde(default)]
-    #[specta(type = String)]
-    pub state: CompactString,
-    #[serde(default)]
-    pub location: String,
-    #[serde(default)]
-    pub traveling_to_location: String,
-    #[serde(default)]
-    pub world_id: String,
-    #[serde(default)]
-    #[specta(type = String)]
-    pub platform: CompactString,
     #[serde(default, alias = "last_platform")]
     #[specta(type = String)]
     pub last_platform: CompactString,
@@ -121,15 +105,7 @@ pub struct FriendRecord {
     #[specta(type = String)]
     pub status_description: CompactString,
     #[serde(default)]
-    pub bio: String,
-    #[serde(default)]
-    pub current_avatar_image_url: String,
-    #[serde(default)]
-    pub current_avatar_thumbnail_image_url: String,
-    #[serde(default)]
-    pub current_avatar_author_id: String,
-    #[serde(default)]
-    pub current_avatar_name: String,
+    pub icon_url: String,
     #[serde(
         rename = "date_joined",
         skip_serializing_if = "OptionalCompactString::is_missing",
@@ -168,16 +144,7 @@ impl FriendRecord {
         if self.id.is_empty() {
             return None;
         }
-
-        self.state = StateBucket::normalize(self.state.as_str())
-            .unwrap_or(StateBucket::Offline)
-            .as_str()
-            .into();
         Some(self)
-    }
-
-    pub fn resolved_state_bucket(&self) -> Option<StateBucket> {
-        StateBucket::normalize(self.state.as_str())
     }
 
     pub fn is_placeholder(&self) -> bool {
@@ -197,14 +164,73 @@ impl FriendRecord {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
+pub const FRIEND_PRESENCE_KEYS: &[&str] = &[
+    "state",
+    "location",
+    "travelingToLocation",
+    "worldId",
+    "instanceId",
+    "travelingToWorld",
+    "travelingToInstance",
+    "platform",
+    "pendingOffline",
+    "locationUpdatedAt",
+    "travelingToTime",
+    derived_keys::LOCATION_PROJECTION,
+    derived_keys::TRAVELING_TO_LOCATION_PROJECTION,
+    derived_keys::LOCATION_UPDATED_AT,
+    derived_keys::LOCATION_TAG,
+    derived_keys::PREVIOUS_LOCATION,
+    derived_keys::PREVIOUS_LOCATION_UPDATED_AT,
+    derived_keys::TRAVELING_TO_TIME,
+];
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct FriendBaselinePresence {
+    pub state: CompactString,
+    pub location: String,
+    pub traveling_to_location: String,
+    pub platform: CompactString,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Deserialize)]
+#[serde(try_from = "Map<String, Value>")]
+pub struct FriendBaselineEntry {
+    pub record: FriendRecord,
+    pub presence: FriendBaselinePresence,
+}
+
+impl TryFrom<Map<String, Value>> for FriendBaselineEntry {
+    type Error = serde_json::Error;
+
+    fn try_from(mut user: Map<String, Value>) -> Result<Self, Self::Error> {
+        let presence = FRIEND_PRESENCE_KEYS
+            .iter()
+            .filter_map(|key| user.remove_entry(*key))
+            .collect();
+        Ok(Self {
+            presence: serde_json::from_value(Value::Object(presence))?,
+            record: serde_json::from_value(Value::Object(user))?,
+        })
+    }
+}
+
+impl FriendBaselineEntry {
+    pub fn normalized(self, fallback_user_id: &str) -> Option<Self> {
+        Some(Self {
+            record: self.record.normalized(fallback_user_id)?,
+            presence: self.presence,
+        })
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct FriendRosterBaseline {
     pub current_user_id: String,
     pub endpoint: String,
     pub websocket: String,
-    #[serde(default)]
-    pub friends_by_id: HashMap<String, FriendRecord>,
+    pub friends_by_id: HashMap<String, FriendBaselineEntry>,
 }
 
 impl FriendRosterBaseline {
@@ -215,36 +241,19 @@ impl FriendRosterBaseline {
         self.friends_by_id = self
             .friends_by_id
             .into_iter()
-            .filter_map(|(user_id, record)| {
+            .filter_map(|(user_id, entry)| {
                 let normalized_user_id = normalize_user_id(&user_id);
-                record
+                entry
                     .normalized(&normalized_user_id)
-                    .map(|record| (record.id.clone(), record))
+                    .map(|entry| (entry.record.id.clone(), entry))
             })
             .collect();
         self
     }
 }
 
-pub const DEFAULT_AVATAR_FILE_ID: &str = "file_0e8c4e32-7444-44ea-ade4-313c010d4bae";
-
-pub fn strip_default_avatar_image(object: &mut Map<String, Value>) {
-    let is_default = object
-        .get("currentAvatarImageUrl")
-        .and_then(Value::as_str)
-        .is_some_and(|url| url.contains(DEFAULT_AVATAR_FILE_ID));
-    if is_default {
-        object.remove("currentAvatarImageUrl");
-        object.remove("currentAvatarThumbnailImageUrl");
-    }
-}
-
 pub fn normalize_user_id(value: &str) -> String {
     value.trim().to_string()
-}
-
-pub fn normalize_state_bucket(value: &str) -> Option<String> {
-    StateBucket::normalize(value).map(|bucket| bucket.as_str().to_string())
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
@@ -317,47 +326,35 @@ pub fn meaningful_display_name(
 #[cfg(test)]
 mod tests {
     use super::{
-        meaningful_display_name, strip_default_avatar_image, FriendRecord, FriendRosterBaseline,
-        DEFAULT_AVATAR_FILE_ID,
+        meaningful_display_name, FriendBaselineEntry, FriendBaselinePresence, FriendRecord,
+        FriendRosterBaseline, FRIEND_PRESENCE_KEYS,
     };
-    use crate::vrchat_endpoints::VRCHAT_API_DEFAULT_ENDPOINT;
     use serde_json::{json, Value};
 
     #[test]
-    fn strips_default_avatar_image_and_thumbnail() {
-        let mut object = json!({
-            "currentAvatarImageUrl": format!("{VRCHAT_API_DEFAULT_ENDPOINT}/file/{DEFAULT_AVATAR_FILE_ID}/1/file"),
-            "currentAvatarThumbnailImageUrl": format!("{VRCHAT_API_DEFAULT_ENDPOINT}/file/{DEFAULT_AVATAR_FILE_ID}/1/256"),
-            "displayName": "Friend"
-        })
-        .as_object()
-        .cloned()
+    fn friend_record_owns_icon_url_as_a_named_field() {
+        let record: FriendRecord = serde_json::from_value(json!({
+            "id": "usr_friend",
+            "iconUrl": "https://api.vrchat.cloud/api/1/image/file_icon/1/256",
+            "iconFrame": "invt_frame"
+        }))
         .unwrap();
 
-        strip_default_avatar_image(&mut object);
-
-        assert!(!object.contains_key("currentAvatarImageUrl"));
-        assert!(!object.contains_key("currentAvatarThumbnailImageUrl"));
         assert_eq!(
-            object.get("displayName"),
-            Some(&Value::String("Friend".into()))
+            record.icon_url,
+            "https://api.vrchat.cloud/api/1/image/file_icon/1/256"
         );
-    }
+        assert!(!record.extra.contains_key("iconUrl"));
+        assert_eq!(
+            record.extra.get("iconFrame"),
+            Some(&Value::String("invt_frame".into()))
+        );
 
-    #[test]
-    fn keeps_real_avatar_image() {
-        let mut object = json!({
-            "currentAvatarImageUrl": "https://api.vrchat.cloud/api/1/file/file_real/1/file",
-            "currentAvatarThumbnailImageUrl": "https://api.vrchat.cloud/api/1/file/file_real/1/256"
-        })
-        .as_object()
-        .cloned()
-        .unwrap();
-
-        strip_default_avatar_image(&mut object);
-
-        assert!(object.contains_key("currentAvatarImageUrl"));
-        assert!(object.contains_key("currentAvatarThumbnailImageUrl"));
+        let serialized = serde_json::to_value(&record).unwrap();
+        assert_eq!(
+            serialized["iconUrl"],
+            "https://api.vrchat.cloud/api/1/image/file_icon/1/256"
+        );
     }
 
     #[test]
@@ -368,10 +365,15 @@ mod tests {
             websocket: " wss://ws.example.test ".into(),
             friends_by_id: [(
                 " usr_friend ".to_string(),
-                FriendRecord {
-                    display_name: "Friend".into(),
-                    state: "online".into(),
-                    ..FriendRecord::default()
+                FriendBaselineEntry {
+                    record: FriendRecord {
+                        display_name: "Friend".into(),
+                        ..FriendRecord::default()
+                    },
+                    presence: FriendBaselinePresence {
+                        state: "online".into(),
+                        ..FriendBaselinePresence::default()
+                    },
                 },
             )]
             .into_iter()
@@ -383,9 +385,52 @@ mod tests {
         assert_eq!(baseline.endpoint, "https://api.example.test");
         assert_eq!(baseline.websocket, "wss://ws.example.test");
         let friend = baseline.friends_by_id.get("usr_friend").unwrap();
-        assert_eq!(friend.id, "usr_friend");
-        assert_eq!(friend.state, "online");
-        assert_eq!(friend.display_name_or_id(), "Friend");
+        assert_eq!(friend.record.id, "usr_friend");
+        assert_eq!(friend.record.display_name_or_id(), "Friend");
+        assert_eq!(friend.presence.state, "online");
+    }
+
+    #[test]
+    fn baseline_entry_moves_presence_out_of_the_record() {
+        let entry: FriendBaselineEntry = serde_json::from_value(json!({
+            "id": "usr_friend",
+            "displayName": "Friend",
+            "state": "online",
+            "location": "wrld_a:1",
+            "travelingToLocation": "wrld_b:2",
+            "worldId": "wrld_a",
+            "instanceId": "1",
+            "platform": "standalonewindows",
+            "$location": { "tag": "wrld_a:1" },
+            "last_platform": "android",
+            "futureField": "preserved"
+        }))
+        .unwrap();
+
+        assert_eq!(
+            entry.presence,
+            FriendBaselinePresence {
+                state: "online".into(),
+                location: "wrld_a:1".into(),
+                traveling_to_location: "wrld_b:2".into(),
+                platform: "standalonewindows".into(),
+            }
+        );
+        assert_eq!(entry.record.last_platform, "android");
+        let serialized = serde_json::to_value(&entry.record).unwrap();
+        for key in FRIEND_PRESENCE_KEYS {
+            assert!(serialized.get(*key).is_none(), "{key} leaked");
+        }
+        assert_eq!(serialized["futureField"], "preserved");
+    }
+
+    #[test]
+    fn baseline_entry_rejects_non_string_presence_like_the_record_did() {
+        assert!(serde_json::from_value::<FriendBaselineEntry>(json!({
+            "id": "usr_friend",
+            "state": 1
+        }))
+        .is_err());
     }
 
     #[test]
@@ -394,8 +439,6 @@ mod tests {
         let record: FriendRecord = serde_json::from_value(json!({
             "id": "usr_friend",
             "displayName": "Friend",
-            "state": "online",
-            "platform": "standalonewindows",
             "last_platform": "android",
             "status": "join me",
             "statusDescription": status_description,
@@ -403,17 +446,8 @@ mod tests {
         }))
         .unwrap();
 
-        assert!(!record.display_name.is_heap_allocated());
-        assert!(!record.state.is_heap_allocated());
-        assert!(!record.platform.is_heap_allocated());
-        assert!(!record.last_platform.is_heap_allocated());
-        assert!(!record.status.is_heap_allocated());
-        assert!(record.status_description.is_heap_allocated());
-
         let serialized = serde_json::to_value(record).unwrap();
         assert_eq!(serialized["displayName"], "Friend");
-        assert_eq!(serialized["state"], "online");
-        assert_eq!(serialized["platform"], "standalonewindows");
         assert_eq!(serialized["lastPlatform"], "android");
         assert_eq!(serialized["status"], "join me");
         assert_eq!(serialized["statusDescription"], status_description);
@@ -502,12 +536,6 @@ mod state_bucket_tests {
         ] {
             assert_eq!(StateBucket::normalize(bucket.as_str()), Some(bucket));
         }
-    }
-
-    #[test]
-    fn matches_compares_against_the_bucket_string_value() {
-        assert!(StateBucket::Online.matches("online"));
-        assert!(!StateBucket::Online.matches("active"));
     }
 }
 

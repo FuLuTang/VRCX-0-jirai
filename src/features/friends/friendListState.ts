@@ -3,7 +3,6 @@ import type { SortingState } from '@tanstack/react-table';
 import {
     getDataTableStorageKey,
     readPersistedTableState,
-    sanitizeTableColumnSizing,
     writePersistedTableState
 } from '@/components/data-table/dataTablePersistence';
 
@@ -19,7 +18,6 @@ export const FRIEND_LIST_SEARCH_FILTERS = [
     { id: 'username', labelKey: 'view.friend_list.search_filters.username' },
     { id: 'rank', labelKey: 'view.friend_list.search_filters.rank' },
     { id: 'status', labelKey: 'view.friend_list.search_filters.status' },
-    { id: 'bio', labelKey: 'view.friend_list.search_filters.bio' },
     { id: 'note', labelKey: 'view.friend_list.search_filters.note' },
     { id: 'memo', labelKey: 'view.friend_list.search_filters.memo' }
 ];
@@ -132,10 +130,6 @@ export function sanitizeFriendListColumnOrder(value: unknown): string[] {
     );
 
     return [...orderedColumns, ...missingColumns];
-}
-
-export function sanitizeFriendListColumnSizing(value: unknown) {
-    return sanitizeTableColumnSizing(value, FRIEND_LIST_COLUMN_IDS);
 }
 
 export function resolveFriendListPageSize(

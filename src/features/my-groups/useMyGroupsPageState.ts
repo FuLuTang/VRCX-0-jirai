@@ -12,12 +12,30 @@ import { userFacingErrorMessage } from '@/lib/errorDisplay';
 import { commands } from '@/platform/tauri/bindings';
 import groupProfileRepository from '@/repositories/groupProfileRepository';
 import { toast } from '@/services/toastService';
+import { useMyGroupsRevisionStore } from '@/state/myGroupsRevisionStore';
 import { usePreferencesStore } from '@/state/preferencesStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
 
 import { moveGroupInOrder, normalizeGroupOrder } from './myGroupsOrder';
+import {
+    useMyGroupsSectionPreferences,
+    type MyGroupsSectionKey
+} from './useMyGroupsSectionPreferences';
 
 export type MyGroupRow = GroupProfileRecord;
+
+export interface MyGroupsSection {
+    key: MyGroupsSectionKey;
+    groups: MyGroupRow[];
+    open: boolean;
+}
+
+export function isOwnGroup(
+    group: MyGroupRow,
+    currentUserId: string | null | undefined
+) {
+    return Boolean(group.ownerId) && group.ownerId === currentUserId;
+}
 
 function matchesSearch(group: MyGroupRow, query: string) {
     if (!query) {
@@ -57,6 +75,7 @@ export function useMyGroupsPageState() {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [inGameOrder, setInGameOrder] = useState<string[]>([]);
     const [orderSaving, setOrderSaving] = useState(false);
+    const { openSections, toggleSection } = useMyGroupsSectionPreferences();
     const loadSequenceRef = useRef(0);
     const autoJoinAttemptedUserIdsRef = useRef(new Set<string>());
     const orderRefreshSequenceRef = useRef(0);
@@ -135,9 +154,11 @@ export function useMyGroupsPageState() {
         [autoJoinGroupCertification, currentUserId, t]
     );
 
+    const groupsRevision = useMyGroupsRevisionStore((state) => state.revision);
+
     useEffect(() => {
-        void load();
-    }, [load]);
+        void load(groupsRevision > 0);
+    }, [load, groupsRevision]);
 
     useEffect(() => {
         setEditMode(false);
@@ -189,6 +210,23 @@ export function useMyGroupsPageState() {
             normalizedOrder
         ) as MyGroupRow[];
     }, [groups, normalizedOrder, search, sort]);
+
+    const sections = useMemo(() => {
+        const ownGroups: MyGroupRow[] = [];
+        const joinedGroups: MyGroupRow[] = [];
+        for (const group of visibleGroups) {
+            if (isOwnGroup(group, currentUserId)) {
+                ownGroups.push(group);
+            } else {
+                joinedGroups.push(group);
+            }
+        }
+        const nextSections: MyGroupsSection[] = [
+            { key: 'own', groups: ownGroups, open: openSections.own },
+            { key: 'joined', groups: joinedGroups, open: openSections.joined }
+        ];
+        return nextSections.filter((section) => section.groups.length > 0);
+    }, [currentUserId, openSections, visibleGroups]);
 
     const selectableIds = useMemo(
         () =>
@@ -289,12 +327,14 @@ export function useMyGroupsPageState() {
         orderSaving,
         registryPrefs,
         search,
+        sections,
         selectedIds,
         setSearch,
         setSort,
         sort,
         status,
         toggleSelectAll,
+        toggleSection,
         toggleSelected,
         visibleGroups
     };

@@ -1,29 +1,64 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Mutex;
 
 use vrcx_0_application_core::{vrchat_api::VrchatApiResponse, Error, Result, RuntimeAuthScope};
 use vrcx_0_contracts::{
     social_aggregates::{FavoriteAction, FavoriteLocalInput, FavoriteOutput},
-    CacheEntityInput, FavoriteRow,
+    FavoriteRow,
 };
 use vrcx_0_core::{FavoriteEntityKind, OwnerId};
 
 use super::{
-    FavoriteCacheKind, FavoriteMoveResult, FavoriteRemote, FavoriteRemoteAddInput,
-    FavoriteRemoteCommand, FavoriteRemoteFuture, FavoriteRemoteGroupClearInput,
-    FavoriteRemoteGroupSaveInput, FavoriteStore,
+    FavoriteMoveResult, FavoriteRemote, FavoriteRemoteAddInput, FavoriteRemoteCommand,
+    FavoriteRemoteFuture, FavoriteRemoteGroupClearInput, FavoriteRemoteGroupSaveInput,
+    FavoriteStore,
 };
 
 #[derive(Default)]
 pub(super) struct TestFavoriteRemote {
     replace_scope_on_clear: Option<RuntimeAuthScope>,
+    favorite_worlds_by_tag: HashMap<String, String>,
+    fetched_tags: Mutex<Vec<String>>,
+    probed_ids: Mutex<Vec<String>>,
 }
 
 impl TestFavoriteRemote {
     pub(super) fn replacing_scope_on_clear(scope: RuntimeAuthScope) -> Self {
         Self {
             replace_scope_on_clear: Some(scope),
+            ..Self::default()
         }
+    }
+
+    pub(super) fn with_favorite_worlds<'a>(
+        rows_by_tag: impl IntoIterator<Item = (&'a str, Vec<serde_json::Value>)>,
+    ) -> Self {
+        Self {
+            favorite_worlds_by_tag: rows_by_tag
+                .into_iter()
+                .map(|(tag, rows)| {
+                    (
+                        tag.to_string(),
+                        serde_json::to_string(&rows).unwrap_or_else(|_| "[]".to_string()),
+                    )
+                })
+                .collect(),
+            ..Self::default()
+        }
+    }
+
+    pub(super) fn fetched_tags(&self) -> Vec<String> {
+        self.fetched_tags
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .clone()
+    }
+
+    pub(super) fn probed_ids(&self) -> Vec<String> {
+        self.probed_ids
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .clone()
     }
 }
 
@@ -57,12 +92,25 @@ impl FavoriteRemote for TestFavoriteRemote {
         &'a self,
         _endpoint: String,
         _n: i32,
-        _offset: i32,
+        offset: i32,
         _owner_id: String,
         _user_id: String,
-        _tag: String,
+        tag: String,
     ) -> FavoriteRemoteFuture<'a, VrchatApiResponse> {
-        Box::pin(async { Ok(response("[]")) })
+        Box::pin(async move {
+            if offset > 0 {
+                return Ok(response("[]"));
+            }
+            self.fetched_tags
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .push(tag.clone());
+            Ok(response(
+                self.favorite_worlds_by_tag
+                    .get(&tag)
+                    .map_or("[]", String::as_str),
+            ))
+        })
     }
 
     fn favorite_avatars<'a>(
@@ -80,7 +128,25 @@ impl FavoriteRemote for TestFavoriteRemote {
         _endpoint: String,
         world_id: String,
     ) -> FavoriteRemoteFuture<'a, VrchatApiResponse> {
-        Box::pin(async move { Ok(response(&format!(r#"{{"id":"{world_id}"}}"#))) })
+        Box::pin(async move {
+            self.probed_ids
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .push(world_id.clone());
+            if world_id.contains("deleted") {
+                return Ok(VrchatApiResponse {
+                    status: 404,
+                    data: r#"{"error":{"message":"not found"}}"#.into(),
+                });
+            }
+            if world_id.contains("unreachable") {
+                return Ok(VrchatApiResponse {
+                    status: 500,
+                    data: r#"{"error":{"message":"boom"}}"#.into(),
+                });
+            }
+            Ok(response(&format!(r#"{{"id":"{world_id}"}}"#)))
+        })
     }
 
     fn avatar<'a>(
@@ -151,6 +217,8 @@ impl FavoriteRemote for TestFavoriteRemote {
 
 #[derive(Clone)]
 struct StoredFavorite {
+    id: i64,
+    sort_order: Option<i64>,
     owner_user_id: Option<String>,
     kind: FavoriteEntityKind,
     entity_id: String,
@@ -161,8 +229,7 @@ struct StoredFavorite {
 struct TestFavoriteStoreState {
     configs: HashMap<String, serde_json::Value>,
     favorites: Vec<StoredFavorite>,
-    avatar_cache_ids: HashSet<String>,
-    world_cache_ids: HashSet<String>,
+    next_id: i64,
 }
 
 #[derive(Default)]
@@ -175,8 +242,28 @@ impl TestFavoriteStore {
         owner_user_id.map(|owner| owner.as_str().to_string())
     }
 
-    fn cache_id(entry: &CacheEntityInput) -> String {
-        entry.id.as_str().unwrap_or_default().trim().to_string()
+    fn visible_rows(
+        &self,
+        owner_user_id: Option<&OwnerId>,
+        kind: FavoriteEntityKind,
+    ) -> Vec<StoredFavorite> {
+        let owner = Self::owner(owner_user_id);
+        self.state
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .favorites
+            .iter()
+            .filter(|row| {
+                row.kind == kind && (row.owner_user_id == owner || row.owner_user_id.is_none())
+            })
+            .cloned()
+            .collect()
+    }
+
+    fn rows_to_favorites(rows: Vec<StoredFavorite>) -> Vec<FavoriteRow> {
+        rows.into_iter()
+            .map(|row| FavoriteRow::new(row.kind, String::new(), row.entity_id, row.group_name))
+            .collect()
     }
 }
 
@@ -210,25 +297,19 @@ impl FavoriteStore for TestFavoriteStore {
         owner_user_id: Option<&OwnerId>,
         kind: FavoriteEntityKind,
     ) -> Result<Vec<FavoriteRow>> {
-        let owner = Self::owner(owner_user_id);
-        Ok(self
-            .state
-            .lock()
-            .unwrap_or_else(|error| error.into_inner())
-            .favorites
-            .iter()
-            .filter(|row| {
-                row.kind == kind && (row.owner_user_id == owner || row.owner_user_id.is_none())
-            })
-            .map(|row| {
-                FavoriteRow::new(
-                    row.kind,
-                    String::new(),
-                    row.entity_id.clone(),
-                    row.group_name.clone(),
-                )
-            })
-            .collect())
+        Ok(Self::rows_to_favorites(
+            self.visible_rows(owner_user_id, kind),
+        ))
+    }
+
+    fn list_custom_order(
+        &self,
+        owner_user_id: Option<&OwnerId>,
+        kind: FavoriteEntityKind,
+    ) -> Result<Vec<FavoriteRow>> {
+        let mut rows = self.visible_rows(owner_user_id, kind);
+        rows.sort_by_key(|row| (row.sort_order.unwrap_or(-row.id), row.id));
+        Ok(Self::rows_to_favorites(rows))
     }
 
     fn add(
@@ -248,7 +329,11 @@ impl FavoriteStore for TestFavoriteStore {
         }) {
             return Ok(0);
         }
+        state.next_id += 1;
+        let id = state.next_id;
         state.favorites.push(StoredFavorite {
+            id,
+            sort_order: None,
             owner_user_id,
             kind,
             entity_id,
@@ -287,6 +372,31 @@ impl FavoriteStore for TestFavoriteStore {
         let removed = self.remove(owner_user_id, kind, entity_id.clone(), source_group_name)?;
         let added = self.add(owner_user_id, kind, entity_id, target_group_name)?;
         Ok(FavoriteMoveResult { removed, added })
+    }
+
+    fn reorder(
+        &self,
+        owner_user_id: Option<&OwnerId>,
+        kind: FavoriteEntityKind,
+        group_name: String,
+        entity_ids: Vec<String>,
+    ) -> Result<i64> {
+        let owner = Self::owner(owner_user_id);
+        let mut state = self.state.lock().unwrap_or_else(|error| error.into_inner());
+        let mut affected = 0;
+        for (position, entity_id) in entity_ids.iter().enumerate() {
+            for row in &mut state.favorites {
+                if row.kind == kind
+                    && (row.owner_user_id == owner || row.owner_user_id.is_none())
+                    && row.group_name == group_name
+                    && &row.entity_id == entity_id
+                {
+                    row.sort_order = Some(position as i64);
+                    affected += 1;
+                }
+            }
+        }
+        Ok(affected)
     }
 
     fn rename_group_with_config(
@@ -340,44 +450,6 @@ impl FavoriteStore for TestFavoriteStore {
                 && row.group_name == group_name)
         });
         Ok((before - state.favorites.len()) as i64)
-    }
-
-    fn cache_exists(&self, kind: FavoriteCacheKind, id: String) -> Result<bool> {
-        let state = self.state.lock().unwrap_or_else(|error| error.into_inner());
-        Ok(match kind {
-            FavoriteCacheKind::Avatar => state.avatar_cache_ids.contains(&id),
-            FavoriteCacheKind::World => state.world_cache_ids.contains(&id),
-        })
-    }
-
-    fn cache_upsert(&self, kind: FavoriteCacheKind, entry: CacheEntityInput) -> Result<i64> {
-        let id = Self::cache_id(&entry);
-        if id.is_empty() {
-            return Err(Error::Custom("Favorite cache entry requires id.".into()));
-        }
-        let mut state = self.state.lock().unwrap_or_else(|error| error.into_inner());
-        match kind {
-            FavoriteCacheKind::Avatar => state.avatar_cache_ids.insert(id),
-            FavoriteCacheKind::World => state.world_cache_ids.insert(id),
-        };
-        Ok(1)
-    }
-
-    fn avatar_cache_existing_ids(&self, avatar_ids: &[String]) -> Result<Vec<String>> {
-        let state = self.state.lock().unwrap_or_else(|error| error.into_inner());
-        Ok(avatar_ids
-            .iter()
-            .filter(|id| state.avatar_cache_ids.contains(*id))
-            .cloned()
-            .collect())
-    }
-
-    fn avatar_cache_upsert_many(&self, entries: Vec<CacheEntityInput>) -> Result<u32> {
-        let count = entries.len() as u32;
-        for entry in entries {
-            self.cache_upsert(FavoriteCacheKind::Avatar, entry)?;
-        }
-        Ok(count)
     }
 
     fn mutate_local(

@@ -4,7 +4,7 @@ use rmcp::model::CallToolResult;
 use rmcp::{schemars, tool, tool_router};
 use serde::{Deserialize, Serialize};
 use vrcx_0_contracts::social_aggregates;
-use vrcx_0_core::location::parse_location;
+use vrcx_0_core::presence::PresenceView;
 
 use crate::server::VrcxMcpServer;
 use crate::{McpFriendMemo, McpLocalModeration};
@@ -14,6 +14,7 @@ use super::common::{
     resolve_optional_target_or_result, resolve_target_or_result, structured_result,
     TargetResolutionOutcome, TimeWindowParams, WithResolution,
 };
+use super::presence::presence_location_and_platform;
 use vrcx_0_core::OwnerId;
 
 #[tool_router(router = friends_tool_router, vis = "pub(crate)")]
@@ -183,7 +184,7 @@ impl VrcxMcpServer {
             .map(|kind| kind.as_str().to_string())
             .collect();
         self.runtime
-            .social_history_queries
+            .activity_queries
             .friend_log(social_aggregates::FriendLogInput {
                 owner_user_id,
                 target_user_id: input.target,
@@ -327,29 +328,34 @@ impl VrcxMcpServer {
         }
         let time_window_params = input.time_window.unwrap_or_default();
         let time_window: social_aggregates::TimeWindow = time_window_params.clone().into();
+        let recent_changes =
+            self.friend_profile_changes(&owner_user_id, &user_id, time_window.clone())?;
+        let latest_bio = latest_bio_from_changes(&recent_changes);
         let current = self
             .runtime
             .realtime_runtime
             .friend_snapshot()
-            .and_then(|snapshot| snapshot.friends_by_id.get(&user_id).cloned())
-            .map(|friend| {
-                let parsed = parse_location(&friend.location);
+            .and_then(|snapshot| {
+                let friend = snapshot.friends_by_id.get(&user_id).cloned()?;
+                let view = snapshot
+                    .presence_by_id
+                    .get(&user_id)
+                    .map_or(PresenceView::Offline, |entry| entry.view.clone());
+                Some((friend, view))
+            })
+            .map(|(friend, view)| {
+                let (parsed, platform) = presence_location_and_platform(&view, &friend);
                 let display_name = friend.display_name_or_id();
                 FriendProfileCurrent {
                     user_id: friend.id,
                     display_name,
-                    state: friend.state,
-                    location: friend.location,
+                    state: view.section().as_str().into(),
+                    location: parsed.tag,
                     world_id: parsed.world_id,
                     status: friend.status,
                     status_description: friend.status_description,
-                    bio: friend.bio,
-                    platform: if friend.platform.is_empty() {
-                        friend.last_platform
-                    } else {
-                        friend.platform
-                    },
-                    current_avatar_name: friend.current_avatar_name,
+                    bio: latest_bio.clone().unwrap_or_default(),
+                    platform,
                 }
             });
         let note = self
@@ -368,14 +374,14 @@ impl VrcxMcpServer {
             self.friend_relationship_profile(&owner_user_id, &user_id, time_window_params.clone())?;
         let copresence = self
             .runtime
-            .social_history_queries
+            .activity_queries
             .copresence_summary(social_aggregates::CopresenceSummaryInput {
                 time_window: time_window.clone(),
                 group_by: social_aggregates::CopresenceGroupBy::Friend,
                 min_minutes: None,
                 limit: Some(100),
                 owner_user_id: Some(owner_user_id.clone()),
-                friends_only: false,
+                audience: social_aggregates::CopresenceAudience::Everyone,
                 order_by: social_aggregates::CopresenceOrderBy::default(),
                 utc_offset_minutes: None,
             })
@@ -385,7 +391,7 @@ impl VrcxMcpServer {
             .find(|row| row.user_id == user_id);
         let activity_pattern = self
             .runtime
-            .social_history_queries
+            .activity_queries
             .friend_activity_pattern(social_aggregates::FriendActivityPatternInput {
                 owner_user_id: owner_user_id.clone(),
                 user_id: Some(user_id.clone()),
@@ -397,19 +403,8 @@ impl VrcxMcpServer {
             .rows
             .into_iter()
             .next();
-        let recent_changes = self.friend_profile_changes(&owner_user_id, &user_id, time_window)?;
-        let latest_bio = latest_bio_from_changes(&recent_changes);
-        let current = match current {
-            Some(mut current) => {
-                if current.bio.trim().is_empty() {
-                    if let Some(bio) = latest_bio {
-                        current.bio = bio;
-                    }
-                }
-                Some(current)
-            }
-            None => fallback_friend_profile_current(&user_id, &relationship, latest_bio),
-        };
+        let current = current
+            .or_else(|| fallback_friend_profile_current(&user_id, &relationship, latest_bio));
         Ok(FriendProfileOutput {
             user_id: user_id.clone(),
             current,
@@ -707,7 +702,6 @@ struct FriendProfileCurrent {
     status_description: CompactString,
     bio: String,
     platform: CompactString,
-    current_avatar_name: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -818,7 +812,6 @@ fn fallback_friend_profile_current(
         status_description: CompactString::new(""),
         bio,
         platform: CompactString::new(""),
-        current_avatar_name: String::new(),
     })
 }
 

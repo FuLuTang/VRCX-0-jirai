@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 
 import { BoopEmojiDialog } from '@/components/dialogs/BoopEmojiDialog';
 import { ToolbarFilterMenu } from '@/components/layout/ToolbarControls';
+import type { BoopEmojiChoice } from '@/domain/entities/boopEmoji';
 import { NOTIFICATION_TYPES } from '@/repositories/notificationPersistenceRepository';
 import {
     DropdownMenuCheckboxItem,
@@ -27,6 +28,7 @@ const NOTIFICATION_TYPE_SECTIONS: {
             'requestInvite',
             'inviteResponse',
             'requestInviteResponse',
+            'invite.instance.contentGated',
             'message',
             'boop'
         ]
@@ -38,6 +40,8 @@ const NOTIFICATION_TYPE_SECTIONS: {
             'groupChange',
             'group.announcement',
             'group.event.created',
+            'group.event.starting',
+            'group.post',
             'group.informative',
             'group.invite',
             'group.joinRequest',
@@ -52,7 +56,9 @@ const NOTIFICATION_TYPE_SECTIONS: {
         types: [
             'moderation.warning.group',
             'moderation.report.closed',
-            'moderation.contentrestriction'
+            'moderation.contentrestriction',
+            'moderation.notice',
+            'votetokick'
         ]
     },
     {
@@ -63,7 +69,12 @@ const NOTIFICATION_TYPE_SECTIONS: {
             'economy.alert',
             'economy.received.gift',
             'badge.earned',
-            'vrcplus.gift'
+            'vrcplus.gift',
+            'avatarreview.success',
+            'avatarreview.failure',
+            'promo.redeem',
+            'twitchdrop.fulfilled',
+            'text.adventure'
         ]
     }
 ];
@@ -147,7 +158,7 @@ export function BoopReplyDialog({
     onOpenChange: (open: boolean) => void;
     onSend: (
         notification: NotificationRow | null,
-        emojiId: string
+        emoji: BoopEmojiChoice | null
     ) => void | Promise<void>;
     request: NotificationRow | null;
 }) {
@@ -161,7 +172,7 @@ export function BoopReplyDialog({
             targetLabel={displayName}
             sendDisabled={!notification?.senderUserId}
             onOpenChange={onOpenChange}
-            onSend={(emojiId: string) => onSend(notification, emojiId)}
+            onSend={(emoji) => onSend(notification, emoji)}
         />
     );
 }

@@ -25,7 +25,25 @@ pub struct VisitedWorldRow {
     pub world_name: String,
     pub location: String,
     pub visited_at: String,
+    pub left_at: Option<String>,
     pub stay_minutes: i64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TopVisitedWorldsInput {
+    pub time_window: TimeWindow,
+    pub limit: i64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TopVisitedWorldRow {
+    pub world_id: String,
+    pub world_name: String,
+    pub visits: i64,
+    pub total_minutes: i64,
+    pub last_visited_at: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

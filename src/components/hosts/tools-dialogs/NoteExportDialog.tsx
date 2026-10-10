@@ -18,7 +18,6 @@ import { openUserDialog } from '@/services/dialogService';
 import { userImage } from '@/services/entityMediaService';
 import { subscribeRuntimeEvent } from '@/services/runtime-event-bridge/subscription';
 import { toast } from '@/services/toastService';
-import { isRecord } from '@/shared/utils/record';
 import { useFriendRosterStore } from '@/state/friendRosterStore';
 import { useModalStore } from '@/state/modalStore';
 import { Alert, AlertAction, AlertDescription } from '@/ui/shadcn/alert';
@@ -58,10 +57,6 @@ type NoteExportDialogProps = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
 };
-
-function asObjectRecord(value: unknown): Record<string, unknown> | null {
-    return isRecord(value) ? value : null;
-}
 
 function memoCounterClass(length: number) {
     if (length >= NOTE_CHAR_LIMIT) {
@@ -117,26 +112,18 @@ export function NoteExportDialog({
             const nextRows: NoteExportRow[] = [];
             for (const userId of getFriendIds(orderedFriendIds)) {
                 const friend = friendsById[userId];
-                const ref = asObjectRecord(friend?.ref) || friend;
                 const memo = normalizeExportMemo(
                     memosById.get(userId) || friend?.memo || ''
                 );
-                const vrchatNote = ref.note ?? friend?.note ?? '';
+                const vrchatNote = friend?.note ?? '';
                 if (memo && friend && vrchatNote !== truncateExportMemo(memo)) {
                     nextRows.push({
                         id: userId,
                         name: friend.displayName || friend.name || userId,
                         memo,
                         ref: {
-                            userIcon: ref.userIcon,
-                            profilePicOverrideThumbnail:
-                                ref.profilePicOverrideThumbnail,
-                            profilePicOverride: ref.profilePicOverride,
-                            thumbnailUrl: ref.thumbnailUrl,
-                            currentAvatarThumbnailImageUrl:
-                                ref.currentAvatarThumbnailImageUrl,
-                            currentAvatarImageUrl: ref.currentAvatarImageUrl,
-                            note: ref.note
+                            iconUrl: friend.iconUrl,
+                            note: friend.note
                         }
                     });
                 }
@@ -453,12 +440,8 @@ export function NoteExportDialog({
                     {rows.length ? (
                         rows.map((row) => {
                             const memoLength = row.memo.length;
-                            const fullImageUrl = userImage(
-                                row.ref,
-                                false,
-                                '512'
-                            );
-                            const thumbUrl = userImage(row.ref, true, '64');
+                            const fullImageUrl = userImage(row.ref, 512);
+                            const thumbUrl = userImage(row.ref, 64);
                             const skipped = skippedIds.has(row.id);
                             const remoteNote =
                                 typeof row.ref.note === 'string'
@@ -469,7 +452,9 @@ export function NoteExportDialog({
                                     key={row.id}
                                     className={cn(
                                         'bg-card/40 flex gap-3 rounded-lg border p-3 transition-colors',
-                                        skipped ? 'opacity-55' : 'hover:bg-card'
+                                        skipped
+                                            ? 'opacity-55'
+                                            : 'hover:bg-(--state-hover-surface)'
                                     )}
                                 >
                                     {thumbUrl ? (
@@ -506,7 +491,7 @@ export function NoteExportDialog({
                                             <Button
                                                 type="button"
                                                 variant="ghost"
-                                                className="hover:text-primary h-auto min-w-0 justify-start truncate p-0 font-medium hover:bg-transparent"
+                                                className="h-auto min-w-0 justify-start truncate p-0 font-medium hover:bg-transparent"
                                                 onClick={() =>
                                                     openUserDialog({
                                                         userId: row.id,

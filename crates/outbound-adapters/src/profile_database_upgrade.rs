@@ -7,8 +7,8 @@ use vrcx_0_persistence::migration::{
 };
 use vrcx_0_persistence::migrations::migrations;
 use vrcx_0_persistence::{
-    prepare_vrcx0_schema_version, write_database_schema_versions, DatabaseService,
-    SqliteErrorCategory, VRCX0_SCHEMA_VERSION,
+    read_upstream_schema_version, read_vrcx0_schema_version, write_upstream_schema_version,
+    write_vrcx0_schema_version, DatabaseService, SqliteErrorCategory, VRCX0_SCHEMA_VERSION,
 };
 
 use vrcx_0_application::profile::{
@@ -71,8 +71,24 @@ impl DatabaseUpgradeStore for LocalDatabaseUpgradeStore {
     }
 }
 
-const LEGACY_SCHEMA_VERSION: i64 = 16;
+const UPSTREAM_CLEANUP_SCHEMA_VERSION: i64 = 16;
 const COPRESENCE_DURATION_REPAIR_KEY: &str = "copresenceDurationRepairV1Done";
+const EMPTY_LEAVE_LOCATION_REPAIR_KEY: &str = "emptyLeaveLocationRepairV1Done";
+const EXPIRED_NOTIFICATION_SEEN_REPAIR_KEY: &str = "expiredNotificationSeenRepairV1Done";
+const ONE_TIME_DATA_REPAIRS: &[(&str, DatabaseMaintenanceTask)] = &[
+    (
+        EMPTY_LEAVE_LOCATION_REPAIR_KEY,
+        DatabaseMaintenanceTask::RepairEmptyLeaveLocations,
+    ),
+    (
+        COPRESENCE_DURATION_REPAIR_KEY,
+        DatabaseMaintenanceTask::RepairZeroCopresenceDurations,
+    ),
+    (
+        EXPIRED_NOTIFICATION_SEEN_REPAIR_KEY,
+        DatabaseMaintenanceTask::RepairExpiredNotificationsSeen,
+    ),
+];
 const LEGACY_DATA_CLEANUP_TASKS: &[DatabaseMaintenanceTask] = &[
     DatabaseMaintenanceTask::CleanLegendFromFriendLog,
     DatabaseMaintenanceTask::FixGameLogTraveling,
@@ -136,44 +152,37 @@ pub fn database_upgrade_preflight(db: &DatabaseService) -> Result<DatabaseUpgrad
             status: DatabaseUpgradePreflightStatus::Blocked,
             from_version: failed_upgrade.from_version,
             to_version: failed_upgrade.to_version,
+            repair_pending: false,
             stage: None,
             result: None,
             failed_upgrade: Some(failed_upgrade),
         });
     }
 
-    let schema_version = prepare_vrcx0_schema_version(db)?;
+    let schema_version = read_vrcx0_schema_version(db)?;
     let migrations = migration_preview(db)?;
-    let (status, from_version, to_version) = if schema_version > VRCX0_SCHEMA_VERSION {
-        (
-            DatabaseUpgradePreflightStatus::NewerSchema,
-            schema_version,
-            VRCX0_SCHEMA_VERSION,
-        )
-    } else if migrations.status == PreviewStatus::NewerSchema {
-        (
-            DatabaseUpgradePreflightStatus::NewerSchema,
-            migrations.current_version,
-            migrations.target_version,
-        )
-    } else if schema_version < VRCX0_SCHEMA_VERSION || migrations.status == PreviewStatus::Pending {
-        (
-            DatabaseUpgradePreflightStatus::UpgradeRequired,
-            migrations.current_version,
-            migrations.target_version,
-        )
+    let (from_version, to_version) = if schema_version <= VRCX0_SCHEMA_VERSION
+        && migrations.status == PreviewStatus::NewerSchema
+    {
+        (migrations.current_version, migrations.target_version)
     } else {
-        (
-            DatabaseUpgradePreflightStatus::Current,
-            migrations.current_version,
-            migrations.target_version,
-        )
+        (schema_version, VRCX0_SCHEMA_VERSION)
+    };
+    let status = if schema_version > VRCX0_SCHEMA_VERSION
+        || migrations.status == PreviewStatus::NewerSchema
+    {
+        DatabaseUpgradePreflightStatus::NewerSchema
+    } else if schema_version < VRCX0_SCHEMA_VERSION || migrations.status == PreviewStatus::Pending {
+        DatabaseUpgradePreflightStatus::UpgradeRequired
+    } else {
+        DatabaseUpgradePreflightStatus::Current
     };
 
     Ok(DatabaseUpgradePreflight {
         status,
         from_version,
         to_version,
+        repair_pending: !pending_data_repairs(db)?.is_empty(),
         stage: None,
         result: None,
         failed_upgrade: None,
@@ -182,13 +191,6 @@ pub fn database_upgrade_preflight(db: &DatabaseService) -> Result<DatabaseUpgrad
 
 fn migration_preview(db: &DatabaseService) -> Result<Preview, Error> {
     Ok(preview_migrations(db, &migrations())?)
-}
-
-fn target_migration_version() -> i64 {
-    migrations()
-        .last()
-        .map(|migration| migration.version)
-        .unwrap_or(0)
 }
 
 #[cfg(test)]
@@ -206,7 +208,7 @@ pub(super) fn run_database_upgrade_with_progress(
                 result.status,
                 DatabaseUpgradeRunStatus::Current | DatabaseUpgradeRunStatus::Upgraded
             ) {
-                result.repair_warning = run_copresence_duration_repair_once(db).err();
+                result.repair_warning = run_data_repairs_once(db, &mut on_progress);
             }
             result
         }
@@ -225,7 +227,7 @@ fn run_database_upgrade_inner(
         "database_upgrade_preflight",
     );
     let preflight = database_upgrade_preflight(db).map_err(|error| {
-        let from_version = prepare_vrcx0_schema_version(db).unwrap_or(0);
+        let from_version = read_vrcx0_schema_version(db).unwrap_or(0);
         UpgradeFailure::before_upgrade(
             from_version,
             DatabaseUpgradeStage::Preflight,
@@ -235,11 +237,11 @@ fn run_database_upgrade_inner(
     })?;
     let from_version = preflight.from_version;
     let to_version = preflight.to_version;
-    let schema_version = prepare_vrcx0_schema_version(db).map_err(|error| {
+    let schema_version = read_vrcx0_schema_version(db).map_err(|error| {
         UpgradeFailure::before_upgrade(
             from_version,
             DatabaseUpgradeStage::Preflight,
-            "prepare_vrcx0_schema_version",
+            "read_vrcx0_schema_version",
             error,
         )
     })?;
@@ -355,37 +357,14 @@ fn run_database_upgrade_inner(
         )
     })?;
 
-    if schema_version < LEGACY_SCHEMA_VERSION {
-        report_stage(
+    normalize_upstream_layout(db, on_progress, from_version)?;
+    if schema_version == 0 {
+        run_optional_task(
             db,
             on_progress,
             DatabaseUpgradeStage::LegacySchemaMigration,
-            "database_maintenance_run",
+            DatabaseMaintenanceTask::ImportUpstreamHmdNotificationSettings,
         );
-        for &task in LEGACY_DATA_CLEANUP_TASKS {
-            let operation = maintenance_operation(task);
-            persist_upgrade_context(db, DatabaseUpgradeStage::LegacySchemaMigration, &operation);
-            run_task(db, task).map_err(|error| {
-                UpgradeFailure::during_upgrade(
-                    from_version,
-                    DatabaseUpgradeStage::LegacySchemaMigration,
-                    operation,
-                    error,
-                )
-            })?;
-        }
-        for &task in LEGACY_SCHEMA_MIGRATION_TASKS {
-            let operation = maintenance_operation(task);
-            persist_upgrade_context(db, DatabaseUpgradeStage::LegacySchemaMigration, &operation);
-            run_task(db, task).map_err(|error| {
-                UpgradeFailure::during_upgrade(
-                    from_version,
-                    DatabaseUpgradeStage::LegacySchemaMigration,
-                    operation,
-                    error,
-                )
-            })?;
-        }
     }
 
     run_required_task(
@@ -435,13 +414,13 @@ fn run_database_upgrade_inner(
         db,
         on_progress,
         DatabaseUpgradeStage::WriteVersion,
-        "write_database_schema_versions",
+        "write_vrcx0_schema_version",
     );
-    write_database_schema_versions(db, VRCX0_SCHEMA_VERSION).map_err(|error| {
+    write_vrcx0_schema_version(db, VRCX0_SCHEMA_VERSION).map_err(|error| {
         UpgradeFailure::during_upgrade(
             from_version,
             DatabaseUpgradeStage::WriteVersion,
-            "write_database_schema_versions",
+            "write_vrcx0_schema_version",
             error,
         )
     })?;
@@ -502,6 +481,40 @@ fn run_optional_task(
     }
 }
 
+fn normalize_upstream_layout(
+    db: &DatabaseService,
+    on_progress: &mut impl FnMut(DatabaseUpgradeProgress),
+    from_version: i64,
+) -> Result<(), UpgradeFailure> {
+    let stage = DatabaseUpgradeStage::LegacySchemaMigration;
+    let upstream_version = read_upstream_schema_version(db).map_err(|error| {
+        UpgradeFailure::during_upgrade(from_version, stage, "read_upstream_schema_version", error)
+    })?;
+    if upstream_version < UPSTREAM_CLEANUP_SCHEMA_VERSION {
+        for &task in LEGACY_DATA_CLEANUP_TASKS
+            .iter()
+            .chain(LEGACY_SCHEMA_MIGRATION_TASKS)
+        {
+            run_required_task(db, on_progress, from_version, stage, task)?;
+        }
+        write_upstream_schema_version(db, UPSTREAM_CLEANUP_SCHEMA_VERSION).map_err(|error| {
+            UpgradeFailure::during_upgrade(
+                from_version,
+                stage,
+                "write_upstream_schema_version",
+                error,
+            )
+        })?;
+    }
+    run_required_task(
+        db,
+        on_progress,
+        from_version,
+        stage,
+        DatabaseMaintenanceTask::ImportUpstreamPrintFavorites,
+    )
+}
+
 fn run_required_task(
     db: &DatabaseService,
     on_progress: &mut impl FnMut(DatabaseUpgradeProgress),
@@ -527,7 +540,7 @@ fn success_result(status: DatabaseUpgradeRunStatus, from_version: i64) -> Databa
     DatabaseUpgradeRunResult {
         status,
         from_version,
-        to_version: target_migration_version(),
+        to_version: VRCX0_SCHEMA_VERSION,
         failed_stage: None,
         error: None,
         failed_upgrade: None,
@@ -558,7 +571,7 @@ fn recover_failed_upgrade(
     let telemetry_to_version = active_upgrade
         .as_ref()
         .map(|status| status.to_version)
-        .unwrap_or_else(target_migration_version);
+        .unwrap_or(VRCX0_SCHEMA_VERSION);
     log_database_upgrade_failure(
         failure.stage,
         &operation,
@@ -588,7 +601,7 @@ fn recover_failed_upgrade(
     DatabaseUpgradeRunResult {
         status: DatabaseUpgradeRunStatus::Failed,
         from_version: failure.from_version,
-        to_version: target_migration_version(),
+        to_version: VRCX0_SCHEMA_VERSION,
         failed_stage: Some(failure.stage),
         error: Some(error),
         failed_upgrade,
@@ -634,17 +647,41 @@ pub(super) fn log_database_upgrade_failure(
     );
 }
 
-fn run_copresence_duration_repair_once(db: &DatabaseService) -> Result<(), String> {
-    let done = vrcx_0_persistence::config::get_string(db, COPRESENCE_DURATION_REPAIR_KEY, "")
-        .map_err(|error| error.to_string())?;
-    if done == "1" {
-        return Ok(());
+fn pending_data_repairs(
+    db: &DatabaseService,
+) -> Result<Vec<(&'static str, DatabaseMaintenanceTask)>, vrcx_0_persistence::Error> {
+    let mut pending = Vec::new();
+    for &(key, task) in ONE_TIME_DATA_REPAIRS {
+        if vrcx_0_persistence::config::get_string(db, key, "")? != "1" {
+            pending.push((key, task));
+        }
     }
+    Ok(pending)
+}
 
-    run_task(db, DatabaseMaintenanceTask::RepairZeroCopresenceDurations)
-        .map_err(|error| error.to_string())?;
-    vrcx_0_persistence::config::set_string(db, COPRESENCE_DURATION_REPAIR_KEY, "1")
-        .map_err(|error| error.to_string())
+fn run_data_repairs_once(
+    db: &DatabaseService,
+    on_progress: &mut impl FnMut(DatabaseUpgradeProgress),
+) -> Option<String> {
+    let pending = match pending_data_repairs(db) {
+        Ok(pending) => pending,
+        Err(error) => return Some(error.to_string()),
+    };
+    if pending.is_empty() {
+        return None;
+    }
+    on_progress(DatabaseUpgradeProgress::indeterminate(
+        DatabaseUpgradeStage::RepairData,
+    ));
+    pending
+        .into_iter()
+        .filter_map(|(key, task)| {
+            database_maintenance_run(db, task)
+                .and_then(|()| vrcx_0_persistence::config::set_string(db, key, "1"))
+                .err()
+                .map(|error| error.to_string())
+        })
+        .reduce(|first, next| format!("{first}; {next}"))
 }
 
 #[cfg(test)]

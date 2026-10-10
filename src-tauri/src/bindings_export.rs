@@ -22,8 +22,8 @@ use vrcx_0_application_core::{
     RealtimeUserProjection, RuntimeVrchatAuthFailurePayload, VrcStatusSnapshot,
 };
 use vrcx_0_application_game::{
-    AddGameLogEventPayload, GameClientEvent, GameLogPersistenceFallbackPayload, GameLogProjection,
-    GameLogSideEffectEvent, RuntimeWorkerErrorPayload,
+    GameClientEvent, GameLogPersistenceFallbackPayload, GameLogProjection, GameLogSideEffectEvent,
+    RuntimeGameLogEventPayload, RuntimeWorkerErrorPayload,
 };
 use vrcx_0_application_realtime::RealtimeFeedProjection;
 use vrcx_0_assistant::{
@@ -36,7 +36,7 @@ use vrcx_0_host_desktop::tts::TtsVoice;
 use vrcx_0_integration_api::{IntegrationApiStartFailedPayload, IntegrationApiStatus};
 use vrcx_0_mcp::McpServerStatus;
 use vrcx_0_runtime_host_desktop::{
-    notification::NotificationDoNotDisturbSnapshot, AppLauncherSnapshotEvent,
+    notification::NotificationDoNotDisturbSnapshot, AppLauncherSnapshotEvent, PrivacyLockSnapshot,
 };
 
 use crate::commands;
@@ -45,7 +45,7 @@ use crate::commands;
 #[serde(rename_all = "camelCase")]
 #[allow(dead_code)]
 struct BackendRuntimeEventPayloadMap {
-    add_game_log_event: AddGameLogEventPayload,
+    add_game_log_event: RuntimeGameLogEventPayload,
     authenticated_session_projection: AuthenticatedSessionProjection,
     authenticated_runtime_phase: AuthenticatedRuntimePhaseSnapshot,
     app_update_status: AppUpdateStatusSnapshot,
@@ -91,6 +91,7 @@ struct BackendRuntimeEventPayloadMap {
     update_is_game_running: HostSessionProjection,
     integration_api_start_failed: IntegrationApiStartFailedPayload,
     notification_do_not_disturb_state: NotificationDoNotDisturbSnapshot,
+    privacy_lock_state: PrivacyLockSnapshot,
 }
 
 pub fn builder() -> Builder<tauri::Wry> {
@@ -104,7 +105,7 @@ pub fn builder() -> Builder<tauri::Wry> {
         .typ::<AssistantErrorEvent>()
         .typ::<BackendRuntimeEventPayloadMap>()
         .typ::<BackendRuntimeTelemetry>()
-        .typ::<crate::deep_link::DeepLinkAction>()
+        .typ::<vrcx_0_runtime_host_desktop::deep_link::DeepLinkAction>()
         .typ::<FriendProjection>()
         .typ::<GameLogProjection>()
         .typ::<HostSessionProjection>()
@@ -154,6 +155,12 @@ pub fn builder() -> Builder<tauri::Wry> {
             commands::application::background_mode::app__start_background_mode,
             commands::application::background_mode::app__backend_runtime_combined_snapshot_get,
             commands::application::background_mode::app__ensure_main_window,
+            commands::application::privacy_lock::app__privacy_lock_setup_request_take,
+            commands::application::privacy_lock::app__privacy_lock_engage,
+            commands::application::privacy_lock::app__privacy_lock_unlock,
+            commands::application::privacy_lock::app__privacy_lock_password_set,
+            commands::application::privacy_lock::app__privacy_lock_password_change,
+            commands::application::privacy_lock::app__privacy_lock_password_clear,
             commands::application::deep_link::app__drain_pending_deep_links,
             commands::application::desktop_notification::app__take_pending_desktop_notification_activation,
             commands::application::deep_link::app__deep_link_registration_status,
@@ -232,15 +239,16 @@ pub fn builder() -> Builder<tauri::Wry> {
             commands::application::llm_endpoint::app__assistant_reasoning_effort,
             commands::application::llm_endpoint::app__assistant_set_reasoning_effort,
             commands::application::overlay_activity::app__overlay_activity_definitions_get,
-            commands::application::overlay_activity::app__overlay_activity_filters_set,
+            commands::application::overlay_activity::app__notification_activity_filters_get,
             commands::application::overlay_activity::app__notification_activity_filters_set,
+            commands::application::overlay_activity::app__notification_test_send,
             commands::application::presence_automation::app__presence_automation_rules_get,
             commands::application::presence_automation::app__presence_automation_rules_set,
+            commands::application::presence_automation::app__presence_automation_rule_enabled_set,
             commands::application::favorite_transfer::app__favorites_transfer_selection,
             commands::application::favorite_transfer::app__favorites_remove_selection,
             commands::application::vr_overlay::app__vr_overlay_enabled_set,
             commands::application::vr_overlay::app__vr_overlay_test_mode_set,
-            commands::application::vr_overlay::app__vr_overlay_config_reload,
             commands::application::registry_backup::app__registry_backup_list,
             commands::application::registry_backup::app__registry_backup_create,
             commands::application::registry_backup::app__registry_backup_restore,
@@ -273,14 +281,11 @@ pub fn builder() -> Builder<tauri::Wry> {
             commands::local::browse_history::app__browse_history_retention_days_set,
             commands::local::database_maintenance::app__user_tables_ensure,
             commands::local::database_maintenance::app__database_maintenance_table_sizes_get,
-            commands::local::database_maintenance::app__database_maintenance_max_friend_log_number_get,
-            commands::local::database_maintenance::app__database_maintenance_broken_leave_entries_get,
-            commands::local::database_maintenance::app__database_maintenance_broken_game_log_display_names_get,
             commands::local::avatars::app__avatar_get,
             commands::local::avatars::app__avatar_find_by_image_url,
             commands::local::avatars::app__avatar_history_list,
             commands::local::avatars::app__avatar_usage_ranking,
-            commands::local::avatars::app__avatar_time_spent_add,
+            commands::local::avatars::app__avatar_wear_segments,
             commands::local::avatars::app__avatar_time_spent_get,
             commands::local::avatars::app__avatar_time_spent_list,
             commands::local::avatars::app__avatar_history_clear,
@@ -294,7 +299,6 @@ pub fn builder() -> Builder<tauri::Wry> {
             commands::local::avatars::app__avatar_tags_replace,
             commands::local::avatars::app__avatar_tags_patch,
             commands::local::feed::app__feed_persistence_set_disabled,
-            commands::local::feed::app__avatar_feed_persistence_set_disabled,
             commands::local::feed::app__avatar_feed_history_cleanup,
             commands::local::feed::app__startup_online_backfill_insert,
             commands::local::feed::app__profile_feed_reconcile,
@@ -302,6 +306,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             commands::local::feed::app__feed_search_query,
             commands::local::feed::app__feed_rows_query,
             commands::local::game_log::app__game_log_entries_add,
+            commands::local::game_log::app__game_log_import_select_files,
+            commands::local::game_log::app__game_log_import,
             commands::local::game_log::app__game_log_persistence_set_disabled,
             commands::local::game_log::app__game_log_instance_delete_by_location,
             commands::local::game_log::app__game_log_instance_delete,
@@ -317,21 +323,25 @@ pub fn builder() -> Builder<tauri::Wry> {
             commands::local::player_list::app__world_summaries_get,
             commands::local::activity::app__activity_view,
             commands::local::activity::app__activity_page_view,
+            commands::local::activity::app__activity_journey_visits,
+            commands::local::activity::app__activity_journey_days,
             commands::local::activity::app__activity_overlap_view,
             commands::local::mutual_graph::app__mutual_graph_snapshot_get,
             commands::local::mutual_graph::app__manual_relations_list,
             commands::local::mutual_graph::app__manual_relations_for_user,
             commands::local::mutual_graph::app__manual_relation_add,
             commands::local::mutual_graph::app__manual_relation_remove,
-            commands::local::mutual_graph::app__mutual_graph_fetch_status_get,
             commands::local::mutual_graph::app__mutual_graph_fetch_cancel,
             commands::local::mutual_graph::app__mutual_graph_fetch_start,
             commands::local::mutual_graph::app__mutual_graph_friend_refresh,
             commands::local::mutual_graph::app__user_mutual_friends_list_get,
             commands::local::worlds::app__world_get,
+            commands::local::files::app__file_metadata_get,
             commands::local::worlds::app__world_friend_visits,
             commands::local::favorites::app__favorite_list,
+            commands::local::favorites::app__favorite_local_custom_order,
             commands::local::favorites::app__favorite_local_snapshot,
+            commands::local::favorites::app__favorite_local_world_details_refresh,
             commands::local::favorites::app__saved_group_favorites_get,
             commands::local::favorites::app__saved_group_collection_create,
             commands::local::favorites::app__saved_group_collection_delete,
@@ -355,7 +365,6 @@ pub fn builder() -> Builder<tauri::Wry> {
             commands::local::tracked_nonfriends::app__tracked_nonfriends_update_name,
             commands::local::notifications::app__notification_list_query,
             commands::local::notifications::app__notification_add_v1,
-            commands::local::notifications::app__notification_add_v2,
             commands::local::notifications::app__notification_v2_expire,
             commands::local::notifications::app__notification_v2_mark_seen,
             commands::local::notifications::app__notification_update_expired,
@@ -398,7 +407,6 @@ pub fn builder() -> Builder<tauri::Wry> {
             commands::vrchat::auth::service::app__vrchat_auth_session_start,
             commands::vrchat::auth::service::app__vrchat_auth_visits_get,
             commands::vrchat::avatars::service::app__vrchat_avatar_delete,
-            commands::vrchat::avatars::service::app__vrchat_avatar_file_get,
             commands::vrchat::avatars::service::app__vrchat_avatar_gallery_get,
             commands::vrchat::avatars::service::app__vrchat_avatar_impostor_create,
             commands::vrchat::avatars::service::app__vrchat_avatar_impostor_delete,
@@ -420,13 +428,16 @@ pub fn builder() -> Builder<tauri::Wry> {
             commands::vrchat::favorites::service::app__local_favorite_group_create,
             commands::vrchat::favorites::service::app__local_favorite_group_delete,
             commands::vrchat::favorites::service::app__local_favorite_group_rename,
+            commands::vrchat::favorites::service::app__local_favorite_group_reorder,
             commands::vrchat::favorites::service::app__local_favorite_remove,
+            commands::vrchat::favorites::service::app__local_favorite_reorder,
             commands::vrchat::friends::service::app__vrchat_friend_status_get,
             commands::vrchat::groups::service::app__vrchat_group_audit_log_types_get,
             commands::vrchat::groups::service::app__vrchat_group_bans_get,
             commands::vrchat::groups::service::app__vrchat_group_block,
             commands::vrchat::groups::service::app__vrchat_group_gallery_get,
             commands::vrchat::groups::service::app__vrchat_group_get,
+            commands::vrchat::groups::service::app__vrchat_group_member_role_ids_get,
             commands::vrchat::groups::service::app__vrchat_group_invite_delete,
             commands::vrchat::groups::service::app__vrchat_group_invite_send,
             commands::vrchat::groups::service::app__vrchat_group_invites_get,
@@ -443,6 +454,8 @@ pub fn builder() -> Builder<tauri::Wry> {
             commands::vrchat::groups::service::app__vrchat_group_member_unban,
             commands::vrchat::groups::service::app__vrchat_group_members_get,
             commands::vrchat::groups::service::app__vrchat_group_members_search,
+            commands::vrchat::groups::service::app__vrchat_group_update,
+            commands::vrchat::groups::service::app__vrchat_group_delete,
             commands::vrchat::groups::service::app__vrchat_group_post_create,
             commands::vrchat::groups::service::app__vrchat_group_post_delete,
             commands::vrchat::groups::service::app__vrchat_group_post_edit,
@@ -588,7 +601,6 @@ pub fn builder() -> Builder<tauri::Wry> {
             commands::host::updater::app__app_update_release_get,
             commands::host::updater::app__app_update_download_status_get,
             commands::host::updater::app__app_update_install_confirm,
-            commands::host::legacy_migration::app__check_legacy_vrcx_available,
             commands::host::legacy_migration::app__get_legacy_vrcx_force_migration_status,
             commands::host::legacy_migration::app__get_legacy_vrcx_migration_status,
             commands::host::legacy_migration::app__is_legacy_vrcx_running,
@@ -610,6 +622,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             commands::host::app_launcher::app__app_launcher_snapshot_get,
             commands::host::app_launcher::app__app_launcher_enabled_set,
             commands::host::app_launcher::app__app_launcher_entries_set,
+            commands::host::app_launcher::app__app_launcher_entry_enabled_set,
             commands::host::app_launcher::app__app_launcher_entry_test,
             commands::host::app_launcher::app__app_launcher_test_run_stop,
             commands::host::app_launcher::app__app_launcher_target_pick,
@@ -625,6 +638,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             commands::host::screenshots::app__get_screenshot_folder_tree,
             commands::host::screenshots::app__get_screenshot_folder_images,
             commands::host::screenshots::app__get_world_screenshots,
+            commands::host::screenshots::app__get_screenshots_in_windows,
             commands::host::screenshots::app__ensure_screenshot_thumbnail,
             commands::host::screenshots::app__get_last_screenshot,
             commands::host::screenshots::app__delete_screenshot_metadata,

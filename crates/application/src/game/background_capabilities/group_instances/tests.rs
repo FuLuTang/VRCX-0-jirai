@@ -5,7 +5,6 @@ use vrcx_0_application_core::Error;
 
 #[derive(Default)]
 struct TestBackgroundGroupRemote {
-    current_user: Value,
     instances: Vec<Value>,
     scoped_instances: Vec<Value>,
     scoped_error: Option<String>,
@@ -14,16 +13,6 @@ struct TestBackgroundGroupRemote {
 }
 
 impl BackgroundGroupRemote for TestBackgroundGroupRemote {
-    fn current_user<'a>(&'a self, endpoint: &'a str) -> BackgroundGroupRemoteFuture<'a, Value> {
-        Box::pin(async move {
-            self.calls
-                .lock()
-                .unwrap()
-                .push(format!("current-user:{endpoint}"));
-            Ok(self.current_user.clone())
-        })
-    }
-
     fn group_instances<'a>(
         &'a self,
         endpoint: &'a str,
@@ -77,25 +66,6 @@ fn test_session() -> BackgroundCapabilitySessionIdentity {
         websocket: "wss://pipeline.example.test".into(),
         auth_scope_generation: 7,
     }
-}
-
-#[tokio::test]
-async fn current_user_refresh_returns_the_semantic_remote_value() {
-    let remote = TestBackgroundGroupRemote {
-        current_user: json!({ "id": "usr_test", "displayName": "Test User" }),
-        ..Default::default()
-    };
-
-    let current_user = refresh_background_current_user(&remote, &test_session())
-        .await
-        .unwrap();
-
-    assert_eq!(current_user["id"], json!("usr_test"));
-    assert_eq!(current_user["displayName"], json!("Test User"));
-    assert_eq!(
-        *remote.calls.lock().unwrap(),
-        vec!["current-user:https://api.example.test/api/1/"]
-    );
 }
 
 #[tokio::test]
@@ -326,25 +296,6 @@ fn merge_replaces_fallback_name_with_fetched_profile_name() {
 
     assert_eq!(merged["name"], json!("Fetched Name"));
     assert_eq!(merged["iconUrl"], json!("https://example.test/icon.png"));
-}
-
-#[test]
-fn hydration_adds_minimal_fallback_when_profile_is_unavailable() {
-    let instance = json!({
-        "groupId": "grp_missing",
-        "location": "wrld_test:1"
-    });
-
-    let hydrated = hydrate_group_instance(instance, &HashMap::new());
-
-    assert_eq!(
-        hydrated["group"],
-        json!({
-            "id": "grp_missing",
-            "groupId": "grp_missing",
-            "name": "grp_missing"
-        })
-    );
 }
 
 #[test]

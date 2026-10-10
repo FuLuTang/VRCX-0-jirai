@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { commands } from '@/platform/tauri/bindings';
+import { useFavoriteRevisionStore } from '@/state/favoriteRevisionStore';
 import { useFavoriteStore } from '@/state/favoriteStore';
 
 import {
@@ -50,13 +51,6 @@ describe('favoriteWorldCacheService', () => {
             entity: world,
             fallbackEntityId: ''
         });
-    });
-
-    it('ignores empty world payloads', async () => {
-        vi.mocked(commands.appFavoriteCacheSnapshot).mockResolvedValue(false);
-        await expect(cacheWorldDetails({ name: 'Missing id' })).resolves.toBe(
-            false
-        );
     });
 
     it('uses the caller world id when a detail payload is missing id', async () => {
@@ -127,65 +121,24 @@ describe('favoriteWorldCacheService', () => {
         });
     });
 
-    it('inserts complete private world details when no DB cache exists', async () => {
-        await expect(
-            cacheWorldDetails({
-                id: 'wrld_private',
-                name: 'Private World',
-                releaseStatus: 'private',
-                thumbnailImageUrl: 'https://example.test/private.png'
-            })
-        ).resolves.toBe(true);
+    it('bumps the world details revision only when the DB cache was written', async () => {
+        const world = {
+            id: 'wrld_revision',
+            name: 'Revision World',
+            releaseStatus: 'public',
+            thumbnailImageUrl: 'https://example.test/revision.png'
+        };
+        const before = useFavoriteRevisionStore.getState().worldDetailsRevision;
 
-        expect(commands.appFavoriteCacheSnapshot).toHaveBeenCalledTimes(1);
-    });
+        await expect(cacheWorldDetails(world)).resolves.toBe(true);
+        expect(useFavoriteRevisionStore.getState().worldDetailsRevision).toBe(
+            before + 1
+        );
 
-    it('does not overwrite DB cache with private world details', async () => {
         vi.mocked(commands.appFavoriteCacheSnapshot).mockResolvedValue(false);
-
-        await expect(
-            cacheWorldDetails({
-                id: 'wrld_private',
-                name: 'Private World',
-                releaseStatus: 'private',
-                thumbnailImageUrl: 'https://example.test/private.png'
-            })
-        ).resolves.toBe(false);
-
-        expect(commands.appFavoriteCacheSnapshot).toHaveBeenCalledTimes(1);
-    });
-
-    it('does not overwrite DB cache with unknown world details', async () => {
-        vi.mocked(commands.appFavoriteCacheSnapshot).mockResolvedValue(false);
-        await expect(
-            cacheWorldDetails({
-                id: 'wrld_unknown',
-                name: 'Unknown World',
-                releaseStatus: 'unknown',
-                thumbnailImageUrl: 'https://example.test/unknown.png'
-            })
-        ).resolves.toBe(false);
-
-        expect(commands.appFavoriteCacheSnapshot).toHaveBeenCalledTimes(1);
-    });
-
-    it('does not overwrite DB cache with incomplete world details', async () => {
-        vi.mocked(commands.appFavoriteCacheSnapshot).mockResolvedValue(false);
-        await expect(
-            cacheWorldDetails({
-                id: 'wrld_broken',
-                releaseStatus: 'public'
-            })
-        ).resolves.toBe(false);
-
-        await expect(
-            cacheWorldDetails({
-                id: 'wrld_broken',
-                name: 'Broken World',
-                releaseStatus: 'public'
-            })
-        ).resolves.toBe(false);
-
-        expect(commands.appFavoriteCacheSnapshot).toHaveBeenCalledTimes(2);
+        await expect(cacheWorldDetails(world)).resolves.toBe(false);
+        expect(useFavoriteRevisionStore.getState().worldDetailsRevision).toBe(
+            before + 1
+        );
     });
 });

@@ -1,5 +1,4 @@
 import { commands } from '@/platform/tauri/bindings';
-import configRepository from '@/repositories/configRepository';
 import {
     normalizePreferenceKey,
     publishPreferenceChanged
@@ -13,11 +12,7 @@ import {
 } from '@/state/preferencesStore';
 import { normalizeTableDensity, type TableDensity } from '@/state/shellStore';
 
-import {
-    DEFAULT_TABLE_PAGE_SIZE,
-    LEGACY_OVERLAY_NOTIFICATION_KEYS,
-    WRIST_OVERLAY_RUNTIME_CONFIG_KEYS
-} from './preferencesConstants';
+import { DEFAULT_TABLE_PAGE_SIZE } from './preferencesConstants';
 import type {
     PreferenceKey,
     StorePreferenceConfigKey
@@ -73,54 +68,10 @@ export async function appLanguageChanged(language: string) {
     await commands.appLanguageChanged(language);
 }
 
-export async function reloadWristOverlayRuntimeConfigIfNeeded(key: string) {
-    const normalizedKey = normalizePreferenceKey(key);
-    if (!WRIST_OVERLAY_RUNTIME_CONFIG_KEYS.has(normalizedKey)) {
-        return;
-    }
-    await commands.appVrOverlayConfigReload().catch((error) => {
-        console.warn('Failed to reload wrist overlay runtime config:', error);
-    });
-}
-
 export function normalizeStringList(value: unknown): string[] {
     return Array.isArray(value)
         ? value.map((entry) => String(entry ?? '').trim()).filter(Boolean)
         : [];
-}
-
-export async function getBoolConfigWithLegacy(
-    key: string,
-    defaultValue: boolean
-) {
-    if ((await configRepository.getRawValue(key)) !== null) {
-        return configRepository.getBool(key, defaultValue);
-    }
-    const legacyKey = getLegacyOverlayNotificationKey(key);
-    if (legacyKey && (await configRepository.getRawValue(legacyKey)) !== null) {
-        return configRepository.getBool(legacyKey, defaultValue);
-    }
-    return defaultValue;
-}
-
-export async function getIntConfigWithLegacy(
-    key: string,
-    defaultValue: number
-) {
-    if ((await configRepository.getRawValue(key)) !== null) {
-        return configRepository.getInt(key, defaultValue);
-    }
-    const legacyKey = getLegacyOverlayNotificationKey(key);
-    if (legacyKey && (await configRepository.getRawValue(legacyKey)) !== null) {
-        return configRepository.getInt(legacyKey, defaultValue);
-    }
-    return defaultValue;
-}
-
-function getLegacyOverlayNotificationKey(key: string) {
-    return Object.entries(LEGACY_OVERLAY_NOTIFICATION_KEYS).find(
-        ([currentKey]) => currentKey === key
-    )?.[1];
 }
 
 export function resolveTablePageSize(

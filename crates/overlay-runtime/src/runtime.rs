@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
+    atomic::{AtomicBool, AtomicU64, Ordering},
     Arc, Condvar, Mutex, Weak,
 };
 use std::thread::{self, ThreadId};
@@ -9,11 +9,9 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use chrono::{DateTime, Local, Timelike};
 use serde::Serialize;
-use vrcx_0_application_activity::{
-    OverlayActivityDelivery, OverlayActivitySink, OverlayActivitySnapshot,
-};
+use vrcx_0_application_activity::{ActivityDelivery, ActivitySink, ActivitySnapshot};
 use vrcx_0_application_core::{GameProcessEvent, GameProcessEventSink, TaskSupervisor};
-use vrcx_0_core::friends::FriendRecord;
+use vrcx_0_core::text::first_non_empty_owned;
 use vrcx_0_host_desktop::vr_overlay::{
     OverlayActivationButton, OverlayPlacement, OverlaySurfaceConfig, VrDeviceSnapshot,
 };
@@ -32,8 +30,10 @@ use super::{
     manager::VrOverlayManager,
     service::{HostVrOverlayService, OverlayBackendPreference},
     surfaces::hmd_toast::{refresh_cached_world_name, HmdToastState},
+    surfaces::wrist::compact_duration,
     test_preview::test_wrist_frame_input,
     WristOverlayFrameInput, WristOverlayRenderOptions, WristOverlaySizePreset, WristRuntimeFooter,
+    WristRuntimeNowPlaying,
 };
 
 pub(crate) use super::config::load_runtime_config;
@@ -45,7 +45,6 @@ trait VrOverlayFrameProducer: Send {
 
 type VrOverlayFrameProducerFactory = Box<dyn Fn() -> Box<dyn VrOverlayFrameProducer> + Send + Sync>;
 type HmdFriendMembershipProvider = Arc<dyn Fn(&str) -> bool + Send + Sync>;
-type HmdFriendContextProvider = Arc<dyn Fn(&str) -> Option<(FriendRecord, String)> + Send + Sync>;
 
 thread_local! {
     static SLINT_WRIST_RENDERER: RefCell<Option<SlintWristRenderer>> = const { RefCell::new(None) };
@@ -76,28 +75,52 @@ impl WristOverlayHand {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum HmdNotificationPosition {
     Top,
+    Center,
     #[default]
     Bottom,
-    Left,
-    Right,
 }
 
 impl HmdNotificationPosition {
     pub(crate) fn from_config(value: &str) -> Self {
         match value.trim() {
             "top" => Self::Top,
-            "left" => Self::Left,
-            "right" => Self::Right,
+            "center" => Self::Center,
             _ => Self::Bottom,
         }
     }
 
-    fn as_device_hint(self) -> &'static str {
+    fn newest_card_angle_degrees(self) -> f32 {
         match self {
-            Self::Top => "hmd:top",
-            Self::Bottom => "hmd:bottom",
-            Self::Left => "hmd:left",
-            Self::Right => "hmd:right",
+            Self::Top => 4.0,
+            Self::Center => -6.0,
+            Self::Bottom => -18.0,
+        }
+    }
+
+    pub(crate) fn stacks_upward(self) -> bool {
+        self == Self::Top
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum HmdNotificationStyle {
+    #[default]
+    Standard,
+    Compact,
+}
+
+impl HmdNotificationStyle {
+    pub(crate) fn from_config(value: &str) -> Self {
+        match value.trim() {
+            "compact" => Self::Compact,
+            _ => Self::Standard,
+        }
+    }
+
+    fn single_card_height_px(self) -> f32 {
+        match self {
+            Self::Standard => 112.0,
+            Self::Compact => 60.0,
         }
     }
 }
@@ -109,6 +132,8 @@ pub(crate) struct HmdNotificationConfig {
     pub(crate) timeout_ms: u64,
     pub(crate) opacity_percent: u8,
     pub(crate) position: HmdNotificationPosition,
+    pub(crate) style: HmdNotificationStyle,
+    pub(crate) avatars: bool,
 }
 
 impl Default for HmdNotificationConfig {
@@ -117,8 +142,10 @@ impl Default for HmdNotificationConfig {
             enabled: false,
             start_mode: WristOverlayStartMode::Vrchat,
             timeout_ms: 5_000,
-            opacity_percent: 100,
+            opacity_percent: 90,
             position: HmdNotificationPosition::Bottom,
+            style: HmdNotificationStyle::Standard,
+            avatars: true,
         }
     }
 }
@@ -181,6 +208,7 @@ struct WristSurfaceRuntimeConfig {
 struct VrOverlayFrameInput {
     config: VrOverlayRuntimeConfig,
     devices: Vec<VrDeviceSnapshot>,
+    wrist_visible: bool,
     test_mode: bool,
 }
 
@@ -249,11 +277,13 @@ pub struct VrOverlayRuntime {
     wrist_frame_release_requested: AtomicBool,
     hmd_frame_release_requested: AtomicBool,
     device_refresh_requested: AtomicBool,
+    config_dirty: AtomicBool,
+    hmd_afk: AtomicBool,
+    config_generation: AtomicU64,
     backend_available: bool,
     pub(crate) services: Option<Arc<dyn VrOverlayRuntimeServices>>,
     config: Mutex<VrOverlayRuntimeConfig>,
     hmd_friend_membership_provider: Mutex<Option<HmdFriendMembershipProvider>>,
-    hmd_friend_context_provider: Mutex<Option<HmdFriendContextProvider>>,
     refresh_wake: Arc<RefreshWake>,
     devices: Mutex<Vec<VrDeviceSnapshot>>,
     pub(crate) hmd_toasts: Mutex<VecDeque<HmdToastState>>,
@@ -279,14 +309,14 @@ impl VrOverlayActivitySink {
     }
 }
 
-impl OverlayActivitySink for VrOverlayActivitySink {
-    fn emit_overlay_activity_snapshot(&self, _snapshot: OverlayActivitySnapshot) {
+impl ActivitySink for VrOverlayActivitySink {
+    fn emit_overlay_activity_snapshot(&self, _snapshot: ActivitySnapshot) {
         if let Some(runtime) = self.runtime.upgrade() {
             runtime.reconcile_current();
         }
     }
 
-    fn emit_overlay_activity_delivery(&self, delivery: OverlayActivityDelivery) {
+    fn emit_overlay_activity_delivery(&self, delivery: ActivityDelivery) {
         if let Some(runtime) = self.runtime.upgrade() {
             runtime.ingest_hmd_delivery(delivery);
         }
@@ -298,7 +328,7 @@ impl VrOverlayRuntime {
     where
         S: VrOverlayRuntimeServices + 'static,
     {
-        let config = load_runtime_config(services.config());
+        let config = load_runtime_config(services.as_ref());
         let services: Arc<dyn VrOverlayRuntimeServices> = services;
         let producer_services = Arc::clone(&services);
         Self::new_with_frame_producer_factory(
@@ -338,6 +368,9 @@ impl VrOverlayRuntime {
         } else {
             HostVrOverlayService::new_noop(service_configs)
         };
+        let config_generation = services
+            .as_ref()
+            .map_or(0, |services| services.config().write_generation());
         Self {
             enabled: AtomicBool::new(false),
             test_mode: AtomicBool::new(false),
@@ -347,6 +380,9 @@ impl VrOverlayRuntime {
             wrist_frame_release_requested: AtomicBool::new(false),
             hmd_frame_release_requested: AtomicBool::new(false),
             device_refresh_requested: AtomicBool::new(false),
+            config_dirty: AtomicBool::new(false),
+            hmd_afk: AtomicBool::new(false),
+            config_generation: AtomicU64::new(config_generation),
             backend_available,
             services,
             manager: Mutex::new(VrOverlayManager::new(service)),
@@ -355,7 +391,6 @@ impl VrOverlayRuntime {
             refresh_thread_id: Mutex::new(None),
             config: Mutex::new(config),
             hmd_friend_membership_provider: Mutex::new(None),
-            hmd_friend_context_provider: Mutex::new(None),
             refresh_wake: Arc::new(RefreshWake::new()),
             devices: Mutex::new(Vec::new()),
             hmd_toasts: Mutex::new(VecDeque::new()),
@@ -370,7 +405,7 @@ impl VrOverlayRuntime {
             tracing::warn!("no VR overlay backend is available in this build");
         }
         self.enabled.store(enabled, Ordering::Release);
-        self.reconcile_current_with_device_refresh(true);
+        self.reconcile(true, true);
         if !enabled && !self.current_runtime_config().hmd.enabled {
             self.release_frame_producer();
         }
@@ -383,7 +418,7 @@ impl VrOverlayRuntime {
         if !test_mode {
             self.clear_hmd_toasts();
         }
-        self.reconcile_current_with_device_refresh(true);
+        self.reconcile(true, true);
         if !test_mode && !self.enabled.load(Ordering::Acquire) {
             self.release_frame_producer();
         }
@@ -410,16 +445,16 @@ impl VrOverlayRuntime {
                     break;
                 }
                 runtime.consume_slint_renderer_release_requests();
-                if !runtime.has_active_surface() {
-                    continue;
+                if runtime.has_active_surface() || runtime.has_pending_config_change() {
+                    let now = Instant::now();
+                    let refresh_devices =
+                        now >= next_device_refresh || runtime.consume_device_refresh_request();
+                    runtime.reconcile(refresh_devices, false);
+                    if refresh_devices {
+                        next_device_refresh = now + WRIST_DEVICE_REFRESH_INTERVAL;
+                    }
                 }
-                let now = Instant::now();
-                let refresh_devices =
-                    now >= next_device_refresh || runtime.consume_device_refresh_request();
-                runtime.reconcile_current_with_device_refresh(refresh_devices);
-                if refresh_devices {
-                    next_device_refresh = now + WRIST_DEVICE_REFRESH_INTERVAL;
-                }
+                runtime.report_hmd_afk();
             }
             runtime.clear_refresh_thread_id();
         });
@@ -451,10 +486,6 @@ impl VrOverlayRuntime {
 }
 
 impl VrOverlayRuntime {
-    pub fn is_backend_available(&self) -> bool {
-        self.backend_available
-    }
-
     pub fn stop_detached(&self) {
         if let Ok(mut manager) = self.manager.lock() {
             manager.stop_detached();
@@ -480,15 +511,6 @@ impl VrOverlayRuntime {
         }
     }
 
-    pub fn set_hmd_friend_context_provider<F>(&self, provider: F)
-    where
-        F: Fn(&str) -> Option<(FriendRecord, String)> + Send + Sync + 'static,
-    {
-        if let Ok(mut current) = self.hmd_friend_context_provider.lock() {
-            *current = Some(Arc::new(provider));
-        }
-    }
-
     pub(crate) fn is_current_hmd_friend(&self, user_id: &str) -> bool {
         let user_id = user_id.trim();
         if !user_id.starts_with("usr_") {
@@ -500,18 +522,6 @@ impl VrOverlayRuntime {
             .ok()
             .and_then(|provider| provider.clone());
         provider.is_some_and(|provider| provider(user_id))
-    }
-
-    pub(crate) fn current_hmd_friend_context(
-        &self,
-        user_id: &str,
-    ) -> Option<(FriendRecord, String)> {
-        let provider = self
-            .hmd_friend_context_provider
-            .lock()
-            .ok()
-            .and_then(|provider| provider.clone());
-        provider.and_then(|provider| provider(user_id))
     }
 }
 
@@ -577,18 +587,59 @@ impl VrOverlayRuntime {
         }
         self.steamvr_running
             .store(steamvr_running, Ordering::Release);
-        self.reconcile_current_with_device_refresh(true);
+        self.reconcile(true, false);
     }
 
     pub fn reconcile_current(&self) {
-        self.reconcile_current_with_device_refresh(false);
+        self.reconcile(false, false);
     }
 
-    fn reconcile_current_with_device_refresh(&self, refresh_devices: bool) {
+    pub fn mark_config_dirty(&self) {
+        self.config_dirty.store(true, Ordering::Release);
+        self.refresh_wake.notify();
+    }
+
+    fn has_pending_config_change(&self) -> bool {
+        self.config_dirty.load(Ordering::Acquire)
+            || self.services.as_ref().is_some_and(|services| {
+                services.config().write_generation()
+                    != self.config_generation.load(Ordering::Acquire)
+            })
+    }
+
+    fn report_hmd_afk(&self) {
+        let Some(services) = &self.services else {
+            return;
+        };
+        let is_hmd_afk = self
+            .manager
+            .lock()
+            .is_ok_and(|manager| manager.hmd_user_present() == Some(false));
+        if self.hmd_afk.swap(is_hmd_afk, Ordering::AcqRel) != is_hmd_afk {
+            services.set_hmd_afk(is_hmd_afk);
+        }
+    }
+
+    fn config_generation_advanced(&self) -> bool {
+        let Some(services) = &self.services else {
+            return false;
+        };
+        let generation = services.config().write_generation();
+        self.config_generation.swap(generation, Ordering::AcqRel) != generation
+    }
+
+    fn reconcile(&self, refresh_devices: bool, reload_config: bool) {
         if self.is_refresh_thread() {
             self.consume_slint_renderer_release_requests();
         }
-        let changed_config = self.changed_runtime_config();
+        let changed_config = if reload_config
+            || self.config_dirty.swap(false, Ordering::AcqRel)
+            || self.config_generation_advanced()
+        {
+            self.changed_runtime_config()
+        } else {
+            None
+        };
         if let Ok(mut manager) = self.manager.lock() {
             let mut config = self.current_runtime_config();
             if let Some(next_config) = changed_config {
@@ -708,7 +759,7 @@ impl VrOverlayRuntime {
         let Some(services) = &self.services else {
             return None;
         };
-        let next_config = load_runtime_config(services.config());
+        let next_config = load_runtime_config(services.as_ref());
         let Ok(current_config) = self.config.lock() else {
             return None;
         };
@@ -779,6 +830,9 @@ impl VrOverlayRuntime {
             .lock()
             .map(|devices| devices.clone())
             .unwrap_or_default();
+        let wrist_visible = wrist_surface_ids(config.hand)
+            .iter()
+            .any(|surface_id| manager.is_surface_visible(surface_id));
         let frame = match self
             .frame_producer
             .lock()
@@ -788,6 +842,7 @@ impl VrOverlayRuntime {
                 producer.next_frame(VrOverlayFrameInput {
                     config,
                     devices,
+                    wrist_visible,
                     test_mode: self.is_test_mode(),
                 })
             }) {
@@ -912,7 +967,12 @@ impl VrOverlayFrameProducer for RuntimeWristFrameProducer {
                 now_ms(),
             )
         } else {
-            build_wrist_frame_input(self.services.as_ref(), input.config, input.devices)
+            build_wrist_frame_input(
+                self.services.as_ref(),
+                input.config,
+                input.devices,
+                input.wrist_visible,
+            )
         };
         let model = build_wrist_surface_model(frame_input);
         render_slint_wrist_frame(&model)
@@ -986,7 +1046,7 @@ fn overlay_surface_configs(
         configs.extend(wrist_surface_configs(config, force_visible));
     }
     if active_surfaces.hmd {
-        configs.push(hmd_surface_config(config.hmd.position));
+        configs.push(hmd_surface_config(config.hmd.position, config.hmd.style));
     }
     configs
 }
@@ -1044,13 +1104,34 @@ fn wrist_surface_config(
     }
 }
 
-fn hmd_surface_config(position: HmdNotificationPosition) -> OverlaySurfaceConfig {
+const HMD_SURFACE_SIZE: OverlaySize = OverlaySize::new(960, 528);
+const HMD_SURFACE_DISTANCE_METERS: f32 = 1.2;
+const HMD_SURFACE_WIDTH_METERS: f32 = 0.991;
+const HMD_STACK_INSET_PX: f32 = 20.0;
+
+fn hmd_surface_config(
+    position: HmdNotificationPosition,
+    style: HmdNotificationStyle,
+) -> OverlaySurfaceConfig {
+    let meters_per_px = HMD_SURFACE_WIDTH_METERS / HMD_SURFACE_SIZE.width as f32;
+    let newest_card_y =
+        HMD_SURFACE_DISTANCE_METERS * position.newest_card_angle_degrees().to_radians().tan();
+    let newest_card_inset = (HMD_SURFACE_SIZE.height as f32 / 2.0
+        - HMD_STACK_INSET_PX
+        - style.single_card_height_px() / 2.0)
+        * meters_per_px;
+    let offset_y_meters = if position.stacks_upward() {
+        newest_card_y + newest_card_inset
+    } else {
+        newest_card_y - newest_card_inset
+    };
     OverlaySurfaceConfig {
         surface_id: OverlaySurfaceId::new(MAIN_SURFACE_ID),
-        size: OverlaySize::new(960, 528),
-        physical_width_meters: 0.95,
-        placement: OverlayPlacement::TrackedDeviceRelative {
-            device_hint: position.as_device_hint().to_string(),
+        size: HMD_SURFACE_SIZE,
+        physical_width_meters: HMD_SURFACE_WIDTH_METERS,
+        placement: OverlayPlacement::HeadLocked {
+            offset_y_meters,
+            distance_meters: HMD_SURFACE_DISTANCE_METERS,
         },
         activation_button: OverlayActivationButton::Grip,
         force_visible: false,
@@ -1061,16 +1142,25 @@ pub(super) fn build_wrist_frame_input(
     services: &dyn VrOverlayRuntimeServices,
     config: VrOverlayRuntimeConfig,
     devices: Vec<VrDeviceSnapshot>,
+    live_now_playing: bool,
 ) -> WristOverlayFrameInput {
     let game_log = services.game_log_snapshot();
+    let now_playing = services.now_playing();
     let captured_at_ms = now_ms();
-    let mut activity = services.overlay_activity().snapshot();
+    let mut activity = services.activity_router().snapshot();
     for entry in &mut activity.entries {
         refresh_cached_world_name(services.world_cache(), entry);
     }
     WristOverlayFrameInput {
         activity,
         devices,
+        now_playing: (!now_playing.url.trim().is_empty()).then(|| WristRuntimeNowPlaying {
+            title: first_non_empty_owned([now_playing.name.as_str(), now_playing.url.as_str()]),
+            length_seconds: now_playing.length,
+            position_seconds: now_playing.position,
+            started_at: now_playing.started_at.clone().unwrap_or_default(),
+        }),
+        live_now_playing,
         footer: WristRuntimeFooter {
             player_count: game_log.players.len() as u32,
             instance_duration: instance_duration_text(
@@ -1127,24 +1217,6 @@ fn instance_duration_text(location: &str, started_at: &str, now_ms: i64) -> Stri
     compact_duration(now_ms - started_at_ms)
 }
 
-fn compact_duration(duration_ms: i64) -> String {
-    let total_minutes = duration_ms / 60_000;
-    if total_minutes < 1 {
-        return "<1m".to_string();
-    }
-    let total_hours = total_minutes / 60;
-    let minutes = total_minutes % 60;
-    if total_hours < 1 {
-        return format!("{minutes}m");
-    }
-    if total_hours < 24 {
-        return format!("{total_hours}h {minutes}m");
-    }
-    let days = total_hours / 24;
-    let hours = total_hours % 24;
-    format!("{days}d {hours}h")
-}
-
 fn is_real_instance_location(location: &str) -> bool {
     let location = location.trim().to_ascii_lowercase();
     location.starts_with("wrld_") && location.contains(':')
@@ -1152,3 +1224,5 @@ fn is_real_instance_location(location: &str) -> bool {
 
 #[cfg(test)]
 mod activity_sink_tests;
+#[cfg(test)]
+mod config_reload_tests;

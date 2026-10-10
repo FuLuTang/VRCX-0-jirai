@@ -4,6 +4,7 @@ use vrcx_0_i18n::{text as native_text, ShellKey};
 pub(crate) struct TrayLabels {
     pub(crate) open: String,
     pub(crate) background_mode: String,
+    pub(crate) lock: String,
     pub(crate) do_not_disturb: String,
     pub(crate) do_not_disturb_one_hour: String,
     pub(crate) do_not_disturb_three_hours: String,
@@ -88,6 +89,7 @@ pub(crate) mod macos_menu {
         pub(crate) title: String,
         pub(crate) changelog: String,
         pub(crate) keyboard_shortcuts: String,
+        pub(crate) send_feedback: String,
         pub(crate) report_issue: String,
         pub(crate) github: String,
         pub(crate) discord: String,
@@ -162,6 +164,7 @@ pub(crate) mod macos_menu {
             title: text(language, ShellKey::NativeShellMenuHelpTitle),
             changelog: text(language, ShellKey::NativeShellMenuHelpChangelog),
             keyboard_shortcuts: text(language, ShellKey::NativeShellMenuHelpKeyboardShortcuts),
+            send_feedback: text(language, ShellKey::NativeShellMenuHelpSendFeedback),
             report_issue: text(language, ShellKey::NativeShellMenuHelpReportIssue),
             github: "GitHub".to_string(),
             discord: "Discord".to_string(),
@@ -177,6 +180,7 @@ pub(crate) fn tray_labels_for_language(language: &str) -> TrayLabels {
     TrayLabels {
         open: text(language, ShellKey::NativeShellTrayOpen),
         background_mode: text(language, ShellKey::NativeShellTrayBackgroundMode),
+        lock: text(language, ShellKey::NativeShellTrayLock),
         do_not_disturb: text(language, ShellKey::NativeShellTrayDoNotDisturb),
         do_not_disturb_one_hour: text(language, ShellKey::NativeShellTrayDoNotDisturbOneHour),
         do_not_disturb_three_hours: text(language, ShellKey::NativeShellTrayDoNotDisturbThreeHours),

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { TtsVoice } from '@/platform/tauri/bindings';
@@ -6,6 +6,7 @@ import {
     normalizeNotificationTtsNameMode,
     type PreferencesSnapshot
 } from '@/state/preferencesStore';
+import type { NotificationLayout } from '@/state/shellStore';
 import { Button } from '@/ui/shadcn/button';
 import { Input } from '@/ui/shadcn/input';
 import {
@@ -23,15 +24,23 @@ import { SettingsCard } from '../SettingsCard';
 import { Field } from '../SettingsField';
 import { SettingsTabContent } from '../SettingsViewParts';
 import { useSettingsNotificationsTabState } from '../useSettingsNotificationsTabState';
+import { NotificationWebhookSettings } from './NotificationWebhookSettings';
+import { SettingsNotificationsInAppCard } from './SettingsNotificationsInAppCard';
 
 type SettingsOptionList = ReadonlyArray<readonly [string, string]>;
 
 type SettingsNotificationsPrefs = Pick<
     PreferencesSnapshot,
     | 'afkDesktopToast'
+    | 'notificationLayout'
+    | 'notificationIconDot'
+    | 'taskbarIconDot'
+    | 'friendLogNotificationDot'
     | 'desktopNotificationSound'
+    | 'desktopNotificationAvatars'
     | 'desktopToast'
     | 'notificationDoNotDisturbEndOnGameStart'
+    | 'busyStatusDoNotDisturb'
     | 'notificationTTS'
     | 'notificationTTSNameMode'
     | 'notificationTTSNickName'
@@ -40,6 +49,13 @@ type SettingsNotificationsPrefs = Pick<
 >;
 
 type SettingsNotificationsTabContentProps = {
+    notificationLayoutOptions: SettingsOptionList;
+    showTaskbarIconDot: boolean;
+    onNotificationLayoutChange: (value: NotificationLayout) => void;
+    onNotificationIconDotChange: (checked: boolean) => void;
+    onTaskbarIconDotChange: (checked: boolean) => void;
+    onFriendLogNotificationDotChange: (checked: boolean) => void;
+    webhookSettings?: ReactNode;
     desktopToastOptions: SettingsOptionList;
     notificationTtsOptions: SettingsOptionList;
     notificationTtsNameModeOptions: SettingsOptionList;
@@ -47,9 +63,11 @@ type SettingsNotificationsTabContentProps = {
     notificationTtsTestVisible: boolean;
     onAfkDesktopToastChange: (checked: boolean) => void;
     onDesktopNotificationSoundChange: (checked: boolean) => void;
+    onDesktopNotificationAvatarsChange: (checked: boolean) => void;
     onDesktopToastChange: (value: string) => void;
     onNotificationTtsModeChange: (value: string) => void;
     onNotificationDoNotDisturbEndOnGameStartChange: (checked: boolean) => void;
+    onBusyStatusDoNotDisturbChange: (checked: boolean) => void;
     onNotificationTtsNameModeChange: (value: string) => void;
     onNotificationTtsTestChange: (value: string) => void;
     onNotificationTtsTestVisibleChange: (visible: boolean) => void;
@@ -57,6 +75,7 @@ type SettingsNotificationsTabContentProps = {
     onNotificationTtsVolumeChange: (value: number) => void;
     onOpenDesktopNotificationFiltersDialog: () => void;
     onOpenTtsNotificationFiltersDialog: () => void;
+    onSendTestNotification: () => void;
     onSpeakNotificationTts: (message: string) => void;
     prefs: SettingsNotificationsPrefs;
     ttsVoices: TtsVoice[];
@@ -64,11 +83,23 @@ type SettingsNotificationsTabContentProps = {
 
 export function SettingsNotificationsTab() {
     const state = useSettingsNotificationsTabState();
-    return <SettingsNotificationsTabContent {...state} />;
+    return (
+        <SettingsNotificationsTabContent
+            {...state}
+            webhookSettings={<NotificationWebhookSettings />}
+        />
+    );
 }
 
 export function SettingsNotificationsTabContent({
     prefs,
+    notificationLayoutOptions,
+    showTaskbarIconDot,
+    onNotificationLayoutChange,
+    onNotificationIconDotChange,
+    onTaskbarIconDotChange,
+    onFriendLogNotificationDotChange,
+    webhookSettings,
     desktopToastOptions,
     notificationTtsOptions,
     notificationTtsNameModeOptions,
@@ -80,13 +111,16 @@ export function SettingsNotificationsTabContent({
     onDesktopToastChange,
     onAfkDesktopToastChange,
     onDesktopNotificationSoundChange,
+    onDesktopNotificationAvatarsChange,
     onNotificationTtsModeChange,
     onNotificationDoNotDisturbEndOnGameStartChange,
+    onBusyStatusDoNotDisturbChange,
     onNotificationTtsVoiceChange,
     onNotificationTtsVolumeChange,
     onNotificationTtsNameModeChange,
     onNotificationTtsTestVisibleChange,
     onNotificationTtsTestChange,
+    onSendTestNotification,
     onSpeakNotificationTts
 }: SettingsNotificationsTabContentProps) {
     const { t } = useTranslation();
@@ -103,6 +137,17 @@ export function SettingsNotificationsTabContent({
 
     return (
         <SettingsTabContent value="notifications">
+            <SettingsNotificationsInAppCard
+                prefs={prefs}
+                showTaskbarIconDot={showTaskbarIconDot}
+                notificationLayoutOptions={notificationLayoutOptions}
+                onNotificationLayoutChange={onNotificationLayoutChange}
+                onNotificationIconDotChange={onNotificationIconDotChange}
+                onTaskbarIconDotChange={onTaskbarIconDotChange}
+                onFriendLogNotificationDotChange={
+                    onFriendLogNotificationDotChange
+                }
+            />
             <SettingsCard
                 cardId="notifications.dnd"
                 title={t(
@@ -125,6 +170,19 @@ export function SettingsNotificationsTabContent({
                         onCheckedChange={
                             onNotificationDoNotDisturbEndOnGameStartChange
                         }
+                    />
+                </Field>
+                <Field
+                    label={t(
+                        'view.settings.notifications.notifications.do_not_disturb.busy_status'
+                    )}
+                    description={t(
+                        'view.settings.notifications.notifications.do_not_disturb.busy_status_description'
+                    )}
+                >
+                    <Switch
+                        checked={prefs.busyStatusDoNotDisturb}
+                        onCheckedChange={onBusyStatusDoNotDisturbChange}
                     />
                 </Field>
             </SettingsCard>
@@ -203,6 +261,17 @@ export function SettingsNotificationsTabContent({
                     <Switch
                         checked={prefs.desktopNotificationSound}
                         onCheckedChange={onDesktopNotificationSoundChange}
+                    />
+                </Field>
+
+                <Field
+                    label={t(
+                        'view.settings.notifications.notifications.desktop_notifications.friend_icons'
+                    )}
+                >
+                    <Switch
+                        checked={prefs.desktopNotificationAvatars}
+                        onCheckedChange={onDesktopNotificationAvatarsChange}
                     />
                 </Field>
             </SettingsCard>
@@ -435,6 +504,32 @@ export function SettingsNotificationsTabContent({
                         </Button>
                     </div>
                 ) : null}
+            </SettingsCard>
+            {webhookSettings}
+            <SettingsCard
+                cardId="notifications.test"
+                title={t(
+                    'view.settings.notifications.notifications.test_notification.header'
+                )}
+                description={t(
+                    'view.settings.notifications.notifications.test_notification.description'
+                )}
+            >
+                <Field
+                    label={t(
+                        'view.settings.notifications.notifications.test_notification.send'
+                    )}
+                >
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={onSendTestNotification}
+                    >
+                        {t(
+                            'view.settings.notifications.notifications.test_notification.button'
+                        )}
+                    </Button>
+                </Field>
             </SettingsCard>
         </SettingsTabContent>
     );

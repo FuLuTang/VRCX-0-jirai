@@ -69,6 +69,7 @@ fn library_entry(
         world_id: None,
         world_name: None,
         captured_at: None,
+        captured_at_ms: 1000,
         metadata_json: None,
         error: None,
     }
@@ -271,23 +272,6 @@ fn replace_library_entries_is_idempotent_for_unchanged_entries() -> Result<()> {
 }
 
 #[test]
-fn mark_library_entry_stale_for_test_resets_index_version() -> Result<()> {
-    let dir = TestDir::new("mark-stale");
-    let cache = open_cache(&dir);
-    let root_str = path_string(&dir.path.join("Screenshots"));
-    let entry = library_entry(&root_str, "a.png", &root_str, "a.png");
-    let seen: HashSet<String> = ["a.png".to_string()].into_iter().collect();
-    cache.replace_library_entries(&root_str, &seen, &[entry], true)?;
-
-    cache.mark_library_entry_stale_for_test("a.png")?;
-
-    let states = cache.library_file_states(&root_str);
-    let state = states.get("a.png").expect("entry still present");
-    assert_eq!(state.index_version, 0);
-    Ok(())
-}
-
-#[test]
 fn list_screenshot_folder_images_for_root_filters_by_folder_and_orders_by_file_name() -> Result<()>
 {
     let dir = TestDir::new("list-folder-images");
@@ -400,6 +384,51 @@ fn list_world_screenshots_for_root_filters_by_world_id() -> Result<()> {
 }
 
 #[test]
+fn list_screenshots_in_windows_counts_and_limits_each_window() -> Result<()> {
+    let dir = TestDir::new("list-window-screenshots");
+    let cache = open_cache(&dir);
+    let root_str = path_string(&dir.path.join("Screenshots"));
+    let entries = [100, 200, 300, 900]
+        .into_iter()
+        .map(|captured_at_ms| {
+            let name = format!("{captured_at_ms}.png");
+            let mut entry = library_entry(&root_str, &name, &root_str, &name);
+            entry.captured_at_ms = captured_at_ms;
+            entry
+        })
+        .collect::<Vec<_>>();
+    store_entries(&cache, &root_str, &entries)?;
+
+    let windows = cache.list_screenshots_in_windows_for_root(
+        &root_str,
+        &[
+            ScreenshotTimeWindow {
+                from_ms: 100,
+                to_ms: 300,
+            },
+            ScreenshotTimeWindow {
+                from_ms: 400,
+                to_ms: 800,
+            },
+        ],
+        2,
+    )?;
+
+    assert_eq!(windows[0].total, 3);
+    assert_eq!(
+        windows[0]
+            .images
+            .iter()
+            .map(|image| image.captured_at_ms)
+            .collect::<Vec<_>>(),
+        vec![100, 200]
+    );
+    assert_eq!(windows[1].total, 0);
+    assert!(windows[1].images.is_empty());
+    Ok(())
+}
+
+#[test]
 fn record_thumbnail_cache_upserts_existing_entry_by_thumb_path() {
     let dir = TestDir::new("thumbnail-upsert");
     let cache = open_cache(&dir);
@@ -443,20 +472,6 @@ fn delete_thumbnail_cache_record_removes_only_matching_entry() {
     let entries = cache.thumbnail_cache_entries();
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].thumb_path, "thumb-2.webp");
-}
-
-#[test]
-fn thumbnail_last_used_map_reflects_recorded_entries() {
-    let dir = TestDir::new("thumbnail-last-used-map");
-    let cache = open_cache(&dir);
-    cache.record_thumbnail_cache("source-1.png", "thumb-1.webp", "key-1", 100, 1000);
-    cache.record_thumbnail_cache("source-2.png", "thumb-2.webp", "key-2", 100, 2000);
-
-    let map = cache.thumbnail_last_used_map();
-
-    assert_eq!(map.len(), 2);
-    assert!(map.contains_key("thumb-1.webp"));
-    assert!(map.contains_key("thumb-2.webp"));
 }
 
 #[test]

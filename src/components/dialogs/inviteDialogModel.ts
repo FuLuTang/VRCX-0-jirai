@@ -1,9 +1,9 @@
 import type { FavoriteGroup, FavoriteGroupMap } from '@/domain/favorites/types';
+import { presenceSection } from '@/domain/friends/presence';
 import type {
     FriendRecordInput,
     FriendRosterInputById
 } from '@/domain/friends/types';
-import { isRecord } from '@/shared/utils/record';
 import { normalizeString as normalizeId } from '@/shared/utils/string';
 
 type InviteCurrentUser = FriendRecordInput | null | undefined;
@@ -24,7 +24,8 @@ export function onlineFriendIdsFromGroup(
         return (
             userId &&
             source.indexOf(userId) === index &&
-            friend?.state === 'online'
+            friend?.$presence !== undefined &&
+            presenceSection(friend.$presence) === 'online'
         );
     });
 }
@@ -42,10 +43,9 @@ export function displayNameForUser(
         );
     }
     const friend = friendsById[userId];
-    const ref = isRecord(friend?.ref) ? friend.ref : friend;
     return (
-        normalizeId(ref?.displayName) ||
-        normalizeId(ref?.username) ||
+        normalizeId(friend?.displayName) ||
+        normalizeId(friend?.username) ||
         normalizeId(friend?.name) ||
         userId
     );
@@ -56,48 +56,6 @@ export function pushUniqueLabel(labels: string[], label: string) {
     if (normalizedLabel && !labels.includes(normalizedLabel)) {
         labels.push(normalizedLabel);
     }
-}
-
-export function filterInviteUserIds({
-    selectableUserIds,
-    search,
-    friendsById,
-    currentUser
-}: {
-    selectableUserIds: string[];
-    search: string;
-    friendsById: FriendRosterInputById;
-    currentUser: InviteCurrentUser;
-}) {
-    const query = search.trim().toLowerCase();
-    if (!query) {
-        return selectableUserIds;
-    }
-    return selectableUserIds.filter((userId) => {
-        const displayName = displayNameForUser(
-            userId,
-            friendsById,
-            currentUser
-        );
-        return (
-            userId.toLowerCase().includes(query) ||
-            displayName.toLowerCase().includes(query)
-        );
-    });
-}
-
-export function sortInviteUserIdsWithSelectedFirst(
-    filteredUserIds: string[],
-    selectedUserIdSet: ReadonlySet<string>
-) {
-    return [...filteredUserIds].sort((left, right) => {
-        const leftSelected = selectedUserIdSet.has(normalizeId(left));
-        const rightSelected = selectedUserIdSet.has(normalizeId(right));
-        if (leftSelected !== rightSelected) {
-            return leftSelected ? -1 : 1;
-        }
-        return 0;
-    });
 }
 
 export function buildFavoriteGroupLabelsByUserId({

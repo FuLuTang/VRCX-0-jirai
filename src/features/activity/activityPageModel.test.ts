@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ActivityPageAccessSlice } from '@/repositories/activityPageRepository';
+import type { ActivityPageAccessSlice } from '@/platform/tauri/bindings';
 
 import {
     accessShare,
     averageMinutesPerDay,
-    changePercent,
     normalizeActivityRange,
     normalizeHeatmapBuckets,
     peakHour,
@@ -36,12 +35,6 @@ describe('activityPageModel', () => {
                 longestSessionMinutes: 120
             })
         ).toBe(20);
-    });
-
-    it('reports no change when the previous window has nothing to compare', () => {
-        expect(changePercent(120, 0)).toBeNull();
-        expect(changePercent(120, 100)).toBe(20);
-        expect(changePercent(80, 100)).toBe(-20);
     });
 
     it('keeps access shares at zero when nothing was recorded', () => {

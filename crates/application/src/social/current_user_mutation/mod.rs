@@ -9,7 +9,10 @@ pub use runtime::{
     CurrentUserMutationRuntime, CurrentUserQueryInvalidationFuture,
 };
 pub use types::{
-    ContentFilter, CurrentUserProfileUpdateRequest, CurrentUserUpdateRequest,
     VrchatCurrentUserBadgeInput, VrchatCurrentUserProfileUpdateInput, VrchatCurrentUserTagsInput,
     VrchatCurrentUserUpdateInput,
+};
+pub use vrcx_0_contracts::vrchat_requests::{
+    ContentFilter, CurrentUserProfileUpdateRequest, CurrentUserUpdateRequest,
+    ProfileBackgroundType, ProfileBannerType,
 };

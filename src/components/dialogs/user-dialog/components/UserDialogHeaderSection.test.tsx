@@ -19,11 +19,6 @@ import {
     type UserHeaderModel
 } from './UserDialogHeaderSection';
 
-vi.mock('react-i18next', async (importOriginal) => ({
-    ...(await importOriginal<typeof import('react-i18next')>()),
-    useTranslation: () => ({ t: (key: string) => key })
-}));
-
 let notifyResize: (() => void) | null = null;
 
 class ResizeObserverMock {
@@ -49,14 +44,6 @@ const nameplateEffect: InventoryItemRecord = {
                 url: 'https://example.test/nameplate.webp'
             }
         ]
-    }
-};
-
-const gradientNameplateEffect: InventoryItemRecord = {
-    id: 'invt_gradient_nameplate',
-    metadata: {
-        gradientEnd: '#2a0c88',
-        gradientStart: '#672bd8'
     }
 };
 
@@ -279,26 +266,6 @@ describe('UserDialogHeaderSection nameplate', () => {
         );
     });
 
-    it('keeps only the tooltip hover treatment on the display name', () => {
-        render(
-            <UserDialogHeaderSection
-                headerModel={createHeaderModel()}
-                headerCommands={createHeaderCommands()}
-            />
-        );
-
-        const displayNameButton = screen.getByText('Map1en_').closest('button');
-        expect(displayNameButton).not.toBeNull();
-
-        expect(
-            displayNameButton?.classList.contains('hover:bg-transparent')
-        ).toBe(true);
-        expect(displayNameButton?.classList.contains('hover:bg-muted')).toBe(
-            false
-        );
-        expect(displayNameButton?.getAttribute('title')).toBeNull();
-    });
-
     it('shrinks a long display name to the available width', () => {
         const headerModel = createHeaderModel();
         headerModel.profile.displayName = 'A very long display name';
@@ -325,60 +292,6 @@ describe('UserDialogHeaderSection nameplate', () => {
 
         expect(displayName.style.fontSize).toBe('15px');
     });
-
-    it('aligns a decorated nameplate with the action button', () => {
-        render(
-            <UserDialogHeaderSection
-                headerModel={createHeaderModel(nameplateEffect)}
-                headerCommands={createHeaderCommands()}
-            />
-        );
-
-        const title = screen.getByText('Map1en_');
-        const titleRow = title.closest('[data-slot="card-title"]');
-        const nameplate = titleRow?.parentElement;
-        const actionButton = screen.getByRole('button', {
-            name: 'Open entity actions'
-        });
-
-        expect(nameplate?.classList.contains('min-h-9')).toBe(true);
-        expect(titleRow?.classList.contains('min-h-9')).toBe(true);
-        expect(actionButton.classList.contains('size-9')).toBe(true);
-    });
-
-    it.each([
-        ['a static asset', nameplateEffect],
-        ['a gradient', gradientNameplateEffect]
-    ])('keeps the title readable over %s', (_kind, effect) => {
-        render(
-            <UserDialogHeaderSection
-                headerModel={createHeaderModel(effect)}
-                headerCommands={createHeaderCommands()}
-            />
-        );
-
-        const title = screen.getByText('Map1en_');
-        const titleRow = title.closest('[data-slot="card-title"]');
-
-        expect(titleRow?.classList.contains('text-white')).toBe(true);
-    });
-
-    it.each([
-        ['no item', undefined],
-        ['an item without renderable appearance', { id: 'invt_empty' }]
-    ])('keeps the theme foreground for %s', (_kind, effect) => {
-        render(
-            <UserDialogHeaderSection
-                headerModel={createHeaderModel(effect)}
-                headerCommands={createHeaderCommands()}
-            />
-        );
-
-        const title = screen.getByText('Map1en_');
-        const titleRow = title.closest('[data-slot="card-title"]');
-
-        expect(titleRow?.classList.contains('text-white')).toBe(false);
-    });
 });
 
 describe('UserDialogHeaderSection appearance visibility', () => {
@@ -401,34 +314,36 @@ describe('UserDialogHeaderSection appearance visibility', () => {
         expect(card?.style.backgroundImage).toBe('');
     });
 
-    it('hides the avatar frame and nameplate effect independently', () => {
-        const headerModel = createHeaderModel(nameplateEffect);
-        headerModel.profileAppearance.iconFrame = iconFrame;
-        headerModel.profileIconUrl = 'https://example.test/icon.webp';
-        headerModel.appearanceVisibility.avatarFrame = false;
-        headerModel.appearanceVisibility.nameplateEffect = false;
+    it.each([
+        ['avatar frame', 'avatarFrame', false, true],
+        ['nameplate effect', 'nameplateEffect', true, false]
+    ] as const)(
+        'hides only the %s when its visibility is off',
+        (_label, hiddenSlot, frameVisible, nameplateVisible) => {
+            const headerModel = createHeaderModel(nameplateEffect);
+            headerModel.profileAppearance.iconFrame = iconFrame;
+            headerModel.profileIconUrl = 'https://example.test/icon.webp';
+            headerModel.appearanceVisibility[hiddenSlot] = false;
 
-        const { container } = render(
-            <UserDialogHeaderSection
-                headerModel={headerModel}
-                headerCommands={createHeaderCommands()}
-            />
-        );
-        const title = screen.getByText('Map1en_');
-        const titleRow = title.closest('[data-slot="card-title"]');
+            const { container } = render(
+                <UserDialogHeaderSection
+                    headerModel={headerModel}
+                    headerCommands={createHeaderCommands()}
+                />
+            );
 
-        expect(
-            container.querySelector(
-                'img[src="https://example.test/frame.webp"]'
-            )
-        ).toBeNull();
-        expect(
-            container.querySelector(
-                'img[src="https://example.test/nameplate.webp"]'
-            )
-        ).toBeNull();
-        expect(titleRow?.classList.contains('text-white')).toBe(false);
-    });
+            expect(
+                container.querySelector(
+                    'img[src="https://example.test/frame.webp"]'
+                ) !== null
+            ).toBe(frameVisible);
+            expect(
+                container.querySelector(
+                    'img[src="https://example.test/nameplate.webp"]'
+                ) !== null
+            ).toBe(nameplateVisible);
+        }
+    );
 
     it('hides the profile effect without hiding the nameplate effect', () => {
         const headerModel = createHeaderModel(nameplateEffect);
@@ -441,8 +356,6 @@ describe('UserDialogHeaderSection appearance visibility', () => {
                 headerCommands={createHeaderCommands()}
             />
         );
-        const title = screen.getByText('Map1en_');
-        const titleRow = title.closest('[data-slot="card-title"]');
 
         expect(
             container.querySelector(
@@ -454,7 +367,6 @@ describe('UserDialogHeaderSection appearance visibility', () => {
                 'img[src="https://example.test/nameplate.webp"]'
             )
         ).not.toBeNull();
-        expect(titleRow?.classList.contains('text-white')).toBe(true);
     });
 });
 
@@ -564,9 +476,6 @@ describe('UserDialogHeaderSection friend actions', () => {
                 .closest('[data-slot="dropdown-menu-item"]')
                 ?.getAttribute('data-variant')
         ).toBe('destructive');
-        expect(
-            label.closest('[data-slot="dropdown-menu-content"]')?.className
-        ).toContain('**:data-[variant=destructive]:text-destructive!');
     });
 });
 

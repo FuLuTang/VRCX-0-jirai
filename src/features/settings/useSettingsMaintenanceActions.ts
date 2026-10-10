@@ -1,7 +1,4 @@
-import type {
-    AppDataDirState,
-    AvatarFeedCleanupOutcome
-} from '@/platform/tauri/bindings';
+import type { AppDataDirState, commands } from '@/platform/tauri/bindings';
 import { formatDataDirMigrationBytes } from '@/services/dataDirMigrationI18n';
 import {
     cleanupMigratedDataDir,
@@ -64,19 +61,13 @@ type SettingsMaintenanceActionsDeps = {
         optimistic?: () => PreferenceRollback
     ) => Promise<boolean>;
     confirm: (options: SettingsConfirmOptions) => Promise<SettingsDialogResult>;
-    avatarFeedHistoryRepository: {
-        cleanupAvatarFeedHistory(
-            cutoffDate: string | null
-        ): Promise<AvatarFeedCleanupOutcome>;
-    };
+    cleanupAvatarFeedHistory: typeof commands.appAvatarFeedHistoryCleanup;
     gameState: {
         isGameRunning: boolean | null;
     };
     language?: string;
-    mediaRepository: {
-        cropAllPrints(path: string): Promise<null>;
-        getUgcPhotoLocation(path: string): Promise<string>;
-    };
+    cropAllPrints: typeof commands.appCropAllPrints;
+    getUgcPhotoLocation: typeof commands.appGetUgcPhotoLocation;
     prefs: SettingsPrefs;
     prompt: (options: SettingsPromptOptions) => Promise<SettingsDialogResult>;
     purgePeriod: string;
@@ -88,9 +79,6 @@ type SettingsMaintenanceActionsDeps = {
         disabled: boolean
     ) => Promise<void>;
     setFeedPersistenceDisabledPreference: (disabled: boolean) => Promise<void>;
-    setAvatarFeedPersistenceDisabledPreference: (
-        disabled: boolean
-    ) => Promise<void>;
     setIntConfigPreference: (
         key: IntConfigPreferenceKey,
         value: string | number,
@@ -109,10 +97,11 @@ export function createSettingsMaintenanceActions({
     alert,
     commit,
     confirm,
-    avatarFeedHistoryRepository,
+    cleanupAvatarFeedHistory,
     gameState,
     language,
-    mediaRepository,
+    cropAllPrints,
+    getUgcPhotoLocation,
     prefs,
     prompt,
     purgePeriod,
@@ -122,7 +111,6 @@ export function createSettingsMaintenanceActions({
     setCropInstancePrintsPreference,
     setGameLogPersistenceDisabledPreference,
     setFeedPersistenceDisabledPreference,
-    setAvatarFeedPersistenceDisabledPreference,
     setIntConfigPreference,
     setPrefs,
     setPurgeDialogOpen,
@@ -385,10 +373,7 @@ export function createSettingsMaintenanceActions({
         setPurgeInProgress(true);
         useRuntimeStore.getState().setDatabaseMaintenanceActive(true);
         try {
-            const outcome =
-                await avatarFeedHistoryRepository.cleanupAvatarFeedHistory(
-                    cutoffDate
-                );
+            const outcome = await cleanupAvatarFeedHistory(cutoffDate);
             setPurgeDialogOpen(false);
             if (outcome.status === 'optimizationFailed') {
                 toast.add({
@@ -462,10 +447,10 @@ export function createSettingsMaintenanceActions({
         if (!result.ok) {
             return;
         }
-        const ugcFolderPath = await mediaRepository.getUgcPhotoLocation(
+        const ugcFolderPath = await getUgcPhotoLocation(
             prefs.userGeneratedContentPath
         );
-        await mediaRepository.cropAllPrints(ugcFolderPath);
+        await cropAllPrints(ugcFolderPath);
         toast.add({
             type: 'success',
             title: t('view.settings.label.existing_saved_prints_cropped')
@@ -535,15 +520,6 @@ export function createSettingsMaintenanceActions({
             setFeedPersistenceDisabledPreference(disabled)
         );
     }
-    async function handleAvatarFeedPersistenceDisabledChange(
-        disabled: boolean
-    ) {
-        await savePreferenceValue(
-            'avatarFeedPersistenceDisabled',
-            disabled,
-            () => setAvatarFeedPersistenceDisabledPreference(disabled)
-        );
-    }
     return {
         saveNotificationTtsMode,
         saveNotificationTtsVoice,
@@ -560,7 +536,6 @@ export function createSettingsMaintenanceActions({
         handleCropInstancePrintsChange,
         handleGameLogDisabledChange,
         handleFeedPersistenceDisabledChange,
-        handleAvatarFeedPersistenceDisabledChange,
         migrateLegacyVrcxData
     };
 }

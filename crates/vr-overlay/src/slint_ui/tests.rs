@@ -5,8 +5,8 @@ use super::{
 };
 use crate::{
     AvatarBitmap, DeviceChip, DeviceRole, DeviceStatus, FeedAccent, FeedKind, FeedLine,
-    FeedRelation, FeedSeverity, MainSurfaceModel, OverlayFooter, OverlaySize, RgbaFrame, ToastCard,
-    WristSurfaceModel,
+    FeedRelation, FeedSeverity, MainSurfaceModel, OverlayFooter, OverlayNowPlaying, OverlaySize,
+    RgbaFrame, ToastCard, WristSurfaceModel,
 };
 use std::{sync::Arc, thread};
 
@@ -39,6 +39,86 @@ fn slint_wrist_renderer_reuses_cached_frame_for_equal_model() {
 
     assert_ne!(first, third);
     assert_eq!(renderer.render_count(), 2);
+}
+
+#[test]
+fn hmd_toasts_put_the_newest_card_on_the_inner_edge_of_the_stack() {
+    use slint::Model;
+
+    let mut model = sample_main_model();
+    model.toasts = ["oldest", "middle", "newest", "latest"]
+        .into_iter()
+        .map(|actor| ToastCard {
+            actor_name: actor.to_string(),
+            show_avatar: false,
+            avatar: None,
+            ..model.toasts[0].clone()
+        })
+        .collect();
+    let actors = |model: &MainSurfaceModel| {
+        ensure_platform().unwrap();
+        let items = hmd::hmd_toast_model(model, &mut platform::AvatarImageCache::new());
+        (0..items.row_count())
+            .filter_map(|row| items.row_data(row))
+            .map(|item| item.actor.to_string())
+            .collect::<Vec<_>>()
+    };
+
+    assert_eq!(actors(&model), ["latest", "newest", "middle"]);
+    model.stack_upward = true;
+    assert_eq!(actors(&model), ["middle", "newest", "latest"]);
+}
+
+#[test]
+fn compact_hmd_newest_card_keeps_its_center_when_it_wraps_to_two_lines() {
+    let painted_rows = |frame: &RgbaFrame| {
+        let column = frame.size.width / 2;
+        let rows = (0..frame.size.height)
+            .filter(|y| frame.data[((y * frame.size.width + column) * 4 + 3) as usize] > 0)
+            .collect::<Vec<_>>();
+        (rows[0], rows[rows.len() - 1])
+    };
+
+    for stack_upward in [false, true] {
+        let mut renderer = SlintHmdRenderer::new();
+        let mut model = sample_main_model();
+        model.compact = true;
+        model.stack_upward = stack_upward;
+        model.toasts[0].show_avatar = false;
+        let (top, bottom) = painted_rows(&renderer.render(&model).unwrap());
+
+        model.toasts[0].action = "joined wrld_4cf5a0c2-7f7b-4e19-9a3a-6b2e5c8d9f01:12345~private(usr_c1644b5b-3ca4-45b4-97c6-a2a0de70d469)~region(jp)".to_string();
+        let (wrapped_top, wrapped_bottom) = painted_rows(&renderer.render(&model).unwrap());
+
+        assert!(wrapped_bottom - wrapped_top > bottom - top);
+        assert_eq!(
+            wrapped_top + wrapped_bottom,
+            top + bottom,
+            "stack_upward = {stack_upward}"
+        );
+    }
+}
+
+#[test]
+fn short_hmd_cards_keep_the_minimum_width() {
+    let painted_width = |frame: &RgbaFrame, row: u32| {
+        let columns = (0..frame.size.width)
+            .filter(|x| frame.data[((row * frame.size.width + x) * 4 + 3) as usize] > 0)
+            .collect::<Vec<_>>();
+        columns[columns.len() - 1] - columns[0] + 1
+    };
+
+    for compact in [false, true] {
+        let mut renderer = SlintHmdRenderer::new();
+        let mut model = sample_main_model();
+        model.compact = compact;
+        model.toasts[0].show_avatar = false;
+        model.toasts[0].action = "online".to_string();
+
+        let frame = renderer.render(&model).unwrap();
+
+        assert_eq!(painted_width(&frame, 40), 640, "compact = {compact}");
+    }
 }
 
 #[test]
@@ -167,6 +247,64 @@ fn wrist_panel_clamps_the_feed_to_the_rows_that_fit_each_preset() {
     }
 }
 
+#[test]
+fn wrist_panel_reserves_up_to_two_title_lines_for_now_playing_above_the_footer() {
+    let mut renderer = SlintWristRenderer::new();
+    let mut model = sample_wrist_model();
+    model.feed_rows = (0..2).map(feed_row).collect();
+    let panel_bottom = |frame: &RgbaFrame| {
+        (0..frame.size.height)
+            .rev()
+            .find(|y| frame.data[((y * frame.size.width + 250) * 4 + 3) as usize] > 200)
+            .unwrap()
+    };
+
+    let without = panel_bottom(&renderer.render(&model).unwrap());
+    model.now_playing = Some(now_playing("Never Gonna Give You Up", Some(400)));
+    let one_line = panel_bottom(&renderer.render(&model).unwrap());
+    model.now_playing = Some(now_playing(
+        "【MV】YOASOBI「アイドル」/ Idol (Official Music Video) - TVアニメ『【推しの子】』OPテーマ 4K Remaster",
+        Some(400),
+    ));
+    let two_lines = panel_bottom(&renderer.render(&model).unwrap());
+    model.now_playing = Some(now_playing(
+        &"【MV】YOASOBI「アイドル」/ Idol (Official Music Video) - TVアニメ ".repeat(6),
+        Some(400),
+    ));
+    let truncated = panel_bottom(&renderer.render(&model).unwrap());
+    model.now_playing = Some(now_playing("https://stream.example.test/live", None));
+    let unknown_length = panel_bottom(&renderer.render(&model).unwrap());
+
+    assert!(one_line > without + 40);
+    assert!(two_lines > one_line + 10);
+    assert!((two_lines..=two_lines + 2).contains(&truncated));
+    assert_eq!(unknown_length, one_line);
+}
+
+#[test]
+fn wrist_panel_redraws_only_when_the_now_playing_model_changes() {
+    let mut renderer = SlintWristRenderer::new();
+    let mut model = sample_wrist_model();
+    model.now_playing = Some(now_playing("Never Gonna Give You Up", Some(400)));
+
+    let first = renderer.render(&model).unwrap();
+    let second = renderer.render(&model).unwrap();
+    assert_eq!(first, second);
+    assert_eq!(renderer.render_count(), 1);
+
+    model.now_playing = Some(now_playing("Never Gonna Give You Up", Some(405)));
+    let advanced = renderer.render(&model).unwrap();
+    assert_ne!(first, advanced);
+    assert_eq!(renderer.render_count(), 2);
+}
+
+fn now_playing(title: &str, progress_permille: Option<u16>) -> OverlayNowPlaying {
+    OverlayNowPlaying {
+        title: title.to_string(),
+        time_text: "1:25 / 3:32".to_string(),
+        progress_permille,
+    }
+}
 fn overlay_size_presets() -> [OverlaySize; 3] {
     [
         OverlaySize::new(448, 448),
@@ -418,6 +556,7 @@ fn sample_wrist_model() -> WristSurfaceModel {
             severity: FeedSeverity::Important,
             accent: FeedAccent::None,
         }],
+        now_playing: None,
         footer: OverlayFooter {
             left: "8 players".to_string(),
             center: "Instance 12m".to_string(),
@@ -431,6 +570,8 @@ fn sample_main_model() -> MainSurfaceModel {
         size: OverlaySize::new(960, 528),
         dark_background: true,
         accent: crate::Color::rgba(94, 234, 212, 255),
+        compact: false,
+        stack_upward: false,
         toasts: vec![ToastCard {
             actor_name: "Ada".to_string(),
             relation: FeedRelation::Favorite,

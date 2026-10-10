@@ -190,6 +190,9 @@ jobs:
                   else
                       cargo build --manifest-path src-tauri/Cargo.toml --locked
                   fi
+            - name: Test backend architecture
+              if: runner.os == 'Linux'
+              run: cargo test --manifest-path src-tauri/Cargo.toml --locked --test backend_architecture
 
     rust-coverage:
         name: Rust Coverage
@@ -241,7 +244,7 @@ jobs:
                     - label: macOS
                       os: macos-latest
                       cache_key: ci-test-macos-aarch64
-                      rust_test_args: --exclude vrcx-0-overlay-runtime --exclude vrcx-0-application-game
+                      rust_test_args: --exclude vrcx-0-overlay-runtime
         steps:
             - uses: actions/checkout@v7
             - name: Install Slint Linux dependencies

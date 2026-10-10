@@ -1,7 +1,7 @@
 import { CheckIcon, EyeIcon, ImageIcon, Trash2Icon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import type { MediaFileRecord } from '@/repositories/mediaRepository';
+import type { MediaFileRecord } from '@/repositories/vrchatMediaRepository';
 import { extractFileId } from '@/shared/utils/fileUtils';
 
 import type { FileAssetTab, FileTabDefinition } from '../galleryConstants';
@@ -15,7 +15,7 @@ export function GalleryFileCard({
     tab,
     definition,
     file,
-    profilePicOverride,
+    bannerCustomUrl,
     userIcon,
     mutatingKey,
     currentUserId,
@@ -29,7 +29,7 @@ export function GalleryFileCard({
     tab: FileAssetTab;
     definition: FileTabDefinition;
     file: MediaFileRecord;
-    profilePicOverride: string;
+    bannerCustomUrl: string;
     userIcon: string;
     mutatingKey: string;
     currentUserId: string | null;
@@ -46,11 +46,10 @@ export function GalleryFileCard({
     const displayName = getUsefulDisplayName(file);
     const activeFileId =
         tab === 'gallery'
-            ? extractFileId(profilePicOverride)
+            ? extractFileId(bannerCustomUrl)
             : extractFileId(userIcon);
-    // VRChat's web UI calls profilePicOverride the Banner; keep the API field unchanged.
     const profileField: GalleryProfileField =
-        tab === 'gallery' ? 'profilePicOverride' : 'userIcon';
+        tab === 'gallery' ? 'banner' : 'userIcon';
     const isCurrent = activeFileId === file.id;
     const isFileMutating = mutatingKey === `${tab}:${file.id}`;
     const isProfileMutating = profileField

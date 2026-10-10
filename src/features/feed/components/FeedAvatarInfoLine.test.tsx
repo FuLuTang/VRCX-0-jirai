@@ -6,12 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FeedRow } from '@/components/feed/feedTypes';
 
 const mocks = vi.hoisted(() => ({
-    getAvatarNameFromImageUrl: vi.fn(),
+    appFileMetadataGet: vi.fn(),
     openImagePreview: vi.fn()
-}));
-
-vi.mock('react-i18next', () => ({
-    useTranslation: () => ({ t: (key: string) => key })
 }));
 
 vi.mock('@/services/toastService', () => ({
@@ -22,10 +18,8 @@ vi.mock('@/components/media/FadeInImage', () => ({
     FadeInImage: ({ alt }: { alt: string }) => <span>{alt}</span>
 }));
 
-vi.mock('@/repositories/avatarProfileRepository', () => ({
-    default: {
-        getAvatarNameFromImageUrl: mocks.getAvatarNameFromImageUrl
-    }
+vi.mock('@/platform/tauri/bindings', () => ({
+    commands: { appFileMetadataGet: mocks.appFileMetadataGet }
 }));
 
 vi.mock('@/services/dialogService', () => ({
@@ -78,9 +72,11 @@ describe('Feed avatar info loading', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
-        mocks.getAvatarNameFromImageUrl.mockResolvedValue({
-            avatarName: 'Resolved Avatar',
-            ownerId: 'usr_owner'
+        mocks.appFileMetadataGet.mockResolvedValue({
+            id: 'file_avatar',
+            name: 'Avatar - Resolved Avatar - Image - 1',
+            ownerId: 'usr_owner',
+            avatarName: 'Resolved Avatar'
         });
     });
 
@@ -88,7 +84,7 @@ describe('Feed avatar info loading', () => {
         render(<FeedDetailCell row={avatarRow} />);
 
         await waitFor(() => {
-            expect(mocks.getAvatarNameFromImageUrl).toHaveBeenCalledOnce();
+            expect(mocks.appFileMetadataGet).toHaveBeenCalledOnce();
             expect(screen.getByText('Resolved Avatar')).toBeTruthy();
         });
     });
@@ -104,7 +100,7 @@ describe('Feed avatar info loading', () => {
         );
 
         await waitFor(() => {
-            expect(mocks.getAvatarNameFromImageUrl).toHaveBeenCalledOnce();
+            expect(mocks.appFileMetadataGet).toHaveBeenCalledOnce();
             expect(screen.getByText('Resolved Avatar')).toBeTruthy();
         });
     });

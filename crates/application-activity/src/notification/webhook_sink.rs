@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{OverlayActivityDelivery, OverlayActivitySink, OverlayActivitySnapshot};
+use crate::{ActivityDelivery, ActivitySink, ActivitySnapshot};
 use vrcx_0_application_core::{
     HostSessionRuntime, RuntimeDiagnostics, TaskStopToken, TaskSupervisor,
 };
@@ -11,9 +11,8 @@ use super::preferences::{load_webhook_preferences, NotificationWebhookPreference
 use super::webhook::{discord_webhook_url_with_wait, wait_for_webhook_stop};
 use super::webhook_delivery::{WebhookDeliveryChannel, WebhookDeliveryMonitor};
 use super::{
-    config_bool, load_notification_locale, render_delivery, resolve_delivery_world_name,
-    send_json_webhook_with_retry, NotificationConfig, NotificationRemote,
-    NotificationWebhookFormat, NotificationWebhookTransport, UserImageCache,
+    load_notification_locale, render_delivery, send_json_webhook_with_retry, NotificationConfig,
+    NotificationResolver, NotificationWebhookFormat, NotificationWebhookTransport,
 };
 
 const NOTIFICATION_WEBHOOK_QUEUE_CAPACITY: usize = 64;
@@ -36,18 +35,16 @@ pub struct NotificationWebhookSink {
 }
 
 struct NotificationWebhookJob {
-    delivery: OverlayActivityDelivery,
+    delivery: ActivityDelivery,
     preferences: NotificationWebhookPreferences,
     format: NotificationWebhookFormat,
     locale: super::OverlayLocale,
     vrchat_endpoint: String,
-    allow_user_icon: bool,
 }
 
 struct NotificationWebhookWorkerDeps {
-    remote: Arc<dyn NotificationRemote>,
+    resolver: Arc<NotificationResolver>,
     webhook_transport: Arc<dyn NotificationWebhookTransport>,
-    user_image_cache: Arc<UserImageCache>,
     diagnostics: RuntimeDiagnostics,
     monitor: WebhookDeliveryMonitor,
 }
@@ -55,9 +52,8 @@ struct NotificationWebhookWorkerDeps {
 pub struct NotificationWebhookSinkDeps {
     pub session: HostSessionRuntime,
     pub config: Arc<dyn NotificationConfig>,
-    pub remote: Arc<dyn NotificationRemote>,
+    pub resolver: Arc<NotificationResolver>,
     pub webhook_transport: Arc<dyn NotificationWebhookTransport>,
-    pub user_image_cache: Arc<UserImageCache>,
     pub diagnostics: RuntimeDiagnostics,
     pub monitor: WebhookDeliveryMonitor,
     pub tasks: TaskSupervisor,
@@ -67,9 +63,8 @@ impl NotificationWebhookSink {
     pub fn new(deps: NotificationWebhookSinkDeps) -> Self {
         let (queue, receiver) = tokio::sync::mpsc::channel(NOTIFICATION_WEBHOOK_QUEUE_CAPACITY);
         let worker_deps = NotificationWebhookWorkerDeps {
-            remote: deps.remote,
+            resolver: deps.resolver,
             webhook_transport: deps.webhook_transport,
-            user_image_cache: deps.user_image_cache,
             diagnostics: deps.diagnostics.clone(),
             monitor: deps.monitor.clone(),
         };
@@ -86,10 +81,10 @@ impl NotificationWebhookSink {
     }
 }
 
-impl OverlayActivitySink for NotificationWebhookSink {
-    fn emit_overlay_activity_snapshot(&self, _snapshot: OverlayActivitySnapshot) {}
+impl ActivitySink for NotificationWebhookSink {
+    fn emit_overlay_activity_snapshot(&self, _snapshot: ActivitySnapshot) {}
 
-    fn emit_overlay_activity_delivery(&self, delivery: OverlayActivityDelivery) {
+    fn emit_overlay_activity_delivery(&self, delivery: ActivityDelivery) {
         if !delivery.webhook {
             return;
         }
@@ -104,16 +99,13 @@ impl OverlayActivitySink for NotificationWebhookSink {
             .realtime_context
             .map(|context| context.endpoint)
             .unwrap_or_default();
-        let allow_user_icon =
-            config_bool(self.config.as_ref(), "displayVRCPlusIconsAsAvatar", true);
-        let event_label = delivery.entry.activity_type.clone();
+        let event_label = delivery.entry.kind.key();
         let job = NotificationWebhookJob {
             delivery,
             preferences,
             format,
             locale,
             vrchat_endpoint: endpoint,
-            allow_user_icon,
         };
         if let Err(error) = self.queue.try_send(job) {
             let reason = match error {
@@ -124,7 +116,7 @@ impl OverlayActivitySink for NotificationWebhookSink {
                 &self.diagnostics,
                 "notificationWebhook",
                 WebhookDeliveryChannel::Notification,
-                &event_label,
+                event_label,
                 reason,
             );
         }
@@ -155,8 +147,10 @@ async fn deliver_notification_webhook(
     deps: &NotificationWebhookWorkerDeps,
     mut job: NotificationWebhookJob,
 ) {
-    if let Some((world_name, display_location)) =
-        resolve_delivery_world_name(deps.remote.as_ref(), &job.vrchat_endpoint, &job.delivery).await
+    if let Some((world_name, display_location)) = deps
+        .resolver
+        .world_name(&job.vrchat_endpoint, &job.delivery)
+        .await
     {
         job.delivery.entry.content.world_name = world_name;
         if !display_location.trim().is_empty() {
@@ -175,10 +169,8 @@ async fn deliver_notification_webhook(
         NotificationWebhookFormat::Discord => {
             build_discord_payload(
                 &DiscordDeps {
-                    user_image_cache: deps.user_image_cache.as_ref(),
-                    remote: deps.remote.as_ref(),
+                    resolver: deps.resolver.as_ref(),
                     endpoint: &job.vrchat_endpoint,
-                    allow_user_icon: job.allow_user_icon,
                 },
                 &job.delivery,
                 &render,
@@ -198,7 +190,7 @@ async fn deliver_notification_webhook(
         &deps.diagnostics,
         "notificationWebhook",
         WebhookDeliveryChannel::Notification,
-        &job.delivery.entry.activity_type,
+        job.delivery.entry.kind.key(),
         &result,
     );
 }
@@ -208,23 +200,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn webhook_format_selects_exactly_one_payload_family() {
+    fn webhook_format_is_selected_only_when_enabled_with_a_url() {
         let mut preferences = enabled_preferences();
-        assert_eq!(
-            select_notification_webhook_format(&preferences),
-            Some(NotificationWebhookFormat::Generic)
-        );
-
         preferences.format = NotificationWebhookFormat::Discord;
         assert_eq!(
             select_notification_webhook_format(&preferences),
             Some(NotificationWebhookFormat::Discord)
         );
-    }
 
-    #[test]
-    fn disabled_or_empty_webhook_configuration_does_not_send() {
-        let mut preferences = enabled_preferences();
         preferences.enabled = false;
         assert_eq!(select_notification_webhook_format(&preferences), None);
 

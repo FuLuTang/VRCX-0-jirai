@@ -16,7 +16,6 @@ export type StatusBarVisibilityKey =
     | 'proxy'
     | 'ws'
     | 'instanceQueue'
-    | 'mutualGraph'
     | 'nowPlaying'
     | 'uptime'
     | 'zoom'
@@ -110,6 +109,7 @@ type StatusBarFooterModel = {
     friendProfileLoad: StatusBarFriendProfileLoad;
     mutualGraph: StatusBarMutualGraph;
     nowPlaying: StatusBarNowPlaying;
+    onCopyMediaLink: () => void;
     onOpenMediaLink: () => void;
     onOpenStatusPage: () => Promise<void>;
     onProxyDraftEnabledChange: (enabled: boolean) => void;

@@ -8,7 +8,6 @@ const mocks = vi.hoisted(() => ({
     getInt: vi.fn(),
     getArray: vi.fn(),
     getObject: vi.fn(),
-    setBool: vi.fn(),
     setString: vi.fn(),
     storageGetString: vi.fn(),
     configureRecentActionCooldown: vi.fn(),
@@ -17,7 +16,16 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/platform/tauri/bindings', () => ({
     commands: {
-        appSystemCulture: mocks.appSystemCulture
+        appSystemCulture: mocks.appSystemCulture,
+        appNotificationActivityFiltersGet: () =>
+            Promise.resolve({
+                wrist: { version: 1, types: {} },
+                vr: { version: 1, types: {} },
+                hmd: { version: 1, types: {} },
+                desktop: { version: 1, types: {} },
+                webhook: { version: 1, types: {} },
+                tts: { version: 1, types: {} }
+            })
     }
 }));
 
@@ -29,7 +37,6 @@ vi.mock('@/repositories/configRepository', () => ({
         getInt: mocks.getInt,
         getArray: mocks.getArray,
         getObject: mocks.getObject,
-        setBool: mocks.setBool,
         setString: mocks.setString
     }
 }));
@@ -114,29 +121,12 @@ describe('preferenceSnapshotLoader', () => {
         mocks.getObject.mockImplementation((_key: string, fallback: unknown) =>
             Promise.resolve(fallback)
         );
-        mocks.setBool.mockResolvedValue(undefined);
         mocks.setString.mockResolvedValue(undefined);
         mocks.storageGetString.mockImplementation(
             (_key: string, fallback = '') =>
                 Promise.resolve(String(fallback ?? ''))
         );
         mocks.appSystemCulture.mockResolvedValue('ja-JP');
-    });
-
-    it('only reads the backend-seeded HMD notification preference', async () => {
-        mocks.getBool.mockImplementation((key: string, fallback = false) =>
-            Promise.resolve(
-                key === 'hmdNotificationsEnabled' ? false : Boolean(fallback)
-            )
-        );
-
-        const snapshot = await loadPreferenceSnapshot();
-
-        expect(mocks.setBool).not.toHaveBeenCalledWith(
-            'hmdNotificationsEnabled',
-            expect.anything()
-        );
-        expect(snapshot.hmdNotificationsEnabled).toBe(false);
     });
 
     it('loads and normalizes shell, proxy, table, and notification preferences', async () => {
@@ -146,7 +136,8 @@ describe('preferenceSnapshotLoader', () => {
                 tableDensity: '',
                 notificationLayout: 'table',
                 hmdNotificationStartMode: 'steamvr',
-                hmdNotificationPosition: 'left',
+                hmdNotificationPosition: 'center',
+                hmdNotificationStyle: 'wide',
                 webhookFields: 'event,displayName',
                 VRCX_fontFamily: 'invalid-font',
                 VRCX_cjkFontPack: 'invalid-cjk',
@@ -204,7 +195,8 @@ describe('preferenceSnapshotLoader', () => {
             hmdNotificationStartMode: 'steamvr',
             hmdNotificationTimeout: 30000,
             hmdNotificationOpacity: 0,
-            hmdNotificationPosition: 'left',
+            hmdNotificationPosition: 'center',
+            hmdNotificationStyle: 'standard',
             webhookFields: 'event,displayName',
             appFontFamily: 'geist',
             appCjkFontPack: 'noto',
@@ -271,6 +263,14 @@ describe('preferenceSnapshotLoader', () => {
             showUserDialogProfileEffect: false,
             showUserDialogNameplateEffect: false
         });
+    });
+
+    it('shows HMD notifications at 90% opacity and desktop and HMD icons until the user changes them', async () => {
+        const snapshot = await loadPreferenceSnapshot();
+
+        expect(snapshot.hmdNotificationOpacity).toBe(90);
+        expect(snapshot.hmdNotificationAvatars).toBe(true);
+        expect(snapshot.desktopNotificationAvatars).toBe(true);
     });
 
     it('loads an explicit Friend Log notification dot opt-out', async () => {

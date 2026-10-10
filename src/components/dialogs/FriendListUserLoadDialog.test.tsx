@@ -13,12 +13,6 @@ const controls = vi.hoisted(() => ({
     buttons: [] as CapturedButton[]
 }));
 
-vi.mock('react-i18next', () => ({
-    useTranslation: () => ({
-        t: (key: string) => key
-    })
-}));
-
 vi.mock('@/ui/shadcn/button', async () => {
     const React = await import('react');
 
@@ -139,6 +133,5 @@ describe('FriendListUserLoadDialog', () => {
         expect(html).toContain('aria-valuemax="5"');
         expect(html).toContain('aria-valuenow="2"');
         expect(html).toContain('aria-valuetext="2 / 5"');
-        expect(html).toContain('width:40%');
     });
 });

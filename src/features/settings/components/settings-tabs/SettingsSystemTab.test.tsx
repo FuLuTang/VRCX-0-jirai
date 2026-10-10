@@ -2,12 +2,6 @@ import type { ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('react-i18next', () => ({
-    useTranslation: () => ({
-        t: (key: string) => key
-    })
-}));
-
 type ChildrenProps = {
     children?: ReactNode;
 };
@@ -67,14 +61,17 @@ const handlers = {
     onBackgroundModeDelayEnabledChange: noop,
     onBackgroundModeEnabledChange: noop,
     onCloseToTrayChange: noop,
+    onFocusVrchatOnJoinChange: noop,
     onPostUpdateChangelogToastChange: noop,
     onPromptAutoLoginDelaySeconds: noop,
     onPromptBackgroundModeDelayMinutes: noop,
     onProxyEnabledChange: noop,
     onProxySettings: noop,
+    onRelaunchVRChatAfterCrashChange: noop,
     onStartAsMinimizedChange: noop,
     onStartAtWindowsStartupChange: noop,
-    onSystemWindowFrameChange: noop
+    onSystemWindowFrameChange: noop,
+    onVrcQuitFixChange: noop
 };
 
 describe('SettingsSystemTab updater policy', () => {
@@ -115,6 +112,17 @@ describe('SettingsSystemTab updater policy', () => {
                 <SettingsSystemTab hostPlatform={hostPlatform} {...handlers} />
             );
             expect(html.includes('shortcuts.tray.title')).toBe(
+                hostPlatform === 'windows'
+            );
+        }
+    });
+
+    it('shows the VRChat focus toggle only on Windows', () => {
+        for (const hostPlatform of ['windows', 'macos', 'linux'] as const) {
+            const html = renderToStaticMarkup(
+                <SettingsSystemTab hostPlatform={hostPlatform} {...handlers} />
+            );
+            expect(html.includes('behavior.focus_on_join_header')).toBe(
                 hostPlatform === 'windows'
             );
         }

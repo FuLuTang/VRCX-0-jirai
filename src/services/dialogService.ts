@@ -1,7 +1,7 @@
 import {
-    browseHistoryRepository,
+    commands,
     type BrowseHistoryEntityKind
-} from '@/repositories/browseHistoryRepository';
+} from '@/platform/tauri/bindings';
 import i18n from '@/services/i18nService';
 import { toast } from '@/services/toastService';
 import { recordUserProfile } from '@/services/userFactAccessService';
@@ -96,12 +96,7 @@ const browseHistoryKinds = new Set<EntityDialogKind>([
     'group'
 ]);
 const historyImageKeys: Record<BrowseHistoryEntityKind, readonly string[]> = {
-    user: [
-        'profilePicOverrideThumbnail',
-        'profilePicOverride',
-        'currentAvatarThumbnailImageUrl',
-        'currentAvatarImageUrl'
-    ],
+    user: ['iconUrl'],
     world: ['thumbnailImageUrl', 'imageUrl'],
     avatar: ['thumbnailImageUrl', 'imageUrl'],
     group: ['iconUrl', 'bannerUrl']
@@ -146,8 +141,8 @@ function recordEntityHistory(
         return;
     }
 
-    void browseHistoryRepository
-        .record({
+    void commands
+        .appBrowseHistoryRecord({
             ownerUserId,
             entityKind: snapshot.kind,
             entityId,

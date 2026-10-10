@@ -6,35 +6,6 @@ use serde::Serialize;
 
 use crate::{Error, ImageCachePort, Result, WebClient, WebClientPort, WorldCachePort};
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum BehaviorLockFacet {
-    InputNormalization,
-    OutputAndSerialization,
-    ErrorMapping,
-    AuthenticationAndOwnership,
-    RemoteRequest,
-    Persistence,
-    Events,
-    Cache,
-    Lifecycle,
-    Diagnostics,
-    RawBoundary,
-}
-
-pub const BEHAVIOR_LOCK_CHECKLIST: &[BehaviorLockFacet] = &[
-    BehaviorLockFacet::InputNormalization,
-    BehaviorLockFacet::OutputAndSerialization,
-    BehaviorLockFacet::ErrorMapping,
-    BehaviorLockFacet::AuthenticationAndOwnership,
-    BehaviorLockFacet::RemoteRequest,
-    BehaviorLockFacet::Persistence,
-    BehaviorLockFacet::Events,
-    BehaviorLockFacet::Cache,
-    BehaviorLockFacet::Lifecycle,
-    BehaviorLockFacet::Diagnostics,
-    BehaviorLockFacet::RawBoundary,
-];
-
 pub struct CallRecorder<T> {
     calls: Mutex<Vec<T>>,
 }
@@ -280,6 +251,42 @@ impl ImageCachePort for NoopImageCachePort {
     }
 }
 
+#[derive(Clone, Default)]
+pub struct MemoryFileCachePort {
+    files: Arc<Mutex<HashMap<String, vrcx_0_contracts::FileMetadataOutput>>>,
+    resolve_calls: Arc<CallRecorder<String>>,
+}
+
+impl MemoryFileCachePort {
+    pub fn insert(&self, file: vrcx_0_contracts::FileMetadataOutput) {
+        self.files
+            .lock()
+            .expect("memory file cache lock")
+            .insert(file.id.clone(), file);
+    }
+
+    pub fn resolve_calls(&self) -> Vec<String> {
+        self.resolve_calls.snapshot()
+    }
+}
+
+#[async_trait::async_trait]
+impl crate::FileCachePort for MemoryFileCachePort {
+    async fn resolve(
+        &self,
+        _web: &WebClient,
+        _endpoint: &str,
+        file_id: &str,
+    ) -> Option<vrcx_0_contracts::FileMetadataOutput> {
+        self.resolve_calls.record(file_id.to_string());
+        self.files
+            .lock()
+            .expect("memory file cache lock")
+            .get(file_id)
+            .cloned()
+    }
+}
+
 #[derive(Default)]
 pub struct NoopWorldCachePort;
 
@@ -310,6 +317,9 @@ impl WorldCachePort for NoopWorldCachePort {
         _world_value: &serde_json::Value,
     ) -> Option<vrcx_0_contracts::WorldSummaryOutput> {
         None
+    }
+    fn store_from_payload(&self, _world_value: &serde_json::Value) -> Result<Option<String>> {
+        Ok(None)
     }
     fn hydrate_favorite_payloads(
         &self,
@@ -435,6 +445,9 @@ impl WorldCachePort for MemoryWorldCachePort {
             .and_then(serde_json::Value::as_str)
             .map(ToOwned::to_owned)
     }
+    fn store_from_payload(&self, world_value: &serde_json::Value) -> Result<Option<String>> {
+        Ok(WorldCachePort::hydrate_from_payload(self, world_value))
+    }
     fn hydrate_summary_from_payload(
         &self,
         world_value: &serde_json::Value,
@@ -510,27 +523,57 @@ impl WorldCachePort for MemoryWorldCachePort {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[derive(Clone, Copy, Default)]
+pub struct NoopAvatarCachePort;
 
-    #[test]
-    fn checklist_has_every_observable_behavior_category_once() {
-        assert_eq!(BEHAVIOR_LOCK_CHECKLIST.len(), 11);
-        for (index, facet) in BEHAVIOR_LOCK_CHECKLIST.iter().enumerate() {
-            assert!(!BEHAVIOR_LOCK_CHECKLIST[..index].contains(facet));
-        }
+#[async_trait::async_trait]
+impl crate::AvatarCachePort for NoopAvatarCachePort {
+    fn clear_working(&self) {}
+    fn invalidate(&self, _user_id: &str, _endpoint: &str, _avatar_id: &str) {}
+    fn get_summary(
+        &self,
+        _user_id: &str,
+        _endpoint: &str,
+        _avatar_id: &str,
+    ) -> Result<Option<vrcx_0_contracts::AvatarCacheOutput>> {
+        Ok(None)
     }
-
-    #[test]
-    fn recorder_and_scripted_results_are_deterministic() {
-        let calls = CallRecorder::default();
-        calls.record("first");
-        calls.record("second");
-        assert_eq!(calls.snapshot(), ["first", "second"]);
-
-        let results = ScriptedResults::new([1, 2]);
-        assert_eq!(results.next(), 1);
-        assert_eq!(results.next(), 2);
+    fn find_by_image_url(
+        &self,
+        _user_id: &str,
+        _endpoint: &str,
+        _image_url: &str,
+    ) -> Result<Option<Arc<serde_json::Value>>> {
+        Ok(None)
+    }
+    fn hydrate_from_payload(
+        &self,
+        _user_id: &str,
+        _endpoint: &str,
+        avatar: serde_json::Value,
+    ) -> Option<Arc<serde_json::Value>> {
+        Some(Arc::new(avatar))
+    }
+    fn existing_summary_ids(&self, _avatar_ids: &[String]) -> Result<Vec<String>> {
+        Ok(Vec::new())
+    }
+    fn store_summaries(
+        &self,
+        _user_id: &str,
+        _endpoint: &str,
+        entries: Vec<vrcx_0_contracts::CacheEntityInput>,
+    ) -> Result<u32> {
+        Ok(u32::try_from(entries.len()).unwrap_or(u32::MAX))
+    }
+    async fn resolve(
+        &self,
+        _web: &WebClient,
+        _user_id: &str,
+        _endpoint: &str,
+        _avatar_id: &str,
+        _full: bool,
+        _fresh: bool,
+    ) -> Result<Option<Arc<serde_json::Value>>> {
+        Ok(None)
     }
 }

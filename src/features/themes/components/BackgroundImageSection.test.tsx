@@ -13,11 +13,8 @@ import { useBackgroundImageStore } from '@/state/backgroundImageStore';
 
 const mocks = vi.hoisted(() => ({
     openFolderAndSelectItem: vi.fn(),
+    setBackgroundImageScrim: vi.fn(),
     toastError: vi.fn()
-}));
-
-vi.mock('react-i18next', () => ({
-    useTranslation: () => ({ t: (key: string) => key })
 }));
 
 vi.mock('@/services/toastService', () => ({
@@ -35,6 +32,7 @@ vi.mock('@/services/toastService', () => ({
 
 vi.mock('@/services/background-image/backgroundImageService', () => ({
     backgroundImageRemoteProviders: [{ id: 'nasa-epic', name: 'NASA EPIC' }],
+    backgroundImageScrimLevels: ['subtle', 'balanced', 'clear'],
     chooseBackgroundImageFiles: vi.fn(),
     chooseBackgroundImageFolder: vi.fn(),
     isBackgroundImageCustomSourceRotating: vi.fn(() => false),
@@ -42,7 +40,8 @@ vi.mock('@/services/background-image/backgroundImageService', () => ({
     setBackgroundImageCustomRotationIntervalMinutes: vi.fn(),
     setBackgroundImageDecoration: vi.fn(),
     setBackgroundImageMode: vi.fn(),
-    setBackgroundImageProvider: vi.fn()
+    setBackgroundImageProvider: vi.fn(),
+    setBackgroundImageScrim: mocks.setBackgroundImageScrim
 }));
 
 vi.mock('@/services/shellIntegrationService', () => ({
@@ -237,5 +236,28 @@ describe('BackgroundImageSection current folder image', () => {
                 name: 'view.background_image.action.refresh'
             })
         ).toBeNull();
+    });
+});
+
+describe('BackgroundImageSection dimming', () => {
+    it('switches the dimming level from the current selection', async () => {
+        const user = userEvent.setup();
+        render(<BackgroundImageSection />);
+
+        expect(
+            screen
+                .getByRole('button', {
+                    name: 'view.background_image.scrim.balanced'
+                })
+                .getAttribute('aria-pressed')
+        ).toBe('true');
+
+        await user.click(
+            screen.getByRole('button', {
+                name: 'view.background_image.scrim.clear'
+            })
+        );
+
+        expect(mocks.setBackgroundImageScrim).toHaveBeenCalledWith('clear');
     });
 });

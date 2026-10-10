@@ -4,7 +4,7 @@ import type {
     InventoryItemsCollectInput,
     MediaFileTag
 } from '@/platform/tauri/bindings';
-import type { MediaFileRecord } from '@/repositories/mediaRepository';
+import type { MediaFileRecord } from '@/repositories/vrchatMediaRepository';
 import { toast } from '@/services/toastService';
 import {
     emojiAnimationStyleNames,
@@ -20,7 +20,7 @@ import {
     type GalleryGridDensity
 } from './galleryDensity';
 
-const INVENTORY_GRID_DENSITY_STORAGE_KEY = 'VRCX_InventoryGridDensity';
+const INVENTORY_GRID_DENSITY_STORAGE_KEY = 'VRCX_0_InventoryGridDensity';
 
 export const CATEGORY_ORDER = [
     'emojis',
@@ -214,35 +214,17 @@ export function scopeKey(category: string, tab: string) {
 }
 
 export function readGridDensityPreference() {
-    if (typeof window === 'undefined') {
-        return sanitizeGalleryGridDensity();
-    }
-    try {
-        return sanitizeGalleryGridDensity(
-            window.localStorage.getItem(INVENTORY_GRID_DENSITY_STORAGE_KEY)
-        );
-    } catch {
-        return sanitizeGalleryGridDensity();
-    }
+    return sanitizeGalleryGridDensity(
+        localStorage.getItem(INVENTORY_GRID_DENSITY_STORAGE_KEY)
+    );
 }
 
 export function writeGridDensityPreference(value: GalleryGridDensity) {
-    if (typeof window === 'undefined') {
-        return;
-    }
-    try {
-        window.localStorage.setItem(INVENTORY_GRID_DENSITY_STORAGE_KEY, value);
-    } catch {
-        // no-op
-    }
+    localStorage.setItem(INVENTORY_GRID_DENSITY_STORAGE_KEY, value);
 }
 
 export function getInventoryGridDensityConfig(gridDensity: GalleryGridDensity) {
     return getGalleryGridDensityConfig(gridDensity);
-}
-
-export function sanitizeInventoryGridDensity(nextValue: unknown) {
-    return sanitizeGalleryGridDensity(nextValue);
 }
 
 export function getLatestFileUrl(file: Pick<MediaFileRecord, 'versions'>) {

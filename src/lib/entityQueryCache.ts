@@ -9,11 +9,6 @@ import type {
     VrchatWorldListByUserInput
 } from '@/platform/tauri/bindings';
 import { MINUTE_MS, SECOND_MS } from '@/shared/constants/time';
-import {
-    hasAvatarIdPrefix,
-    hasGroupIdPrefix,
-    hasUserIdPrefix
-} from '@/shared/constants/vrchatIds';
 import { normalizeVrchatEndpointKey } from '@/shared/vrchatEndpoint';
 
 type EntityQueryPolicy = Readonly<{
@@ -91,12 +86,6 @@ export const entityQueryPolicies = Object.freeze({
         retry: 1,
         refetchOnWindowFocus: false
     }),
-    fileObject: Object.freeze({
-        staleTime: 10 * MINUTE_MS,
-        gcTime: 40 * MINUTE_MS,
-        retry: 1,
-        refetchOnWindowFocus: false
-    }),
     avatarStyles: Object.freeze({
         staleTime: 60 * MINUTE_MS,
         gcTime: 240 * MINUTE_MS,
@@ -130,6 +119,12 @@ export const entityQueryPolicies = Object.freeze({
     userAvatarLookup: Object.freeze({
         staleTime: 30 * MINUTE_MS,
         gcTime: 5 * MINUTE_MS,
+        retry: 0,
+        refetchOnWindowFocus: false
+    }),
+    boopEmojiLookup: Object.freeze({
+        staleTime: 30 * MINUTE_MS,
+        gcTime: 30 * MINUTE_MS,
         retry: 0,
         refetchOnWindowFocus: false
     })
@@ -220,6 +215,8 @@ export const queryKeys = Object.freeze({
         }: { eventId?: string; groupId?: string } = {},
         endpoint: string = ''
     ) => withEndpoint(['calendar', groupId, eventId], endpoint),
+    worldRooms: (worldId: string, endpoint: string = '') =>
+        withEndpoint(['world', worldId, 'rooms'], endpoint),
     avatarGallery: (avatarId: string, endpoint: string = '') =>
         withEndpoint(['avatar', avatarId, 'gallery'], endpoint),
     userInventoryItem: (
@@ -231,6 +228,8 @@ export const queryKeys = Object.freeze({
     ) => withEndpoint(['inventory', 'item', userId, inventoryId], endpoint),
     inventoryTemplate: (inventoryTemplateId: string, endpoint: string = '') =>
         withEndpoint(['inventory', 'template', inventoryTemplateId], endpoint),
+    boopEmoji: (userId: string, inventoryId: string, endpoint: string = '') =>
+        withEndpoint(['boopEmoji', userId, inventoryId], endpoint),
     fileAnalysis: (
         {
             fileId = '',
@@ -239,12 +238,12 @@ export const queryKeys = Object.freeze({
         }: { fileId?: string; variant?: string; version?: number } = {},
         endpoint: string = ''
     ) => withEndpoint(['analysis', fileId, version, variant], endpoint),
-    file: (fileId: string, endpoint: string = '') =>
-        withEndpoint(['file', fileId], endpoint),
     avatarStyles: (endpoint: string = '') =>
         withEndpoint(['avatar', 'styles'], endpoint),
     representedGroup: (userId: string, endpoint: string = '') =>
         withEndpoint(['user', userId, 'representedGroup'], endpoint),
+    userMutualFriends: (userId: string, endpoint: string = '') =>
+        withEndpoint(['user', userId, 'mutualFriends'], endpoint),
     userDialogTabCounts: (
         params: UserDialogTabCountQueryParams,
         endpoint: string = ''
@@ -332,30 +331,4 @@ export function invalidateEntityQueries(queryKey: QueryKey) {
 export async function clearEntityQueryCache() {
     await queryClient.cancelQueries();
     queryClient.clear();
-}
-
-export function getEntityQueryCacheStats() {
-    const users = new Set<string>();
-    const avatars = new Set<string>();
-    const groups = new Set<string>();
-
-    for (const query of queryClient.getQueryCache().getAll()) {
-        const [kind, id] = Array.isArray(query.queryKey) ? query.queryKey : [];
-        if (typeof id !== 'string') {
-            continue;
-        }
-        if (kind === 'user' && hasUserIdPrefix(id)) {
-            users.add(id);
-        } else if (kind === 'avatar' && hasAvatarIdPrefix(id)) {
-            avatars.add(id);
-        } else if (kind === 'group' && hasGroupIdPrefix(id)) {
-            groups.add(id);
-        }
-    }
-
-    return {
-        users: users.size,
-        avatars: avatars.size,
-        groups: groups.size
-    };
 }

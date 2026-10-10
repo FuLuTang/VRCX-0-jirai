@@ -6,9 +6,10 @@ use crate::http_api::{
     api_input, encode_path_segment, get_input, require_text, HttpApiError, HttpApiRequestInput,
 };
 
-mod request;
-
-pub use request::{ContentFilter, CurrentUserProfileUpdateRequest, CurrentUserUpdateRequest};
+pub use vrcx_0_contracts::vrchat_requests::{
+    ContentFilter, CurrentUserProfileUpdateRequest, CurrentUserUpdateRequest,
+    ProfileBackgroundType, ProfileBannerType,
+};
 
 pub fn user_get_input(
     endpoint: String,

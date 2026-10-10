@@ -21,29 +21,26 @@ vi.mock('@/repositories/configRepository', () => ({
 
 import {
     getTranslationConfig,
-    translateText,
     translateTextDetailed
 } from './translationService';
 
 describe('translationService', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        mocks.getBool.mockResolvedValue(true);
-        mocks.getString.mockImplementation((key: string, fallback = '') => {
-            const values: Record<string, string> = {
-                bioLanguage: 'ja',
-                translationAPIType: 'deepl'
-            };
-            return Promise.resolve(values[key] ?? String(fallback ?? ''));
-        });
     });
 
-    it('reads the display config from the config repository', async () => {
-        const config = await getTranslationConfig();
-        expect(config).toEqual({
-            enabled: true,
-            bioLanguage: 'ja',
-            type: 'deepl'
+    it('falls back to English and Google for empty or unknown stored config', async () => {
+        mocks.getBool.mockImplementation((_key: string, fallback: boolean) =>
+            Promise.resolve(fallback)
+        );
+        mocks.getString.mockImplementation((key: string) =>
+            Promise.resolve(key === 'translationAPIType' ? 'bing' : '')
+        );
+
+        await expect(getTranslationConfig()).resolves.toEqual({
+            enabled: false,
+            bioLanguage: 'en',
+            type: 'google'
         });
     });
 
@@ -74,21 +71,13 @@ describe('translationService', () => {
             provider: 'google'
         });
 
-        await expect(translateText('Hello')).resolves.toBe('hola');
+        await expect(translateTextDetailed('Hello')).resolves.toMatchObject({
+            text: 'hola'
+        });
         expect(mocks.appTranslationTranslate).toHaveBeenCalledWith({
             text: 'Hello',
             targetLanguage: null,
             overrides: null
         });
-    });
-
-    it('propagates command failures to the caller', async () => {
-        mocks.appTranslationTranslate.mockRejectedValue(
-            new Error('Translation API disabled.')
-        );
-
-        await expect(translateText('Hello')).rejects.toThrow(
-            'Translation API disabled.'
-        );
     });
 });

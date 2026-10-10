@@ -8,7 +8,7 @@ import {
     formatDateLabel
 } from '@/features/instance-history/instance-activity/instanceActivityDate';
 import { getLocalDayBounds } from '@/features/instance-history/instance-activity/instanceActivityRows';
-import { formatDateFilter, timeToText } from '@/lib/dateTime';
+import { timeToText } from '@/lib/dateTime';
 import feedRepository from '@/repositories/feedRepository';
 import { useFriendRosterStore } from '@/state/friendRosterStore';
 import { useRuntimeStore } from '@/state/runtimeStore';

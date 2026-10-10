@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import type { BoopEmojiChoice } from '@/domain/entities/boopEmoji';
 import type { InviteMessageType } from '@/platform/tauri/bindings';
 import notificationPersistenceRepository, {
     type NotificationResponse
@@ -19,6 +20,7 @@ import { signalFriendLogChanged } from '@/services/friendLogMutationService';
 import {
     acceptFriendRequestNotification,
     acceptRequestInviteNotification,
+    expireNotificationLocally,
     hideRemoteAndExpireNotification,
     sendBoopReplyNotification,
     sendInviteResponseNotification,
@@ -355,6 +357,35 @@ export function useNotificationActions({
         [confirm, currentUserId, notificationTypeLabel, reload, t]
     );
 
+    const ignoreNotificationLocally = useCallback(
+        async (notification: NotificationRow) => {
+            try {
+                await expireNotificationLocally({
+                    currentUserId,
+                    notification
+                });
+                await reload();
+                toast.add({
+                    type: 'success',
+                    title: t(
+                        'view.notification.success.notification_ignored_locally'
+                    )
+                });
+            } catch (error) {
+                toast.add({
+                    type: 'error',
+                    title:
+                        error instanceof Error
+                            ? error.message
+                            : t(
+                                  'view.notifications.toast.failed_to_ignore_notification'
+                              )
+                });
+            }
+        },
+        [currentUserId, reload, t]
+    );
+
     const acceptRequestInvite = useCallback(
         async (notification: NotificationRow) => {
             try {
@@ -461,7 +492,7 @@ export function useNotificationActions({
                 responseSlot: row.slot,
                 withUploadTimeout
             });
-            await reload();
+            await Promise.resolve(reload()).catch(() => undefined);
             toast.add({
                 type: 'success',
                 title: result.sentPhoto
@@ -473,13 +504,16 @@ export function useNotificationActions({
     );
 
     const sendBoopReply = useCallback(
-        async (notification: NotificationRow | null, emojiId: string = '') => {
+        async (
+            notification: NotificationRow | null,
+            emoji: BoopEmojiChoice | null
+        ) => {
             if (!notification) {
                 return;
             }
             await sendBoopReplyNotification({
                 currentUserId,
-                emojiId,
+                emoji,
                 notification
             });
             await reload();
@@ -538,6 +572,7 @@ export function useNotificationActions({
         acceptRequestInvite,
         deleteNotification,
         hideNotification,
+        ignoreNotificationLocally,
         markAllSeen,
         markSeen,
         notificationTypeIsClickable,

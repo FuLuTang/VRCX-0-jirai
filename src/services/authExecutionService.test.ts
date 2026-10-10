@@ -5,13 +5,13 @@ import type { AppToastOptions } from '@/services/toastService';
 const mocks = vi.hoisted(() => ({
     toastSuccess: vi.fn(),
     toastError: vi.fn(),
+    toastClose: vi.fn(),
     endSession: vi.fn(),
     startLoginSession: vi.fn(),
     respondLoginSession: vi.fn(),
     cancelLoginSession: vi.fn(),
     clearEntityQueryCache: vi.fn(),
     applySavedAuthSnapshot: vi.fn(),
-    buildAvatarWearSnapshotUpdate: vi.fn(),
     recordCurrentUserSnapshot: vi.fn(),
     resetDomainFacts: vi.fn(),
     loadVrchatConfigSnapshot: vi.fn(),
@@ -19,7 +19,8 @@ const mocks = vi.hoisted(() => ({
     t: vi.fn(),
     bootstrapAuthenticatedSession: vi.fn(),
     confirm: vi.fn(),
-    otpPrompt: vi.fn()
+    otpPrompt: vi.fn(),
+    flashWindow: vi.fn()
 }));
 
 vi.mock('@/services/toastService', () => ({
@@ -33,7 +34,8 @@ vi.mock('@/services/toastService', () => ({
                 default:
                     throw new Error('Unhandled toast type: ' + options.type);
             }
-        }
+        },
+        close: mocks.toastClose
     }
 }));
 
@@ -47,20 +49,21 @@ vi.mock('@/repositories/authRepository', () => ({
     }
 }));
 
-vi.mock('@/repositories/vrchatAuthRepository', () => ({
-    default: {
-        startLoginSession: mocks.startLoginSession,
-        respondLoginSession: mocks.respondLoginSession,
-        cancelLoginSession: mocks.cancelLoginSession
+vi.mock('@/platform/tauri/bindings', () => ({
+    commands: {
+        appVrchatAuthSessionStart: mocks.startLoginSession,
+        appVrchatAuthSessionRespond: mocks.respondLoginSession,
+        appVrchatAuthSessionCancel: mocks.cancelLoginSession
     }
+}));
+
+vi.mock('@/platform/tauri/webview', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/platform/tauri/webview')>()),
+    flashWindow: mocks.flashWindow
 }));
 
 vi.mock('./authSnapshotService', () => ({
     applySavedAuthSnapshot: mocks.applySavedAuthSnapshot
-}));
-
-vi.mock('./avatarWearTimeService', () => ({
-    buildAvatarWearSnapshotUpdate: mocks.buildAvatarWearSnapshotUpdate
 }));
 
 vi.mock('./domainIngestionService', () => ({
@@ -99,16 +102,14 @@ import {
 import { useAssistantChatStore } from '@/state/assistantChatStore';
 import { useFriendLocationTimeStore } from '@/state/friendLocationTimeStore';
 import { useModalStore } from '@/state/modalStore';
-import {
-    type CurrentUserSnapshotState,
-    useRuntimeStore
-} from '@/state/runtimeStore';
+import { useRuntimeStore } from '@/state/runtimeStore';
 import { useSessionStore } from '@/state/sessionStore';
 
 import {
     executeManualLogin,
     executeSavedCredentialLogin,
-    logoutFromReactShell
+    logoutFromReactShell,
+    showAuthFailureToast
 } from './authExecutionService';
 
 function savedCredential(id: string): SavedCredentialSnapshot {
@@ -235,13 +236,6 @@ describe('authExecutionService characterization', () => {
         mocks.applySavedAuthSnapshot.mockImplementation(
             (snapshot: SavedAuthSnapshot) => snapshot
         );
-        mocks.buildAvatarWearSnapshotUpdate.mockImplementation(
-            ({
-                nextSnapshot
-            }: {
-                nextSnapshot: CurrentUserSnapshotState | null;
-            }) => ({ snapshot: nextSnapshot })
-        );
         mocks.t.mockImplementation((key: string, values?: { name?: string }) =>
             Promise.resolve(values?.name ? `${key}:${values.name}` : key)
         );
@@ -249,6 +243,7 @@ describe('authExecutionService characterization', () => {
         mocks.loadVrchatConfigSnapshot.mockResolvedValue({});
         mocks.confirm.mockResolvedValue({ ok: true });
         mocks.otpPrompt.mockResolvedValue({ ok: true, value: '123456' });
+        mocks.flashWindow.mockResolvedValue(undefined);
     });
 
     it('rejects manual login without username or password', async () => {
@@ -291,13 +286,54 @@ describe('authExecutionService characterization', () => {
         expect(mocks.loadVrchatConfigSnapshot).toHaveBeenCalledTimes(1);
         expect(useAssistantChatStore.getState()).toMatchObject({
             open: false,
-            activeSessionId: null,
-            messagesBySession: {}
+            activeSessionId: null
         });
+        expect(useAssistantChatStore.getState().messagesBySession).toEqual({});
         expect(mocks.bootstrapAuthenticatedSession).toHaveBeenCalledWith(
             user(),
             expect.any(Number)
         );
+    });
+
+    it('closes persistent auth failure toasts once a login succeeds', async () => {
+        mocks.toastError
+            .mockReturnValueOnce('failure-1')
+            .mockReturnValueOnce('failure-2');
+        showAuthFailureToast('Network unavailable');
+        showAuthFailureToast('message.auth.offline');
+        expect(mocks.toastError).toHaveBeenCalledWith({
+            type: 'error',
+            title: 'Network unavailable',
+            timeout: 0,
+            data: { closeButton: true }
+        });
+        expect(mocks.toastClose).not.toHaveBeenCalled();
+
+        await executeManualLogin({
+            username: 'self@example.test',
+            password: 'secret'
+        });
+
+        expect(mocks.toastClose).toHaveBeenCalledTimes(2);
+        expect(mocks.toastClose).toHaveBeenCalledWith('failure-1');
+        expect(mocks.toastClose).toHaveBeenCalledWith('failure-2');
+    });
+
+    it('keeps auth failure toasts open when the post-login bootstrap fails', async () => {
+        mocks.toastError.mockReturnValueOnce('failure-1');
+        showAuthFailureToast('Network unavailable');
+        mocks.bootstrapAuthenticatedSession.mockRejectedValueOnce(
+            new Error('bootstrap failed')
+        );
+
+        await expect(
+            executeManualLogin({
+                username: 'self@example.test',
+                password: 'secret'
+            })
+        ).rejects.toThrow('bootstrap failed');
+
+        expect(mocks.toastClose).not.toHaveBeenCalled();
     });
 
     it('does not expose an authenticated frontend session when the backend commit fails', async () => {
@@ -345,7 +381,7 @@ describe('authExecutionService characterization', () => {
         expect(useSessionStore.getState().sessionPhase).toBe('authenticating');
     });
 
-    it('prefers email OTP and finishes login after the challenge resolves', async () => {
+    it('prompts with the email OTP copy and finishes login after the challenge resolves', async () => {
         mocks.startLoginSession.mockResolvedValueOnce(
             challengeState(['emailOtp'], 'emailOtp')
         );
@@ -373,7 +409,7 @@ describe('authExecutionService characterization', () => {
         );
     });
 
-    it('deletes saved credentials when VRChat rejects them', async () => {
+    it('maps rejected saved credentials to AUTH_SAVED_CREDENTIALS_INVALID and signs out with the backend snapshot', async () => {
         mocks.startLoginSession.mockResolvedValueOnce(
             failedState(
                 'Invalid Username/Email or Password',
@@ -628,6 +664,7 @@ describe('authExecutionService characterization', () => {
             expect(
                 mocks.otpPrompt.mock.calls.map(([prompt]) => prompt.mode)
             ).toEqual(['totp', 'otp', 'totp']);
+            expect(mocks.flashWindow).toHaveBeenCalledTimes(1);
             expect(mocks.cancelLoginSession).not.toHaveBeenCalled();
             expect(mocks.respondLoginSession).toHaveBeenCalledTimes(1);
             expect(mocks.respondLoginSession).toHaveBeenCalledWith({
@@ -654,7 +691,9 @@ describe('authExecutionService characterization', () => {
 
             expect(mocks.startLoginSession).toHaveBeenCalledTimes(2);
             expect(mocks.cancelLoginSession).toHaveBeenCalledTimes(1);
-            expect(mocks.cancelLoginSession).toHaveBeenCalledWith('attempt-1');
+            expect(mocks.cancelLoginSession).toHaveBeenCalledWith({
+                attemptId: 'attempt-1'
+            });
             expect(mocks.otpPrompt).toHaveBeenCalledTimes(2);
             expect(
                 mocks.otpPrompt.mock.calls.map(([prompt]) => prompt.mode)
@@ -745,13 +784,15 @@ describe('authExecutionService characterization', () => {
             });
 
             expect(mocks.cancelLoginSession).toHaveBeenCalledTimes(1);
-            expect(mocks.cancelLoginSession).toHaveBeenCalledWith('attempt-1');
+            expect(mocks.cancelLoginSession).toHaveBeenCalledWith({
+                attemptId: 'attempt-1'
+            });
             expect(mocks.respondLoginSession).not.toHaveBeenCalled();
         });
     });
 
-    describe('saved-credential login always disables credential saving', () => {
-        it('starts the saved-credential session without any client-side credential persistence', async () => {
+    describe('saved-credential login', () => {
+        it('starts a saved-credential session by user id and applies the returned snapshot', async () => {
             mocks.startLoginSession.mockResolvedValueOnce(
                 authenticatedState('usr_saved')
             );
@@ -782,7 +823,7 @@ describe('authExecutionService characterization', () => {
             });
         });
 
-        it('clears the last-logged-in target for a session-recovery failure while keeping the saved credential', async () => {
+        it('rejects with the typed failure and applies the backend snapshot for a session-invalidated failure', async () => {
             const nextSnapshot = savedSnapshot({
                 credentialId: 'usr_saved',
                 lastUserLoggedIn: null

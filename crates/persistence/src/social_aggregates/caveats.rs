@@ -1,21 +1,3 @@
-const GLOBAL_DATA_CAVEATS: &[&str] = &[
-    "VRCX-0 data is observer-centered and not a global VRChat record.",
-    "Missing rows mean this VRCX-0 profile did not observe the event, not that the event did not happen.",
-    "Co-presence minutes are useful for relative sorting; join/leave pairing can undercount absolute duration.",
-    "Private instances that the owner cannot see may only appear as private and cannot be separated by instance.",
-];
-
-pub fn global_caveats() -> Vec<String> {
-    GLOBAL_DATA_CAVEATS
-        .iter()
-        .map(|value| (*value).to_string())
-        .collect()
-}
-
-pub fn data_caveats_resource() -> String {
-    global_caveats().join("\n")
-}
-
 pub(crate) fn copresence_caveats() -> Vec<String> {
     vec![
         "Co-presence total_minutes can be systemically low; use it for relative sorting, not exact duration.".into(),
@@ -34,6 +16,17 @@ pub(crate) fn worlds_visited_caveats() -> Vec<String> {
     vec![
         "World visit rows are based on this profile's local game log.".into(),
         "Several worlds may match a natural-language window; confirm the target before writing favorites.".into(),
+    ]
+}
+
+pub(crate) fn visit_timeline_caveats() -> Vec<String> {
+    vec![
+        "Visit bounds and the roster come from this profile's local game log; only what VRCX-0 observed while you were in the instance is included.".into(),
+        "The visit you are still in has no leftAt (inProgress=true); an earlier visit without leftAt lost its leave record (crash or truncated log).".into(),
+        "A person without leftAt is not known to have stayed: a crash or truncated log drops leave events.".into(),
+        "A person without joinedAt was already inside before you arrived or before VRCX-0 started watching.".into(),
+        "Old rows may lack userId; those people are keyed by display name and cannot be marked isFriend.".into(),
+        "sharedMinutes counts a stay with no leave event only up to your own leftAt; it is 0 while the visit is in progress.".into(),
     ]
 }
 

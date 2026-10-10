@@ -6,6 +6,9 @@ use vrcx_0_application_activity::activity_page::{
     ActivityCompanionOrder, ActivityPageBuildInput, ActivitySeriesBucket,
 };
 use vrcx_0_core::OwnerId;
+use vrcx_0_persistence::friends::{
+    friend_log_upsert_current, FriendLogCurrentEntryInput, FriendLogUpsertOptionsInput,
+};
 use vrcx_0_persistence::game_log::{
     write_batch, GameLogJoinLeaveEntry, GameLogLocationEntry, GameLogWriteBatch,
 };
@@ -132,6 +135,23 @@ fn write_join_leave(db: &DatabaseService, join_leave: Vec<GameLogJoinLeaveEntry>
     .unwrap();
 }
 
+fn write_friends(db: &DatabaseService, user_ids: &[&str]) {
+    for user_id in user_ids {
+        friend_log_upsert_current(
+            db,
+            USER_ID.to_string(),
+            FriendLogCurrentEntryInput {
+                user_id: user_id.to_string(),
+                display_name: user_id.to_string(),
+                trust_level: None,
+                friend_number: serde_json::Value::Null,
+            },
+            FriendLogUpsertOptionsInput::default(),
+        )
+        .unwrap();
+    }
+}
+
 fn build(range_days: i64, now: &str) -> ActivityPageBuildInput {
     ActivityPageBuildInput {
         owner_user_id: OwnerId::new(USER_ID),
@@ -195,7 +215,7 @@ fn activity_page_splits_minutes_by_access_bucket() {
 
 #[test]
 fn activity_page_ignores_an_unclosed_instance() {
-    let (_dir, db) = test_db("activity-page-inferred");
+    let (_dir, db) = test_db("activity-page-unclosed");
     write_locations(
         &db,
         vec![
@@ -239,7 +259,7 @@ fn activity_page_uses_the_current_users_closed_instance_intervals() {
 
 #[test]
 fn activity_page_carries_the_closed_instance_world_name() {
-    let (_dir, db) = test_db("activity-page-name-inferred");
+    let (_dir, db) = test_db("activity-page-closed-name");
     write_locations(
         &db,
         vec![
@@ -264,7 +284,6 @@ fn activity_page_carries_the_closed_instance_world_name() {
 
     assert_eq!(view.worlds.top[0].world_name, "Newest Name");
     assert_eq!(view.summary.longest_session_minutes, 60);
-    assert!(view.series.points.iter().all(|point| !point.inferred));
 }
 
 #[test]
@@ -373,6 +392,8 @@ fn activity_page_ranks_companions_by_shared_days_not_minutes() {
         ],
     );
 
+    write_friends(&db, &["usr_marathon", "usr_regular"]);
+
     let view = activity_page_view_build(db.as_ref(), build(30, "2025-01-08T00:00:00Z")).unwrap();
 
     assert_eq!(view.people.companions[0].user_id, "usr_regular");
@@ -407,6 +428,8 @@ fn activity_page_reranks_companions_when_the_order_changes() {
             left("2025-01-07T02:00:00Z", "usr_regular", "wrld_1:1", HOUR_MS),
         ],
     );
+
+    write_friends(&db, &["usr_marathon", "usr_regular"]);
 
     let mut input = build(30, "2025-01-08T00:00:00Z");
     input.companion_order = ActivityCompanionOrder::Minutes;
@@ -478,22 +501,6 @@ fn activity_page_rebuilds_when_the_requested_offset_differs_from_the_cache() {
 }
 
 #[test]
-fn activity_page_waits_for_the_current_instance_to_close() {
-    let (_dir, db) = test_db("activity-page-open-tail");
-    write_locations(
-        &db,
-        vec![location("2025-01-05T01:00:00Z", "wrld_1:1", "wrld_1", 0)],
-    );
-
-    let early = activity_page_view_build(db.as_ref(), build(30, "2025-01-05T03:00:00Z")).unwrap();
-    let later = activity_page_view_build(db.as_ref(), build(30, "2025-01-05T09:00:00Z")).unwrap();
-
-    assert!(!early.has_open_tail);
-    assert_eq!(early.summary.total_minutes, 0);
-    assert_eq!(later.summary.total_minutes, 0);
-}
-
-#[test]
 fn activity_page_sees_the_current_users_closed_instance() {
     let (_dir, db) = test_db("activity-page-leave-writeback");
     write_locations(
@@ -516,7 +523,6 @@ fn activity_page_sees_the_current_users_closed_instance() {
 
     let closed = activity_page_view_build(db.as_ref(), build(30, "2025-01-05T03:00:00Z")).unwrap();
 
-    assert!(!closed.has_open_tail);
     assert_eq!(closed.summary.total_minutes, 30);
 }
 
@@ -566,6 +572,8 @@ fn activity_page_clips_companion_minutes_to_the_window() {
             8 * HOUR_MS,
         )],
     );
+
+    write_friends(&db, &["usr_friend"]);
 
     let view = activity_page_view_build(db.as_ref(), build(1, "2025-01-08T12:00:00Z")).unwrap();
 

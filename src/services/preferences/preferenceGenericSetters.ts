@@ -57,7 +57,6 @@ import {
     patchPreferences,
     patchPreferenceValue,
     publishPreferenceChanged,
-    reloadWristOverlayRuntimeConfigIfNeeded,
     resolveTablePageSize,
     setDocumentLanguage
 } from './preferencesCore';
@@ -89,7 +88,6 @@ export async function setAppLanguagePreference(language: string | null) {
         cjkFontPack,
         locale: nextLanguage
     });
-    await reloadWristOverlayRuntimeConfigIfNeeded('appLanguage');
     await appLanguageChanged(nextLanguage);
 }
 
@@ -311,10 +309,6 @@ export async function setBoolConfigPreference(
         useShellStore.getState().setTaskbarIconDot(enabled);
     } else if (normalizedKey === 'friendLogNotificationDot' && !enabled) {
         useShellStore.getState().removeNotify('friend-log');
-    } else if (normalizedKey === 'displayVRCPlusIconsAsAvatar') {
-        useShellStore.getState().setAppearancePreferences({
-            displayVRCPlusIconsAsAvatar: enabled
-        });
     } else if (normalizedKey === 'hideNicknames') {
         useShellStore.getState().setAppearancePreferences({
             hideNicknames: enabled
@@ -338,7 +332,6 @@ export async function setBoolConfigPreference(
     }
     patchPreferenceValue(key, enabled);
     publishPreferenceChanged(key, enabled);
-    await reloadWristOverlayRuntimeConfigIfNeeded(key);
 }
 
 export async function setGameLogPersistenceDisabledPreference(
@@ -356,14 +349,6 @@ export async function setFeedPersistenceDisabledPreference(disabled: boolean) {
     publishPreferenceChanged('feedPersistenceDisabled', disabled);
 }
 
-export async function setAvatarFeedPersistenceDisabledPreference(
-    disabled: boolean
-) {
-    await commands.appAvatarFeedPersistenceSetDisabled(disabled);
-    patchPreferenceValue('avatarFeedPersistenceDisabled', disabled);
-    publishPreferenceChanged('avatarFeedPersistenceDisabled', disabled);
-}
-
 export async function setStringConfigPreference(
     key: StringConfigPreferenceKey,
     value: string
@@ -371,7 +356,6 @@ export async function setStringConfigPreference(
     await configRepository.setString(key, value);
     patchPreferenceValue(key, value);
     publishPreferenceChanged(key, value);
-    await reloadWristOverlayRuntimeConfigIfNeeded(key);
 }
 
 export async function setIntConfigPreference(

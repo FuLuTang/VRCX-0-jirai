@@ -14,18 +14,18 @@ use vrcx_0_application::social::{
     ModerationSyncRuntime, MutualGraphFetchRuntime, PrintCleanupQueue,
 };
 use vrcx_0_application_activity::notification::{
-    load_overlay_activity_filters, save_notification_activity_filters,
-    save_overlay_activity_preference_filters, AuthWebhookEvent, AuthWebhookQueue,
-    AuthWebhookQueueDeps, NotificationActivityFiltersSetInput, NotificationConfig,
-    NotificationWebhookSink, NotificationWebhookSinkDeps, OverlayActivityPreferenceFilters,
-    UserImageCache, WebhookDeliveryMonitor, WebhookDeliverySnapshot,
+    apply_location_notification_rules, load_overlay_activity_filters,
+    save_notification_activity_filters, ActivityFilterProfile, AuthWebhookEvent, AuthWebhookQueue,
+    AuthWebhookQueueDeps, NotificationActivityFilterProfiles, NotificationActivityFiltersSetInput,
+    NotificationConfig, NotificationRemote, NotificationResolver, NotificationWebhookSink,
+    NotificationWebhookSinkDeps, WebhookDeliveryMonitor, WebhookDeliverySnapshot,
 };
 use vrcx_0_application_activity::{
-    OverlayActivityRuntime, OverlayActivitySink, OverlayActivitySinkRegistry,
+    ActivityRouter, ActivitySink, ActivitySinkRegistry, GroupInstanceMonitor,
 };
 use vrcx_0_application_core::RemoteMutationGate;
 use vrcx_0_application_core::{
-    AvatarCache, HostSessionRuntime, ImageCache, InstanceDwellRegistry,
+    AvatarCache, FileCache, HostSessionRuntime, ImageCache, InstanceDwellRegistry,
     RealtimeNotificationProjectionObserver, RealtimeNotificationProjectionObserverRegistry,
     RuntimeAuthScope, RuntimeBackgroundJobs, RuntimeDiagnostics, RuntimeEventBus, RuntimeLifecycle,
     RuntimeSyncEngine, TaskSupervisor, WebClient, WorldCache,
@@ -37,6 +37,7 @@ const AVATAR_CACHE_WORKING_CAPACITY: u64 = 32;
 const AVATAR_CACHE_WORKING_TTL: Duration = Duration::from_secs(2 * 60);
 const WORLD_CACHE_WORKING_CAPACITY: u64 = 64;
 const WORLD_CACHE_WORKING_TTL: Duration = Duration::from_secs(30 * 60);
+const FILE_CACHE_WORKING_CAPACITY: u64 = 256;
 
 #[derive(Clone)]
 pub(crate) struct RuntimeHostContext {
@@ -68,11 +69,14 @@ pub(crate) struct RuntimeHostContext {
     pub(crate) avatar_cache: Arc<AvatarCache>,
     pub(crate) avatar_moderation: AvatarModerationRuntime,
     pub(crate) world_cache: Arc<WorldCache>,
+    pub(crate) file_cache: FileCache,
     pub(crate) instance_dwell: Arc<InstanceDwellRegistry>,
     pub(crate) config: ConfigRepository,
     notification_config: Arc<dyn NotificationConfig>,
-    overlay_activity: OverlayActivityRuntime,
-    overlay_activity_sinks: OverlayActivitySinkRegistry,
+    notification_resolver: Arc<NotificationResolver>,
+    activity_router: ActivityRouter,
+    group_instance_monitor: GroupInstanceMonitor,
+    activity_sinks: ActivitySinkRegistry,
     notification_projection_observers: RealtimeNotificationProjectionObserverRegistry,
     auth_webhook_queue: AuthWebhookQueue,
     webhook_delivery_monitor: WebhookDeliveryMonitor,
@@ -89,7 +93,12 @@ impl RuntimeHostDesktopAssemblyDeps {
         web: Arc<WebClient>,
         image_cache: Arc<ImageCache>,
     ) -> Self {
-        Self::from_context(Arc::new(RuntimeHostContext::new(db, web, image_cache)))
+        Self::from_context(Arc::new(RuntimeHostContext::new(
+            db,
+            web,
+            image_cache,
+            TaskSupervisor::new(),
+        )))
     }
 
     pub(crate) fn from_context(context: Arc<RuntimeHostContext>) -> Self {
@@ -164,6 +173,10 @@ impl RuntimeHostDesktopAssemblyDeps {
         self.context.auth_credentials()
     }
 
+    pub fn auth_credentials_shared(&self) -> Arc<dyn AuthCredentialStore> {
+        Arc::clone(&self.context.auth_credentials)
+    }
+
     pub fn vrc_status(&self) -> &VrcStatusService {
         self.context.vrc_status()
     }
@@ -180,20 +193,24 @@ impl RuntimeHostDesktopAssemblyDeps {
         self.context.world_cache()
     }
 
+    pub fn file_cache(&self) -> &FileCache {
+        self.context.file_cache()
+    }
+
     pub fn instance_dwell(&self) -> &Arc<InstanceDwellRegistry> {
         self.context.instance_dwell()
     }
 
-    pub fn overlay_activity(&self) -> OverlayActivityRuntime {
-        self.context.overlay_activity()
+    pub fn activity_router(&self) -> ActivityRouter {
+        self.context.activity_router()
     }
 
-    pub fn add_overlay_activity_sink(&self, sink: Arc<dyn OverlayActivitySink>) {
+    pub fn add_overlay_activity_sink(&self, sink: Arc<dyn ActivitySink>) {
         self.context.add_overlay_activity_sink(sink);
     }
 
-    pub fn overlay_activity_sink_registry(&self) -> OverlayActivitySinkRegistry {
-        self.context.overlay_activity_sink_registry()
+    pub fn activity_sink_registry(&self) -> ActivitySinkRegistry {
+        self.context.activity_sink_registry()
     }
 
     pub fn add_realtime_notification_projection_observer(
@@ -215,6 +232,10 @@ impl RuntimeHostDesktopAssemblyDeps {
         self.context.notification_config()
     }
 
+    pub fn notification_resolver(&self) -> Arc<NotificationResolver> {
+        self.context.notification_resolver()
+    }
+
     pub fn enqueue_auth_webhook(&self, event: AuthWebhookEvent) {
         self.context.enqueue_auth_webhook(event);
     }
@@ -227,18 +248,14 @@ impl RuntimeHostDesktopAssemblyDeps {
         self.context.reload_overlay_activity_filters();
     }
 
-    pub fn set_overlay_activity_preference_filters(
-        &self,
-        filters: OverlayActivityPreferenceFilters,
-    ) -> crate::Result<()> {
-        self.context
-            .set_overlay_activity_preference_filters(filters)
+    pub fn notification_activity_filter_profiles(&self) -> NotificationActivityFilterProfiles {
+        self.context.notification_activity_filter_profiles()
     }
 
     pub fn set_notification_activity_filters(
         &self,
         input: NotificationActivityFiltersSetInput,
-    ) -> crate::Result<()> {
+    ) -> crate::Result<ActivityFilterProfile> {
         self.context.set_notification_activity_filters(input)
     }
 }
@@ -248,6 +265,7 @@ impl RuntimeHostContext {
         db: Arc<DatabaseService>,
         web: Arc<WebClient>,
         image_cache: Arc<ImageCache>,
+        tasks: TaskSupervisor,
     ) -> Self {
         let config = ConfigRepository::new(Arc::clone(&db));
         let notification_config: Arc<dyn NotificationConfig> = Arc::new(
@@ -272,7 +290,6 @@ impl RuntimeHostContext {
         let diagnostics = RuntimeDiagnostics::new();
         let sync = RuntimeSyncEngine::new();
         let auth_scope = RuntimeAuthScope::new();
-        let tasks = TaskSupervisor::new();
         let session = HostSessionRuntime::new();
         let avatar_cache = Arc::new(AvatarCache::new(
             vrcx_0_outbound_adapters::LocalAvatarCacheAdapter::new(
@@ -288,19 +305,25 @@ impl RuntimeHostContext {
                 WORLD_CACHE_WORKING_TTL,
             ),
         ));
-        let overlay_activity = OverlayActivityRuntime::with_filters(load_overlay_activity_filters(
+        let file_cache = FileCache::new(vrcx_0_outbound_adapters::LocalFileCacheAdapter::new(
+            Arc::clone(&db),
+            FILE_CACHE_WORKING_CAPACITY,
+        ));
+        let activity_router = ActivityRouter::with_filters(load_overlay_activity_filters(
             notification_config.as_ref(),
         ));
-        let overlay_activity_sinks = OverlayActivitySinkRegistry::default();
+        apply_location_notification_rules(&activity_router, notification_config.as_ref());
+        let activity_sinks = ActivitySinkRegistry::default();
         let notification_projection_observers =
             RealtimeNotificationProjectionObserverRegistry::default();
-        let notification_user_image_cache = Arc::new(UserImageCache::new());
         let webhook_delivery_monitor = WebhookDeliveryMonitor::default();
-        let notification_remote =
+        let notification_remote: Arc<dyn NotificationRemote> =
             Arc::new(vrcx_0_outbound_adapters::VrchatNotificationRemote::new(
                 Arc::clone(&web),
                 Arc::clone(&world_cache),
+                file_cache.clone(),
             ));
+        let notification_resolver = Arc::new(NotificationResolver::new(notification_remote));
         let notification_webhook_transport = Arc::new(
             vrcx_0_outbound_adapters::LocalNotificationWebhookTransport::new(Arc::clone(&web)),
         );
@@ -317,19 +340,18 @@ impl RuntimeHostContext {
             )),
             event_bus.clone(),
         );
-        overlay_activity_sinks.add(Arc::new(NotificationWebhookSink::new(
+        activity_sinks.add(Arc::new(NotificationWebhookSink::new(
             NotificationWebhookSinkDeps {
                 session: session.clone(),
                 config: Arc::clone(&notification_config),
-                remote: notification_remote,
+                resolver: Arc::clone(&notification_resolver),
                 webhook_transport: notification_webhook_transport,
-                user_image_cache: Arc::clone(&notification_user_image_cache),
                 diagnostics: diagnostics.clone(),
                 monitor: webhook_delivery_monitor.clone(),
                 tasks: tasks.clone(),
             },
         )));
-        overlay_activity.set_sink(overlay_activity_sinks.clone());
+        activity_router.set_sink(activity_sinks.clone());
         let mutual_graph_fetch = MutualGraphFetchRuntime::with_event_bus(event_bus.clone());
         let remote_mutations = Arc::new(RemoteMutationGate::default());
         let print_adapter = Arc::new(vrcx_0_outbound_adapters::LocalPrintAdapter::new(
@@ -344,6 +366,7 @@ impl RuntimeHostContext {
                 Arc::clone(&web),
                 diagnostics.clone(),
                 sync.clone(),
+                Arc::clone(&world_cache),
             ));
         let favorite_mutations = FavoriteMutationCoordinator::new(
             Arc::clone(&favorite_store),
@@ -354,6 +377,7 @@ impl RuntimeHostContext {
                 event_bus.clone(),
                 auth_scope.clone(),
                 Arc::clone(&remote_mutations),
+                Arc::clone(&world_cache),
             ),
         );
         Self {
@@ -385,11 +409,14 @@ impl RuntimeHostContext {
             avatar_cache,
             avatar_moderation: AvatarModerationRuntime::new(),
             world_cache,
+            file_cache,
             instance_dwell: Arc::new(InstanceDwellRegistry::new()),
             config,
             notification_config,
-            overlay_activity,
-            overlay_activity_sinks,
+            notification_resolver,
+            activity_router,
+            group_instance_monitor: GroupInstanceMonitor::default(),
+            activity_sinks,
             notification_projection_observers,
             auth_webhook_queue,
             webhook_delivery_monitor,
@@ -480,20 +507,33 @@ impl RuntimeHostContext {
         &self.world_cache
     }
 
+    pub fn file_cache(&self) -> &FileCache {
+        &self.file_cache
+    }
+
     pub fn instance_dwell(&self) -> &Arc<InstanceDwellRegistry> {
         &self.instance_dwell
     }
 
-    pub fn overlay_activity(&self) -> OverlayActivityRuntime {
-        self.overlay_activity.clone()
+    pub fn activity_router(&self) -> ActivityRouter {
+        self.activity_router.clone()
     }
 
-    pub fn add_overlay_activity_sink(&self, sink: Arc<dyn OverlayActivitySink>) {
-        self.overlay_activity_sinks.add(sink);
+    pub fn group_instance_monitor(&self) -> &GroupInstanceMonitor {
+        &self.group_instance_monitor
     }
 
-    pub fn overlay_activity_sink_registry(&self) -> OverlayActivitySinkRegistry {
-        self.overlay_activity_sinks.clone()
+    pub fn clear_activity_runtime_state(&self) {
+        self.activity_router.clear_runtime_state();
+        self.group_instance_monitor.clear();
+    }
+
+    pub fn add_overlay_activity_sink(&self, sink: Arc<dyn ActivitySink>) {
+        self.activity_sinks.add(sink);
+    }
+
+    pub fn activity_sink_registry(&self) -> ActivitySinkRegistry {
+        self.activity_sinks.clone()
     }
 
     pub fn add_realtime_notification_projection_observer(
@@ -513,6 +553,10 @@ impl RuntimeHostContext {
         Arc::clone(&self.notification_config)
     }
 
+    pub fn notification_resolver(&self) -> Arc<NotificationResolver> {
+        Arc::clone(&self.notification_resolver)
+    }
+
     pub fn enqueue_auth_webhook(&self, event: AuthWebhookEvent) {
         self.auth_webhook_queue.enqueue(event);
     }
@@ -522,27 +566,23 @@ impl RuntimeHostContext {
     }
 
     pub fn reload_overlay_activity_filters(&self) {
-        self.overlay_activity
+        self.activity_router
             .set_filters(load_overlay_activity_filters(
                 self.notification_config.as_ref(),
             ));
+        apply_location_notification_rules(&self.activity_router, self.notification_config.as_ref());
     }
 
-    pub fn set_overlay_activity_preference_filters(
-        &self,
-        filters: OverlayActivityPreferenceFilters,
-    ) -> crate::Result<()> {
-        save_overlay_activity_preference_filters(self.notification_config.as_ref(), filters)?;
-        self.reload_overlay_activity_filters();
-        Ok(())
+    pub fn notification_activity_filter_profiles(&self) -> NotificationActivityFilterProfiles {
+        NotificationActivityFilterProfiles::from(&self.activity_router.filters())
     }
 
     pub fn set_notification_activity_filters(
         &self,
         input: NotificationActivityFiltersSetInput,
-    ) -> crate::Result<()> {
-        save_notification_activity_filters(self.notification_config.as_ref(), input)?;
+    ) -> crate::Result<ActivityFilterProfile> {
+        let profile = save_notification_activity_filters(self.notification_config.as_ref(), input)?;
         self.reload_overlay_activity_filters();
-        Ok(())
+        Ok(profile)
     }
 }

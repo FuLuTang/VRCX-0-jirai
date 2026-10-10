@@ -7,14 +7,12 @@ import {
 } from './favoritesPageData';
 
 function buildWorldItems({
-    cachedWorldDetail,
-    worldDetailFallback,
     remoteWorldDetail,
+    remoteEntityDetailsStatus = 'ready',
     worldAvailabilityById
 }: {
-    cachedWorldDetail?: Record<string, unknown>;
-    worldDetailFallback?: Record<string, unknown>;
     remoteWorldDetail?: Record<string, unknown>;
+    remoteEntityDetailsStatus?: string;
     worldAvailabilityById?: Record<string, string | undefined>;
 }) {
     return buildFavoriteRemoteItemsByGroup({
@@ -45,16 +43,7 @@ function buildWorldItems({
                   }
               }
             : {},
-        remoteEntityDetailsStatus: 'ready',
-        worldDetailFallbacksById:
-            worldDetailFallback || cachedWorldDetail
-                ? {
-                      wrld_favorite: {
-                          id: 'wrld_favorite',
-                          ...(worldDetailFallback || cachedWorldDetail)
-                      }
-                  }
-                : {},
+        remoteEntityDetailsStatus,
         remoteGroupLabelByKey: {
             'world:group_0': 'Worlds'
         },
@@ -115,10 +104,10 @@ function buildAvatarItems({
 }
 
 describe('favorites page data helpers', () => {
-    it('uses DB fallback private world details when remote details are missing', () => {
+    it('locks private world details reported by the backend', () => {
         const items = buildWorldItems({
-            worldDetailFallback: {
-                name: 'DB Private World',
+            remoteWorldDetail: {
+                name: 'Private World',
                 authorName: 'Aspen',
                 releaseStatus: 'private'
             }
@@ -127,7 +116,7 @@ describe('favorites page data helpers', () => {
         expect(items).toEqual([
             expect.objectContaining({
                 id: 'wrld_favorite',
-                title: 'DB Private World',
+                title: 'Private World',
                 seedData: expect.objectContaining({
                     releaseStatus: 'private'
                 }),
@@ -137,19 +126,20 @@ describe('favorites page data helpers', () => {
         ]);
     });
 
-    it('keeps a conservative lock on remote-missing worlds from the public DB fallback until availability is known', () => {
+    it('keeps a conservative lock on unverified world details resolved from the local cache', () => {
         const items = buildWorldItems({
-            worldDetailFallback: {
-                name: 'DB Public World',
+            remoteWorldDetail: {
+                name: 'Cached Public World',
                 authorName: 'Birch',
                 releaseStatus: 'public'
-            }
+            },
+            worldAvailabilityById: { wrld_favorite: 'unverified' }
         });
 
         expect(items).toEqual([
             expect.objectContaining({
                 id: 'wrld_favorite',
-                title: 'DB Public World',
+                title: 'Cached Public World',
                 isPrivate: true,
                 isDeleted: false,
                 isUnavailable: false
@@ -157,10 +147,10 @@ describe('favorites page data helpers', () => {
         ]);
     });
 
-    it('unlocks remote-missing worlds from the DB fallback once the probe confirms they are public', () => {
+    it('unlocks worlds once the probe confirms they are public', () => {
         const items = buildWorldItems({
-            worldDetailFallback: {
-                name: 'DB Public World',
+            remoteWorldDetail: {
+                name: 'Probed Public World',
                 authorName: 'Birch',
                 releaseStatus: 'public'
             },
@@ -170,7 +160,7 @@ describe('favorites page data helpers', () => {
         expect(items).toEqual([
             expect.objectContaining({
                 id: 'wrld_favorite',
-                title: 'DB Public World',
+                title: 'Probed Public World',
                 isPrivate: false,
                 isDeleted: false,
                 isUnavailable: false
@@ -178,14 +168,29 @@ describe('favorites page data helpers', () => {
         ]);
     });
 
-    it('keeps remote-missing worlds unavailable when the DB fallback only has an id shell', () => {
+    it('marks a world whose details have not arrived as loading with no placeholder text', () => {
         const items = buildWorldItems({
-            worldDetailFallback: {}
+            remoteEntityDetailsStatus: 'running'
         });
 
         expect(items).toEqual([
             expect.objectContaining({
                 id: 'wrld_favorite',
+                isLoadingDetail: true,
+                isUnavailable: false,
+                title: '',
+                subtitle: ''
+            })
+        ]);
+    });
+
+    it('keeps a world unavailable and not loading when the backend resolved nothing for it', () => {
+        const items = buildWorldItems({});
+
+        expect(items).toEqual([
+            expect.objectContaining({
+                id: 'wrld_favorite',
+                isLoadingDetail: false,
                 title: 'view.favorites.empty.world_fallback',
                 seedData: null,
                 isPrivate: false,
@@ -194,92 +199,8 @@ describe('favorites page data helpers', () => {
         ]);
     });
 
-    it('uses DB fallback details when the remote world detail is only an id shell', () => {
-        const items = buildWorldItems({
-            remoteWorldDetail: {},
-            worldDetailFallback: {
-                name: 'DB Private World',
-                releaseStatus: 'private'
-            }
-        });
-
-        expect(items).toEqual([
-            expect.objectContaining({
-                id: 'wrld_favorite',
-                title: 'DB Private World',
-                isPrivate: true,
-                isUnavailable: false
-            })
-        ]);
-    });
-
-    it('uses cached private world details when remote details are missing', () => {
-        const items = buildWorldItems({
-            cachedWorldDetail: {
-                name: 'Cached Private World',
-                authorName: 'Maple',
-                releaseStatus: 'private'
-            }
-        });
-
-        expect(items).toEqual([
-            expect.objectContaining({
-                id: 'wrld_favorite',
-                title: 'Cached Private World',
-                seedData: expect.objectContaining({
-                    releaseStatus: 'private'
-                }),
-                isPrivate: true,
-                isUnavailable: false
-            })
-        ]);
-    });
-
-    it('keeps a conservative lock on remote-missing worlds from the public cache until availability is known', () => {
-        const items = buildWorldItems({
-            cachedWorldDetail: {
-                name: 'Cached Public World',
-                authorName: 'Cedar',
-                releaseStatus: 'public'
-            }
-        });
-
-        expect(items).toEqual([
-            expect.objectContaining({
-                id: 'wrld_favorite',
-                title: 'Cached Public World',
-                isPrivate: true,
-                isDeleted: false,
-                isUnavailable: false
-            })
-        ]);
-    });
-
-    it('unlocks remote-missing worlds from the cache once the probe confirms they are public', () => {
-        const items = buildWorldItems({
-            cachedWorldDetail: {
-                name: 'Cached Public World',
-                authorName: 'Cedar',
-                releaseStatus: 'public'
-            },
-            worldAvailabilityById: { wrld_favorite: 'public' }
-        });
-
-        expect(items).toEqual([
-            expect.objectContaining({
-                id: 'wrld_favorite',
-                title: 'Cached Public World',
-                isPrivate: false,
-                isDeleted: false,
-                isUnavailable: false
-            })
-        ]);
-    });
-
-    it('keeps remote-missing worlds unavailable when the cache only has an id shell', () => {
-        const items = buildWorldItems({
-            cachedWorldDetail: {}
-        });
+    it('keeps a world unavailable when the backend returned only an id shell', () => {
+        const items = buildWorldItems({ remoteWorldDetail: {} });
 
         expect(items).toEqual([
             expect.objectContaining({
@@ -288,58 +209,6 @@ describe('favorites page data helpers', () => {
                 seedData: null,
                 isPrivate: false,
                 isUnavailable: true
-            })
-        ]);
-    });
-
-    it('keeps a missing world unavailable without a Rust result', () => {
-        const items = buildWorldItems({
-            cachedWorldDetail: {}
-        });
-
-        expect(items).toEqual([
-            expect.objectContaining({
-                id: 'wrld_favorite',
-                title: 'view.favorites.empty.world_fallback',
-                seedData: null,
-                isPrivate: false,
-                isUnavailable: true
-            })
-        ]);
-    });
-
-    it('uses local world details when remote details are missing', () => {
-        const items = buildWorldItems({
-            cachedWorldDetail: {
-                name: 'Cached Public World',
-                releaseStatus: 'public'
-            }
-        });
-
-        expect(items).toEqual([
-            expect.objectContaining({
-                id: 'wrld_favorite',
-                title: 'Cached Public World',
-                isPrivate: true,
-                isUnavailable: false
-            })
-        ]);
-    });
-
-    it('uses the Rust fallback when remote details are missing', () => {
-        const items = buildWorldItems({
-            worldDetailFallback: {
-                name: 'DB Public World',
-                releaseStatus: 'public'
-            }
-        });
-
-        expect(items).toEqual([
-            expect.objectContaining({
-                id: 'wrld_favorite',
-                title: 'DB Public World',
-                isPrivate: true,
-                isUnavailable: false
             })
         ]);
     });
@@ -454,39 +323,9 @@ describe('favorites page data helpers', () => {
         ]);
     });
 
-    it('prefers remote world details over stale cached details', () => {
-        const items = buildWorldItems({
-            cachedWorldDetail: {
-                name: 'Cached Private World',
-                releaseStatus: 'private'
-            },
-            worldDetailFallback: {
-                name: 'DB Private World',
-                releaseStatus: 'private'
-            },
-            remoteWorldDetail: {
-                name: 'Fresh Public World',
-                authorName: 'Juniper',
-                releaseStatus: 'public'
-            }
-        });
-
-        expect(items).toEqual([
-            expect.objectContaining({
-                id: 'wrld_favorite',
-                title: 'Fresh Public World',
-                seedData: expect.objectContaining({
-                    releaseStatus: 'public'
-                }),
-                isPrivate: false,
-                isUnavailable: false
-            })
-        ]);
-    });
-
     it('marks a probed private world as private without treating it as a fallback lock', () => {
         const items = buildWorldItems({
-            worldDetailFallback: {
+            remoteWorldDetail: {
                 name: 'Probed Private World',
                 authorName: 'Aspen'
             },
@@ -508,7 +347,7 @@ describe('favorites page data helpers', () => {
 
     it('shows a deleted world with its cached details and no lock icon', () => {
         const items = buildWorldItems({
-            worldDetailFallback: {
+            remoteWorldDetail: {
                 name: 'Deleted World',
                 authorName: 'Birch',
                 releaseStatus: 'public'
@@ -551,7 +390,8 @@ describe('favorites page data helpers', () => {
         const items = buildWorldItems({
             remoteWorldDetail: {
                 name: 'Image World',
-                thumbnailImageUrl: 'https://example.test/thumb/256',
+                thumbnailImageUrl:
+                    'https://api.vrchat.cloud/api/1/image/file_0a0a/1/256',
                 imageUrl: 'https://example.test/full/256'
             }
         });
@@ -559,7 +399,8 @@ describe('favorites page data helpers', () => {
         expect(items).toEqual([
             expect.objectContaining({
                 imageUrl: 'https://example.test/full/256',
-                imageSmallUrl: 'https://example.test/thumb/128'
+                imageSmallUrl:
+                    'https://api.vrchat.cloud/api/1/image/file_0a0a/1/128'
             })
         ]);
     });
@@ -576,11 +417,12 @@ describe('favorites page data helpers', () => {
             localWorldFavorites: {
                 Worlds: ['wrld_local']
             },
-            worldDetailFallbacksById: {
+            worldDetailsById: {
                 wrld_local: {
                     id: 'wrld_local',
                     name: 'Local World',
-                    thumbnailImageUrl: 'https://example.test/local-thumb/256',
+                    thumbnailImageUrl:
+                        'https://api.vrchat.cloud/api/1/image/file_0b0b/1/256',
                     imageUrl: 'https://example.test/local-full/256'
                 }
             },
@@ -591,9 +433,27 @@ describe('favorites page data helpers', () => {
         expect(items).toEqual([
             expect.objectContaining({
                 imageUrl: 'https://example.test/local-full/256',
-                imageSmallUrl: 'https://example.test/local-thumb/128'
+                imageSmallUrl:
+                    'https://api.vrchat.cloud/api/1/image/file_0b0b/1/128'
             })
         ]);
+    });
+
+    it('orders local items by the custom order and keeps date order for the rest', () => {
+        const ids = (sortValue: 'date' | 'custom') =>
+            buildFavoriteLocalItemsByGroup({
+                kind: 'avatar',
+                localGroups: [{ key: 'Avatars', label: 'Avatars' }],
+                localAvatarFavorites: {
+                    Avatars: ['avtr_new', 'avtr_b', 'avtr_a']
+                },
+                customOrderByGroup: { Avatars: ['avtr_a', 'avtr_b'] },
+                sortValue,
+                t: (key: string) => key
+            })['Avatars'].map((item) => item.id);
+
+        expect(ids('date')).toEqual(['avtr_new', 'avtr_b', 'avtr_a']);
+        expect(ids('custom')).toEqual(['avtr_new', 'avtr_a', 'avtr_b']);
     });
 
     it('uses occupants from the requested local world detail', () => {
@@ -608,7 +468,7 @@ describe('favorites page data helpers', () => {
             localWorldFavorites: {
                 Worlds: ['wrld_local']
             },
-            worldDetailFallbacksById: {
+            worldDetailsById: {
                 wrld_local: {
                     id: 'wrld_local',
                     name: 'Local World',
@@ -632,7 +492,7 @@ describe('favorites page data helpers', () => {
             kind: 'world',
             localGroups: [{ key: 'Worlds', label: 'Worlds' }],
             localWorldFavorites: { Worlds: ['wrld_local'] },
-            worldDetailFallbacksById: {
+            worldDetailsById: {
                 wrld_local: {
                     id: 'wrld_local',
                     name: 'Rust World'
@@ -645,9 +505,30 @@ describe('favorites page data helpers', () => {
         expect(items).toEqual([
             expect.objectContaining({
                 id: 'wrld_local',
-                title: 'Rust World'
+                title: 'Rust World',
+                isLoadingDetail: false
             })
         ]);
+    });
+
+    it('separates a local favorite still awaiting details from one the backend already resolved as gone', () => {
+        const buildLocal = (
+            worldAvailabilityById: Record<string, string | undefined>
+        ) =>
+            buildFavoriteLocalItemsByGroup({
+                kind: 'world',
+                localGroups: [{ key: 'Worlds', label: 'Worlds' }],
+                localWorldFavorites: { Worlds: ['wrld_local'] },
+                worldDetailsById: {},
+                worldAvailabilityById,
+                sortValue: 'date',
+                t: (key: string) => key
+            })['Worlds'];
+
+        expect(buildLocal({})[0]?.isLoadingDetail).toBe(true);
+        expect(buildLocal({ wrld_local: 'deleted' })[0]?.isLoadingDetail).toBe(
+            false
+        );
     });
 
     it('keeps full and compact image urls separate for avatar history cards', () => {
@@ -657,7 +538,8 @@ describe('favorites page data helpers', () => {
                 {
                     id: 'avtr_history',
                     name: 'History Avatar',
-                    thumbnailImageUrl: 'https://example.test/history-thumb/256',
+                    thumbnailImageUrl:
+                        'https://api.vrchat.cloud/api/1/image/file_0c0c/1/256',
                     imageUrl: 'https://example.test/history-full/256'
                 }
             ],
@@ -667,7 +549,8 @@ describe('favorites page data helpers', () => {
         expect(items).toEqual([
             expect.objectContaining({
                 imageUrl: 'https://example.test/history-full/256',
-                imageSmallUrl: 'https://example.test/history-thumb/128'
+                imageSmallUrl:
+                    'https://api.vrchat.cloud/api/1/image/file_0c0c/1/128'
             })
         ]);
     });

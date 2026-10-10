@@ -1,22 +1,18 @@
-import { profileFetchExecutor } from '@/features/workflows/profileFetchExecutor';
-import { startupOnlineBackfillExecutor } from '@/features/workflows/startupOnlineBackfillExecutor';
-import '@/features/workflows/trackedNonfriendsRefreshExecutor';
 import type {
     AuthenticatedRuntimePhaseSnapshot,
     RealtimeWsStatusPayload,
     RuntimeVrchatAuthFailurePayload
 } from '@/platform/tauri/bindings';
-import { isRecord } from '@/shared/utils/record';
+import { profileFetchExecutor } from '@/services/profileFetchExecutor';
+import '@/services/trackedNonfriendsRefreshExecutor';
+import { startupOnlineBackfillExecutor } from '@/services/startupOnlineBackfillExecutor';
 import { normalizeVrchatEndpointKey } from '@/shared/vrchatEndpoint';
 import { useFavoriteStore } from '@/state/favoriteStore';
 import { useFriendRosterStore } from '@/state/friendRosterStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
 import { useSessionStore } from '@/state/sessionStore';
 
-import {
-    normalizeFriendsById,
-    normalizeStringArray
-} from './friendBootstrapModel';
+import { rosterSnapshotInput } from './friendBootstrapModel';
 import { signalFriendLogChanged } from './friendLogMutationService';
 import { flushRealtimeRosterUpdates } from './realtimeRosterUpdateQueue';
 import { syncStartupServicesTask } from './startupServicesStatus';
@@ -140,7 +136,7 @@ function applyFriendStep(snapshot: AuthenticatedRuntimePhaseSnapshot): void {
     }
 
     const output = snapshot.friendBaseline;
-    const baseline = isRecord(output?.snapshot) ? output.snapshot : null;
+    const baseline = output?.snapshot ?? null;
     const baselineKey = `${snapshot.runId}:${snapshot.friendBaselineRevision}`;
     if (
         snapshot.friends.status !== 'ready' ||
@@ -151,15 +147,15 @@ function applyFriendStep(snapshot: AuthenticatedRuntimePhaseSnapshot): void {
     }
 
     flushRealtimeRosterUpdates();
-    useFriendRosterStore.getState().setRosterSnapshot({
-        currentUserId: snapshot.userId,
-        friendsById: normalizeFriendsById(baseline.friendsById),
-        orderedFriendIds: normalizeStringArray(baseline.orderedFriendIds),
-        onlineIds: normalizeStringArray(baseline.onlineIds),
-        activeIds: normalizeStringArray(baseline.activeIds),
-        offlineIds: normalizeStringArray(baseline.offlineIds),
-        detail: output?.detail || snapshot.friends.detail
-    });
+    useFriendRosterStore
+        .getState()
+        .setRosterSnapshot(
+            rosterSnapshotInput(
+                snapshot.userId,
+                baseline,
+                output?.detail || snapshot.friends.detail
+            )
+        );
     useSessionStore.getState().setFriendsLoaded(true);
     // The completed baseline is the first reliable full friend-state snapshot.
     // This starts task 05 once per baseline revision; a replacement baseline

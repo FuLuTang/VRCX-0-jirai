@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
 
 import {
@@ -23,7 +23,7 @@ import { useGalleryActions } from './useGalleryActions';
 import { useGalleryBulkActions } from './useGalleryBulkActions';
 import { useGalleryRuntimeState } from './useGalleryRuntimeState';
 
-const GALLERY_GRID_DENSITY_STORAGE_KEY = 'VRCX_GalleryGridDensity';
+const GALLERY_GRID_DENSITY_STORAGE_KEY = 'VRCX_0_GalleryGridDensity';
 
 function readFeedImageDrop(state: unknown): GalleryPendingUpload | null {
     if (!state || typeof state !== 'object') {
@@ -50,29 +50,13 @@ function isGalleryTab(target: GalleryUploadTarget): target is GalleryTab {
 }
 
 function readGalleryGridDensityPreference() {
-    if (typeof window === 'undefined') {
-        return sanitizeGalleryGridDensity();
-    }
-
-    try {
-        return sanitizeGalleryGridDensity(
-            window.localStorage.getItem(GALLERY_GRID_DENSITY_STORAGE_KEY)
-        );
-    } catch {
-        return sanitizeGalleryGridDensity();
-    }
+    return sanitizeGalleryGridDensity(
+        localStorage.getItem(GALLERY_GRID_DENSITY_STORAGE_KEY)
+    );
 }
 
 function writeGalleryGridDensityPreference(value: GalleryGridDensity) {
-    if (typeof window === 'undefined') {
-        return;
-    }
-
-    try {
-        window.localStorage.setItem(GALLERY_GRID_DENSITY_STORAGE_KEY, value);
-    } catch {
-        // no-op
-    }
+    localStorage.setItem(GALLERY_GRID_DENSITY_STORAGE_KEY, value);
 }
 
 export function useGalleryPageController() {
@@ -86,10 +70,13 @@ export function useGalleryPageController() {
     const {
         currentEndpoint,
         currentUserId,
-        currentUserSnapshot,
         isVrcPlusSupporter,
         openImagePreview,
-        profilePicOverride,
+        bannerCustomUrl,
+        mediaProfile,
+        mediaProfileLoading,
+        mediaProfileError,
+        refreshMediaProfile,
         userIcon
     } = useGalleryRuntimeState();
     const [activeTab, setActiveTabState] = useState(() =>
@@ -126,7 +113,7 @@ export function useGalleryPageController() {
     );
     const {
         refreshTab,
-        refreshAll,
+        refreshAll: refreshAllAssets,
         beginUpload,
         prepareUploadFile,
         uploadSelectedFile,
@@ -141,7 +128,8 @@ export function useGalleryPageController() {
         cropRequest,
         currentEndpoint,
         currentUserId,
-        currentUserSnapshot,
+        mediaProfile,
+        refreshMediaProfile,
         emojiAnimFps,
         emojiAnimFrameCount,
         emojiAnimLoopPingPong,
@@ -164,14 +152,33 @@ export function useGalleryPageController() {
     } satisfies GalleryControllerDeps);
     const { bulkRunning, deleteSelection, setFavoriteSelection } =
         useGalleryBulkActions({ setAssets });
+    const setActiveTab = useCallback(
+        (nextValue: string) => {
+            const nextTab = sanitizeGalleryTab(nextValue);
+            setActiveTabState(nextTab);
+            setSearchParams(
+                (currentParams) => {
+                    const nextParams = new URLSearchParams(currentParams);
+                    if (nextTab === TAB_ORDER[0]) {
+                        nextParams.delete('tab');
+                    } else {
+                        nextParams.set('tab', nextTab);
+                    }
+                    return nextParams;
+                },
+                { replace: true }
+            );
+        },
+        [setSearchParams]
+    );
     const pendingFeedDrop = useMemo(
         () => readFeedImageDrop(location.state),
         [location.state]
     );
-    const refreshAllRef = useRef(refreshAll);
+    const refreshAllRef = useRef(refreshAllAssets);
     useEffect(() => {
-        refreshAllRef.current = refreshAll;
-    }, [refreshAll]);
+        refreshAllRef.current = refreshAllAssets;
+    }, [refreshAllAssets]);
 
     useEffect(() => {
         if (
@@ -185,12 +192,12 @@ export function useGalleryPageController() {
             setActiveTab(pendingFeedDrop.target);
         }
         prepareUploadFile(pendingFeedDrop.file, pendingFeedDrop.target);
-    }, [pendingFeedDrop, prepareUploadFile]);
+    }, [pendingFeedDrop, prepareUploadFile, setActiveTab]);
 
     useEffect(() => {
+        setAssets(EMPTY_ASSETS);
+        setLoadingByTab({});
         if (!currentUserId) {
-            setAssets(EMPTY_ASSETS);
-            setLoadingByTab({});
             return;
         }
         refreshAllRef.current();
@@ -207,22 +214,6 @@ export function useGalleryPageController() {
         setGridDensity(nextValue);
         writeGalleryGridDensityPreference(nextValue);
     }
-    function setActiveTab(nextValue: string) {
-        const nextTab = sanitizeGalleryTab(nextValue);
-        setActiveTabState(nextTab);
-        setSearchParams(
-            (currentParams) => {
-                const nextParams = new URLSearchParams(currentParams);
-                if (nextTab === TAB_ORDER[0]) {
-                    nextParams.delete('tab');
-                } else {
-                    nextParams.set('tab', nextTab);
-                }
-                return nextParams;
-            },
-            { replace: true }
-        );
-    }
     return {
         bulkRunning,
         deleteSelection,
@@ -233,7 +224,10 @@ export function useGalleryPageController() {
         gridDensity,
         changeGridDensity,
         navigate,
-        refreshAll,
+        refreshAll: () => {
+            refreshAllAssets();
+            void refreshMediaProfile().catch(() => {});
+        },
         setActiveTab,
         beginUpload,
         setProfileField,
@@ -259,7 +253,9 @@ export function useGalleryPageController() {
         isVrcPlusSupporter,
         loadingByTab,
         mutatingKey,
-        profilePicOverride,
+        bannerCustomUrl,
+        mediaProfileLoading,
+        mediaProfileError,
         tabCounts,
         userIcon,
         cropRequest,

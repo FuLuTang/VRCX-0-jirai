@@ -5,7 +5,6 @@ import {
 } from '@/platform/tauri/bindings';
 import { flashWindow } from '@/platform/tauri/webview';
 import type { SavedAuthSnapshot } from '@/repositories/authRepository';
-import vrchatAuthRepository from '@/repositories/vrchatAuthRepository';
 import { toast } from '@/services/toastService';
 import { useRuntimeStore } from '@/state/runtimeStore';
 
@@ -19,7 +18,8 @@ import { getLoginErrorMessage as getErrorMessage } from './authErrorDisplayServi
 import {
     finalizeSuccessfulLogin,
     resolveLoginSessionState,
-    setSignedOutSessionState
+    setSignedOutSessionState,
+    showAuthFailureToast
 } from './authExecutionService';
 import { applySavedAuthSnapshot } from './authSnapshotService';
 import i18n from './i18nService';
@@ -267,7 +267,7 @@ export async function executeReactAutoLogin(
             );
         }
 
-        const outcome = await vrchatAuthRepository.autoLoginStart({
+        const outcome = await commands.appVrchatAuthAutoLoginStart({
             userId: throttleKey
         });
         ensureCurrentAuthAttempt(attempt);
@@ -284,12 +284,9 @@ export async function executeReactAutoLogin(
             await showAuthFailureNotificationSafely(
                 'frontend-auto-login-throttled'
             );
-            toast.add({
-                type: 'error',
-                title: await i18n.t('message.auth.auto_login_failed'),
-                timeout: 0,
-                data: { closeButton: true }
-            });
+            showAuthFailureToast(
+                await i18n.t('message.auth.auto_login_failed')
+            );
             return {
                 status: 'throttled',
                 snapshot: outcome.snapshot
@@ -318,9 +315,11 @@ export async function executeReactAutoLogin(
         }
 
         async function restartChallenge(challengeAttemptId: string) {
-            await vrchatAuthRepository.cancelLoginSession(challengeAttemptId);
+            await commands.appVrchatAuthSessionCancel({
+                attemptId: challengeAttemptId
+            });
             ensureCurrentAuthAttempt(attempt);
-            return vrchatAuthRepository.startLoginSession({
+            return commands.appVrchatAuthSessionStart({
                 mode: 'savedCredential',
                 userId: throttleKey
             });
@@ -378,15 +377,12 @@ export async function executeReactAutoLogin(
             'error',
             error instanceof Error ? error.message : String(error)
         );
-        toast.add({
-            type: 'error',
-            title: getErrorMessage(
+        showAuthFailureToast(
+            getErrorMessage(
                 error,
                 await i18n.t('message.auth.auto_login_failed')
-            ),
-            timeout: 0,
-            data: { closeButton: true }
-        });
+            )
+        );
         if (shouldShowManualAuthFailureNotification(authError)) {
             await showAuthFailureNotificationSafely(
                 'frontend-auto-login-failed'
@@ -394,12 +390,7 @@ export async function executeReactAutoLogin(
         }
 
         if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-            toast.add({
-                type: 'error',
-                title: await i18n.t('message.auth.offline'),
-                timeout: 0,
-                data: { closeButton: true }
-            });
+            showAuthFailureToast(await i18n.t('message.auth.offline'));
         }
 
         return {

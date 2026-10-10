@@ -4,16 +4,19 @@ use std::sync::{atomic::AtomicBool, Arc, Mutex};
 use super::{
     run_background_current_user_refresh, run_background_group_instance_notification_refresh,
     run_background_group_instance_refresh, run_background_moderation_refresh,
-    run_background_print_cleanup, run_background_social_baseline_refresh,
-    AuthenticatedSessionProjection, BackendRuntime, BackendRuntimePhase, BackendRuntimeSnapshot,
-    BackendRuntimeTelemetryKind, BackgroundCapabilitySession, BackgroundCapabilitySessionIdentity,
-    BackgroundTickContext, DatabaseService, RealtimeHostRuntime, RuntimeBackgroundJobs,
-    RuntimeHostContext, RuntimeHostState, SocialBaselineRefreshOutput, WebClient,
+    run_background_print_cleanup, run_background_profile_bio_scan,
+    run_background_social_baseline_refresh, AuthenticatedSessionProjection, BackendRuntime,
+    BackendRuntimePhase, BackendRuntimeSnapshot, BackendRuntimeTelemetryKind,
+    BackgroundCapabilitySession, BackgroundCapabilitySessionIdentity, BackgroundTickContext,
+    DatabaseService, RealtimeHostRuntime, RuntimeBackgroundJobs, RuntimeHostContext,
+    RuntimeHostState, SocialBaselineRefreshOutput, WebClient,
 };
 use crate::GroupOrderSource;
 use futures_util::future::BoxFuture;
-use vrcx_0_application::social::{AuthenticatedRuntimeOrchestrator, SocialMaintenanceActions};
-use vrcx_0_application_activity::OverlayFavoriteGroups;
+use vrcx_0_application::social::{
+    AuthenticatedRuntimeOrchestrator, ProfileBioScanPacer, SocialMaintenanceActions,
+};
+use vrcx_0_application_activity::ActivityFavoriteGroups;
 use vrcx_0_core::OwnerId;
 use vrcx_0_vrchat_client::http_api::normalize_vrchat_api_endpoint;
 
@@ -29,6 +32,7 @@ pub(super) struct RuntimeHostSocialMaintenanceActions {
     pub(super) group_instances_refresh_running: Arc<AtomicBool>,
     pub(super) group_order_source: Arc<dyn GroupOrderSource>,
     pub(super) group_notification_group_ids: Mutex<Option<GroupNotificationGroupIds>>,
+    pub(super) profile_bio_pacer: ProfileBioScanPacer,
 }
 
 pub(super) struct GroupNotificationGroupIds {
@@ -73,7 +77,7 @@ impl SocialMaintenanceActions for RuntimeHostSocialMaintenanceActions {
         let Some(session) = background_capability_session_identity(&self.session_slot) else {
             return Vec::new();
         };
-        let runtime = self.runtime_context.overlay_activity();
+        let runtime = self.runtime_context.activity_router();
         let revision = runtime.group_notification_inputs_revision();
         if let Ok(cached) = self.group_notification_group_ids.lock() {
             if let Some(cached) = cached.as_ref().filter(|cached| {
@@ -102,9 +106,12 @@ impl SocialMaintenanceActions for RuntimeHostSocialMaintenanceActions {
                 )
             })
             .collect::<HashMap<_, _>>();
-        let favorite_groups = OverlayFavoriteGroups::from_map(memberships);
+        let favorite_groups = ActivityFavoriteGroups::from_map(memberships);
         let group_ids = favorite_groups.group_instance_notification_group_ids(&runtime.filters());
         runtime.set_group_favorite_groups(favorite_groups);
+        self.runtime_context
+            .group_instance_monitor()
+            .set_watched_groups(&group_ids);
         let config_key = format!(
             "groupInstanceNotificationGroupIds:{}",
             session.current_user_id
@@ -131,7 +138,6 @@ impl SocialMaintenanceActions for RuntimeHostSocialMaintenanceActions {
 
     fn refresh_current_user(&self) -> BoxFuture<'_, ()> {
         Box::pin(run_background_current_user_refresh(
-            &self.web,
             &self.session_slot,
             &self.realtime_runtime,
             &self.runtime_context,
@@ -190,6 +196,12 @@ impl SocialMaintenanceActions for RuntimeHostSocialMaintenanceActions {
 
     fn schedule_print_cleanup(&self) {
         run_background_print_cleanup(&self.tick_context());
+    }
+
+    fn scan_profile_bio(&self) -> BoxFuture<'_, ()> {
+        Box::pin(async move {
+            run_background_profile_bio_scan(&self.tick_context(), &self.profile_bio_pacer).await
+        })
     }
 }
 
@@ -440,7 +452,7 @@ mod background_capability_session_identity_tests {
 
     #[test]
     fn notification_scan_ids_follow_enabled_saved_group_scopes() {
-        let favorite_groups = OverlayFavoriteGroups::from_map(HashMap::from([
+        let favorite_groups = ActivityFavoriteGroups::from_map(HashMap::from([
             (
                 "group:collection-a".to_string(),
                 vec!["grp_alpha".to_string(), "grp_shared".to_string()],
@@ -454,7 +466,7 @@ mod background_capability_session_identity_tests {
                 vec!["grp_not_selected".to_string()],
             ),
         ]));
-        let selected = vrcx_0_application_activity::OverlayActivityFilters::from_json(json!({
+        let selected = vrcx_0_application_activity::ActivityFilters::from_json(json!({
             "version": 1,
             "desktop": {
                 "types": {
@@ -475,11 +487,11 @@ mod background_capability_session_identity_tests {
         );
         assert!(favorite_groups
             .group_instance_notification_group_ids(
-                &vrcx_0_application_activity::OverlayActivityFilters::default()
+                &vrcx_0_application_activity::ActivityFilters::default()
             )
             .is_empty());
 
-        let all_favorites = vrcx_0_application_activity::OverlayActivityFilters::from_json(json!({
+        let all_favorites = vrcx_0_application_activity::ActivityFilters::from_json(json!({
             "version": 1,
             "tts": {
                 "types": {

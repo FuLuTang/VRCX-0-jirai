@@ -16,7 +16,9 @@ vi.mock('@/components/layout/PageScaffold', () => ({
 vi.mock('./components/mutual-friends/ManualRelationsControl', () => ({
     ManualRelationsControl: () => null
 }));
-
+vi.mock('./components/mutual-friends/MutualFriendsAutoFetch', () => ({
+    MutualFriendsAutoFetch: () => null
+}));
 vi.mock('./components/mutual-friends/MutualFriendsHud', () => ({
     MutualFriendsHud: (props: { canFetch: boolean }) => {
         mocks.hud(props);
@@ -67,11 +69,9 @@ function controllerValue(currentUserId: string, friendCount: number) {
             toggleFocusedCommunity: noop
         },
         exclusions: {
-            excludeSearchQuery: '',
-            excludedCount: 0,
-            excludedFriendIdSet: new Set<string>(),
-            filteredExcludeOptions: [],
-            setExcludeSearchQuery: noop
+            excludePickerOptions: [],
+            excludedFriendIds: [],
+            setExcludedFriendIds: noop
         },
         fetch: {
             fetchProgress: {

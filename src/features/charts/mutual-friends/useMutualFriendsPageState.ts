@@ -1,6 +1,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { assignMutualFriendCommunities } from '@/lib/mutual-friends/mutualFriendsCommunities';
+import {
+    applyMutualFriendsViewFilters,
+    countIsolatedMutualFriendNodes,
+    countUnknownMutualFriendNodes
+} from '@/lib/mutual-friends/mutualFriendsFilters';
+import {
+    buildMutualFriendsBaseGraph,
+    buildMutualFriendsCoverage,
+    overlayManualRelations
+} from '@/lib/mutual-friends/mutualFriendsGraphData';
+import {
+    mutualFriendsCommunityPalette,
+    mutualFriendsNeutralCommunityColor
+} from '@/lib/mutual-friends/mutualFriendsPalette';
+import { buildMutualFriendExcludePickerOptions } from '@/lib/mutual-friends/mutualFriendsPicker';
+import { normalizeMutualFriendId } from '@/lib/mutual-friends/mutualFriendsSettings';
+import { useMutualFriendsExclusionStore } from '@/lib/mutual-friends/useMutualFriendsExclusionStore';
+import { useMutualFriendsLayoutSettings } from '@/lib/mutual-friends/useMutualFriendsLayoutSettings';
+import { useMutualFriendsSigmaLifecycle } from '@/lib/mutual-friends/useMutualFriendsSigmaLifecycle';
 import { commands } from '@/platform/tauri/bindings';
 import { openUserDialog } from '@/services/dialogService';
 import { toast } from '@/services/toastService';
@@ -8,35 +28,8 @@ import { useManualRelationsStore } from '@/state/manualRelationsStore';
 import { useModalStore } from '@/state/modalStore';
 import { useMutualGraphRevisionStore } from '@/state/mutualGraphRevisionStore';
 
-import { assignMutualFriendCommunities } from './mutualFriendsCommunities';
-import {
-    applyMutualFriendsViewFilters,
-    countIsolatedMutualFriendNodes,
-    countUnknownMutualFriendNodes
-} from './mutualFriendsFilters';
-import {
-    buildMutualFriendsBaseGraph,
-    buildMutualFriendsCoverage,
-    overlayManualRelations
-} from './mutualFriendsGraphData';
-import {
-    mutualFriendsCommunityPalette,
-    mutualFriendsNeutralCommunityColor
-} from './mutualFriendsPalette';
-import {
-    buildMutualFriendExcludePickerOptions,
-    filterMutualFriendPickerOptions
-} from './mutualFriendsPicker';
-import {
-    normalizeExcludedMutualFriendIds,
-    normalizeMutualFriendId,
-    readExcludedMutualFriendIds,
-    writeExcludedMutualFriendIds
-} from './mutualFriendsSettings';
 import { useMutualFriendsGraphFetch } from './useMutualFriendsGraphFetch';
-import { useMutualFriendsLayoutSettings } from './useMutualFriendsLayoutSettings';
 import { useMutualFriendsRuntime } from './useMutualFriendsRuntime';
-import { useMutualFriendsSigmaLifecycle } from './useMutualFriendsSigmaLifecycle';
 import { useMutualFriendsSnapshot } from './useMutualFriendsSnapshot';
 import { useMutualFriendsViewFilters } from './useMutualFriendsViewFilters';
 
@@ -51,11 +44,16 @@ export function useMutualFriendsPageState() {
         resolvedTheme
     } = useMutualFriendsRuntime();
     const currentUserIdRef = useRef(currentUserId);
-    const [excludeSearchQuery, setExcludeSearchQuery] = useState('');
     const [selectedNodeId, setSelectedNodeId] = useState('');
     const selectedNodeIdRef = useRef('');
-    const [excludedFriendIds, setExcludedFriendIds] = useState(
-        readExcludedMutualFriendIds
+    const excludedFriendIds = useMutualFriendsExclusionStore(
+        (state) => state.excludedFriendIds
+    );
+    const setExcludedFriendIds = useMutualFriendsExclusionStore(
+        (state) => state.setExcludedFriendIds
+    );
+    const toggleExcludedFriendId = useMutualFriendsExclusionStore(
+        (state) => state.toggleExcludedFriendId
     );
     const [nodeRefreshId, setNodeRefreshId] = useState('');
     const [reloadToken, setReloadToken] = useState(0);
@@ -97,10 +95,6 @@ export function useMutualFriendsPageState() {
         currentUserIdRef,
         reloadToken: reloadToken + backfillRevision
     });
-
-    useEffect(() => {
-        writeExcludedMutualFriendIds(excludedFriendIds);
-    }, [excludedFriendIds]);
 
     useEffect(() => {
         void loadManualRelations(currentUserId);
@@ -190,22 +184,6 @@ export function useMutualFriendsPageState() {
         [currentUserId, friendsById, snapshot.snapshotData.snapshot]
     );
 
-    const excludedFriendIdSet = useMemo(
-        () => new Set(normalizeExcludedMutualFriendIds(excludedFriendIds)),
-        [excludedFriendIds]
-    );
-
-    const filteredExcludeOptions = useMemo(
-        () =>
-            filterMutualFriendPickerOptions(
-                excludePickerOptions,
-                excludeSearchQuery,
-                undefined,
-                excludedFriendIdSet
-            ),
-        [excludePickerOptions, excludeSearchQuery, excludedFriendIdSet]
-    );
-
     const selectedNode = useMemo(
         () =>
             baseGraph.nodes.find((node) => node.id === selectedNodeId) ?? null,
@@ -258,19 +236,6 @@ export function useMutualFriendsPageState() {
             reloadSnapshot: snapshot.reloadSnapshot,
             setDetail: snapshot.setDetail
         });
-
-    function toggleExcludedFriendId(friendId: string) {
-        const normalizedId = normalizeMutualFriendId(friendId);
-        if (!normalizedId) {
-            return;
-        }
-        setExcludedFriendIds((current) => {
-            const normalizedCurrent = normalizeExcludedMutualFriendIds(current);
-            return normalizedCurrent.includes(normalizedId)
-                ? normalizedCurrent.filter((id) => id !== normalizedId)
-                : [...normalizedCurrent, normalizedId];
-        });
-    }
 
     async function handleRefreshSelectedNode() {
         if (!currentUserId || !selectedNode?.id || nodeRefreshId) {
@@ -387,11 +352,9 @@ export function useMutualFriendsPageState() {
             toggleFocusedCommunity
         },
         exclusions: {
-            excludeSearchQuery,
-            excludedCount: excludedFriendIds.length,
-            excludedFriendIdSet,
-            filteredExcludeOptions,
-            setExcludeSearchQuery
+            excludePickerOptions,
+            excludedFriendIds,
+            setExcludedFriendIds
         },
         fetch: {
             fetchProgress

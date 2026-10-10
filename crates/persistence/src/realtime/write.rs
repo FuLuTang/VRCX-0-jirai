@@ -1,25 +1,18 @@
 use serde_json::Value;
 
 use crate::activity::activity_iso_from_ms;
-use crate::common::ParamsBuilder;
+use crate::common::{row_string, ParamsBuilder};
 use crate::database::{DatabaseService, DatabaseWriteTransaction};
 use crate::game_log::{ensure_game_log_tables, GameLogLocationEntry, GameLogLocationTimeUpdate};
 use crate::ownership::{owner_id_get_or_insert, OwnerId, OwnerRowId};
 use crate::Error;
 use vrcx_0_contracts::feed_live::FeedLiveEntry;
-use vrcx_0_core::trust::trust_level_changed;
+use vrcx_0_contracts::friend_log::FriendLogCurrentOutput;
+use vrcx_0_core::friend_log::{plan_friend_log_upsert, FriendLogCurrent, FriendLogUpsertInput};
 
 use super::schema::{ensure_realtime_tables, normalize_user_table_prefix};
 use super::types::*;
 use vrcx_0_core::text::first_non_empty;
-
-#[derive(Clone, Debug, Default)]
-struct ExistingFriendLogRow {
-    user_id: String,
-    display_name: String,
-    trust_level: String,
-    friend_number: i64,
-}
 
 struct FriendLogHistoryEntry<'a> {
     created_at: &'a str,
@@ -239,8 +232,8 @@ pub fn write_realtime_batch(
         for update in &batch.game_log_location_time_updates {
             counts.add_game_log_rows(update_game_log_location_time(tx, owner_id, update)?);
         }
-        for entry in &batch.self_profile_log_entries {
-            counts.add_realtime_rows(insert_self_profile_log(tx, &user_prefix, entry)?);
+        for observation in &batch.self_profile_observations {
+            counts.add_realtime_rows(observe_self_profile_field(tx, &user_prefix, observation)?);
         }
         Ok(counts)
     })
@@ -248,37 +241,76 @@ pub fn write_realtime_batch(
 
 fn validate_friend_log_backed_feed_entries(batch: &RealtimePersistenceBatch) -> Result<(), Error> {
     for entry in &batch.feed_entries {
-        let FeedLiveEntry::TrustLevel {
-            created_at,
-            user_id,
-            display_name,
-            trust_level,
-            previous_trust_level,
-            friend_number,
-            ..
-        } = entry
-        else {
-            continue;
+        let valid = match entry {
+            FeedLiveEntry::TrustLevel {
+                created_at,
+                user_id,
+                display_name,
+                trust_level,
+                previous_trust_level,
+                friend_number,
+                ..
+            } => {
+                !trust_level.is_empty()
+                    && !previous_trust_level.is_empty()
+                    && has_matching_friend_log_upsert(
+                        batch,
+                        user_id,
+                        created_at,
+                        display_name,
+                        *friend_number,
+                        Some(trust_level),
+                    )
+            }
+            FeedLiveEntry::DisplayName {
+                created_at,
+                user_id,
+                display_name,
+                previous_display_name,
+                friend_number,
+                ..
+            } => {
+                !previous_display_name.trim().is_empty()
+                    && has_matching_friend_log_upsert(
+                        batch,
+                        user_id,
+                        created_at,
+                        display_name,
+                        *friend_number,
+                        None,
+                    )
+            }
+            _ => continue,
         };
-        let user_id = normalize_user_id(user_id);
-        let valid = !created_at.is_empty()
-            && !user_id.is_empty()
-            && !trust_level.is_empty()
-            && !previous_trust_level.is_empty()
-            && batch.friend_log_upserts.iter().any(|upsert| {
-                normalize_user_id(&upsert.target_user_id) == user_id
-                    && upsert.created_at.trim() == created_at
-                    && upsert.display_name.trim() == display_name.trim()
-                    && upsert.trust_level.trim() == trust_level.trim()
-                    && upsert.friend_number == *friend_number
-            });
         if !valid {
-            return Err(Error::InvalidData(
-                "TrustLevel feed entry requires a matching friend-log upsert.".into(),
-            ));
+            return Err(Error::InvalidData(format!(
+                "{} feed entry requires a matching friend-log upsert.",
+                entry.entry_type()
+            )));
         }
     }
     Ok(())
+}
+
+fn has_matching_friend_log_upsert(
+    batch: &RealtimePersistenceBatch,
+    user_id: &str,
+    created_at: &str,
+    display_name: &str,
+    friend_number: i64,
+    trust_level: Option<&str>,
+) -> bool {
+    let user_id = normalize_user_id(user_id);
+    !created_at.is_empty()
+        && !user_id.is_empty()
+        && batch.friend_log_upserts.iter().any(|upsert| {
+            normalize_user_id(&upsert.target_user_id) == user_id
+                && upsert.created_at.trim() == created_at
+                && upsert.display_name.trim() == display_name.trim()
+                && trust_level
+                    .is_none_or(|trust_level| upsert.trust_level.trim() == trust_level.trim())
+                && upsert.friend_number == friend_number
+        })
 }
 
 fn upsert_friend_log_current(
@@ -294,46 +326,40 @@ fn upsert_friend_log_current(
         &format!(
             "SELECT user_id, display_name, trust_level, friend_number FROM {user_prefix}_friend_log_current WHERE user_id = @user_id LIMIT 1"
         ),
-        &ParamsBuilder::new().set("user_id", target_user_id.clone()).build(),
+        &ParamsBuilder::new().set("user_id", target_user_id).build(),
     )?;
     let existing = existing_rows
         .first()
         .map(|row| existing_friend_log_row(row));
-    let friend_number = if entry.friend_number > 0 {
-        entry.friend_number
-    } else if let Some(existing) = existing.as_ref() {
-        existing.friend_number
-    } else {
-        next_friend_number(tx, user_prefix)?
+    let Some(plan) = plan_friend_log_upsert(
+        FriendLogUpsertInput {
+            target_user_id: &entry.target_user_id,
+            display_name: &entry.display_name,
+            trust_level: &entry.trust_level,
+            friend_number: entry.friend_number,
+            force_history: entry.force_history,
+        },
+        existing.as_ref().map(|existing| FriendLogCurrent {
+            display_name: &existing.display_name,
+            trust_level: &existing.trust_level,
+            friend_number: existing.friend_number,
+        }),
+        || next_friend_number(tx, user_prefix),
+    )?
+    else {
+        return Ok(0);
     };
-    let existing_display_name = existing
-        .as_ref()
-        .map(|existing| existing.display_name.trim())
-        .unwrap_or("");
-    let entry_display_name = entry.display_name.trim();
-    let display_name = if !entry_display_name.is_empty() && entry_display_name != "Unknown" {
-        entry_display_name
-    } else if !existing_display_name.is_empty() && existing_display_name != "Unknown" {
-        existing_display_name
-    } else {
-        "Unknown"
-    };
-    let existing_trust_level = existing
-        .as_ref()
-        .map(|existing| existing.trust_level.trim())
-        .unwrap_or("");
-    let trust_level =
-        first_non_empty([entry.trust_level.as_str(), existing_trust_level, "Visitor"]);
+    let params = ParamsBuilder::new()
+        .set("user_id", plan.user_id.clone())
+        .set("display_name", plan.display_name.clone())
+        .set("trust_level", plan.trust_level.clone())
+        .set("friend_number", plan.friend_number)
+        .build();
     let insert_count = tx.execute_non_query(
         &format!(
             "INSERT OR IGNORE INTO {user_prefix}_friend_log_current (user_id, display_name, trust_level, friend_number) VALUES (@user_id, @display_name, @trust_level, @friend_number)"
         ),
-        &ParamsBuilder::new()
-            .set("user_id", target_user_id.clone())
-            .set("display_name", display_name)
-            .set("trust_level", trust_level)
-            .set("friend_number", friend_number)
-            .build(),
+        &params,
     )?;
     let mut affected = affected_count(insert_count);
     if insert_count <= 0 {
@@ -341,78 +367,22 @@ fn upsert_friend_log_current(
             &format!(
                 "UPDATE {user_prefix}_friend_log_current SET display_name = @display_name, trust_level = @trust_level, friend_number = CASE WHEN @friend_number > 0 THEN @friend_number ELSE friend_number END WHERE user_id = @user_id"
             ),
-            &ParamsBuilder::new()
-                .set("user_id", target_user_id.clone())
-                .set("display_name", display_name)
-                .set("trust_level", trust_level)
-                .set("friend_number", friend_number)
-                .build(),
+            &params,
         )?));
-        let renamed = !existing_display_name.is_empty()
-            && existing_display_name != "Unknown"
-            && display_name != "Unknown"
-            && display_name != existing_display_name;
-        if renamed {
-            affected = affected.saturating_add(add_friend_log_history(
-                tx,
-                user_prefix,
-                &FriendLogHistoryEntry {
-                    created_at: &entry.created_at,
-                    entry_type: "DisplayName",
-                    user_id: &target_user_id,
-                    display_name,
-                    previous_display_name: existing_display_name,
-                    trust_level,
-                    previous_trust_level: "",
-                    friend_number,
-                },
-            )?);
-        }
-        if trust_level_changed(existing_trust_level, trust_level) {
-            affected = affected.saturating_add(add_friend_log_history(
-                tx,
-                user_prefix,
-                &FriendLogHistoryEntry {
-                    created_at: &entry.created_at,
-                    entry_type: "TrustLevel",
-                    user_id: &target_user_id,
-                    display_name,
-                    previous_display_name: "",
-                    trust_level,
-                    previous_trust_level: existing_trust_level,
-                    friend_number,
-                },
-            )?);
-        }
-        if entry.force_history {
-            affected = affected.saturating_add(add_friend_log_history(
-                tx,
-                user_prefix,
-                &FriendLogHistoryEntry {
-                    created_at: &entry.created_at,
-                    entry_type: "Friend",
-                    user_id: &target_user_id,
-                    display_name,
-                    previous_display_name: "",
-                    trust_level,
-                    previous_trust_level: "",
-                    friend_number,
-                },
-            )?);
-        }
-    } else {
+    }
+    for history in &plan.history {
         affected = affected.saturating_add(add_friend_log_history(
             tx,
             user_prefix,
             &FriendLogHistoryEntry {
                 created_at: &entry.created_at,
-                entry_type: "Friend",
-                user_id: &target_user_id,
-                display_name,
-                previous_display_name: "",
-                trust_level,
-                previous_trust_level: "",
-                friend_number,
+                entry_type: history.entry_type,
+                user_id: &plan.user_id,
+                display_name: &plan.display_name,
+                previous_display_name: &history.previous_display_name,
+                trust_level: &plan.trust_level,
+                previous_trust_level: &history.previous_trust_level,
+                friend_number: plan.friend_number,
             },
         )?);
     }
@@ -593,12 +563,10 @@ fn insert_feed_entry(
             owner_id,
             avatar_name,
             current_avatar_image_url,
-            current_avatar_thumbnail_image_url,
             previous_current_avatar_image_url,
-            previous_current_avatar_thumbnail_image_url,
             ..
         } => tx.execute_non_query(
-            &format!("INSERT OR IGNORE INTO {user_prefix}_feed_avatar (created_at, user_id, display_name, owner_id, avatar_name, current_avatar_image_url, current_avatar_thumbnail_image_url, previous_current_avatar_image_url, previous_current_avatar_thumbnail_image_url) VALUES (@created_at, @user_id, @display_name, @owner_id, @avatar_name, @current_avatar_image_url, @current_avatar_thumbnail_image_url, @previous_current_avatar_image_url, @previous_current_avatar_thumbnail_image_url)"),
+            &format!("INSERT OR IGNORE INTO {user_prefix}_feed_avatar (created_at, user_id, display_name, owner_id, avatar_name, current_avatar_image_url, previous_current_avatar_image_url) VALUES (@created_at, @user_id, @display_name, @owner_id, @avatar_name, @current_avatar_image_url, @previous_current_avatar_image_url)"),
             &ParamsBuilder::new()
                 .set("created_at", created_at.clone())
                 .set("user_id", user_id.clone())
@@ -606,12 +574,11 @@ fn insert_feed_entry(
                 .set("owner_id", owner_id.clone())
                 .set("avatar_name", avatar_name.clone())
                 .set("current_avatar_image_url", current_avatar_image_url.clone())
-                .set("current_avatar_thumbnail_image_url", current_avatar_thumbnail_image_url.clone())
                 .set("previous_current_avatar_image_url", previous_current_avatar_image_url.clone())
-                .set("previous_current_avatar_thumbnail_image_url", previous_current_avatar_thumbnail_image_url.clone())
                 .build(),
         )?,
-        FeedLiveEntry::TrustLevel { .. }
+        FeedLiveEntry::DisplayName { .. }
+        | FeedLiveEntry::TrustLevel { .. }
         | FeedLiveEntry::Friend { .. }
         | FeedLiveEntry::Unfriend { .. } => return Ok(0),
         FeedLiveEntry::OnPlayerJoining { .. } | FeedLiveEntry::InstanceClosed { .. } => {
@@ -727,7 +694,7 @@ fn expire_notification(
             .build(),
     )?);
     affected = affected.saturating_add(affected_count(tx.execute_non_query(
-        &format!("UPDATE {user_prefix}_notifications SET expired = 1 WHERE id = @id"),
+        &format!("UPDATE {user_prefix}_notifications SET expired = 1, seen = 1 WHERE id = @id"),
         &ParamsBuilder::new().set("id", id).build(),
     )?));
     Ok(affected)
@@ -821,12 +788,22 @@ fn mark_notification_seen(
     .map(affected_count)
 }
 
-fn insert_self_profile_log(
+fn observe_self_profile_field(
     tx: &mut DatabaseWriteTransaction<'_>,
     user_prefix: &str,
-    entry: &SelfProfileLogEntry,
+    observation: &SelfProfileObservation,
 ) -> Result<u64, Error> {
-    if entry.value == entry.previous_value {
+    let field = observation.field.as_str();
+    let previous_value = tx
+        .execute(
+            &format!(
+                "SELECT value FROM {user_prefix}_self_profile_log WHERE field = @field ORDER BY id DESC LIMIT 1"
+            ),
+            &ParamsBuilder::new().set("field", field).build(),
+        )?
+        .first()
+        .map(|row| row_string(row, 0));
+    if previous_value.as_deref() == Some(observation.value.as_str()) {
         return Ok(0);
     }
     tx.execute_non_query(
@@ -835,10 +812,10 @@ fn insert_self_profile_log(
              VALUES (@created_at, @field, @value, @previous_value)"
         ),
         &ParamsBuilder::new()
-            .set("created_at", entry.created_at.clone())
-            .set("field", entry.field.as_str())
-            .set("value", entry.value.clone())
-            .set("previous_value", entry.previous_value.clone())
+            .set("created_at", observation.observed_at.clone())
+            .set("field", field)
+            .set("value", observation.value.clone())
+            .set("previous_value", previous_value.unwrap_or_default())
             .build(),
     )
     .map(affected_count)
@@ -873,32 +850,45 @@ fn upsert_avatar_time_spent(
     entry: &AvatarTimeSpentUpsert,
 ) -> Result<u64, Error> {
     let avatar_id = normalize_user_id(&entry.avatar_id);
-    if avatar_id.is_empty() || entry.time_spent <= 0 {
+    if avatar_id.is_empty() || entry.ended_at_ms <= entry.started_at_ms {
         return Ok(0);
+    }
+    if entry.time_spent > 0 {
+        tx.execute_non_query(
+            &format!(
+                "INSERT INTO {user_prefix}_avatar_history (avatar_id, created_at, time)
+                 VALUES (@avatar_id, @created_at, @time_spent)
+                 ON CONFLICT(avatar_id) DO UPDATE SET time = time + @time_spent"
+            ),
+            &ParamsBuilder::new()
+                .set("avatar_id", avatar_id.clone())
+                .set("created_at", entry.created_at.clone())
+                .set("time_spent", entry.time_spent)
+                .build(),
+        )?;
+    }
+    let params = ParamsBuilder::new()
+        .set("avatar_id", avatar_id)
+        .set("started_at", activity_iso_from_ms(entry.started_at_ms))
+        .set("ended_at", activity_iso_from_ms(entry.ended_at_ms))
+        .set("time", entry.ended_at_ms - entry.started_at_ms)
+        .build();
+    let updated = tx.execute_non_query(
+        &format!(
+            "UPDATE {user_prefix}_avatar_wear_log SET ended_at = @ended_at, time = @time
+             WHERE avatar_id = @avatar_id AND started_at = @started_at"
+        ),
+        &params,
+    )?;
+    if updated > 0 {
+        return Ok(affected_count(updated));
     }
     tx.execute_non_query(
         &format!(
-            "INSERT INTO {user_prefix}_avatar_history (avatar_id, created_at, time)
-             VALUES (@avatar_id, @created_at, @time_spent)
-             ON CONFLICT(avatar_id) DO UPDATE SET time = time + @time_spent"
-        ),
-        &ParamsBuilder::new()
-            .set("avatar_id", avatar_id.clone())
-            .set("created_at", entry.created_at.clone())
-            .set("time_spent", entry.time_spent)
-            .build(),
-    )?;
-    tx.execute_non_query(
-        &format!(
             "INSERT INTO {user_prefix}_avatar_wear_log (avatar_id, started_at, ended_at, time)
-             VALUES (@avatar_id, @started_at, @ended_at, @time_spent)"
+             VALUES (@avatar_id, @started_at, @ended_at, @time)"
         ),
-        &ParamsBuilder::new()
-            .set("avatar_id", avatar_id)
-            .set("started_at", activity_iso_from_ms(entry.started_at_ms))
-            .set("ended_at", activity_iso_from_ms(entry.ended_at_ms))
-            .set("time_spent", entry.time_spent)
-            .build(),
+        &params,
     )
     .map(affected_count)
 }
@@ -974,8 +964,8 @@ fn next_friend_number(
     })
 }
 
-fn existing_friend_log_row(row: &[Value]) -> ExistingFriendLogRow {
-    ExistingFriendLogRow {
+fn existing_friend_log_row(row: &[Value]) -> FriendLogCurrentOutput {
+    FriendLogCurrentOutput {
         user_id: row
             .first()
             .and_then(Value::as_str)

@@ -36,9 +36,6 @@ const mocks = vi.hoisted(() => ({
     unsubscribe: vi.fn()
 }));
 
-vi.mock('react-i18next', () => ({
-    useTranslation: () => ({ t: (key: string) => key })
-}));
 vi.mock('@/platform/tauri/bindings', () => ({
     commands: {
         appSetTrayShortcut: mocks.set,
@@ -94,9 +91,11 @@ async function saveRecordedShortcut() {
 
 async function openRecorder() {
     render(<TrayShortcutSetting />);
-    fireEvent.click(
-        screen.getByRole('button', { name: 'shortcuts.tray.configure' })
-    );
+    const configure = screen.getByRole('button', {
+        name: 'shortcuts.tray.configure'
+    });
+    act(() => configure.focus());
+    fireEvent.click(configure);
     const recorder = await screen.findByRole('textbox', {
         name: 'shortcuts.tray.record'
     });

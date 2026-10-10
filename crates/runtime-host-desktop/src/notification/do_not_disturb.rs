@@ -4,12 +4,13 @@ use std::sync::{Arc, Mutex};
 use chrono::{DateTime, Duration, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 use tokio::sync::Notify;
-use vrcx_0_application_activity::OverlayActivitySurface;
 use vrcx_0_application_core::{
     GameProcessEventSink, RuntimeEventBus, RuntimeEventPayload, TaskSupervisor,
 };
 use vrcx_0_core::game_process::GameProcessEvent;
 use vrcx_0_persistence::config::ConfigRepository;
+
+use crate::RuntimeHost;
 
 const NOTIFICATION_DO_NOT_DISTURB_STATE_CONFIG_KEY: &str = "notificationDoNotDisturbState";
 const NOTIFICATION_DO_NOT_DISTURB_END_ON_GAME_START_CONFIG_KEY: &str =
@@ -137,16 +138,6 @@ impl NotificationDoNotDisturbState {
     }
 }
 
-fn do_not_disturb_suppresses(surface: OverlayActivitySurface) -> bool {
-    matches!(
-        surface,
-        OverlayActivitySurface::Desktop
-            | OverlayActivitySurface::Vr
-            | OverlayActivitySurface::Hmd
-            | OverlayActivitySurface::Tts
-    )
-}
-
 #[derive(Clone)]
 pub struct NotificationDoNotDisturbRuntime {
     inner: Arc<NotificationDoNotDisturbRuntimeInner>,
@@ -157,6 +148,7 @@ struct NotificationDoNotDisturbRuntimeInner {
     seen_game_process_event: AtomicBool,
     config: ConfigRepository,
     event_bus: RuntimeEventBus,
+    host: RuntimeHost,
     expiration_changed: Notify,
 }
 
@@ -164,6 +156,7 @@ impl NotificationDoNotDisturbRuntime {
     pub fn new(
         config: ConfigRepository,
         event_bus: RuntimeEventBus,
+        host: RuntimeHost,
         tasks: TaskSupervisor,
     ) -> vrcx_0_application_core::Result<Self> {
         let persisted =
@@ -187,6 +180,7 @@ impl NotificationDoNotDisturbRuntime {
                 seen_game_process_event: AtomicBool::new(false),
                 config,
                 event_bus,
+                host,
                 expiration_changed: Notify::new(),
             }),
         };
@@ -219,10 +213,6 @@ impl NotificationDoNotDisturbRuntime {
             .unwrap_or(false)
     }
 
-    pub fn suppresses(&self, surface: OverlayActivitySurface) -> bool {
-        self.is_active() && do_not_disturb_suppresses(surface)
-    }
-
     pub fn set_mode(
         &self,
         mode: NotificationDoNotDisturbMode,
@@ -250,6 +240,7 @@ impl NotificationDoNotDisturbRuntime {
         let snapshot = next.snapshot(Utc::now());
         *state = next;
         drop(state);
+        self.inner.host.refresh_tray_menu();
         self.inner.event_bus.emit(snapshot.clone());
         Ok(snapshot)
     }
@@ -329,12 +320,21 @@ impl GameProcessEventSink for NotificationDoNotDisturbRuntime {
 #[cfg(test)]
 mod tests {
     use chrono::{DateTime, Utc};
-    use vrcx_0_application_activity::OverlayActivitySurface;
     use vrcx_0_core::game_process::GameProcessEvent;
 
-    use super::{
-        do_not_disturb_suppresses, NotificationDoNotDisturbMode, NotificationDoNotDisturbState,
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+
+    use vrcx_0_application_core::{
+        RuntimeEventBus, RuntimeVrchatAuthFailurePayload, TaskSupervisor,
     };
+
+    use super::super::test_support::test_config;
+    use super::{
+        NotificationDoNotDisturbMode, NotificationDoNotDisturbRuntime,
+        NotificationDoNotDisturbState,
+    };
+    use crate::{RuntimeHost, RuntimeHostActions};
 
     fn now() -> DateTime<Utc> {
         "2026-08-28T00:00:00Z".parse().unwrap()
@@ -469,21 +469,45 @@ mod tests {
         }
     }
 
+    struct TrayRefreshActions {
+        refreshes: Arc<AtomicUsize>,
+    }
+
+    impl RuntimeHostActions for TrayRefreshActions {
+        fn focus_main_window(&self) {}
+
+        fn set_tray_icon_notification(&self, _notify: bool) {}
+
+        fn vrchat_auth_failed(&self, _failure: &RuntimeVrchatAuthFailurePayload) {}
+
+        fn refresh_tray_menu(&self) {
+            self.refreshes.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
     #[test]
-    fn dnd_suppresses_only_interruptive_local_activity_surfaces() {
-        for surface in [
-            OverlayActivitySurface::Desktop,
-            OverlayActivitySurface::Vr,
-            OverlayActivitySurface::Hmd,
-            OverlayActivitySurface::Tts,
-        ] {
-            assert!(do_not_disturb_suppresses(surface));
-        }
-        for surface in [
-            OverlayActivitySurface::Wrist,
-            OverlayActivitySurface::Webhook,
-        ] {
-            assert!(!do_not_disturb_suppresses(surface));
-        }
+    fn changing_the_mode_refreshes_the_host_tray_menu() {
+        let (_dir, config) = test_config("dnd-tray-refresh");
+        let host = RuntimeHost::new();
+        let refreshes = Arc::new(AtomicUsize::new(0));
+        host.set_actions(TrayRefreshActions {
+            refreshes: Arc::clone(&refreshes),
+        });
+        let runtime = NotificationDoNotDisturbRuntime::new(
+            config,
+            RuntimeEventBus::new(),
+            host,
+            TaskSupervisor::new(),
+        )
+        .unwrap();
+
+        runtime
+            .set_mode(NotificationDoNotDisturbMode::UntilStopped)
+            .unwrap();
+        runtime
+            .set_mode(NotificationDoNotDisturbMode::UntilStopped)
+            .unwrap();
+
+        assert_eq!(refreshes.load(Ordering::Relaxed), 1);
     }
 }

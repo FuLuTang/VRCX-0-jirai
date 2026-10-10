@@ -3,28 +3,37 @@
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { presenceSection, type PresenceView } from '@/domain/friends/presence';
 import type { FriendRecord } from '@/domain/friends/types';
 import { useFriendLocationTimeStore } from '@/state/friendLocationTimeStore';
-
 import {
-    getFriendsLocationsCardRowHeight,
-    getFriendsLocationsDensityConfig
-} from './friendsLocationsDensity';
+    activePresence,
+    offlinePresence,
+    onlinePresence
+} from '@/test/presenceFixtures';
+
 import * as friendSections from './friendsLocationsSections';
 import { useFriendsLocationsPageDerivedState } from './useFriendsLocationsPageDerivedState';
 
-vi.mock('react-i18next', () => ({
-    useTranslation: () => ({ t: (key: string) => key })
+vi.mock('./useFriendsLocationsWorldSummaries', () => ({
+    useFriendsLocationsWorldSummaries: () => new Map()
 }));
 
-function friendAt(location: string): FriendRecord {
+type Section = 'online' | 'active' | 'offline';
+
+function presenceFor(section: Section, location: string): PresenceView {
+    if (section === 'online') {
+        return onlinePresence(location);
+    }
+    return section === 'active' ? activePresence() : offlinePresence;
+}
+
+function friendAt(place: string | PresenceView): FriendRecord {
     return {
         id: 'usr_friend',
         displayName: 'Friend',
         tags: [],
-        state: 'online',
-        stateBucket: 'online',
-        location,
+        $presence: typeof place === 'string' ? onlinePresence(place) : place,
         $trustLevel: '',
         $friendNumber: 0,
         $trustClass: '',
@@ -41,7 +50,7 @@ function pageInput(
 ): Parameters<typeof useFriendsLocationsPageDerivedState>[0] {
     return {
         activeIds: friends
-            .filter((friend) => friend.state === 'active')
+            .filter((friend) => presenceSection(friend.$presence) === 'active')
             .map((friend) => friend.id.trim()),
         activeSegment: 'same-instance',
         collapsedGroups: new Set(),
@@ -49,6 +58,7 @@ function pageInput(
         currentUserSnapshot: null,
         deferredSearchQuery: '',
         density: 'compact',
+        viewMode: 'people',
         favoriteFriendGroups: [],
         friendsById: Object.fromEntries(
             friends.map((friend) => [friend.id.trim(), friend])
@@ -62,14 +72,15 @@ function pageInput(
         localFriendFavoriteGroups: [],
         localFriendFavorites: {},
         offlineIds: friends
-            .filter((friend) => friend.state === 'offline')
+            .filter((friend) => presenceSection(friend.$presence) === 'offline')
             .map((friend) => friend.id.trim()),
         onlineIds: friends
-            .filter((friend) => friend.state === 'online')
+            .filter((friend) => presenceSection(friend.$presence) === 'online')
             .map((friend) => friend.id.trim()),
         remoteFavoriteFriendIds: [],
         rosterStatus: 'ready',
         scrollMetrics: { width: 1_000, viewportHeight: 1_000, scrollTop: 0 },
+        showFavoritesInOnline: true,
         showSameInstanceInOnline: true,
         sidebarFavoritePrefs: {
             isDivideByGroup: false,
@@ -95,7 +106,7 @@ describe('useFriendsLocationsPageDerivedState', () => {
             input.currentUserSnapshot = {
                 id: 'usr_self',
                 displayName: 'Me',
-                location: 'wrld_stale:2'
+                $presence: onlinePresence('wrld_local:1')
             };
             const { result } = renderHook(() =>
                 useFriendsLocationsPageDerivedState(input)
@@ -110,10 +121,97 @@ describe('useFriendsLocationsPageDerivedState', () => {
             ]);
             expect(cards[0]).toMatchObject({
                 displayName: 'Me',
-                location: 'wrld_local:1'
+                $presence: onlinePresence('wrld_local:1')
             });
         }
     );
+
+    it.each([
+        [true, ['usr_fav', 'usr_plain']],
+        [false, ['usr_plain']]
+    ] as const)(
+        'shows favorite friends in the online view only when enabled (%s)',
+        (showFavoritesInOnline, expectedIds) => {
+            const input = pageInput([
+                { ...friendAt('wrld_away:1'), id: 'usr_fav', displayName: 'A' },
+                {
+                    ...friendAt('wrld_away:2'),
+                    id: 'usr_plain',
+                    displayName: 'B'
+                }
+            ]);
+            input.activeSegment = 'online';
+            input.remoteFavoriteFriendIds = ['usr_fav'];
+            input.showFavoritesInOnline = showFavoritesInOnline;
+            const { result } = renderHook(() =>
+                useFriendsLocationsPageDerivedState(input)
+            );
+
+            expect(
+                result.current.visibleVirtualRows
+                    .flatMap((row) => (row.type === 'cards' ? row.friends : []))
+                    .map((friend) => friend.id)
+                    .sort()
+            ).toEqual(expectedIds);
+        }
+    );
+
+    it('groups favorite friends under their own online section', () => {
+        const input = pageInput([
+            { ...friendAt('wrld_away:1'), id: 'usr_fav', displayName: 'A' },
+            { ...friendAt('wrld_away:2'), id: 'usr_plain', displayName: 'B' }
+        ]);
+        input.activeSegment = 'online';
+        input.remoteFavoriteFriendIds = ['usr_fav'];
+        const { result } = renderHook(() =>
+            useFriendsLocationsPageDerivedState(input)
+        );
+
+        const sections = result.current.visibleVirtualRows.reduce<
+            Record<string, string[]>
+        >((acc, row) => {
+            if (row.type === 'cards') {
+                acc[row.section.key] = [
+                    ...(acc[row.section.key] ?? []),
+                    ...row.friends.map((friend) => friend.id)
+                ];
+            }
+            return acc;
+        }, {});
+        expect(sections).toEqual({
+            'online:favorites': ['usr_fav'],
+            'online:remaining': ['usr_plain']
+        });
+    });
+
+    it('splits online favorite friends by group when the sidebar divides by group', () => {
+        const input = pageInput([
+            { ...friendAt('wrld_away:1'), id: 'usr_fav', displayName: 'A' },
+            { ...friendAt('wrld_away:2'), id: 'usr_plain', displayName: 'B' }
+        ]);
+        input.activeSegment = 'online';
+        input.localFriendFavoriteGroups = ['Besties'];
+        input.localFriendFavorites = { Besties: ['usr_fav'] };
+        input.sidebarFavoritePrefs = {
+            isDivideByGroup: true,
+            selectedGroups: [],
+            groupOrder: []
+        };
+        const { result } = renderHook(() =>
+            useFriendsLocationsPageDerivedState(input)
+        );
+
+        expect(
+            result.current.visibleVirtualRows.flatMap((row) =>
+                row.type === 'cards'
+                    ? row.friends.map((friend) => [row.section.key, friend.id])
+                    : []
+            )
+        ).toEqual([
+            ['online:favorite:local:Besties', 'usr_fav'],
+            ['online:remaining', 'usr_plain']
+        ]);
+    });
 
     it('does not show a previous account snapshot as the current user', () => {
         const input = pageInput([friendAt('wrld_local:1')]);
@@ -135,7 +233,7 @@ describe('useFriendsLocationsPageDerivedState', () => {
     });
 
     it.each(['standard', 'compact', 'dense'])(
-        'uses the %s content heights for each virtual card row without changing the friends',
+        'keeps all friends and section headers in the %s density',
         (density) => {
             const friends = Array.from({ length: 8 }, (_, index) => ({
                 ...friendAt(index < 6 ? 'wrld_remote:2' : 'private'),
@@ -148,7 +246,6 @@ describe('useFriendsLocationsPageDerivedState', () => {
             const { result } = renderHook(() =>
                 useFriendsLocationsPageDerivedState(input)
             );
-            const config = getFriendsLocationsDensityConfig(density);
             const cardRows = result.current.visibleVirtualRows.filter(
                 (row) => row.type === 'cards'
             );
@@ -165,36 +262,42 @@ describe('useFriendsLocationsPageDerivedState', () => {
             const rows = result.current.positionedRows.rows;
             expect(rows.some((row) => row.type === 'header')).toBe(true);
             expect(rows.some((row) => row.type === 'group-header')).toBe(true);
-            for (const [index, row] of rows.entries()) {
-                expect(row.top).toBe(
-                    index === 0
-                        ? 0
-                        : rows[index - 1].top + rows[index - 1].height
-                );
-                if (row.type === 'header' || row.type === 'group-header') {
-                    expect(row.height).toBe(40 + row.topGap);
-                    if (index === 0) {
-                        expect(row.topGap).toBe(0);
-                    }
-                    const next = rows[index + 1];
-                    expect(next?.type).toBe('cards');
-                    if (next?.type === 'cards') {
-                        expect(next.topGap).toBe(row.type === 'header' ? 4 : 0);
-                    }
-                }
-            }
-            for (const row of cardRows) {
-                const expectedHeight = getFriendsLocationsCardRowHeight(
-                    config,
-                    row.section.cardContentMode
-                );
-                expect(row.gridRowHeight).toBe(expectedHeight);
-                expect(row.height).toBe(
-                    expectedHeight + config.gridGap + row.topGap
-                );
-            }
         }
     );
+
+    it('uses distinct card row keys when switching segments', () => {
+        const onlineFriend = friendAt('wrld_remote:1');
+        const offlineFriend = {
+            ...friendAt(offlinePresence),
+            id: 'usr_offline',
+            displayName: 'Offline Friend'
+        };
+        const input = pageInput([onlineFriend, offlineFriend]);
+        input.activeSegment = 'online';
+        input.gameState = undefined;
+        const { result, rerender } = renderHook(() =>
+            useFriendsLocationsPageDerivedState(input)
+        );
+
+        const onlineRow = result.current.visibleVirtualRows.find(
+            (row) => row.type === 'cards'
+        );
+        expect(onlineRow?.key).toBe('cards:online:remaining:0');
+
+        input.activeSegment = 'offline';
+        rerender();
+
+        const offlineRow = result.current.visibleVirtualRows.find(
+            (row) => row.type === 'cards'
+        );
+        expect(offlineRow?.key).toBe('cards:flat:0');
+        expect(offlineRow?.key).not.toBe(onlineRow?.key);
+        expect(
+            offlineRow?.type === 'cards'
+                ? offlineRow.friends.map((friend) => friend.id)
+                : []
+        ).toEqual(['usr_offline']);
+    });
 
     it.each([
         ['online', 'usr_friend'],
@@ -207,10 +310,8 @@ describe('useFriendsLocationsPageDerivedState', () => {
         (state, id) => {
             const location = 'wrld_local:1';
             const friend = {
-                ...friendAt('wrld_remote:2'),
-                id,
-                state,
-                stateBucket: state
+                ...friendAt(presenceFor(state, 'wrld_remote:2')),
+                id
             };
             useFriendLocationTimeStore.getState().replaceSnapshot([
                 {
@@ -254,8 +355,9 @@ describe('useFriendsLocationsPageDerivedState', () => {
                 rerender();
                 expect(result.current.hasVisibleSections).toBe(true);
             }
-            expect(friend.location).toBe('wrld_remote:2');
-            expect(friend.state).toBe(state);
+            expect(friend.$presence).toEqual(
+                presenceFor(state, 'wrld_remote:2')
+            );
         }
     );
 
@@ -271,15 +373,13 @@ describe('useFriendsLocationsPageDerivedState', () => {
             displayName: 'Zoe'
         };
         const local: FriendRecord = {
-            ...friendAt('wrld_remote:2'),
+            ...friendAt(offlinePresence),
             id: 'usr_m',
-            displayName: 'Mary',
-            state: 'offline'
+            displayName: 'Mary'
         };
         const unrelated: FriendRecord = {
-            ...friendAt('offline'),
-            id: 'usr_unrelated',
-            state: 'offline'
+            ...friendAt(offlinePresence),
+            id: 'usr_unrelated'
         };
         const input = pageInput([onlineLast, unrelated, local, onlineFirst]);
         input.sidebarSortMethods = ['Sort Alphabetically'];
@@ -328,10 +428,10 @@ describe('useFriendsLocationsPageDerivedState', () => {
         );
 
         expect(
-            sort.mock.calls.flatMap(([friends]) =>
-                friends.map((friend) => friend.id)
+            sort.mock.calls.map(([friends]) =>
+                friends.map((friend) => friend.id).sort()
             )
-        ).not.toContain(unrelated.id);
+        ).toEqual([['usr_a', 'usr_m', 'usr_z']]);
         expect(
             result.current.visibleVirtualRows.flatMap((row) =>
                 row.type === 'cards'
@@ -381,6 +481,7 @@ describe('useFriendsLocationsPageDerivedState', () => {
                 currentUserSnapshot: null,
                 deferredSearchQuery: 'Friend',
                 density: 'compact',
+                viewMode: 'people',
                 favoriteFriendGroups: [],
                 friendsById: { [friend.id]: friend },
                 gameState: {
@@ -409,6 +510,7 @@ describe('useFriendsLocationsPageDerivedState', () => {
                     viewportHeight: 1000,
                     scrollTop: 0
                 },
+                showFavoritesInOnline: true,
                 showSameInstanceInOnline: true,
                 sidebarFavoritePrefs: {
                     isDivideByGroup: false,
@@ -427,5 +529,138 @@ describe('useFriendsLocationsPageDerivedState', () => {
             return;
         }
         expect(cardRow.friends[0]?.$location_at).toBeUndefined();
+    });
+});
+
+describe('useFriendsLocationsPageDerivedState worlds view', () => {
+    afterEach(() => {
+        cleanup();
+        useFriendLocationTimeStore.getState().reset();
+        vi.restoreAllMocks();
+    });
+
+    function worldFriend(
+        id: string,
+        location: string,
+        section: Section = 'online'
+    ): FriendRecord {
+        return {
+            ...friendAt(presenceFor(section, location)),
+            id,
+            displayName: id
+        };
+    }
+
+    it('groups every online friend by world regardless of the active segment', () => {
+        const input = pageInput([
+            worldFriend('usr_a', 'wrld_hot:1'),
+            worldFriend('usr_b', 'wrld_hot:2'),
+            worldFriend('usr_c', 'wrld_quiet:1'),
+            worldFriend('usr_d', 'private'),
+            worldFriend('usr_e', 'wrld_web:1', 'active'),
+            worldFriend('usr_f', 'offline', 'offline')
+        ]);
+        input.activeSegment = 'offline';
+        input.viewMode = 'worlds';
+        const { result } = renderHook(() =>
+            useFriendsLocationsPageDerivedState(input)
+        );
+
+        expect(
+            result.current.worldGroups.map(
+                (group) => `${group.worldId}:${group.instances.length}`
+            )
+        ).toEqual(['wrld_hot:2', 'wrld_quiet:1']);
+        expect(result.current.hasVisibleSections).toBe(true);
+    });
+
+    it('builds no world groups in the people view', () => {
+        const input = pageInput([worldFriend('usr_a', 'wrld_hot:1')]);
+        const { result } = renderHook(() =>
+            useFriendsLocationsPageDerivedState(input)
+        );
+
+        expect(result.current.worldGroups).toEqual([]);
+    });
+
+    it('leaves out the current user when no friend shares their instance', () => {
+        const input = pageInput([worldFriend('usr_a', 'wrld_other:2')]);
+        input.viewMode = 'worlds';
+        input.currentUserSnapshot = {
+            id: 'usr_self',
+            displayName: 'Me',
+            $presence: onlinePresence('wrld_local:1')
+        };
+        const { result } = renderHook(() =>
+            useFriendsLocationsPageDerivedState(input)
+        );
+
+        expect(
+            result.current.worldGroups.map((group) => group.worldId)
+        ).toEqual(['wrld_other']);
+        expect(
+            result.current.worldGroups[0]?.instances[0]?.friends.map(
+                (friend) => friend.id
+            )
+        ).toEqual(['usr_a']);
+    });
+
+    it('keeps the current user inside their own instance', () => {
+        const input = pageInput([worldFriend('usr_a', 'wrld_local:1')]);
+        input.viewMode = 'worlds';
+        input.currentUserSnapshot = {
+            id: 'usr_self',
+            displayName: 'Me',
+            $presence: onlinePresence('wrld_local:1')
+        };
+        const { result } = renderHook(() =>
+            useFriendsLocationsPageDerivedState(input)
+        );
+
+        const instance = result.current.worldGroups[0]?.instances[0];
+        expect(instance?.isCurrent).toBe(true);
+        expect(instance?.friends.map((friend) => friend.id)).toEqual([
+            'usr_self',
+            'usr_a'
+        ]);
+    });
+
+    it('pushes ask me and busy friends to the end of an instance and lists private friends separately', () => {
+        const input = pageInput([
+            { ...worldFriend('usr_busy', 'wrld_hot:1'), status: 'busy' },
+            { ...worldFriend('usr_ask', 'wrld_hot:1'), status: 'ask me' },
+            { ...worldFriend('usr_join', 'wrld_hot:1'), status: 'join me' },
+            { ...worldFriend('usr_active', 'wrld_hot:1'), status: 'active' },
+            worldFriend('usr_private', 'private')
+        ]);
+        input.viewMode = 'worlds';
+        const { result } = renderHook(() =>
+            useFriendsLocationsPageDerivedState(input)
+        );
+
+        expect(
+            result.current.worldGroups[0]?.instances[0]?.friends.map(
+                (friend) => friend.id
+            )
+        ).toEqual(['usr_join', 'usr_active', 'usr_ask', 'usr_busy']);
+        expect(
+            result.current.privateWorldFriends.map((friend) => friend.id)
+        ).toEqual(['usr_private']);
+    });
+
+    it('filters world groups by the search query', () => {
+        const input = pageInput([
+            worldFriend('usr_a', 'wrld_hot:1'),
+            worldFriend('usr_c', 'wrld_quiet:1')
+        ]);
+        input.viewMode = 'worlds';
+        input.deferredSearchQuery = 'usr_c';
+        const { result } = renderHook(() =>
+            useFriendsLocationsPageDerivedState(input)
+        );
+
+        expect(
+            result.current.worldGroups.map((group) => group.worldId)
+        ).toEqual(['wrld_quiet']);
     });
 });

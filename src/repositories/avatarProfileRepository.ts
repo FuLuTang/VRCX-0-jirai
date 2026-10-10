@@ -6,10 +6,7 @@ import {
     selectAvatar,
     selectFallbackAvatar
 } from './avatar-profile/actions';
-import {
-    getAvatarGallery,
-    getAvatarNameFromImageUrl
-} from './avatar-profile/gallery';
+import { getAvatarGallery } from './avatar-profile/gallery';
 import {
     deleteAvatarModeration,
     getAvatarModerations,
@@ -40,29 +37,9 @@ const avatarProfileRepository = Object.freeze({
     deleteImposter,
     getAvatarModerations,
     sendAvatarModeration,
-    deleteAvatarModeration,
-    getAvatarNameFromImageUrl
+    deleteAvatarModeration
 });
 
-export {
-    normalize,
-    getAvatarProfile,
-    findAvatarByImageUrl,
-    getAvatarGallery,
-    getAvatarsByUser,
-    getAllAvatarsByUser,
-    selectAvatar,
-    selectFallbackAvatar,
-    saveAvatar,
-    getAvatarStyles,
-    deleteAvatar,
-    createImposter,
-    deleteImposter,
-    getAvatarModerations,
-    sendAvatarModeration,
-    deleteAvatarModeration,
-    getAvatarNameFromImageUrl
-};
 export type {
     AvatarGalleryFile,
     AvatarModerationRecord,

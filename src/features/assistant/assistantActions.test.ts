@@ -34,7 +34,9 @@ function session(id: string): Session {
                 seq: 1,
                 role: 'user',
                 content: id,
-                createdAt: '2026-08-11T00:00:00Z'
+                createdAt: '2026-08-11T00:00:00Z',
+                toolCall: null,
+                toolResult: null
             }
         ],
         activeTurn: null,
@@ -150,7 +152,7 @@ describe('assistantActions session lifecycle', () => {
         expect(useAssistantChatStore.getState().sessions).toEqual([]);
     });
 
-    it('removes deleted session data before refreshing summaries', async () => {
+    it('removes the deleted session and its local data', async () => {
         useAssistantChatStore.setState({
             activeSessionId: 'session-1',
             sessions: [
@@ -170,13 +172,12 @@ describe('assistantActions session lifecycle', () => {
         await deleteSession('session-1');
 
         expect(mocks.deleteSession).toHaveBeenCalledWith('session-1');
-        expect(useAssistantChatStore.getState()).toMatchObject({
-            activeSessionId: null,
-            sessions: [],
-            messagesBySession: {},
-            surfacedEntitiesBySession: {},
-            entityPanelOpenBySession: {},
-            busySessions: {}
-        });
+        const state = useAssistantChatStore.getState();
+        expect(state.activeSessionId).toBeNull();
+        expect(state.sessions).toEqual([]);
+        expect(state.messagesBySession).toEqual({});
+        expect(state.surfacedEntitiesBySession).toEqual({});
+        expect(state.entityPanelOpenBySession).toEqual({});
+        expect(state.busySessions).toEqual({});
     });
 });

@@ -11,7 +11,7 @@ import { FEED_FILTER_TYPES } from '@/repositories/feedRepository';
 import { GAME_LOG_FILTER_TYPES } from '@/repositories/gameLogRepository';
 import { useFavoriteStore } from '@/state/favoriteStore';
 import { useFriendRosterStore } from '@/state/friendRosterStore';
-import { useNotificationStore } from '@/state/notificationStore';
+import { useVrcNotificationStore } from '@/state/vrcNotificationStore';
 import { Button } from '@/ui/shadcn/button';
 import {
     Dialog,
@@ -275,7 +275,7 @@ export function DashboardPanelSelectorDialog({
                         {t('view.dashboard.action.select_panel')}
                     </DialogTitle>
                 </DialogHeader>
-                <div className="min-h-0 overflow-y-auto">
+                <div className="min-h-0 overflow-y-auto p-1">
                     <div className="grid gap-2 sm:grid-cols-2">
                         <Button
                             type="button"
@@ -335,8 +335,8 @@ function useDashboardPagePreviewMetrics(): DashboardPageMetrics {
                 favoriteAvatarCount: state.favoriteAvatarIds.length
             }))
         );
-    const notificationCount = useNotificationStore(
-        (state) => state.items.length
+    const notificationCount = useVrcNotificationStore(
+        (state) => state.unseenCount
     );
 
     return {

@@ -40,12 +40,7 @@ function hasUsefulProfileFields(
         hasProfileText(source.last_platform) ||
         hasProfileText(source.status) ||
         hasProfileText(source.statusDescription) ||
-        hasProfileText(source.profilePicOverrideThumbnail) ||
-        hasProfileText(source.profilePicOverride) ||
-        hasProfileText(source.thumbnailUrl) ||
-        hasProfileText(source.currentAvatarThumbnailImageUrl) ||
-        hasProfileText(source.currentAvatarImageUrl) ||
-        hasProfileText(source.userIcon) ||
+        hasProfileText(source.iconUrl) ||
         hasArrayItems(source.$languages) ||
         hasArrayItems(source.languages) ||
         hasArrayItems(source.bioLinks) ||
@@ -110,10 +105,9 @@ function normalizeUserRef(
 }
 
 const PROFILE_PRESENCE_REFRESH_FIELDS = [
+    '$presence',
     'status',
     'statusDescription',
-    'state',
-    'stateBucket',
     'location',
     '$location',
     '$location_at',
@@ -273,12 +267,7 @@ export function enrichPlayerListRows({
             '';
         const trustLevel = normalizeString(userRef?.$trustLevel);
         const trustSortNum = Number(userRef?.$trustSortNum ?? 0) || 0;
-        const platform =
-            userRef?.$platform ||
-            userRef?.platform ||
-            userRef?.last_platform ||
-            '';
-        const platformMeta = resolvePlatformMeta(platform);
+        const platformMeta = resolvePlatformMeta(userRef?.$platform);
         const statusDescription = normalizeString(userRef?.statusDescription);
         const languages = userRef
             ? normalizeProfileLanguageRows(userRef, languageOptionsMap)
@@ -359,7 +348,7 @@ export function enrichPlayerListRows({
             languages,
             bioLinks,
             note,
-            avatarUrl: userImage(userRef, true),
+            avatarUrl: userImage(userRef),
             isCurrentUser: Boolean(isCurrentUser),
             isFriend: Boolean(friend),
             isFavorite,

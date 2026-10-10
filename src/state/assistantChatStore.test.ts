@@ -72,14 +72,19 @@ describe('assistantChatStore', () => {
 
         useAssistantChatStore.getState().setOpen(false);
 
-        expect(useAssistantChatStore.getState()).toMatchObject({
+        const state = useAssistantChatStore.getState();
+        expect(state).toMatchObject({
             open: false,
-            activeSessionId: 'session-completed',
-            messagesBySession: { 'session-running': [] },
-            surfacedEntitiesBySession: { 'session-running': [] },
-            entityPanelOpenBySession: { 'session-running': true },
-            busySessions: { 'session-running': true }
+            activeSessionId: 'session-completed'
         });
+        expect(state.messagesBySession).toEqual({ 'session-running': [] });
+        expect(state.surfacedEntitiesBySession).toEqual({
+            'session-running': []
+        });
+        expect(state.entityPanelOpenBySession).toEqual({
+            'session-running': true
+        });
+        expect(state.busySessions).toEqual({ 'session-running': true });
     });
 
     it('removes every mirror owned by a deleted session', () => {
@@ -119,18 +124,169 @@ describe('assistantChatStore', () => {
 
         useAssistantChatStore.getState().removeSession('session-1');
 
-        expect(useAssistantChatStore.getState()).toMatchObject({
+        const state = useAssistantChatStore.getState();
+        expect(state).toMatchObject({
             activeSessionId: null,
             sessions: [
                 {
                     id: 'session-2'
                 }
-            ],
-            messagesBySession: { 'session-2': [] },
-            surfacedEntitiesBySession: { 'session-2': [] },
-            entityPanelOpenBySession: { 'session-2': false },
-            busySessions: { 'session-2': false }
+            ]
         });
+        expect(state.messagesBySession).toEqual({ 'session-2': [] });
+        expect(state.surfacedEntitiesBySession).toEqual({ 'session-2': [] });
+        expect(state.entityPanelOpenBySession).toEqual({ 'session-2': false });
+        expect(state.busySessions).toEqual({ 'session-2': false });
+    });
+
+    it('folds persisted tool rows into the assistant reply that follows them', () => {
+        const store = useAssistantChatStore.getState();
+        store.hydrateSession({
+            id: 'session-1',
+            title: 'Alice',
+            messages: [
+                {
+                    id: 'm1',
+                    seq: 1,
+                    role: 'user',
+                    content: 'who do I play with?',
+                    createdAt: '2026-09-23T00:00:00Z',
+                    toolCall: null,
+                    toolResult: null
+                },
+                {
+                    id: 'm2',
+                    seq: 2,
+                    role: 'tool_call',
+                    content: '',
+                    createdAt: '2026-09-23T00:00:01Z',
+                    toolCall: {
+                        id: 'call_1',
+                        name: 'get_copresence_summary',
+                        arguments: '{"limit":5}'
+                    },
+                    toolResult: null
+                },
+                {
+                    id: 'm3',
+                    seq: 3,
+                    role: 'tool_result',
+                    content: '',
+                    createdAt: '2026-09-23T00:00:02Z',
+                    toolCall: null,
+                    toolResult: {
+                        toolCallId: 'call_1',
+                        name: 'get_copresence_summary',
+                        ok: true,
+                        summary: 'Alice tops the list.',
+                        entities: [
+                            {
+                                kind: 'user',
+                                id: 'usr_alice',
+                                displayName: 'Alice'
+                            }
+                        ]
+                    }
+                },
+                {
+                    id: 'm4',
+                    seq: 4,
+                    role: 'assistant',
+                    content: 'Alice, mostly.',
+                    createdAt: '2026-09-23T00:00:03Z',
+                    toolCall: null,
+                    toolResult: null
+                },
+                {
+                    id: 'm5',
+                    seq: 5,
+                    role: 'user',
+                    content: 'and last week?',
+                    createdAt: '2026-09-23T00:00:04Z',
+                    toolCall: null,
+                    toolResult: null
+                },
+                {
+                    id: 'm6',
+                    seq: 6,
+                    role: 'tool_call',
+                    content: '',
+                    createdAt: '2026-09-23T00:00:05Z',
+                    toolCall: {
+                        id: 'call_2',
+                        name: 'get_copresence_summary',
+                        arguments: '{"timeWindow":"last week"}'
+                    },
+                    toolResult: null
+                }
+            ],
+            activeTurn: null,
+            endpointId: null,
+            model: null,
+            allowWrites: false,
+            playbookMode: 'auto',
+            entityPanelOpen: false,
+            surfacedEntities: [],
+            createdAt: '2026-09-23T00:00:00Z',
+            updatedAt: '2026-09-23T00:00:05Z'
+        });
+
+        expect(
+            useAssistantChatStore.getState().messagesBySession['session-1']
+        ).toEqual([
+            {
+                id: 'm1',
+                role: 'user',
+                text: 'who do I play with?',
+                streaming: false,
+                toolCalls: []
+            },
+            {
+                id: 'm4',
+                role: 'assistant',
+                text: 'Alice, mostly.',
+                streaming: false,
+                toolCalls: [
+                    {
+                        id: 'call_1',
+                        name: 'get_copresence_summary',
+                        args: '{"limit":5}',
+                        status: 'done',
+                        summary: 'Alice tops the list.',
+                        entities: [
+                            {
+                                kind: 'user',
+                                id: 'usr_alice',
+                                displayName: 'Alice'
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 'm5',
+                role: 'user',
+                text: 'and last week?',
+                streaming: false,
+                toolCalls: []
+            },
+            {
+                id: 'm6',
+                role: 'assistant',
+                text: '',
+                streaming: false,
+                toolCalls: [
+                    {
+                        id: 'call_2',
+                        name: 'get_copresence_summary',
+                        args: '{"timeWindow":"last week"}',
+                        status: 'error',
+                        summary: '',
+                        entities: []
+                    }
+                ]
+            }
+        ]);
     });
 
     it('resets all account-scoped assistant state', () => {
@@ -155,15 +311,16 @@ describe('assistantChatStore', () => {
 
         useAssistantChatStore.getState().resetAssistantChatState();
 
-        expect(useAssistantChatStore.getState()).toMatchObject({
+        const state = useAssistantChatStore.getState();
+        expect(state).toMatchObject({
             open: false,
             authScopeVersion: authScopeVersion + 1,
             sessions: [],
-            activeSessionId: null,
-            messagesBySession: {},
-            surfacedEntitiesBySession: {},
-            entityPanelOpenBySession: {},
-            busySessions: {}
+            activeSessionId: null
         });
+        expect(state.messagesBySession).toEqual({});
+        expect(state.surfacedEntitiesBySession).toEqual({});
+        expect(state.entityPanelOpenBySession).toEqual({});
+        expect(state.busySessions).toEqual({});
     });
 });

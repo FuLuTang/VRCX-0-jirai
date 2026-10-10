@@ -1,6 +1,8 @@
 import { PageScaffold } from '@/components/layout/PageScaffold';
+import { useRoomMutualScanStore } from '@/state/roomMutualScanStore';
 
 import { ManualRelationsControl } from './components/mutual-friends/ManualRelationsControl';
+import { MutualFriendsAutoFetch } from './components/mutual-friends/MutualFriendsAutoFetch';
 import { MutualFriendsHud } from './components/mutual-friends/MutualFriendsHud';
 import { MutualFriendsLegend } from './components/mutual-friends/MutualFriendsLegend';
 import { MutualFriendsNodeCard } from './components/mutual-friends/MutualFriendsNodeCard';
@@ -22,6 +24,7 @@ export function MutualFriendsPage() {
         selection,
         view
     } = useMutualFriendsPageState();
+    const roomScanRunning = useRoomMutualScanStore((state) => state.running);
 
     const hasActiveFilters = Boolean(
         view.filters.searchQuery ||
@@ -38,6 +41,10 @@ export function MutualFriendsPage() {
 
     return (
         <PageScaffold id="chart" className="p-0">
+            <MutualFriendsAutoFetch
+                currentUserId={graph.currentUserId}
+                onFetch={actions.fetchGraph}
+            />
             <div className="relative min-h-0 flex-1 overflow-hidden">
                 <div
                     ref={graph.setGraphElementRef}
@@ -46,7 +53,7 @@ export function MutualFriendsPage() {
 
                 <MutualFriendsHud
                     baseNodeCount={graph.baseNodeCount}
-                    canFetch={Boolean(graph.currentUserId)}
+                    canFetch={Boolean(graph.currentUserId) && !roomScanRunning}
                     fetchProgress={fetch.fetchProgress}
                     isReloading={
                         graph.status === 'running' && graph.baseNodeCount > 0
@@ -70,22 +77,17 @@ export function MutualFriendsPage() {
                     settingsSlot={
                         <MutualFriendsSettingsSheet
                             edgeCount={graph.edgeCount}
-                            excludeSearchQuery={exclusions.excludeSearchQuery}
-                            excludedCount={exclusions.excludedCount}
-                            excludedFriendIdSet={exclusions.excludedFriendIdSet}
-                            filteredExcludeOptions={
-                                exclusions.filteredExcludeOptions
+                            excludePickerOptions={
+                                exclusions.excludePickerOptions
                             }
+                            excludedFriendIds={exclusions.excludedFriendIds}
                             layoutSettings={layout.layoutSettings}
                             nodeCount={graph.nodeCount}
-                            onExcludeSearchQueryChange={
-                                exclusions.setExcludeSearchQuery
+                            onExcludedFriendIdsChange={
+                                exclusions.setExcludedFriendIds
                             }
                             onResetLayoutAndHidden={
                                 actions.resetLayoutAndHidden
-                            }
-                            onToggleExcludedFriendId={
-                                actions.toggleExcludedFriendId
                             }
                             setLayoutSetting={layout.setLayoutSetting}
                         />

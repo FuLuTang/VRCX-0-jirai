@@ -1,17 +1,19 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use chrono::{DateTime, Datelike, Duration, Utc};
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::CallToolResult;
 use rmcp::{schemars, tool, tool_router};
 use serde::{Deserialize, Serialize};
+use vrcx_0_application_core::LocalGameContextSnapshot;
 use vrcx_0_contracts::social_aggregates;
 use vrcx_0_core::activity_buckets::{
     self, ActivityBucket as CoreActivityBucket, ActivityStreaks, ActivityTimeBucket,
 };
+use vrcx_0_core::activity_sessions::PLAY_SESSION_MERGE_GAP_MS;
+use vrcx_0_core::location::is_real_instance;
 
 use crate::server::VrcxMcpServer;
-use crate::McpActivitySession;
 
 use super::common::{
     application_query_result, deserialize_optional_bool, map_application_query_error,
@@ -21,8 +23,8 @@ use super::common::{
 };
 use vrcx_0_core::OwnerId;
 
-const ACTIVITY_CACHE_CAVEAT: &str =
-    "Activity sessions come from this profile's local VRCX-0 activity cache.";
+const PLAY_TIME_CAVEAT: &str =
+    "Play time counts instance stays from this profile's game log, including the current stay while VRChat is running; time spent while VRCX-0 was not running is missing.";
 
 #[tool_router(router = activity_tool_router, vis = "pub(crate)")]
 impl VrcxMcpServer {
@@ -41,7 +43,11 @@ impl VrcxMcpServer {
                 min_minutes: input.min_minutes,
                 limit: input.limit,
                 owner_user_id: Some(owner_user_id.clone()),
-                friends_only: input.friends_only.unwrap_or(true),
+                audience: if input.friends_only.unwrap_or(true) {
+                    social_aggregates::CopresenceAudience::Friends
+                } else {
+                    social_aggregates::CopresenceAudience::Everyone
+                },
                 order_by: social_aggregates::CopresenceOrderBy::default(),
                 utc_offset_minutes: None,
             },
@@ -82,7 +88,7 @@ impl VrcxMcpServer {
     }
 
     #[tool(
-        description = "[L1·query] List worlds the signed-in user recently visited, newest first, from the local game log (worldId, worldName, location, visitedAt, stayMinutes). Leaf lookup. For \"which worlds did I play most\" use the aggregated summarize_social_period instead of counting these rows yourself."
+        description = "[L1·query] List worlds the signed-in user recently visited, newest first, from the local game log (worldId, worldName, location, visitedAt, leftAt, stayMinutes; leftAt is null for the visit still in progress or when the leave was not recorded). Leaf lookup. Drill into one row with get_visit_timeline (pass its visitedAt as `at`) to see who came and went. For \"which worlds did I play most\" use the aggregated summarize_social_period instead of counting these rows yourself."
     )]
     async fn search_worlds_visited(
         &self,
@@ -94,6 +100,24 @@ impl VrcxMcpServer {
             social_aggregates::SearchWorldsVisitedInput {
                 time_window: input.time_window.into(),
                 limit: input.limit.unwrap_or(25),
+            },
+        ))
+    }
+
+    #[tool(
+        description = "[L1·query] Reconstruct one instance visit from the local game log: the world/instance, your exact joinedAt and leftAt (UTC, millisecond precision), and everyone observed while you were there — per person, ordered by time shared, with each stay's joinedAt/leftAt (a person who leaves and comes back has several stints). Select the visit with `at`: any UTC timestamp inside it, or the visitedAt of a search_worlds_visited row; add `location` only to disambiguate. Use for \"who was in that room with me\", \"when did X join or leave\", or exact timestamps for a recording. Caveats: the visit you are still in has no leftAt (inProgress=true); a crash or truncated log drops leave events, so a missing leftAt never means the person stayed; a missing joinedAt means the person was already inside before you arrived or before VRCX-0 started watching; old rows may lack userId and are keyed by display name; the roster is capped (truncated=true, peopleObserved keeps the real count) and the summary still covers the whole visit. Pairs with search_worlds_visited to find visits in a period."
+    )]
+    async fn get_visit_timeline(
+        &self,
+        Parameters(input): Parameters<VisitTimelineParams>,
+    ) -> Result<CallToolResult, String> {
+        let owner_user_id = require_current_user_id(&self.runtime)?;
+        application_query_result(self.runtime.activity_queries.visit_timeline(
+            social_aggregates::VisitTimelineInput {
+                owner_user_id,
+                at: input.at,
+                location: input.location,
+                limit: input.limit,
             },
         ))
     }
@@ -116,14 +140,14 @@ impl VrcxMcpServer {
         Parameters(input): Parameters<ActivityTimelineParams>,
     ) -> Result<CallToolResult, String> {
         let owner_user_id = require_current_user_id(&self.runtime)?;
-        let now_ms = Utc::now().timestamp_millis();
-        let pairs = self.activity_session_pairs_for_user(owner_user_id.clone(), now_ms)?;
         let time_window: social_aggregates::TimeWindow = input.time_window.into();
         let bounds = time_window_bounds_ms(&time_window)?;
+        let to_ms = bounds.to.unwrap_or_else(|| Utc::now().timestamp_millis());
+        let sessions = self.play_sessions(&owner_user_id, bounds.from, to_ms)?;
         let offset_minutes = input.utc_offset_minutes.unwrap_or(0);
         let bucket = input.bucket.into();
         let rows = activity_buckets::activity_timeline(
-            &pairs,
+            &sessions,
             bucket,
             offset_minutes,
             bounds.from,
@@ -141,9 +165,9 @@ impl VrcxMcpServer {
     ) -> Result<CallToolResult, String> {
         let owner_user_id = require_current_user_id(&self.runtime)?;
         let now_ms = Utc::now().timestamp_millis();
-        let pairs = self.activity_session_pairs_for_user(owner_user_id.clone(), now_ms)?;
+        let sessions = self.play_sessions(&owner_user_id, None, now_ms)?;
         let offset_minutes = input.utc_offset_minutes.unwrap_or(0);
-        let streaks = activity_buckets::activity_streaks(&pairs, now_ms, offset_minutes);
+        let streaks = activity_buckets::activity_streaks(&sessions, now_ms, offset_minutes);
         structured_result(activity_streaks_output(offset_minutes, streaks))
     }
     #[tool(
@@ -234,28 +258,25 @@ impl VrcxMcpServer {
     ) -> Result<MyActivityOutput, String> {
         let time_window = input.time_window.unwrap_or_default().into();
         let bounds = time_window_bounds_ms(&time_window)?;
-        let sessions = self
-            .runtime
-            .activity_queries
-            .activity_sessions(owner_user_id)
-            .map_err(map_application_query_error)?;
-        let mut session_count = 0usize;
+        let offset_minutes = input.utc_offset_minutes.unwrap_or(0);
+        let offset_ms = offset_minutes.saturating_mul(60_000);
+        let to_ms = bounds.to.unwrap_or_else(|| Utc::now().timestamp_millis());
+        let spans = self.play_spans(&owner_user_id, bounds.from, to_ms)?;
+        let sessions = activity_buckets::merge_spans(&spans, PLAY_SESSION_MERGE_GAP_MS);
+        let session_count = sessions.len();
+        let longest_ms = sessions
+            .iter()
+            .map(|(start, end)| end - start)
+            .max()
+            .unwrap_or(0);
         let mut total_ms = 0i64;
-        let mut longest_ms = 0i64;
         let mut by_weekday = BTreeMap::new();
-        for session in sessions {
-            let start = bounds
-                .from
-                .map_or(session.start, |from| session.start.max(from));
-            let end = bounds.to.map_or(session.end, |to| session.end.min(to));
-            if end <= start {
-                continue;
-            }
-            session_count += 1;
+        for (start, end) in activity_buckets::merge_spans(&spans, 0) {
             let duration_ms = end - start;
             total_ms += duration_ms;
-            longest_ms = longest_ms.max(duration_ms);
-            if let Some(start_at) = DateTime::<Utc>::from_timestamp_millis(start) {
+            if let Some(start_at) =
+                DateTime::<Utc>::from_timestamp_millis(start.saturating_add(offset_ms))
+            {
                 *by_weekday
                     .entry(start_at.weekday().to_string())
                     .or_insert(0) += duration_ms / 60_000;
@@ -273,8 +294,11 @@ impl VrcxMcpServer {
             longest_session_minutes: longest_ms / 60_000,
             by_weekday,
             caveats: vec![
-                "Activity sessions are derived from this profile's local VRCX-0 activity cache."
-                    .into(),
+                format!(
+                    "Weekday buckets are in {}.",
+                    activity_buckets::utc_offset_label(offset_minutes)
+                ),
+                PLAY_TIME_CAVEAT.into(),
             ],
         })
     }
@@ -308,6 +332,7 @@ impl VrcxMcpServer {
             owner_user_id.clone(),
             MyActivityParams {
                 time_window: Some(time_window_params.clone()),
+                utc_offset_minutes: input.utc_offset_minutes,
             },
         )?;
 
@@ -320,9 +345,9 @@ impl VrcxMcpServer {
                 min_minutes: None,
                 limit: Some(5),
                 owner_user_id: Some(owner_user_id.clone()),
-                friends_only: true,
+                audience: social_aggregates::CopresenceAudience::Friends,
                 order_by: social_aggregates::CopresenceOrderBy::default(),
-                utc_offset_minutes: None,
+                utc_offset_minutes: input.utc_offset_minutes,
             })
             .map_err(map_application_query_error)?
             .rows;
@@ -351,19 +376,17 @@ impl VrcxMcpServer {
             .take(5)
             .collect();
 
-        let top_worlds = summarize_world_visits(
-            self.runtime
-                .activity_queries
-                .search_worlds_visited(
-                    &owner_user_id,
-                    social_aggregates::SearchWorldsVisitedInput {
-                        time_window: time_window.clone(),
-                        limit: 100,
-                    },
-                )
-                .map_err(map_application_query_error)?
-                .rows,
-        );
+        let top_worlds = self
+            .runtime
+            .activity_queries
+            .top_visited_worlds(
+                &owner_user_id,
+                social_aggregates::TopVisitedWorldsInput {
+                    time_window: time_window.clone(),
+                    limit: 5,
+                },
+            )
+            .map_err(map_application_query_error)?;
 
         let best_times = self
             .runtime
@@ -373,7 +396,7 @@ impl VrcxMcpServer {
                 time_window: time_window.clone(),
                 bucket: social_aggregates::ActivityBucket::HourOfDay,
                 limit: Some(3),
-                utc_offset_minutes: None,
+                utc_offset_minutes: input.utc_offset_minutes,
             })
             .map_err(map_application_query_error)?
             .rows;
@@ -392,6 +415,10 @@ impl VrcxMcpServer {
             caveats: vec![
                 "This is a structured fact bundle for narration; all figures are observer-centered and undercount private instances.".into(),
                 "fadingFriends compares the recent half of the period against the earlier half (or the last 30 days versus the prior 30 when no period is given).".into(),
+                format!(
+                    "Best-time buckets are in {}.",
+                    activity_buckets::utc_offset_label(input.utc_offset_minutes.unwrap_or(0))
+                ),
             ],
         })
     }
@@ -428,31 +455,45 @@ impl VrcxMcpServer {
         })
     }
 
-    fn activity_session_pairs_for_user(
+    fn open_play_location(&self) -> Option<String> {
+        match self.runtime.realtime_runtime.local_game_context() {
+            LocalGameContextSnapshot::Available {
+                is_game_running: true,
+                location,
+                ..
+            } if is_real_instance(&location) => Some(location),
+            _ => None,
+        }
+    }
+
+    fn play_spans(
         &self,
-        owner_user_id: OwnerId,
-        now_ms: i64,
+        owner_user_id: &OwnerId,
+        from_ms: Option<i64>,
+        to_ms: i64,
     ) -> Result<Vec<(i64, i64)>, String> {
+        let open_location = self.open_play_location();
         self.runtime
             .activity_queries
-            .activity_sessions(owner_user_id)
-            .map(|sessions| activity_session_pairs(sessions, now_ms))
+            .play_spans(owner_user_id, from_ms, to_ms, open_location.as_deref())
+            .map(|spans| {
+                spans
+                    .into_iter()
+                    .map(|span| (span.start, span.end))
+                    .collect()
+            })
             .map_err(map_application_query_error)
     }
-}
 
-fn activity_session_pairs(sessions: Vec<McpActivitySession>, now_ms: i64) -> Vec<(i64, i64)> {
-    sessions
-        .into_iter()
-        .filter_map(|session| {
-            let end = if session.is_open_tail {
-                now_ms
-            } else {
-                session.end
-            };
-            (end > session.start).then_some((session.start, end))
-        })
-        .collect()
+    fn play_sessions(
+        &self,
+        owner_user_id: &OwnerId,
+        from_ms: Option<i64>,
+        to_ms: i64,
+    ) -> Result<Vec<(i64, i64)>, String> {
+        self.play_spans(owner_user_id, from_ms, to_ms)
+            .map(|spans| activity_buckets::merge_spans(&spans, PLAY_SESSION_MERGE_GAP_MS))
+    }
 }
 
 fn activity_timeline_output(
@@ -485,7 +526,7 @@ fn activity_timeline_output(
                 "Buckets are in {}.",
                 activity_buckets::utc_offset_label(offset_minutes)
             ),
-            ACTIVITY_CACHE_CAVEAT.into(),
+            PLAY_TIME_CAVEAT.into(),
         ],
     }
 }
@@ -525,7 +566,7 @@ fn activity_streaks_output(offset_minutes: i64, streaks: ActivityStreaks) -> Act
                 "Day boundaries and breaks are counted in {}.",
                 activity_buckets::utc_offset_label(offset_minutes)
             ),
-            ACTIVITY_CACHE_CAVEAT.into(),
+            PLAY_TIME_CAVEAT.into(),
         ],
     }
 }
@@ -669,8 +710,22 @@ struct SearchWorldsVisitedParams {
 }
 #[derive(Clone, Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
+struct VisitTimelineParams {
+    /// A UTC timestamp inside the visit (RFC3339), or the visitedAt of a
+    /// search_worlds_visited row.
+    at: String,
+    /// Optional instance location to disambiguate when several visits share a second.
+    location: Option<String>,
+    /// Roster cap (default 50, max 200); peopleObserved keeps the real count.
+    limit: Option<i64>,
+}
+#[derive(Clone, Debug, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
 struct MyActivityParams {
     time_window: Option<TimeWindowParams>,
+    /// The user's UTC offset in minutes (e.g. 540 for UTC+9, -300 for UTC-5).
+    /// Pass it so weekday buckets come back in the user's local time.
+    utc_offset_minutes: Option<i64>,
 }
 #[derive(Clone, Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -728,6 +783,9 @@ struct RecallEncounterParams {
 #[serde(rename_all = "camelCase")]
 struct SummarizeSocialPeriodParams {
     time_window: Option<TimeWindowParams>,
+    /// The user's UTC offset in minutes (e.g. 540 for UTC+9, -300 for UTC-5).
+    /// Pass it so weekday and best-time buckets come back in the user's local time.
+    utc_offset_minutes: Option<i64>,
 }
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -782,7 +840,7 @@ struct SocialPeriodSummaryOutput {
     top_companions: Vec<social_aggregates::CopresenceSummaryRow>,
     new_friends: Vec<social_aggregates::FriendLogRow>,
     fading_friends: Vec<social_aggregates::FadingFriendRow>,
-    top_worlds: Vec<WorldVisitSummary>,
+    top_worlds: Vec<social_aggregates::TopVisitedWorldRow>,
     best_times: Vec<social_aggregates::BestTimeBucketRow>,
     caveats: Vec<String>,
 }
@@ -792,54 +850,6 @@ struct SocialPeriodSummaryOutput {
 struct TimeWindowEcho {
     from: Option<String>,
     to: Option<String>,
-}
-
-#[derive(Clone, Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct WorldVisitSummary {
-    world_id: String,
-    world_name: String,
-    visits: i64,
-    total_minutes: i64,
-    last_visited_at: String,
-}
-fn summarize_world_visits(rows: Vec<social_aggregates::VisitedWorldRow>) -> Vec<WorldVisitSummary> {
-    let mut grouped: HashMap<String, WorldVisitSummary> = HashMap::new();
-    for row in rows {
-        let key = if row.world_id.is_empty() {
-            row.location.clone()
-        } else {
-            row.world_id.clone()
-        };
-        if key.is_empty() {
-            continue;
-        }
-        let entry = grouped.entry(key).or_insert_with(|| WorldVisitSummary {
-            world_id: row.world_id.clone(),
-            world_name: row.world_name.clone(),
-            visits: 0,
-            total_minutes: 0,
-            last_visited_at: String::new(),
-        });
-        if entry.world_name.is_empty() && !row.world_name.is_empty() {
-            entry.world_name = row.world_name.clone();
-        }
-        entry.visits += 1;
-        entry.total_minutes += row.stay_minutes.max(0);
-        if row.visited_at > entry.last_visited_at {
-            entry.last_visited_at = row.visited_at;
-        }
-    }
-    let mut worlds = grouped.into_values().collect::<Vec<_>>();
-    worlds.sort_by(|left, right| {
-        right
-            .visits
-            .cmp(&left.visits)
-            .then_with(|| right.total_minutes.cmp(&left.total_minutes))
-            .then_with(|| left.world_name.cmp(&right.world_name))
-    });
-    worlds.truncate(5);
-    worlds
 }
 
 #[cfg(test)]

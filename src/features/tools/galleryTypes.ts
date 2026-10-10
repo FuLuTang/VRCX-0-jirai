@@ -1,6 +1,8 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 
+import type { UserProfileEntity } from '@/domain/entities/user';
 import type { AppToastOptions } from '@/services/toastService';
+import type { ProfileMediaField } from '@/shared/utils/currentUserMedia';
 import type { CurrentUserSnapshotState } from '@/state/runtimeStore';
 
 import type {
@@ -58,7 +60,8 @@ export type GalleryControllerDeps = {
     cropRequest: GalleryCropRequest | null;
     currentEndpoint: string;
     currentUserId: string | null;
-    currentUserSnapshot: CurrentUserSnapshotState | null;
+    mediaProfile: UserProfileEntity | null;
+    refreshMediaProfile(): Promise<UserProfileEntity | null>;
     emojiAnimFps: number;
     emojiAnimFrameCount: number;
     emojiAnimLoopPingPong: boolean;
@@ -83,11 +86,10 @@ export type GalleryControllerDeps = {
 export type GalleryActionDeps = GalleryControllerDeps & {
     FILE_TABS: Partial<typeof import('./galleryConstants').FILE_TABS>;
     UPLOAD_ASPECT_RATIOS: Partial<Record<GalleryUploadTarget, number>>;
-    buildProfilePicOverride(endpoint: string, fileId: string): string;
     confirm(request: DialogRequest): Promise<DialogResult>;
     getLocalTimestampString(): string;
     isRuntimeAuthTarget(authTarget: GalleryAuthTarget): boolean;
-    mediaRepository: typeof import('@/repositories/mediaRepository').default;
+    mediaRepository: typeof import('@/repositories/vrchatMediaRepository').default;
     parseEmojiUploadSettings(
         fileName: string,
         settings?: Partial<EmojiUploadSettings>
@@ -97,19 +99,19 @@ export type GalleryActionDeps = GalleryControllerDeps & {
     t: Translation;
     toast: ToastApi;
     useRuntimeStore: typeof import('@/state/runtimeStore').useRuntimeStore;
-    currentUserProfileService: typeof import('@/services/currentUserProfileService').default;
+    userProfileRepository: typeof import('@/repositories/userProfileRepository').default;
     validateImageFile(file: Blob, t: Translation): boolean;
     withUploadTimeout<T>(promise: Promise<T>): Promise<T>;
 };
 
 export type GalleryAssetActionDeps = Omit<
     GalleryActionDeps,
-    | 'buildProfilePicOverride'
-    | 'currentUserSnapshot'
+    | 'mediaProfile'
+    | 'refreshMediaProfile'
     | 'mediaRepository'
     | 'prompt'
     | 'useRuntimeStore'
-    | 'currentUserProfileService'
+    | 'userProfileRepository'
 > & {
     mediaRepository: Pick<
         GalleryActionDeps['mediaRepository'],
@@ -123,11 +125,11 @@ export type GalleryAssetActionDeps = Omit<
 
 export type GalleryInventoryActionDeps = Pick<
     GalleryActionDeps,
-    | 'buildProfilePicOverride'
     | 'confirm'
     | 'currentEndpoint'
     | 'currentUserId'
-    | 'currentUserSnapshot'
+    | 'mediaProfile'
+    | 'refreshMediaProfile'
     | 'isRuntimeAuthTarget'
     | 'prompt'
     | 'setAssets'
@@ -155,13 +157,13 @@ export type GalleryInventoryActionDeps = Pick<
             }): void;
         };
     };
-    currentUserProfileService: Pick<
-        GalleryActionDeps['currentUserProfileService'],
-        'updateCurrentUser'
+    userProfileRepository: Pick<
+        GalleryActionDeps['userProfileRepository'],
+        'updateCurrentUserProfile'
     >;
 };
 
-export type GalleryProfileField = 'profilePicOverride' | 'userIcon';
+export type GalleryProfileField = ProfileMediaField;
 
 export type GalleryBulkCommands = {
     bulkRunning: boolean;
@@ -194,7 +196,9 @@ export type GalleryModel = {
     isVrcPlusSupporter: boolean;
     loadingByTab: Record<string, boolean>;
     mutatingKey: string;
-    profilePicOverride: string;
+    bannerCustomUrl: string;
+    mediaProfileLoading: boolean;
+    mediaProfileError: string;
     tabCounts: Record<GalleryTab, string>;
     uploadingTab: string;
     userIcon: string;
@@ -208,7 +212,9 @@ export type GalleryFileTabState = Pick<
     | 'gridDensityConfig'
     | 'loadingByTab'
     | 'mutatingKey'
-    | 'profilePicOverride'
+    | 'bannerCustomUrl'
+    | 'mediaProfileLoading'
+    | 'mediaProfileError'
     | 'uploadingTab'
     | 'userIcon'
 > &

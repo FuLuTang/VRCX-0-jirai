@@ -3,13 +3,6 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('react-i18next', async (importOriginal) => ({
-    ...(await importOriginal<typeof import('react-i18next')>()),
-    useTranslation: () => ({
-        t: (key: string) => key
-    })
-}));
-
 vi.mock('./ScreenshotSelectableImageGrid', () => ({
     ScreenshotSelectableImageGrid: ({ images }: { images: unknown[] }) => (
         <div data-testid="image-grid">{images.length}</div>
@@ -47,6 +40,7 @@ function image(fileName: string): ScreenshotLibraryImage {
         worldId: null,
         worldName: null,
         capturedAt: null,
+        capturedAtMs: 1,
         metadata: null,
         error: null
     };

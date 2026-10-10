@@ -26,11 +26,9 @@ import {
     getNotificationLinkIcon,
     type NotificationRowActionHandlers
 } from '../notificationRowActions';
-import {
-    NOTIFICATION_TYPE_LABEL_PREFIX,
-    toNotificationViewModel
-} from '../notificationViewModel';
+import { toNotificationViewModel } from '../notificationViewModel';
 import { useNotificationActorImage } from '../useNotificationActorImage';
+import { NotificationMessage } from './NotificationMessage';
 import {
     NOTIFICATION_ROW_HOVER_REVEAL,
     NotificationEmojiPreview,
@@ -66,9 +64,7 @@ export function NotificationRow({
         [notification, unknownLabel]
     );
     const typeLabel = t(view.typeLabelKey, {
-        defaultValue: view.typeLabelKey.slice(
-            NOTIFICATION_TYPE_LABEL_PREFIX.length
-        )
+        defaultValue: notification.type || 'unknown'
     });
     const actorName =
         view.actor.kind === 'system'
@@ -146,7 +142,7 @@ export function NotificationRow({
         view.body === typeLabel || view.body === view.headline ? '' : view.body;
 
     return (
-        <div className="group hover:bg-muted/40 flex items-start gap-3 rounded-lg px-2 py-2.5 transition-colors duration-150 ease-out">
+        <div className="group flex items-start gap-3 rounded-lg px-2 py-2.5 transition-colors duration-150 ease-out hover:bg-(--state-hover-surface)">
             <span className="mt-1.5 flex w-2 shrink-0 justify-center">
                 {view.unseen ? (
                     <span className="bg-primary size-2 rounded-full">
@@ -200,7 +196,10 @@ export function NotificationRow({
                                         : 'text-foreground/85'
                                 )}
                             >
-                                {body}
+                                <NotificationMessage
+                                    notification={notification}
+                                    message={body}
+                                />
                             </p>
                         ) : null}
                         {view.emoji ? (

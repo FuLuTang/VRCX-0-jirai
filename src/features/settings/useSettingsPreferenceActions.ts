@@ -9,7 +9,6 @@ import {
 } from '@/services/systemFontsService';
 import type { AppToastOptions } from '@/services/toastService';
 import { loadVrchatConfigSnapshot } from '@/services/vrchatConfigService';
-import type { OverlayActivityTypeDefinition } from '@/shared/constants/overlayActivityFilters';
 import type {
     PreferencesSnapshot,
     PreferencesStoreState,
@@ -56,9 +55,6 @@ type SettingsPreferenceActionsDeps = {
         setMany(entries: Array<[string, string]>): Promise<void>;
     };
     customFontDraft: CustomFontDraft;
-    databaseMaintenanceRepository: {
-        getTableSizes(userId: string): Promise<Record<string, unknown>>;
-    };
     isValidFontFamilyList: (value: string) => boolean;
     loadTrustColorPreference: () => Promise<PreferencesSnapshot['trustColor']>;
     localFavoriteFriendsGroups: string[];
@@ -105,8 +101,7 @@ type SettingsPreferenceActionsDeps = {
         value: string
     ) => Promise<PreferencesSnapshot['trustColor']>;
     setOverlayActivityFiltersPreference: (
-        value: PreferencesSnapshot['overlayActivityFilters'],
-        definitions?: OverlayActivityTypeDefinition[]
+        value: PreferencesSnapshot['overlayActivityFilters']
     ) => Promise<PreferencesSnapshot['overlayActivityFilters']>;
     setVrNotificationActivityFiltersPreference: (
         value: PreferencesSnapshot['vrNotificationActivityFilters']
@@ -156,8 +151,7 @@ type ActivityFilterSurfaceField =
     | 'ttsNotificationActivityFilters';
 
 type ActivityFilterSurfaceSetter<Field extends ActivityFilterSurfaceField> = (
-    value: PreferencesSnapshot[Field],
-    definitions?: OverlayActivityTypeDefinition[]
+    value: PreferencesSnapshot[Field]
 ) => Promise<PreferencesSnapshot[Field]>;
 
 export function useSettingsPreferenceActions({
@@ -169,7 +163,6 @@ export function useSettingsPreferenceActions({
     commit,
     configRepository,
     customFontDraft,
-    databaseMaintenanceRepository,
     isValidFontFamilyList,
     loadTrustColorPreference,
     localFavoriteFriendsGroups,
@@ -422,7 +415,7 @@ export function useSettingsPreferenceActions({
     }
     async function refreshSqliteTableSizes() {
         try {
-            const sizes = await databaseMaintenanceRepository.getTableSizes(
+            const sizes = await commands.appDatabaseMaintenanceTableSizesGet(
                 auth.currentUserId || ''
             );
             setSqliteTableSizes({
@@ -549,14 +542,13 @@ export function useSettingsPreferenceActions({
         Field extends ActivityFilterSurfaceField
     >(field: Field, setPreference: ActivityFilterSurfaceSetter<Field>) {
         return async function saveActivityFilterSurface(
-            value: PreferencesSnapshot[Field],
-            definitions?: OverlayActivityTypeDefinition[]
+            value: PreferencesSnapshot[Field]
         ) {
             let savedFilters = prefs[field];
             const previousFilters = prefs[field];
             const saved = await commit(
                 async () => {
-                    savedFilters = await setPreference(value, definitions);
+                    savedFilters = await setPreference(value);
                 },
                 () => {
                     setPrefs((current) => ({

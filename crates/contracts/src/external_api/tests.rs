@@ -10,7 +10,6 @@ fn avatar_search_contract_sets_expected_headers() {
     );
     assert_eq!(input.method, Some(ExternalHttpMethod::Get));
     let headers = input.headers.unwrap();
-    assert!(!headers.contains_key("Referer"));
     assert_eq!(headers.get("VRCX-ID").map(String::as_str), Some("abc"));
 }
 
@@ -66,14 +65,13 @@ fn youtube_contract_builds_fixed_endpoint_and_query() {
 }
 
 #[test]
-fn status_contract_uses_status_origin_without_referer() {
+fn status_contract_uses_status_origin() {
     let input = vrc_status_json_get_input("/status.json");
 
     assert_eq!(
         input.url.as_deref(),
         Some("https://status.vrchat.com/api/v2/status.json")
     );
-    assert!(!input.headers.unwrap().contains_key("Referer"));
 }
 
 #[test]
@@ -249,7 +247,7 @@ fn fixed_external_scopes_keep_origin_and_path_restrictions() {
 
 #[test]
 fn translation_scope_allows_bearer_authorization_header() {
-    let policy = ExternalApiPolicy::with_allowed_origins(["https://api.deepl.com"]);
+    let policy = ExternalApiPolicy;
     let request = ExternalHttpRequestInput {
         url: Some("https://api.deepl.com/v2/translate".into()),
         method: Some(ExternalHttpMethod::Post),
@@ -290,7 +288,7 @@ fn translation_scope_rejects_unlisted_origins() {
 
 #[test]
 fn translation_scope_allows_deepl_authorization_header() {
-    let policy = ExternalApiPolicy::with_allowed_origins(["https://api-free.deepl.com"]);
+    let policy = ExternalApiPolicy;
     let request = ExternalHttpRequestInput {
         url: Some("https://api-free.deepl.com/v2/translate".into()),
         method: Some(ExternalHttpMethod::Post),
@@ -314,7 +312,7 @@ fn translation_scope_allows_deepl_authorization_header() {
 
 #[test]
 fn non_translation_scopes_reject_authorization_header() {
-    let policy = ExternalApiPolicy::with_allowed_origins(["https://example.com"]);
+    let policy = ExternalApiPolicy;
     let request = ExternalHttpRequestInput {
         url: Some("https://example.com/search".into()),
         headers: Some(HashMap::from([(

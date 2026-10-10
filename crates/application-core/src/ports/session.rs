@@ -42,10 +42,6 @@ impl CurrentUserSnapshot {
         self.0.as_ref()
     }
 
-    pub fn shared_value(&self) -> Arc<Value> {
-        Arc::clone(&self.0)
-    }
-
     pub fn id(&self) -> &str {
         self.string_field("id")
     }
@@ -207,6 +203,7 @@ impl HostRealtimeSessionContext {
 pub struct HostSessionSnapshot {
     pub is_game_running: bool,
     pub is_steamvr_running: bool,
+    pub is_hmd_afk: bool,
     pub last_game_started_at: Option<String>,
     pub last_game_state_changed_at: Option<String>,
     pub generation: u64,
@@ -234,6 +231,7 @@ pub struct HostSessionProjection {
 struct HostSessionState {
     is_game_running: bool,
     is_steamvr_running: bool,
+    is_hmd_afk: bool,
     last_game_started_at: Option<String>,
     last_game_state_changed_at: Option<String>,
     generation: u64,
@@ -264,6 +262,7 @@ impl HostSessionRuntime {
         }
         state.is_game_running = status.is_game_running;
         state.is_steamvr_running = status.is_steamvr_running;
+        state.is_hmd_afk &= status.is_steamvr_running;
 
         HostSessionProjection {
             is_game_running: state.is_game_running,
@@ -277,11 +276,16 @@ impl HostSessionRuntime {
         }
     }
 
+    pub fn set_hmd_afk(&self, is_hmd_afk: bool) {
+        self.lock_state().is_hmd_afk = is_hmd_afk;
+    }
+
     pub fn snapshot(&self) -> HostSessionSnapshot {
         let state = self.lock_state();
         HostSessionSnapshot {
             is_game_running: state.is_game_running,
             is_steamvr_running: state.is_steamvr_running,
+            is_hmd_afk: state.is_hmd_afk,
             last_game_started_at: state.last_game_started_at.clone(),
             last_game_state_changed_at: state.last_game_state_changed_at.clone(),
             generation: state.generation,

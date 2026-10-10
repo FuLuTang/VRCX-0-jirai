@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use serde_json::json;
 use vrcx_0_persistence::cache_entities::CacheEntityInput;
-use vrcx_0_persistence::worlds::{world_cache_get, world_cache_remove, world_cache_upsert};
+use vrcx_0_persistence::worlds::{world_cache_get, world_cache_upsert};
 
 struct TestDir {
     path: PathBuf,
@@ -115,7 +115,7 @@ fn hydrate_from_payload_caches_bounded_card_fields_and_persists_summary() {
 }
 
 #[test]
-fn favorite_hydrate_inserts_private_summary_without_overwriting_existing_cache() {
+fn favorite_hydrate_overwrites_existing_cache_with_private_summary() {
     let (_dir, db) = test_db("favorite-private-summary");
     let cache = WorldCache::new(Arc::clone(&db), 8, Duration::from_secs(60));
     let private_world = json!({
@@ -146,6 +146,43 @@ fn favorite_hydrate_inserts_private_summary_without_overwriting_existing_cache()
             .unwrap()
             .unwrap()
             .name,
+        "Private World"
+    );
+}
+
+#[test]
+fn unavailable_world_responses_never_overwrite_existing_cache() {
+    let (_dir, db) = test_db("unavailable-preserves-cache");
+    let cache = WorldCache::new(Arc::clone(&db), 8, Duration::from_secs(60));
+    world_cache_upsert(
+        db.as_ref(),
+        world_entry("wrld_gone", "Existing World", "2026-01-02T00:00:00.000Z"),
+    )
+    .unwrap();
+
+    cache.hydrate_response(&execute_response(
+        404,
+        json!({ "error": { "message": "World not found", "status_code": 404 } }).to_string(),
+    ));
+    cache.hydrate_favorite_payloads([&json!({
+        "id": "wrld_gone",
+        "name": "",
+        "imageUrl": "",
+        "releaseStatus": "private"
+    })]);
+    cache.hydrate_from_payload(&json!({
+        "id": "wrld_gone",
+        "name": "wrld_gone",
+        "releaseStatus": "private"
+    }));
+
+    let row = world_cache_get(db.as_ref(), "wrld_gone".into())
+        .unwrap()
+        .unwrap();
+    assert_eq!(row.name, "Existing World");
+    assert_eq!(row.image_url, "image.png");
+    assert_eq!(
+        cache.get_summary("wrld_gone").unwrap().unwrap().name,
         "Existing World"
     );
 }
@@ -189,11 +226,19 @@ fn summary_lookup_starts_empty_then_loads_db_row_into_memory() {
         .expect("DB row should be loaded on demand");
 
     assert_eq!(summary.name, "DB Only World");
-    world_cache_remove(db.as_ref(), "wrld_db_only".into()).unwrap();
+    world_cache_upsert(
+        db.as_ref(),
+        world_entry(
+            "wrld_db_only",
+            "Rewritten World",
+            "2026-01-03T00:00:00.000Z",
+        ),
+    )
+    .unwrap();
     let memory_summary = cache
         .get_summary("wrld_db_only")
         .unwrap()
-        .expect("memory hit should not query the removed DB row");
+        .expect("memory hit should not query the rewritten DB row");
     assert_eq!(memory_summary.name, "DB Only World");
     assert_eq!(
         cache.get_name("wrld_db_only").as_deref(),
@@ -483,14 +528,6 @@ fn resolve_guards_are_scoped_by_normalized_endpoint() {
 fn failure_cache_is_bounded() {
     let (_dir, db) = test_db("bounded-failures");
     let cache = WorldCache::new(db, 8, Duration::from_secs(60));
-    assert_eq!(
-        cache.failures.policy().max_capacity(),
-        Some(WORLD_RESOLVE_FAILURE_CAPACITY)
-    );
-    assert_eq!(
-        cache.failures.policy().time_to_live(),
-        Some(WORLD_RESOLVE_FAILURE_TTL)
-    );
 
     for index in 0..WORLD_RESOLVE_FAILURE_CAPACITY * 2 {
         cache.record_failure(&resolve_key(

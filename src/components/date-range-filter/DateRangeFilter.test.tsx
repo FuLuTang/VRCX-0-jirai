@@ -4,11 +4,9 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { DateRangeFilter } from './DateRangeFilter';
+import { usePreferencesStore } from '@/state/preferencesStore';
 
-vi.mock('react-i18next', () => ({
-    useTranslation: () => ({ t: (key: string) => key })
-}));
+import { DateRangeFilter } from './DateRangeFilter';
 
 describe('DateRangeFilter tooltip composition', () => {
     afterEach(cleanup);
@@ -55,4 +53,34 @@ describe('DateRangeFilter tooltip composition', () => {
         );
         expect(onChange).toHaveBeenLastCalledWith('', '');
     });
+
+    it.each([
+        [1, 'Monday'],
+        [0, 'Sunday'],
+        [6, 'Saturday']
+    ] as const)(
+        'starts calendar weeks on the preferred day %i',
+        async (weekStartsOn, firstWeekday) => {
+            usePreferencesStore.setState({ weekStartsOn });
+            render(
+                <DateRangeFilter
+                    dateFrom="2026-09-01"
+                    dateTo="2026-09-02"
+                    onChange={vi.fn()}
+                    label="Date range"
+                />
+            );
+            await userEvent.setup().click(
+                screen.getByRole('button', {
+                    name: 'Date range: 2026-09-01 - 2026-09-02'
+                })
+            );
+            const popup = await screen.findByRole('dialog');
+            expect(
+                popup
+                    .querySelector('.rdp-weekdays th')
+                    ?.getAttribute('aria-label')
+            ).toBe(firstWeekday);
+        }
+    );
 });

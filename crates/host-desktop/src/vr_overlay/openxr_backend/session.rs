@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
+use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use ash::vk::{self, Handle as _};
@@ -49,6 +50,7 @@ pub(super) enum SessionCommand {
 pub(super) fn run(
     commands: Receiver<SessionCommand>,
     init_reply: Sender<Result<(), BackendStartError>>,
+    visible_surfaces: &Mutex<Vec<OverlaySurfaceId>>,
 ) {
     let context = match SessionContext::initialize() {
         Ok(context) => context,
@@ -58,7 +60,7 @@ pub(super) fn run(
         }
     };
     let _ = init_reply.send(Ok(()));
-    match context.run_loop(commands) {
+    match context.run_loop(commands, visible_surfaces) {
         Ok(()) => tracing::debug!("OpenXR overlay session stopped"),
         Err(error) => tracing::warn!(error = %error, "OpenXR overlay session ended"),
     }
@@ -130,6 +132,7 @@ impl SessionContext {
                 },
                 &extensions,
                 &[],
+                &(),
             )
             .map_err(|error| {
                 BackendStartError::transient(format!("xrCreateInstance failed: {error}"))
@@ -185,9 +188,14 @@ impl SessionContext {
         })
     }
 
-    fn run_loop(mut self, commands: Receiver<SessionCommand>) -> Result<(), String> {
+    fn run_loop(
+        mut self,
+        commands: Receiver<SessionCommand>,
+        visible_surfaces: &Mutex<Vec<OverlaySurfaceId>>,
+    ) -> Result<(), String> {
         let mut event_buffer = xr::EventDataBuffer::new();
         loop {
+            self.publish_visible_surfaces(visible_surfaces);
             loop {
                 match commands.try_recv() {
                     Ok(SessionCommand::Stop) => {
@@ -244,6 +252,19 @@ impl SessionContext {
                 self.frame()?;
             } else {
                 std::thread::sleep(IDLE_POLL_INTERVAL);
+            }
+        }
+    }
+
+    fn publish_visible_surfaces(&self, visible_surfaces: &Mutex<Vec<OverlaySurfaceId>>) {
+        let visible_ids = self
+            .surfaces
+            .iter()
+            .filter(|(_, surface)| surface.visible)
+            .map(|(surface_id, _)| surface_id);
+        if let Ok(mut published) = visible_surfaces.lock() {
+            if !published.iter().eq(visible_ids.clone()) {
+                *published = visible_ids.cloned().collect();
             }
         }
     }
@@ -604,10 +625,9 @@ fn parse_attachment(placement: &OverlayPlacement) -> Result<Attachment, String> 
         OverlayPlacement::TrackedDeviceRelative { device_hint } => match device_hint.as_str() {
             "left-hand" => Ok(Attachment::Hand(Hand::Left)),
             "right-hand" => Ok(Attachment::Hand(Hand::Right)),
-            "hmd" | "head" => Ok(Attachment::Head),
-            value if value.starts_with("hmd:") => Ok(Attachment::Head),
             _ => Err(format!("unknown tracked device hint '{device_hint}'")),
         },
+        OverlayPlacement::HeadLocked { .. } => Ok(Attachment::Head),
     }
 }
 
@@ -627,21 +647,14 @@ fn placement_pose(placement: &OverlayPlacement) -> xr::Posef {
                 [1.0, 0.0, 0.0, 0.06],
             ])
         }
-        OverlayPlacement::TrackedDeviceRelative { device_hint }
-            if device_hint.starts_with("hmd") =>
-        {
-            let (x, y) = match device_hint.as_str() {
-                "hmd:top" => (0.0, 0.38),
-                "hmd:left" => (-0.52, -0.12),
-                "hmd:right" => (0.52, -0.12),
-                _ => (0.0, -0.38),
-            };
-            matrix3x4_to_posef([
-                [1.0, 0.0, 0.0, x],
-                [0.0, 1.0, 0.0, y],
-                [0.0, 0.0, 1.0, -1.15],
-            ])
-        }
+        OverlayPlacement::HeadLocked {
+            offset_y_meters,
+            distance_meters,
+        } => matrix3x4_to_posef([
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, *offset_y_meters],
+            [0.0, 0.0, 1.0, -distance_meters],
+        ]),
         OverlayPlacement::TrackedDeviceRelative { .. } => matrix3x4_to_posef([
             [1.0, 0.0, 0.0, 0.0],
             [0.0, 1.0, 0.0, 0.035],

@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use vrcx_0_application_core::GameProcessEvent;
 use vrcx_0_composition::Result;
-use vrcx_0_core::friends::FriendRecord;
 
 use crate::DesktopRuntimeServices;
 
@@ -107,35 +106,9 @@ impl DesktopVrOverlayRuntime {
         }
     }
 
-    pub fn reload_config(&self) -> Result<VrOverlayRuntimeSnapshot> {
+    pub fn mark_config_dirty(&self) {
         #[cfg(any(windows, target_os = "linux"))]
-        {
-            self.runtime.reconcile_current();
-            Ok(self.runtime.snapshot().into())
-        }
-
-        #[cfg(not(any(windows, target_os = "linux")))]
-        Err(unsupported_error())
-    }
-
-    pub fn snapshot(&self) -> Result<VrOverlayRuntimeSnapshot> {
-        #[cfg(any(windows, target_os = "linux"))]
-        {
-            Ok(self.runtime.snapshot().into())
-        }
-
-        #[cfg(not(any(windows, target_os = "linux")))]
-        Err(unsupported_error())
-    }
-
-    pub fn is_running(&self) -> bool {
-        #[cfg(any(windows, target_os = "linux"))]
-        {
-            self.runtime.is_running()
-        }
-
-        #[cfg(not(any(windows, target_os = "linux")))]
-        false
+        self.runtime.mark_config_dirty();
     }
 
     pub fn reconcile_current(&self) {
@@ -159,17 +132,6 @@ impl DesktopVrOverlayRuntime {
     {
         #[cfg(any(windows, target_os = "linux"))]
         self.runtime.set_hmd_friend_membership_provider(provider);
-
-        #[cfg(not(any(windows, target_os = "linux")))]
-        let _ = provider;
-    }
-
-    pub fn set_hmd_friend_context_provider<F>(&self, provider: F)
-    where
-        F: Fn(&str) -> Option<(FriendRecord, String)> + Send + Sync + 'static,
-    {
-        #[cfg(any(windows, target_os = "linux"))]
-        self.runtime.set_hmd_friend_context_provider(provider);
 
         #[cfg(not(any(windows, target_os = "linux")))]
         let _ = provider;
@@ -222,14 +184,6 @@ mod tests {
     fn unsupported_facade_rejects_all_commands() {
         let runtime = super::DesktopVrOverlayRuntime {};
 
-        assert_eq!(
-            runtime.snapshot().unwrap_err().to_string(),
-            "VR overlay is not supported on macOS"
-        );
-        assert_eq!(
-            runtime.reload_config().unwrap_err().to_string(),
-            "VR overlay is not supported on macOS"
-        );
         assert_eq!(
             runtime.set_enabled(true).unwrap_err().to_string(),
             "VR overlay is not supported on macOS"

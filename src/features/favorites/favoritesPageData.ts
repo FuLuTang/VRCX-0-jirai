@@ -5,12 +5,16 @@ import type {
     FavoriteKind,
     FavoriteRecord
 } from '@/domain/favorites/types';
+import {
+    presenceSection,
+    presenceTravelingTag,
+    resolveFriendPresenceLocation
+} from '@/domain/friends/presence';
 import type {
     FriendProfileFields,
     FriendRecordInput
 } from '@/domain/friends/types';
 import { userImage } from '@/services/entityMediaService';
-import { resolveFriendPresenceLocation } from '@/shared/utils/location';
 
 import { hasDisplayableEntityDetail } from './favoriteEntityDetails';
 import {
@@ -38,23 +42,34 @@ export type FavoritePageEntityDetail = FavoriteEntityDetail & {
     displayName?: string;
     groupName?: string;
     occupants?: number;
-    state?: string;
-    stateBucket?: string;
     status?: string | null;
-    travelingToWorld?: string;
     worldName?: string;
 };
 type FavoriteProfileRecord = FriendRecordInput &
     Partial<FriendProfileFields> & {
         $userColour?: string;
         isFriend?: boolean;
-        stateBucket?: string;
-        travelingToLocation?: string;
     };
 type FavoriteGroupSourceMap = FavoriteGroupMap;
 type FavoriteDetailMap = Record<string, FavoritePageEntityDetail | undefined>;
 type FavoriteProfileMap = Record<string, FavoriteProfileRecord | undefined>;
 type FavoriteSortIndex = Record<string, number | undefined>;
+function withCustomIndex(
+    items: FavoriteItem[],
+    customOrder: readonly string[] | undefined
+): FavoriteItem[] {
+    if (!customOrder?.length) {
+        return items;
+    }
+    const customIndexById = new Map(
+        customOrder.map((entityId, index) => [entityId, index])
+    );
+    return items.map((item) => {
+        const customIndex = customIndexById.get(item.id);
+        return customIndex === undefined ? item : { ...item, customIndex };
+    });
+}
+
 function textValue(value: unknown) {
     return typeof value === 'string'
         ? value
@@ -81,11 +96,8 @@ function favoriteSeedData(
         groupName: textValue(value.groupName) || undefined,
         id: textValue(value.id) || undefined,
         releaseStatus: textValue(value.releaseStatus) || undefined,
-        state: textValue(value.state) || undefined,
-        stateBucket: textValue(value.stateBucket) || undefined,
         status:
             value.status === null ? null : textValue(value.status) || undefined,
-        travelingToWorld: textValue(value.travelingToWorld) || undefined,
         worldName: textValue(value.worldName) || undefined
     };
 }
@@ -166,25 +178,23 @@ function defaultFavoriteEntityTitle(kind: FavoriteKind, t: unknown) {
         : translate('view.favorites.empty.avatar_fallback');
 }
 
-function defaultFavoriteDetailSubtitle(
+function unavailableFavoriteDetailSubtitle(
     kind: FavoriteKind,
     isUnavailable: boolean,
     t: unknown,
     isDeleted = false
 ) {
+    if (!isUnavailable) {
+        return '';
+    }
     const translate = resolveTranslator(t);
     if (kind === 'world') {
-        if (isUnavailable) {
-            return isDeleted
-                ? translate('view.favorites.error.world_deleted')
-                : translate('view.favorites.error.world_details_unavailable');
-        }
-        return translate('view.favorites.loading.loading_world_details');
+        return isDeleted
+            ? translate('view.favorites.error.world_deleted')
+            : translate('view.favorites.error.world_details_unavailable');
     }
 
-    return isUnavailable
-        ? translate('view.favorites.error.avatar_details_unavailable')
-        : translate('view.favorites.loading.loading_avatar_details');
+    return translate('view.favorites.error.avatar_details_unavailable');
 }
 
 function resolveFavoriteSubtitle(
@@ -232,8 +242,11 @@ function buildFriendFavoriteItem({
               username: friend.username || knownUser?.username
           }
         : knownUser || null;
-    const status = profile?.stateBucket || profile?.state || 'offline';
-    const location = resolveFavoritePresenceLocation(profile);
+    const presence = profile?.$presence ?? null;
+    const status = presence ? presenceSection(presence) : 'offline';
+    const location = resolveFriendPresenceLocation(profile, {
+        preferTraveling: true
+    });
 
     return {
         key: `${source}:${groupKey}:${normalizedId}`,
@@ -249,8 +262,8 @@ function buildFriendFavoriteItem({
         subtitle: resolveFavoriteSubtitle(profile, location),
         detailText: '',
         location,
-        travelingToLocation: textValue(profile?.travelingToLocation),
-        imageUrl: profile ? userImage(profile, true, '64') : '',
+        travelingToLocation: presence ? presenceTravelingTag(presence) : '',
+        imageUrl: profile ? userImage(profile, 64) : '',
         statusLabel: textValue(status),
         statusVariant:
             status === 'online' || status === 'active'
@@ -259,10 +272,6 @@ function buildFriendFavoriteItem({
         seedData: favoriteSeedData(profile),
         orderIndex: favoritesSortIndex?.[normalizedId] ?? index
     };
-}
-
-export function resolveFavoritePresenceLocation(profile: unknown) {
-    return resolveFriendPresenceLocation(profile);
 }
 
 export function getFavoritesPageConfig(kind: FavoriteKind, t: unknown) {
@@ -401,7 +410,6 @@ export function buildFavoriteRemoteItemsByGroup({
     remoteFavoritesById,
     remoteEntityDetailsData,
     remoteEntityDetailsStatus,
-    worldDetailFallbacksById = {},
     avatarDetailFallbacksById = {},
     remoteGroupLabelByKey,
     worldAvailabilityById = {},
@@ -417,7 +425,6 @@ export function buildFavoriteRemoteItemsByGroup({
     remoteFavoritesById?: Record<string, FavoriteRecord | undefined>;
     remoteEntityDetailsData?: FavoriteDetailMap;
     remoteEntityDetailsStatus?: string;
-    worldDetailFallbacksById?: FavoriteDetailMap;
     avatarDetailFallbacksById?: FavoriteDetailMap;
     remoteGroupLabelByKey?: Record<string, string | undefined>;
     worldAvailabilityById?: Record<string, string | undefined>;
@@ -476,10 +483,6 @@ export function buildFavoriteRemoteItemsByGroup({
 
         if (kind === 'world') {
             liveDetail = hasDisplayableEntityDetail(detail) ? detail : null;
-            const worldFallback = worldDetailFallbacksById[favoriteId];
-            fallbackDetail = hasDisplayableEntityDetail(worldFallback)
-                ? worldFallback
-                : null;
         } else {
             const isHiddenRemoteAvatar =
                 hasDisplayableEntityDetail(detail) &&
@@ -508,18 +511,20 @@ export function buildFavoriteRemoteItemsByGroup({
                 ? !isDeleted &&
                   (releaseStatusPrivate ||
                       availabilityStatus === 'private' ||
-                      (usedFallback && !availabilityStatus))
+                      availabilityStatus === 'unverified')
                 : releaseStatusPrivate || usedFallback;
+        const isLoadingDetail = !displayDetail && !isUnavailable && !isDeleted;
         const playerCount = favoritePlayerCount(displayDetail);
         const authorName = textValue(displayDetail?.authorName);
-        const subtitle =
-            authorName ||
-            defaultFavoriteDetailSubtitle(
-                kind,
-                isUnavailable,
-                translate,
-                isDeleted
-            );
+        const subtitle = isLoadingDetail
+            ? ''
+            : authorName ||
+              unavailableFavoriteDetailSubtitle(
+                  kind,
+                  isUnavailable,
+                  translate,
+                  isDeleted
+              );
 
         const imagePair = favoriteImagePair(displayDetail);
 
@@ -532,9 +537,10 @@ export function buildFavoriteRemoteItemsByGroup({
                 remoteGroupLabelByKey?.[groupKey] ||
                 translate('view.favorites.empty.favorites_fallback'),
             id: favoriteId,
-            title:
-                textValue(displayDetail?.name) ||
-                defaultFavoriteEntityTitle(kind, translate),
+            title: isLoadingDetail
+                ? ''
+                : textValue(displayDetail?.name) ||
+                  defaultFavoriteEntityTitle(kind, translate),
             subtitle,
             authorName,
             description: textValue(displayDetail?.description),
@@ -543,6 +549,7 @@ export function buildFavoriteRemoteItemsByGroup({
             isPrivate,
             isDeleted,
             isUnavailable,
+            isLoadingDetail,
             tags: stringArray(displayDetail?.tags),
             playerCount,
             orderIndex:
@@ -567,9 +574,11 @@ export function buildFavoriteLocalItemsByGroup({
     localAvatarFavorites,
     localWorldFavorites,
     avatarDetailFallbacksById = {},
-    worldDetailFallbacksById = {},
+    worldDetailsById = {},
+    worldAvailabilityById = {},
     friendsById,
     knownUsersById = {},
+    customOrderByGroup,
     sortValue = 'name',
     t
 }: {
@@ -578,8 +587,10 @@ export function buildFavoriteLocalItemsByGroup({
     localFriendFavorites?: FavoriteGroupSourceMap;
     localAvatarFavorites?: FavoriteGroupSourceMap;
     localWorldFavorites?: FavoriteGroupSourceMap;
+    customOrderByGroup?: FavoriteGroupSourceMap;
     avatarDetailFallbacksById?: FavoriteDetailMap;
-    worldDetailFallbacksById?: FavoriteDetailMap;
+    worldDetailsById?: FavoriteDetailMap;
+    worldAvailabilityById?: Record<string, string | undefined>;
     friendsById?: FavoriteProfileMap;
     knownUsersById?: FavoriteProfileMap;
     sortValue?: FavoriteSortValue;
@@ -604,7 +615,10 @@ export function buildFavoriteLocalItemsByGroup({
                     t: translate
                 })
             );
-            itemsByGroup[group.key] = sortItems(items, sortValue);
+            itemsByGroup[group.key] = sortItems(
+                withCustomIndex(items, customOrderByGroup?.[group.key]),
+                sortValue
+            );
         }
 
         return itemsByGroup;
@@ -613,9 +627,7 @@ export function buildFavoriteLocalItemsByGroup({
     const localFavorites =
         kind === 'avatar' ? localAvatarFavorites : localWorldFavorites;
     const localDetailsById =
-        kind === 'avatar'
-            ? avatarDetailFallbacksById
-            : worldDetailFallbacksById;
+        kind === 'avatar' ? avatarDetailFallbacksById : worldDetailsById;
 
     for (const group of localGroups) {
         const ids = localFavorites?.[group.key] ?? [];
@@ -624,6 +636,9 @@ export function buildFavoriteLocalItemsByGroup({
             const detail = localDetailsById?.[normalizedId] || {
                 id: normalizedId
             };
+            const isLoadingDetail =
+                !hasDisplayableEntityDetail(detail) &&
+                !worldAvailabilityById[normalizedId];
             const playerCount = favoritePlayerCount(detail);
             const imagePair = favoriteImagePair(detail);
             return {
@@ -633,9 +648,10 @@ export function buildFavoriteLocalItemsByGroup({
                 groupKey: group.key,
                 groupLabel: group.label,
                 id: normalizedId,
-                title:
-                    textValue(detail.name) ||
-                    defaultFavoriteEntityTitle(kind, translate),
+                title: isLoadingDetail
+                    ? ''
+                    : textValue(detail.name) ||
+                      defaultFavoriteEntityTitle(kind, translate),
                 subtitle: textValue(detail.authorName),
                 authorName: textValue(detail.authorName),
                 description: textValue(detail.description),
@@ -643,12 +659,16 @@ export function buildFavoriteLocalItemsByGroup({
                 ...imagePair,
                 isPrivate: textValue(detail.releaseStatus) === 'private',
                 isUnavailable: false,
+                isLoadingDetail,
                 tags: stringArray(detail.tags),
                 playerCount,
                 orderIndex: index
             };
         });
-        itemsByGroup[group.key] = sortItems(items, sortValue);
+        itemsByGroup[group.key] = sortItems(
+            withCustomIndex(items, customOrderByGroup?.[group.key]),
+            sortValue
+        );
     }
 
     return itemsByGroup;

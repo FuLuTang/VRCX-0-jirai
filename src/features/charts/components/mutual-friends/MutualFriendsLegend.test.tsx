@@ -5,12 +5,17 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({ t: (key: string) => key })
 }));
+vi.mock('@/lib/dateTime', () => ({
+    formatDateFilter: () => 'date'
+}));
 vi.mock('@/ui/shadcn/tooltip', () => ({
     Tooltip: ({ children }: { children: ReactNode }) => <>{children}</>,
     TooltipContent: ({ children }: { children: ReactNode }) => <>{children}</>,
     TooltipTrigger: ({ render }: { render: ReactNode }) => <>{render}</>
 }));
-vi.mock('./CommitSlider', () => ({ CommitSlider: () => null }));
+vi.mock('@/components/mutual-friends/CommitSlider', () => ({
+    CommitSlider: () => null
+}));
 vi.mock('./MutualFriendsSurface', () => ({
     MutualFriendsSurface: ({ children }: { children: ReactNode }) => (
         <div>{children}</div>

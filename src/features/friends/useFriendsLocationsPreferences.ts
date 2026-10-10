@@ -9,6 +9,11 @@ import {
     sanitizeFriendsLocationsDensity,
     type FriendsLocationsDensity
 } from './friendsLocationsDensity';
+import {
+    DEFAULT_FRIENDS_LOCATIONS_VIEW_MODE,
+    sanitizeFriendsLocationsViewMode,
+    type FriendsLocationsViewMode
+} from './friendsLocationsWorlds';
 
 type FriendsLocationsSidebarFavoritePrefs = {
     isDivideByGroup: boolean;
@@ -19,8 +24,17 @@ type FriendsLocationsSidebarFavoritePrefs = {
 export function useFriendsLocationsPreferences() {
     const [preferencesReady, setPreferencesReady] = useState(false);
     const [showSameInstanceInOnline, setShowSameInstanceInOnline] =
-        useState(false);
+        useState(true);
+    const [showFavoritesInOnline, setShowFavoritesInOnline] = useState(true);
     const [density, setDensity] = useState(DEFAULT_FRIENDS_LOCATIONS_DENSITY);
+    const [viewMode, setViewMode] = useState<FriendsLocationsViewMode>(() =>
+        sanitizeFriendsLocationsViewMode(
+            configRepository.getCachedString(
+                'FriendLocationViewMode',
+                DEFAULT_FRIENDS_LOCATIONS_VIEW_MODE
+            )
+        )
+    );
     const [sidebarFavoritePrefs, setSidebarFavoritePrefs] =
         useState<FriendsLocationsSidebarFavoritePrefs>({
             isDivideByGroup: false,
@@ -41,7 +55,15 @@ export function useFriendsLocationsPreferences() {
                 'FriendLocationDensity',
                 DEFAULT_FRIENDS_LOCATIONS_DENSITY
             ),
-            configRepository.getBool('FriendLocationShowSameInstance', false),
+            configRepository.getBool('FriendLocationShowSameInstance', true),
+            configRepository.getBool(
+                'FriendLocationShowFavoritesInOnline',
+                true
+            ),
+            configRepository.getString(
+                'FriendLocationViewMode',
+                DEFAULT_FRIENDS_LOCATIONS_VIEW_MODE
+            ),
             configRepository.getBool('isSidebarDivideByFriendGroup', false),
             configRepository.getString('sidebarFavoriteGroups', '[]'),
             configRepository.getString('sidebarFavoriteGroupOrder', '[]'),
@@ -56,6 +78,8 @@ export function useFriendsLocationsPreferences() {
                 ([
                     nextDensity,
                     nextShowSameInstance,
+                    nextShowFavorites,
+                    nextViewMode,
                     nextDivideByGroup,
                     nextSelectedGroups,
                     nextGroupOrder,
@@ -69,6 +93,8 @@ export function useFriendsLocationsPreferences() {
 
                     setDensity(sanitizeFriendsLocationsDensity(nextDensity));
                     setShowSameInstanceInOnline(nextShowSameInstance);
+                    setShowFavoritesInOnline(nextShowFavorites);
+                    setViewMode(sanitizeFriendsLocationsViewMode(nextViewMode));
                     setSidebarFavoritePrefs({
                         isDivideByGroup: nextDivideByGroup,
                         selectedGroups: parseConfigArray(nextSelectedGroups),
@@ -166,18 +192,32 @@ export function useFriendsLocationsPreferences() {
         configRepository.setBool('FriendLocationShowSameInstance', value);
     }
 
+    function changeShowFavoritesInOnline(value: boolean) {
+        setShowFavoritesInOnline(value);
+        configRepository.setBool('FriendLocationShowFavoritesInOnline', value);
+    }
+
     function changeDensityPreference(value: FriendsLocationsDensity) {
         setDensity(value);
         configRepository.setString('FriendLocationDensity', value);
     }
 
+    function changeViewMode(value: FriendsLocationsViewMode) {
+        setViewMode(value);
+        configRepository.setString('FriendLocationViewMode', value);
+    }
+
     return {
         changeDensityPreference,
+        changeShowFavoritesInOnline,
         changeShowSameInstanceInOnline,
+        changeViewMode,
         density,
         preferencesReady,
+        showFavoritesInOnline,
         showSameInstanceInOnline,
         sidebarFavoritePrefs,
-        sidebarSortMethods
+        sidebarSortMethods,
+        viewMode
     };
 }

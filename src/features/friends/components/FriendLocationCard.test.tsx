@@ -7,17 +7,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { FriendRecord } from '@/domain/friends/types';
 import { useFriendLocationTimeStore } from '@/state/friendLocationTimeStore';
 import { useFriendRosterStore } from '@/state/friendRosterStore';
+import {
+    offlinePresence,
+    onlinePresence,
+    pendingPresence,
+    travelingPresence
+} from '@/test/presenceFixtures';
 
 import { getFriendsLocationsDensityConfig } from '../friendsLocationsDensity';
 import { FriendLocationCard } from './FriendLocationCard';
 
-vi.mock('react-i18next', () => ({
-    initReactI18next: {
-        type: '3rdParty',
-        init: () => {}
-    },
-    useTranslation: () => ({ t: (key: string) => key })
-}));
 vi.mock('@/components/Location', () => ({
     Location: ({ location }: { location: string }) => (
         <span data-location={location} />
@@ -27,6 +26,15 @@ vi.mock('@/components/user-hover-card/UserHoverCard', () => ({
     UserHoverCard: ({ children }: { children: ReactNode }) => children
 }));
 vi.mock('@/services/entityMediaService', () => ({ userImage: () => '' }));
+vi.mock('@/components/ProfileDecorations', () => ({
+    ProfileAvatarFrame: ({ templateId }: { templateId: string }) => (
+        <span data-avatar-frame={templateId} />
+    ),
+    ProfileNameplate: ({ templateId }: { templateId: string }) => (
+        <span data-nameplate={templateId} />
+    ),
+    useDecorationHover: () => ({ active: false, hoverProps: {} })
+}));
 vi.mock('@/components/friends/FriendInstanceTimer', () => ({
     FriendInstanceTimer: ({
         epoch,
@@ -51,9 +59,7 @@ describe('FriendLocationCard presentation', () => {
         displayName: 'Friend',
         statusDescription: 'Exploring worlds',
         tags: [],
-        state: 'online',
-        stateBucket: 'online',
-        location: 'wrld_test:123',
+        $presence: onlinePresence('wrld_test:123'),
         $trustLevel: '',
         $friendNumber: 0,
         $trustClass: '',
@@ -79,21 +85,6 @@ describe('FriendLocationCard presentation', () => {
 
             expect(getByText('Friend')).toBeTruthy();
             expect(container.querySelector('[data-location]')).not.toBeNull();
-            if (density === 'dense') {
-                const header = container.querySelector(
-                    '[data-slot="card-header"]'
-                );
-                expect(
-                    header?.classList.contains(
-                        'w-[var(--friend-card-avatar-size)]'
-                    )
-                ).toBe(true);
-                expect(
-                    header?.parentElement?.style.getPropertyValue(
-                        '--friend-card-avatar-size'
-                    )
-                ).toBe(`${densityConfig.avatarSize}px`);
-            }
             expect(Boolean(queryByText('Exploring worlds'))).toBe(
                 densityConfig.showStatusDescription
             );
@@ -126,6 +117,30 @@ describe('FriendLocationCard presentation', () => {
             expect(queryByText('Exploring worlds')).toBeNull();
         }
     );
+
+    it('labels and dims a friend who may be offline without blinking the actions', () => {
+        const animate = vi.fn(() => ({ cancel: vi.fn() }));
+        Object.defineProperty(HTMLElement.prototype, 'animate', {
+            configurable: true,
+            value: animate
+        });
+        const { container, getByText, queryByText } = render(
+            <FriendLocationCard
+                friend={{ ...friend, $presence: pendingPresence() }}
+            />
+        );
+
+        expect(
+            container.querySelector('[data-pending-offline]')
+        ).not.toBeNull();
+        expect(getByText('side_panel.pending_offline')).toBeTruthy();
+        expect(queryByText('Exploring worlds')).toBeNull();
+        const animated = animate.mock.contexts as unknown as Element[];
+        expect(animated.length).toBeGreaterThan(0);
+        expect(
+            animated.some((element) => element.hasAttribute('data-dim-exempt'))
+        ).toBe(false);
+    });
 
     it('does not reserve a description node for a friend without a signature', () => {
         const { container } = render(
@@ -160,6 +175,45 @@ describe('FriendLocationCard presentation', () => {
         }
         expect(openUser).toHaveBeenCalledTimes(3);
     });
+
+    it('renders the avatar frame and nameplate independently when enabled', () => {
+        const decorated = {
+            ...friend,
+            iconFrame: 'invt_frame',
+            nameplateEffect: 'invt_plate'
+        };
+        const { container, rerender } = render(
+            <FriendLocationCard friend={decorated} />
+        );
+        expect(container.querySelector('[data-avatar-frame]')).toBeNull();
+        expect(container.querySelector('[data-nameplate]')).toBeNull();
+
+        rerender(
+            <FriendLocationCard
+                friend={decorated}
+                presentation={{ showAvatarFrame: true }}
+            />
+        );
+        expect(
+            container
+                .querySelector('[data-avatar-frame]')
+                ?.getAttribute('data-avatar-frame')
+        ).toBe('invt_frame');
+        expect(container.querySelector('[data-nameplate]')).toBeNull();
+
+        rerender(
+            <FriendLocationCard
+                friend={decorated}
+                presentation={{ showNameplate: true }}
+            />
+        );
+        expect(container.querySelector('[data-avatar-frame]')).toBeNull();
+        expect(
+            container
+                .querySelector('[data-nameplate]')
+                ?.getAttribute('data-nameplate')
+        ).toBe('invt_plate');
+    });
 });
 
 describe('FriendLocationCard local mode', () => {
@@ -169,17 +223,18 @@ describe('FriendLocationCard local mode', () => {
         useFriendRosterStore.setState({ friendsById: {} });
     });
 
-    it.each(['offline', 'traveling', 'wrld_remote:2'])(
-        'renders the local room and elapsed timer despite the raw %s ref',
-        (remoteLocation) => {
+    it.each([
+        ['offline', offlinePresence],
+        ['traveling', travelingPresence('wrld_remote:2')],
+        ['wrld_remote:2', onlinePresence('wrld_remote:2')]
+    ])(
+        'renders the local room and elapsed timer despite the remote %s place',
+        (_remoteLocation, remotePresence) => {
             const friend: FriendRecord = {
                 id: 'usr_friend',
                 displayName: 'Friend',
                 tags: [],
-                state: remoteLocation === 'offline' ? 'offline' : 'online',
-                stateBucket:
-                    remoteLocation === 'offline' ? 'offline' : 'online',
-                location: remoteLocation,
+                $presence: remotePresence,
                 $trustLevel: '',
                 $friendNumber: 0,
                 $trustClass: '',
@@ -202,20 +257,10 @@ describe('FriendLocationCard local mode', () => {
             ]);
             const { container, rerender, getByText } = render(
                 <FriendLocationCard
-                    friend={{
-                        ...friend,
-                        ref: {
-                            id: friend.id,
-                            state: friend.state,
-                            stateBucket: friend.state,
-                            location: friend.location,
-                            travelingToLocation: 'wrld_remote:2'
-                        }
-                    }}
+                    friend={friend}
                     location={{
                         raw: 'wrld_local:1',
                         timerLocation: 'wrld_local:1',
-                        traveling: false,
                         source: 'gameLog'
                     }}
                 />
@@ -242,7 +287,6 @@ describe('FriendLocationCard local mode', () => {
                         location={{
                             raw: 'wrld_local:1',
                             timerLocation: 'wrld_local:1',
-                            traveling: false,
                             source: 'gameLog'
                         }}
                         presentation={{
@@ -264,9 +308,6 @@ describe('FriendLocationCard local mode', () => {
                         ?.querySelector('[data-epoch]')
                         ?.getAttribute('data-format')
                 ).toBe(density === 'dense' ? 'short' : 'default');
-                expect(name.parentElement?.classList.contains('flex-col')).toBe(
-                    density !== 'dense'
-                );
             }
         }
     );

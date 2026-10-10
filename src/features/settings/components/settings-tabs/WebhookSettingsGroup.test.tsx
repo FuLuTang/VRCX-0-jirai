@@ -1,12 +1,8 @@
-import React from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+// @vitest-environment jsdom
 
-vi.mock('react-i18next', () => ({
-    useTranslation: () => ({
-        t: (key: string) => key
-    })
-}));
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type React from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/ui/shadcn/button', async () => {
     const React = await import('react');
@@ -153,8 +149,10 @@ import { WebhookSettingsGroup } from './WebhookSettingsGroup';
 const noop = () => {};
 
 describe('WebhookSettingsGroup', () => {
+    afterEach(cleanup);
+
     it('keeps webhook URL and test controls enabled when only auth events are enabled', () => {
-        const html = renderToStaticMarkup(
+        render(
             <WebhookSettingsGroup
                 prefs={{
                     webhookEnabled: false,
@@ -165,8 +163,7 @@ describe('WebhookSettingsGroup', () => {
                 }}
                 onWebhookEnabledChange={noop}
                 onWebhookAuthEventsEnabledChange={noop}
-                onWebhookUrlDraftChange={noop}
-                onWebhookUrlBlur={noop}
+                onWebhookUrlCommit={noop}
                 onWebhookFormatChange={noop}
                 onWebhookFieldsChange={noop}
                 onOpenWebhookNotificationFiltersDialog={noop}
@@ -177,15 +174,54 @@ describe('WebhookSettingsGroup', () => {
             />
         );
 
-        expect(html).toContain('id="settings-webhook-url"');
-        expect(html).not.toContain(
-            'id="settings-webhook-url" class="w-full max-w-lg" disabled=""'
+        const urlInput = document.getElementById('settings-webhook-url');
+        expect(urlInput).toBeInstanceOf(HTMLInputElement);
+        expect((urlInput as HTMLInputElement).disabled).toBe(false);
+        expect(
+            (
+                screen.getByRole('button', {
+                    name: 'view.settings.notifications.notifications.webhook.send_test'
+                }) as HTMLButtonElement
+            ).disabled
+        ).toBe(false);
+    });
+
+    it('saves the webhook URL only when the edit is committed', () => {
+        const onWebhookUrlCommit = vi.fn();
+        render(
+            <WebhookSettingsGroup
+                prefs={{
+                    webhookEnabled: true,
+                    webhookAuthEventsEnabled: false,
+                    webhookUrl: 'https://example.com/old',
+                    webhookFormat: 'generic',
+                    webhookFields: ''
+                }}
+                onWebhookEnabledChange={noop}
+                onWebhookAuthEventsEnabledChange={noop}
+                onWebhookUrlCommit={onWebhookUrlCommit}
+                onWebhookFormatChange={noop}
+                onWebhookFieldsChange={noop}
+                onOpenWebhookNotificationFiltersDialog={noop}
+                onTestWebhook={noop}
+                deliverySnapshot={null}
+                deliveryStatusLoading={false}
+                onRefreshDeliveryStatus={noop}
+            />
         );
-        expect(html).toContain(
-            'view.settings.notifications.notifications.webhook.send_test'
-        );
-        expect(html).not.toContain(
-            '<button type="button" variant="outline" disabled="">view.settings.notifications.notifications.webhook.send_test</button>'
+
+        const urlInput = document.getElementById(
+            'settings-webhook-url'
+        ) as HTMLInputElement;
+        fireEvent.change(urlInput, {
+            target: { value: 'https://example.com/new' }
+        });
+        expect(onWebhookUrlCommit).not.toHaveBeenCalled();
+        expect(urlInput.value).toBe('https://example.com/new');
+
+        fireEvent.keyDown(urlInput, { key: 'Enter' });
+        expect(onWebhookUrlCommit).toHaveBeenCalledExactlyOnceWith(
+            'https://example.com/new'
         );
     });
 });

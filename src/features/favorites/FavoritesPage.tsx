@@ -3,8 +3,8 @@ import { useTranslation } from 'react-i18next';
 
 import { PageScaffold } from '@/components/layout/PageScaffold';
 import type { FavoriteKind } from '@/domain/favorites/types';
+import { commands } from '@/platform/tauri/bindings';
 import configRepository from '@/repositories/configRepository';
-import shareCollectionRepository from '@/repositories/shareCollectionRepository';
 import { toast } from '@/services/toastService';
 import {
     ResizableHandle,
@@ -51,13 +51,18 @@ function FavoritesPage({
         filters,
         layout,
         newLocalGroupName,
+        order,
         selection,
         setCreatingLocalGroup,
         setExportDialogOpen,
         setNewLocalGroupName,
+        setVisibleWorldIds,
         viewData,
         instanceActionGatesByItemKey
     } = state;
+    const handleToggleOrderEditing = useStableEvent(() =>
+        order.editing ? order.stop() : order.start()
+    );
     const handleGroupRailRefresh = useStableEvent(() =>
         actions.refreshFavorites()
     );
@@ -69,7 +74,7 @@ function FavoritesPage({
     );
     const handleOpenManageShares = useStableEvent(async () => {
         try {
-            await shareCollectionRepository.openShareCollectionManage();
+            await commands.appShareCollectionOpenManage();
         } catch (error) {
             toast.add({
                 type: 'error',
@@ -167,6 +172,9 @@ function FavoritesPage({
                     actions.refreshing ||
                     collections.favoriteLoadStatus === 'running'
                 }
+                canEditOrder={order.canEdit}
+                orderEditing={order.editing}
+                onToggleOrderEditing={handleToggleOrderEditing}
                 onSortValueChange={layout.handleSortValueChange}
                 onSearchChange={filters.setSearchQuery}
                 onSearchModeChange={filters.setSearchMode}
@@ -244,6 +252,7 @@ function FavoritesPage({
                             collections={collections}
                             filters={filters}
                             layout={layout}
+                            order={order}
                             selection={selection}
                             viewData={viewData}
                             onShareCollectionGroup={worldShareHandler}
@@ -252,6 +261,7 @@ function FavoritesPage({
                             instanceActionGatesByItemKey={
                                 instanceActionGatesByItemKey
                             }
+                            onVisibleWorldIdsChange={setVisibleWorldIds}
                         />
                     </ResizablePanel>
                 </ResizablePanelGroup>

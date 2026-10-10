@@ -27,8 +27,6 @@ const mocks = vi.hoisted(() => ({
     handleScreenshotLibraryScanStatusEvent: vi.fn(),
     handleGameRunningUpdate: vi.fn<() => Promise<void>>(),
     isHostCapabilityAvailable: vi.fn<(name: string) => boolean>(),
-    refreshHostCapabilities: vi.fn(),
-    pushSharedFeedNotification: vi.fn<() => Promise<void>>(),
     showSQLiteErrorDialog: vi.fn<() => Promise<void>>(),
     handleBrowserFocus: vi.fn<() => Promise<void>>(),
     getBackendRuntimeCombinedSnapshot: vi.fn(),
@@ -42,8 +40,7 @@ const mocks = vi.hoisted(() => ({
     desktopNotificationActivationUnsubscribe: vi.fn(),
     handleRuntimeAuthFailure: vi.fn(),
     applyAuthenticatedSessionProjection:
-        vi.fn<(projection: unknown) => Promise<boolean>>(),
-    loadVrcNotifications: vi.fn()
+        vi.fn<(projection: unknown) => Promise<boolean>>()
 }));
 
 vi.mock('@/platform/tauri/bindings', () => ({
@@ -101,10 +98,6 @@ vi.mock('./hostCapabilityService', () => ({
     isHostCapabilityAvailable: mocks.isHostCapabilityAvailable
 }));
 
-vi.mock('./sharedFeedNotificationService', () => ({
-    pushSharedFeedNotification: mocks.pushSharedFeedNotification
-}));
-
 vi.mock('./sqliteErrorDialogService', () => ({
     showSQLiteErrorDialog: mocks.showSQLiteErrorDialog
 }));
@@ -135,17 +128,9 @@ vi.mock('./authSessionRecoveryService', () => ({
     handleRuntimeAuthFailure: mocks.handleRuntimeAuthFailure
 }));
 
-vi.mock('@/state/vrcNotificationStore', () => ({
-    useVrcNotificationStore: {
-        getState: () => ({
-            loadForCurrentUser: mocks.loadVrcNotifications
-        })
-    }
-}));
-
+import { toast } from '@/services/toastService';
 import { useDataDirMigrationStore } from '@/state/dataDirMigrationStore';
 import { useFriendRosterStore } from '@/state/friendRosterStore';
-import { useNotificationStore } from '@/state/notificationStore';
 import { useProfileBackupStore } from '@/state/profileBackupStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
 import { useSessionStore } from '@/state/sessionStore';
@@ -404,15 +389,11 @@ async function bindCapturedRuntimeEvents(): Promise<{
 function setBackendRealtimeOwner({
     userId = 'usr_owner',
     authReady = true,
-    sessionReady = true,
-    friendProfileLoadStatus,
-    friendProfileLoadRunId = 1
+    sessionReady = true
 }: {
     userId?: string;
     authReady?: boolean;
     sessionReady?: boolean;
-    friendProfileLoadStatus?: 'running' | 'cancelling';
-    friendProfileLoadRunId?: number;
 } = {}): BackendRuntimeSnapshot {
     const snapshot: BackendRuntimeSnapshot = {
         ...createBackendRuntimeSnapshot(),
@@ -443,12 +424,6 @@ function setBackendRealtimeOwner({
             currentUserWebsocket: 'wss://pipeline.vrchat.cloud'
         });
     }
-    if (friendProfileLoadStatus) {
-        useRuntimeStore.getState().setFriendProfileLoadState({
-            runId: friendProfileLoadRunId,
-            status: friendProfileLoadStatus
-        });
-    }
     if (sessionReady) {
         useSessionStore.getState().setSessionState({
             isLoggedIn: true,
@@ -463,7 +438,6 @@ describe('runtimeEventBridgeService', () => {
         vi.clearAllMocks();
         useRuntimeStore.getState().resetRuntimeState();
         useFriendRosterStore.getState().resetRoster();
-        useNotificationStore.getState().resetNotificationState();
         useSessionStore.getState().resetSessionState();
         useUserFactsStore.getState().resetUserFacts();
         useProfileBackupStore.getState().resetProfileBackupState();
@@ -479,9 +453,7 @@ describe('runtimeEventBridgeService', () => {
         );
         mocks.runtimeGroupInstancesRefresh.mockResolvedValue(null);
         mocks.handleGameRunningUpdate.mockResolvedValue(undefined);
-        mocks.loadVrcNotifications.mockResolvedValue([]);
         mocks.hydrateFavoriteImportRuntimeStatus.mockResolvedValue(undefined);
-        mocks.pushSharedFeedNotification.mockResolvedValue(undefined);
         mocks.bindDeepLinkEvents.mockResolvedValue(mocks.deepLinkUnsubscribe);
         mocks.drainPendingDeepLinks.mockResolvedValue(undefined);
         mocks.bindDesktopNotificationActivationEvents.mockResolvedValue(
@@ -518,13 +490,15 @@ describe('runtimeEventBridgeService', () => {
         }
     });
 
-    it('refreshes browser status without a manual process query', async () => {
-        mocks.isHostCapabilityAvailable.mockReturnValue(true);
+    it('records the browser focus time and refreshes VRChat status on focus', async () => {
         mocks.handleBrowserFocus.mockResolvedValue(undefined);
         const { handlers } = await bindCapturedRuntimeEvents();
 
         handlers.get('browserFocus')?.(null);
 
+        expect(useRuntimeStore.getState().gameState.lastBrowserFocusAt).toEqual(
+            expect.any(String)
+        );
         expect(mocks.handleBrowserFocus).toHaveBeenCalledTimes(1);
     });
 
@@ -1099,6 +1073,11 @@ describe('runtimeEventBridgeService', () => {
         );
 
         await bindRuntimeEvents();
+        expect(useProfileBackupStore.getState().status).toMatchObject({
+            revision: 3,
+            phase: 'snapshot',
+            percent: 15
+        });
         handlers.get('profileBackupStatus')?.({
             revision: 4,
             state: 'running',
@@ -1225,6 +1204,11 @@ describe('runtimeEventBridgeService', () => {
         );
 
         await bindRuntimeEvents();
+        expect(useDataDirMigrationStore.getState().status).toMatchObject({
+            revision: 2,
+            phase: 'copying',
+            percent: 20
+        });
         handlers.get('dataDirMigration')?.({
             revision: 3,
             state: 'running',
@@ -1276,7 +1260,6 @@ describe('runtimeEventBridgeService', () => {
         await bindRuntimeEvents();
 
         const payload = {
-            runtimePersisted: true,
             raw: [
                 'runtime-game-log',
                 '2026-05-15T00:00:00.000Z',
@@ -1307,6 +1290,7 @@ describe('runtimeEventBridgeService', () => {
     });
 
     it('routes typed game-client variants', async () => {
+        const addToast = vi.spyOn(toast, 'add');
         const { handlers } = await bindCapturedRuntimeEvents();
         mocks.isHostCapabilityAvailable.mockImplementation(
             (name) => name === 'runtimeGameClientLifecycle'
@@ -1321,9 +1305,10 @@ describe('runtimeEventBridgeService', () => {
             }
         });
 
-        expect(useNotificationStore.getState().items[0]).toMatchObject({
-            level: 'warning',
-            title: 'VRChat crash detected'
+        expect(addToast).toHaveBeenCalledWith({
+            type: 'warning',
+            title: 'VRChat crash detected',
+            description: 'VRChat crashed, attempting to rejoin last instance.'
         });
     });
 
@@ -1546,58 +1531,50 @@ describe('runtimeEventBridgeService', () => {
         secondBinding.cleanup();
     });
 
-    it.each(['running', 'cancelling'] as const)(
-        'coalesces friend profile projections into one roster update while profile loading is %s',
-        async (status) => {
-            const { handlers, cleanup } = await bindCapturedRuntimeEvents();
-            setBackendRealtimeOwner({
-                friendProfileLoadStatus: status
+    it('delivers every owned friend and user projection once the roster queue flushes', async () => {
+        const { handlers, cleanup } = await bindCapturedRuntimeEvents();
+        setBackendRealtimeOwner();
+
+        for (const userId of ['usr_a', 'usr_b']) {
+            handlers.get('realtimeUserProjection')?.({
+                users: [
+                    {
+                        id: userId,
+                        endpoint: 'api.vrchat.cloud',
+                        displayName: userId
+                    }
+                ]
             });
-
-            for (const userId of ['usr_a', 'usr_b']) {
-                handlers.get('realtimeUserProjection')?.({
-                    users: [
-                        {
+            handlers.get('realtimeFriendProjection')?.({
+                generation: 1,
+                baselineRevision: 1,
+                patches: [
+                    {
+                        userId,
+                        record: {
                             id: userId,
-                            endpoint: 'api.vrchat.cloud',
                             displayName: userId
-                        }
-                    ]
-                });
-                handlers.get('realtimeFriendProjection')?.({
-                    generation: 1,
-                    baselineRevision: 1,
-                    patches: [
-                        {
-                            userId,
-                            patch: {
-                                id: userId,
-                                displayName: userId,
-                                state: 'offline'
-                            },
-                            stateBucket: 'offline',
-                            stateBucketAuthority: 'preserve'
-                        }
-                    ],
-                    removals: [],
-                    feedEntries: [],
-                    friendLogChanged: false
-                });
-            }
-            flushRealtimeRosterUpdates();
-
-            expect(
-                Object.keys(useFriendRosterStore.getState().friendsById)
-            ).toEqual(['usr_a', 'usr_b']);
-            expect(
-                Object.values(useUserFactsStore.getState().usersByKey).map(
-                    (user) => user.id
-                )
-            ).toEqual(['usr_a', 'usr_b']);
-
-            cleanup();
+                        },
+                        stateBucket: 'offline'
+                    }
+                ],
+                removals: [],
+                friendLogChanged: false
+            });
         }
-    );
+        flushRealtimeRosterUpdates();
+
+        expect(
+            Object.keys(useFriendRosterStore.getState().friendsById)
+        ).toEqual(['usr_a', 'usr_b']);
+        expect(
+            Object.values(useUserFactsStore.getState().usersByKey).map(
+                (user) => user.id
+            )
+        ).toEqual(['usr_a', 'usr_b']);
+
+        cleanup();
+    });
 
     it('drops realtime projections from a superseded realtime generation', async () => {
         const { handlers, cleanup } = await bindCapturedRuntimeEvents();
@@ -1612,17 +1589,14 @@ describe('runtimeEventBridgeService', () => {
             patches: [
                 {
                     userId: 'usr_stale',
-                    patch: {
+                    record: {
                         id: 'usr_stale',
-                        displayName: 'usr_stale',
-                        state: 'online'
+                        displayName: 'usr_stale'
                     },
-                    stateBucket: 'online',
-                    stateBucketAuthority: 'explicit'
+                    stateBucket: 'online'
                 }
             ],
             removals: [],
-            feedEntries: [],
             friendLogChanged: false
         });
 
@@ -1634,17 +1608,14 @@ describe('runtimeEventBridgeService', () => {
             patches: [
                 {
                     userId: 'usr_live',
-                    patch: {
+                    record: {
                         id: 'usr_live',
-                        displayName: 'usr_live',
-                        state: 'online'
+                        displayName: 'usr_live'
                     },
-                    stateBucket: 'online',
-                    stateBucketAuthority: 'explicit'
+                    stateBucket: 'online'
                 }
             ],
             removals: [],
-            feedEntries: [],
             friendLogChanged: false
         });
 

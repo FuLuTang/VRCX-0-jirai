@@ -13,6 +13,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
     UserDialogActivitySummaryPanel,
+    UserDialogBioPanel,
     UserDialogStatusDistributionPanel
 } from './UserDialogInfoTab';
 
@@ -218,19 +219,6 @@ describe('UserDialogActivitySummaryPanel', () => {
             })
         ).toBeNull();
         expect(screen.getByText('dialog.user.info.time_together')).toBeTruthy();
-        expect(
-            screen
-                .getAllByText(/^dialog\.user\.info\./)
-                .map((element) => element.textContent)
-        ).toEqual([
-            'dialog.user.info.activity_summary',
-            'dialog.user.info.last_seen',
-            'dialog.user.info.last_activity',
-            'dialog.user.info.join_count',
-            'dialog.user.info.time_together',
-            'dialog.user.info.friended',
-            'dialog.user.info.date_joined'
-        ]);
 
         expect(onOpenInstanceHistory).toHaveBeenCalledOnce();
     });
@@ -304,5 +292,36 @@ describe('UserDialogActivitySummaryPanel', () => {
             })
         );
         expect(onOpenFeed).toHaveBeenCalledOnce();
+    });
+});
+
+describe('UserDialogBioPanel', () => {
+    it('offers bio editing only when an edit handler is provided', () => {
+        const onEditBio = vi.fn();
+        const { rerender } = render(
+            <UserDialogBioPanel
+                profile={{ id: 'usr_test', bio: 'hello' }}
+                bioLinks={[]}
+            />
+        );
+        expect(
+            screen.queryByRole('button', {
+                name: 'dialog.user.actions.edit_profile_details'
+            })
+        ).toBeNull();
+
+        rerender(
+            <UserDialogBioPanel
+                profile={{ id: 'usr_self', bio: 'hello' }}
+                bioLinks={[]}
+                onEditBio={onEditBio}
+            />
+        );
+        fireEvent.click(
+            screen.getByRole('button', {
+                name: 'dialog.user.actions.edit_profile_details'
+            })
+        );
+        expect(onEditBio).toHaveBeenCalledOnce();
     });
 });

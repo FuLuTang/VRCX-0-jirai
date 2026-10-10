@@ -12,12 +12,16 @@ import { useShallow } from 'zustand/react/shallow';
 import { FadeInImage } from '@/components/media/FadeInImage';
 import { UserPickerRow } from '@/components/search/UserPickerRow';
 import { normalizeEndpoint, normalizeUserId } from '@/domain/users/userFacts';
-import type { UserFact } from '@/domain/users/userFacts';
+import { useKnownUserFacts } from '@/lib/useKnownUser';
+import {
+    knownUserName,
+    useKnownUserOptions,
+    type KnownUserOption
+} from '@/lib/useKnownUserOptions';
 import { userImage } from '@/services/entityMediaService';
 import { MINUTES_PER_DAY } from '@/shared/constants/time';
 import { usePreferencesStore } from '@/state/preferencesStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
-import { useUserFactsStore } from '@/state/userFactsStore';
 import { Button } from '@/ui/shadcn/button';
 import {
     DropdownMenu,
@@ -44,21 +48,11 @@ import { SettingsCard } from '../SettingsCard';
 import { Field } from '../SettingsField';
 import { SettingsTabContent } from '../SettingsViewParts';
 
-type KnownUserOption = Partial<UserFact> & {
-    id: string;
-    endpoint: string;
-    name?: string;
-};
-
 type UserOption = {
     value: string;
     label: string;
     user: KnownUserOption;
 };
-
-function knownUserName(user: Partial<KnownUserOption> | null | undefined) {
-    return user?.displayName || user?.username || user?.name || '';
-}
 
 export function SettingsSocialTab() {
     const social = useSettingsPageSection('social');
@@ -66,8 +60,12 @@ export function SettingsSocialTab() {
         useShallow((state) => ({
             recentActionCooldownEnabled: state.recentActionCooldownEnabled,
             recentActionCooldownMinutes: state.recentActionCooldownMinutes,
-            friendLogNotificationDot: state.friendLogNotificationDot,
-            hideUnfriends: state.hideUnfriends
+            autoDeclineFriendRequests: state.autoDeclineFriendRequests,
+            hideUnfriends: state.hideUnfriends,
+            profileBioScanEnabled: state.profileBioScanEnabled,
+            feedHiddenUsersHideNotifications:
+                state.feedHiddenUsersHideNotifications,
+            hidePrivateFromFeed: state.hidePrivateFromFeed
         }))
     );
     const {
@@ -78,8 +76,11 @@ export function SettingsSocialTab() {
         localFavoriteFriendsGroups,
         feedHiddenUsers = [],
         onAddFeedHiddenUser,
-        onFriendLogNotificationDotChange,
+        onAutoDeclineFriendRequestsChange,
+        onFeedHiddenUsersHideNotificationsChange,
+        onHidePrivateFromFeedChange,
         onHideUnfriendsChange,
+        onProfileBioScanEnabledChange,
         onRemoveFeedHiddenUser,
         onRecentActionCooldownEnabledChange,
         onRecentActionCooldownMinutesChange,
@@ -91,7 +92,6 @@ export function SettingsSocialTab() {
     const currentEndpoint = useRuntimeStore(
         (state) => state.auth.currentUserEndpoint
     );
-    const usersByKey = useUserFactsStore((state) => state.usersByKey);
     const [hiddenUserPickerOpen, setHiddenUserPickerOpen] = useState(false);
     const [hiddenUserSearch, setHiddenUserSearch] = useState('');
     const endpoint = normalizeEndpoint(currentEndpoint);
@@ -102,62 +102,32 @@ export function SettingsSocialTab() {
         () => new Set(feedHiddenUsers),
         [feedHiddenUsers]
     );
-    const knownUsers = useMemo(() => {
-        const usersById = new Map<string, KnownUserOption>();
-        const normalizedCurrentUserId = normalizeUserId(currentUserId);
-        for (const user of Object.values(usersByKey).filter((user) => {
-            const userId = normalizeUserId(user?.id);
-            return (
-                userId &&
-                userId !== normalizedCurrentUserId &&
-                normalizeEndpoint(user?.endpoint || endpoint) === endpoint
-            );
-        })) {
-            const userId = normalizeUserId(user?.id);
-            if (!usersById.has(userId)) {
-                usersById.set(userId, user);
-            }
-        }
-        return Array.from(usersById.values())
-            .sort((left, right) =>
-                (knownUserName(left) || left.id).localeCompare(
-                    knownUserName(right) || right.id
-                )
-            )
-            .slice(0, 500);
-    }, [currentUserId, endpoint, usersByKey]);
-    const knownUsersById = useMemo(
+    const knownUsers = useKnownUserOptions({
+        enabled: hiddenUserPickerOpen,
+        endpoint,
+        excludeUserId: currentUserId,
+        query: hiddenUserSearch
+    });
+    const hiddenUserFacts = useKnownUserFacts(feedHiddenUsers, { endpoint });
+    const hiddenUserOptions = useMemo(
         () =>
-            new Map(knownUsers.map((user) => [normalizeUserId(user.id), user])),
-        [knownUsers]
+            knownUsers
+                .map((user): UserOption => ({
+                    value: normalizeUserId(user.id),
+                    label:
+                        knownUserName(user) ||
+                        t('view.settings.social.hidden_feed.unknown_friend'),
+                    user
+                }))
+                .filter(
+                    (option) => option.value && !hiddenUserIds.has(option.value)
+                ),
+        [hiddenUserIds, knownUsers, t]
     );
-    const hiddenUserOptions = useMemo(() => {
-        const query = hiddenUserSearch.trim().toLowerCase();
-        return knownUsers
-            .map((user): UserOption => ({
-                value: normalizeUserId(user.id),
-                label:
-                    knownUserName(user) ||
-                    t('view.settings.social.hidden_feed.unknown_user'),
-                user
-            }))
-            .filter((option) => {
-                if (!option.value || hiddenUserIds.has(option.value)) {
-                    return false;
-                }
-                if (!query) {
-                    return true;
-                }
-                return (
-                    option.label.toLowerCase().includes(query) ||
-                    option.value.toLowerCase().includes(query)
-                );
-            });
-    }, [hiddenUserIds, hiddenUserSearch, knownUsers, t]);
     const hiddenFeedUserOptions = useMemo(
         () =>
             feedHiddenUsers.map((userId): UserOption => {
-                const knownUser = knownUsersById.get(userId);
+                const knownUser = hiddenUserFacts[userId];
                 const label = knownUserName(knownUser) || userId;
                 return {
                     value: userId,
@@ -171,7 +141,7 @@ export function SettingsSocialTab() {
                         } satisfies KnownUserOption)
                 };
             }),
-        [endpoint, feedHiddenUsers, knownUsersById]
+        [endpoint, feedHiddenUsers, hiddenUserFacts]
     );
 
     return (
@@ -222,21 +192,24 @@ export function SettingsSocialTab() {
                         ) : null}
                     </div>
                 </Field>
+                <Field
+                    label={t(
+                        'view.settings.social.interaction.auto_decline_friend_requests'
+                    )}
+                    description={t(
+                        'view.settings.social.interaction.auto_decline_friend_requests_description'
+                    )}
+                >
+                    <Switch
+                        checked={prefs.autoDeclineFriendRequests}
+                        onCheckedChange={onAutoDeclineFriendRequestsChange}
+                    />
+                </Field>
             </SettingsCard>
             <SettingsCard
                 cardId="social.friend-log"
                 title={t('view.settings.appearance.friend_log.header')}
             >
-                <Field
-                    label={t(
-                        'view.settings.appearance.friend_log.show_notification_dot'
-                    )}
-                >
-                    <Switch
-                        checked={prefs.friendLogNotificationDot}
-                        onCheckedChange={onFriendLogNotificationDotChange}
-                    />
-                </Field>
                 <Field
                     label={t(
                         'view.settings.appearance.friend_log.hide_unfriends'
@@ -245,6 +218,24 @@ export function SettingsSocialTab() {
                     <Switch
                         checked={prefs.hideUnfriends}
                         onCheckedChange={onHideUnfriendsChange}
+                    />
+                </Field>
+            </SettingsCard>
+            <SettingsCard
+                cardId="social.friend-bios"
+                title={t('view.settings.social.friend_bios.header')}
+            >
+                <Field
+                    label={t(
+                        'view.settings.social.friend_bios.keep_up_to_date'
+                    )}
+                    description={t(
+                        'view.settings.social.friend_bios.description'
+                    )}
+                >
+                    <Switch
+                        checked={prefs.profileBioScanEnabled}
+                        onCheckedChange={onProfileBioScanEnabledChange}
                     />
                 </Field>
             </SettingsCard>
@@ -334,7 +325,7 @@ export function SettingsSocialTab() {
                             <div className="flex flex-col rounded-md border">
                                 {hiddenFeedUserOptions.map((option) => {
                                     const imageUrl = option.user
-                                        ? userImage(option.user, true, '64')
+                                        ? userImage(option.user, 64)
                                         : '';
                                     return (
                                         <div
@@ -385,6 +376,34 @@ export function SettingsSocialTab() {
                             </div>
                         )}
                     </div>
+                </Field>
+                <Field
+                    label={t(
+                        'view.settings.social.hidden_feed.hide_notifications'
+                    )}
+                    description={t(
+                        'view.settings.social.hidden_feed.hide_notifications_description'
+                    )}
+                >
+                    <Switch
+                        checked={prefs.feedHiddenUsersHideNotifications}
+                        onCheckedChange={
+                            onFeedHiddenUsersHideNotificationsChange
+                        }
+                    />
+                </Field>
+                <Field
+                    label={t(
+                        'view.settings.social.hidden_feed.hide_private_location_changes'
+                    )}
+                    description={t(
+                        'view.settings.social.hidden_feed.hide_private_location_changes_description'
+                    )}
+                >
+                    <Switch
+                        checked={prefs.hidePrivateFromFeed}
+                        onCheckedChange={onHidePrivateFromFeedChange}
+                    />
                 </Field>
             </SettingsCard>
             <SettingsCard

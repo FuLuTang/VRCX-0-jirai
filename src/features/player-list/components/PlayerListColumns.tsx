@@ -5,6 +5,7 @@ import {
     HandIcon,
     HeartIcon,
     IdCardIcon,
+    LockIcon,
     MessageSquareXIcon,
     ShieldCheckIcon,
     StarIcon,
@@ -19,6 +20,7 @@ import { useTranslation } from 'react-i18next';
 
 import type { AppColumnDef, AppRow } from '@/components/data-table/appTable';
 import { DataTableHeaderLabel } from '@/components/data-table/DataTableSortButton';
+import { DATA_TABLE_EMPTY_VALUE } from '@/components/data-table/dataTableStyles';
 import {
     DATA_TABLE_CONTROL_CELL_CLASS_NAME,
     DATA_TABLE_NUMERIC_CELL_CLASS_NAME,
@@ -27,11 +29,16 @@ import {
 } from '@/components/data-table/DataTableView';
 import { BioLinkFavicon } from '@/components/media/BioLinkFavicon';
 import { FadeInImage } from '@/components/media/FadeInImage';
+import { MutualFriendAvatars } from '@/components/mutual-friends/MutualFriendAvatars';
+import { UserHoverCard } from '@/components/user-hover-card/UserHoverCard';
+import { UserStatusDot } from '@/components/UserStatusDot';
 import { timeToText } from '@/lib/dateTime';
 import { cn } from '@/lib/utils';
 import { getNameColour, openExternalLink } from '@/services/entityMediaService';
+import type { UserNameColourStyle } from '@/shared/utils/entityMedia';
 import { usePreferencesStore } from '@/state/preferencesStore';
 import { Button } from '@/ui/shadcn/button';
+import { Spinner } from '@/ui/shadcn/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/shadcn/tooltip';
 
 import {
@@ -39,6 +46,7 @@ import {
     resolvePlatformMode,
     resolveStatusMeta
 } from '../playerListDisplay';
+import { playerGroupRoleOrder } from '../playerListGroupRoles';
 import type { PlayerListLanguageRow, PlayerListRow } from '../playerListTypes';
 import { SortButton } from './PlayerListViewParts';
 
@@ -65,23 +73,99 @@ function AvatarCell({ row }: { row: AppRow<PlayerListRow> }) {
 function DisplayNameCell({
     isDarkMode,
     randomUserColours,
+    randomUserColourStyle,
     row
 }: {
     isDarkMode: boolean;
     randomUserColours: boolean;
+    randomUserColourStyle: UserNameColourStyle;
     row: AppRow<PlayerListRow>;
 }) {
     const style =
         randomUserColours && row.original?.userId
             ? {
-                  color: getNameColour(row.original.userId, isDarkMode)
+                  color: getNameColour(
+                      row.original.userId,
+                      isDarkMode,
+                      randomUserColourStyle
+                  )
               }
             : undefined;
 
     return (
-        <span className="block min-w-0 truncate text-sm" style={style}>
-            {row.original.displayName}
-        </span>
+        <UserHoverCard userId={row.original.userId} side="right" align="start">
+            <span className="block min-w-0 truncate text-sm" style={style}>
+                {row.original.displayName}
+            </span>
+        </UserHoverCard>
+    );
+}
+
+function MutualFriendsCell({ row }: { row: AppRow<PlayerListRow> }) {
+    const { t } = useTranslation();
+    const mutuals = row.original.mutuals;
+    if (!mutuals) {
+        return null;
+    }
+    if (mutuals.status === 'idle') {
+        return (
+            <span className="text-muted-foreground">
+                {DATA_TABLE_EMPTY_VALUE}
+            </span>
+        );
+    }
+    if (mutuals.status === 'loading') {
+        return <Spinner className="text-muted-foreground size-3.5" />;
+    }
+    if (mutuals.status !== 'ready') {
+        return (
+            <PlayerFlag
+                Icon={LockIcon}
+                label={t('view.charts.mutual_friend.label.mutuals_unavailable')}
+                className="text-muted-foreground"
+                iconClassName="size-3.5"
+            />
+        );
+    }
+    if (!mutuals.count) {
+        return null;
+    }
+    const names = mutuals.friends
+        .map((friend) => friend.displayName)
+        .join(t('user_hover_card.name_separator'));
+    return (
+        <Tooltip>
+            <TooltipTrigger
+                render={
+                    <span className="flex min-w-0 items-center gap-1.5">
+                        <MutualFriendAvatars friends={mutuals.friends} />
+                        {mutuals.community ? (
+                            <span
+                                className="size-2 shrink-0 rounded-full"
+                                style={{
+                                    backgroundColor: mutuals.community.color
+                                }}
+                            />
+                        ) : null}
+                        <span className="text-sm tabular-nums">
+                            {mutuals.count}
+                        </span>
+                    </span>
+                }
+            />
+            <TooltipContent>
+                {mutuals.community
+                    ? t('view.player_list.mutual_friends.cell_tooltip_circle', {
+                          names,
+                          count: mutuals.count,
+                          circle: mutuals.community.label
+                      })
+                    : t('view.player_list.mutual_friends.cell_tooltip', {
+                          names,
+                          count: mutuals.count
+                      })}
+            </TooltipContent>
+        </Tooltip>
     );
 }
 
@@ -90,9 +174,11 @@ function StatusCell({ row }: { row: AppRow<PlayerListRow> }) {
 
     return (
         <span className="flex w-full min-w-0 items-center gap-2">
-            {status.indicatorClassName ? (
-                <i className={status.indicatorClassName} />
-            ) : null}
+            <UserStatusDot
+                statusDotClassName={status.statusDotClassName}
+                className="size-2.5 shrink-0"
+                variant="inline"
+            />
             <span className="min-w-0 truncate text-sm">{status.label}</span>
         </span>
     );
@@ -251,7 +337,7 @@ function PlatformCell({ row }: { row: AppRow<PlayerListRow> }) {
     );
 }
 
-export function languageTooltipLabel(
+function languageTooltipLabel(
     entry: PlayerListLanguageRow | null | undefined,
     code: string
 ) {
@@ -336,6 +422,9 @@ export function usePlayerListColumns(): AppColumnDef<PlayerListRow>[] {
     const randomUserColours = usePreferencesStore(
         (state) => state.randomUserColours
     );
+    const randomUserColourStyle = usePreferencesStore(
+        (state) => state.randomUserColourStyle
+    );
     const isDarkMode =
         typeof document !== 'undefined' &&
         document.documentElement.classList.contains('dark');
@@ -408,6 +497,7 @@ export function usePlayerListColumns(): AppColumnDef<PlayerListRow>[] {
                     <DisplayNameCell
                         isDarkMode={isDarkMode}
                         randomUserColours={randomUserColours}
+                        randomUserColourStyle={randomUserColourStyle}
                         row={row}
                     />
                 )
@@ -430,6 +520,51 @@ export function usePlayerListColumns(): AppColumnDef<PlayerListRow>[] {
                         {row.original.trustLevel || ''}
                     </span>
                 )
+            },
+            {
+                id: 'mutualFriends',
+                size: 140,
+                enableHiding: false,
+                meta: { label: t('table.playerList.mutualFriends') },
+                accessorFn: (row) =>
+                    row.mutuals?.status === 'ready'
+                        ? row.mutuals.count
+                        : undefined,
+                sortUndefined: 'last',
+                sortDescFirst: true,
+                header: ({ column }) => (
+                    <SortButton
+                        column={column}
+                        label={t('table.playerList.mutualFriends')}
+                    />
+                ),
+                cell: ({ row }) => <MutualFriendsCell row={row} />
+            },
+            {
+                id: 'groupRoles',
+                size: 180,
+                meta: { label: t('table.playerList.groupRoles') },
+                accessorFn: (row) => playerGroupRoleOrder(row.groupRoles),
+                sortUndefined: 'last',
+                sortDescFirst: false,
+                header: ({ column }) => (
+                    <SortButton
+                        column={column}
+                        label={t('table.playerList.groupRoles')}
+                    />
+                ),
+                cell: ({ row }) => {
+                    const roles = row.original.groupRoles;
+                    if (!roles) return <span>{DATA_TABLE_EMPTY_VALUE}</span>;
+                    const label = roles.length
+                        ? roles.map((role) => role.name).join(' · ')
+                        : t('dialog.group.role_name.everyone');
+                    return (
+                        <span className="block truncate text-sm" title={label}>
+                            {label}
+                        </span>
+                    );
+                }
             },
             {
                 id: 'status',
@@ -519,6 +654,6 @@ export function usePlayerListColumns(): AppColumnDef<PlayerListRow>[] {
                 )
             }
         ],
-        [isDarkMode, randomUserColours, t]
+        [isDarkMode, randomUserColours, randomUserColourStyle, t]
     );
 }

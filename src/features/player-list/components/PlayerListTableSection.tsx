@@ -12,9 +12,14 @@ import {
     filterPlayerListRows,
     type PlayerListFilterScope
 } from '../playerListFilters';
+import { PLAYER_LIST_MUTUAL_FRIENDS_COLUMN_ID } from '../playerListState';
 import type { PlayerListRow, PlayerListSourceRow } from '../playerListTypes';
+import { usePlayerListGroupRoles } from '../usePlayerListGroupRoles';
+import { usePlayerListMutuals } from '../usePlayerListMutuals';
 import { usePlayerListTableState } from '../usePlayerListTableState';
 import { usePlayerListColumns } from './PlayerListColumns';
+import { PlayerListGroupSelector } from './PlayerListGroupSelector';
+import { PlayerListMutualScan } from './PlayerListMutualScan';
 import { PlayerListToolbar } from './PlayerListToolbar';
 import {
     PlayerListEmptyState,
@@ -111,6 +116,12 @@ export function PlayerListTableSection({
 }) {
     const { t } = useTranslation();
     const tableState = usePlayerListTableState();
+    const groupRoles = usePlayerListGroupRoles(
+        filterContextKey,
+        filteredRows,
+        isGameRunning && tableState.columnVisibility.groupRoles !== false
+    );
+    const mutuals = usePlayerListMutuals(filterContextKey, groupRoles.rows);
     const tableColumns = usePlayerListColumns();
     const [query, setQuery] = useState('');
     const [filterScope, setFilterScope] =
@@ -126,17 +137,38 @@ export function PlayerListTableSection({
         [filteredRows]
     );
     const visibleRows = useMemo(
-        () => filterPlayerListRows(filteredRows, query, filterScope),
-        [filterScope, filteredRows, query]
+        () => filterPlayerListRows(mutuals.rows, query, filterScope),
+        [filterScope, mutuals.rows, query]
+    );
+    const mutualsVisible = mutuals.scan.visible;
+    const columns = useMemo(
+        () =>
+            mutualsVisible
+                ? tableColumns
+                : tableColumns.filter(
+                      (column) =>
+                          column.id !== PLAYER_LIST_MUTUAL_FRIENDS_COLUMN_ID
+                  ),
+        [mutualsVisible, tableColumns]
+    );
+    const sorting = useMemo(
+        () =>
+            mutualsVisible
+                ? tableState.sorting
+                : tableState.sorting.filter(
+                      (entry) =>
+                          entry.id !== PLAYER_LIST_MUTUAL_FRIENDS_COLUMN_ID
+                  ),
+        [mutualsVisible, tableState.sorting]
     );
     const table = useAppTable<PlayerListRow>({
         data: visibleRows,
-        columns: tableColumns,
+        columns,
         state: {
             columnOrder: tableState.columnOrder,
             columnSizing: tableState.columnSizing,
             columnVisibility: tableState.columnVisibility,
-            sorting: tableState.sorting
+            sorting
         },
         onSortingChange: tableState.setSorting,
         onColumnVisibilityChange: tableState.setColumnVisibility,
@@ -203,6 +235,18 @@ export function PlayerListTableSection({
                     className="flex min-h-0 flex-1 flex-col gap-0"
                 >
                     <PlayerListToolbar
+                        mutualScan={
+                            <PlayerListMutualScan scan={mutuals.scan} />
+                        }
+                        groupSelector={
+                            <PlayerListGroupSelector
+                                value={groupRoles.selectedGroup}
+                                groupId={groupRoles.groupId}
+                                instanceGroupId={groupRoles.instanceGroupId}
+                                onChange={groupRoles.selectGroup}
+                                onRefresh={groupRoles.refresh}
+                            />
+                        }
                         counts={scopeCounts}
                         onQueryChange={setQuery}
                         onResetLayout={tableState.resetLayout}

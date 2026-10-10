@@ -28,10 +28,6 @@ vi.mock('@/services/toastService', () => ({
     }
 }));
 
-vi.mock('react-i18next', () => ({
-    useTranslation: () => ({ t: (key: string) => key })
-}));
-
 vi.mock('@/repositories/memoPersistenceRepository', () => ({
     default: {
         getUserMemo: mocks.getUserMemo,
@@ -46,6 +42,7 @@ vi.mock('@/repositories/vrchatToolsRepository', () => ({
 }));
 
 import { useFriendRosterStore } from '@/state/friendRosterStore';
+import { offlinePresence } from '@/test/presenceFixtures';
 
 import { useUserDialogMemoState } from './useUserDialogMemoState';
 
@@ -70,15 +67,15 @@ describe('useUserDialogMemoState', () => {
         return {
             activeUserTargetRef: {
                 current: {
-                    userId: 'usr_self',
+                    userId: 'usr_friend',
                     endpoint: 'https://api.vrchat.cloud/api/1'
                 }
             },
             currentEndpoint: 'https://api.vrchat.cloud/api/1',
-            normalizedUserId: 'usr_self',
+            normalizedUserId: 'usr_friend',
             profile: {
-                id: 'usr_self',
-                displayName: 'Current User',
+                id: 'usr_friend',
+                displayName: 'Friend User',
                 note: 'Existing VRChat note'
             },
             setBaseProfile: vi.fn()
@@ -89,11 +86,11 @@ describe('useUserDialogMemoState', () => {
         vi.clearAllMocks();
         current = null;
         mocks.getUserMemo.mockResolvedValue({
-            userId: 'usr_self',
+            userId: 'usr_friend',
             memo: 'Existing local note'
         });
         mocks.saveUserMemo.mockResolvedValue({
-            userId: 'usr_self',
+            userId: 'usr_friend',
             memo: 'Updated local note'
         });
         mocks.saveUserNote.mockResolvedValue(undefined);
@@ -145,17 +142,17 @@ describe('useUserDialogMemoState', () => {
         });
     }
 
-    it('saves an updated VRChat note when editing the current user', async () => {
+    it('saves both the edited VRChat note and the local memo', async () => {
         await renderMemoState();
         editBothNotes();
         await saveNotes();
 
         expect(mocks.saveUserNote).toHaveBeenCalledWith({
-            targetUserId: 'usr_self',
+            targetUserId: 'usr_friend',
             note: 'Updated VRChat note'
         });
         expect(mocks.saveUserMemo).toHaveBeenCalledWith({
-            userId: 'usr_self',
+            userId: 'usr_friend',
             memo: 'Updated local note'
         });
     });
@@ -169,7 +166,7 @@ describe('useUserDialogMemoState', () => {
         await saveNotes();
 
         expect(mocks.saveUserMemo).toHaveBeenCalledWith({
-            userId: 'usr_self',
+            userId: 'usr_friend',
             memo: 'Updated local note'
         });
         expect(value().memo).toBe('Updated local note');
@@ -207,17 +204,16 @@ describe('useUserDialogMemoState', () => {
         expect(value().memoDialog.open).toBe(false);
     });
 
-    it('preserves current presence when saving a friend note', async () => {
+    it('patches the saved notes onto the roster friend', async () => {
         const applyFriendPatch = vi.fn();
         useFriendRosterStore.setState({
             applyFriendPatch,
             friendsById: {
-                usr_self: {
-                    id: 'usr_self',
-                    displayName: 'Current User',
+                usr_friend: {
+                    id: 'usr_friend',
+                    displayName: 'Friend User',
                     tags: [],
-                    state: 'online',
-                    stateBucket: 'online',
+                    $presence: offlinePresence,
                     $trustLevel: 'Visitor',
                     $friendNumber: 0,
                     $trustClass: 'x-tag-untrusted',
@@ -246,13 +242,11 @@ describe('useUserDialogMemoState', () => {
         await saveNotes();
 
         expect(applyFriendPatch).toHaveBeenCalledWith({
-            userId: 'usr_self',
+            userId: 'usr_friend',
             patch: {
                 note: 'Updated VRChat note',
-                memo: 'Updated local note',
-                $nickName: 'Updated local note'
-            },
-            stateBucketAuthority: 'preserve'
+                memo: 'Updated local note'
+            }
         });
     });
 });

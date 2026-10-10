@@ -6,10 +6,8 @@ pub(super) use serde_json::json;
 pub(super) use std::sync::Arc;
 #[cfg(test)]
 pub(super) use std::sync::Mutex;
-#[cfg(test)]
-pub(super) use vrcx_0_contracts::feed::{
-    FeedFilter, FeedLatestQueryInput, FeedQueryMode, FeedRowsQueryInput, FeedSearchQueryInput,
-};
+#[cfg(any(test, feature = "test-utils"))]
+pub(super) use vrcx_0_contracts::feed::{FeedQueryMode, FeedRowsQueryInput};
 #[cfg(test)]
 pub(super) use vrcx_0_contracts::feed_live::FeedLiveEntry;
 #[cfg(test)]
@@ -22,23 +20,20 @@ pub(super) use vrcx_0_contracts::realtime::{FriendLogUpsert, NotificationV2Updat
 #[cfg(test)]
 pub(super) use crate::world_enrich::PendingEntryCorrection;
 #[cfg(test)]
-pub(super) use crate::{
-    FriendProjection, RealtimeInstanceClosedProjection, RealtimeInstanceQueueProjection,
-    RealtimeNotificationProjection,
-};
+pub(super) use crate::{FriendProjection, RealtimeNotificationProjection};
 #[cfg(test)]
 pub(super) use vrcx_0_application_core::RealtimeNotificationProjectionObserver;
+#[cfg(test)]
+pub(super) use vrcx_0_application_core::{ActivityIngress, LocalGameContextSnapshot};
 pub(super) use vrcx_0_application_core::{
     HostSessionRuntime, LocalGameContextSource, RuntimeEventBus, RuntimeSyncEngine, TaskSupervisor,
     UnavailableLocalGameContextSource, WebClient,
 };
-#[cfg(test)]
-pub(super) use vrcx_0_application_core::{LocalGameContextSnapshot, OverlayActivityInputSink};
 use vrcx_0_application_core::{
-    MemoryWorldCachePort, NoopPrintCleanupInputSink, NoopWebClientPort, Result, RuntimeAuthScope,
-    RuntimeEventForTest, RuntimeTaskExecutor,
+    MemoryFileCachePort, MemoryWorldCachePort, NoopPrintCleanupInputSink, NoopWebClientPort,
+    Result, RuntimeAuthScope, RuntimeEventForTest, RuntimeTaskExecutor,
 };
-use vrcx_0_core::friends::FriendRecord;
+use vrcx_0_core::friends::FriendBaselineEntry;
 use vrcx_0_core::realtime::RealtimeWsMessagePayload;
 
 #[cfg(test)]
@@ -76,6 +71,7 @@ pub struct TestRealtimeHostRuntime {
     runtime: Arc<RealtimeHostRuntime>,
     store: Arc<TestRealtimeStore>,
     world_cache_port: MemoryWorldCachePort,
+    file_cache_port: MemoryFileCachePort,
     #[cfg(test)]
     activity_sink: Arc<TestActivitySink>,
     #[cfg(test)]
@@ -99,6 +95,14 @@ impl TestRealtimeHostRuntime {
 
     pub fn web_client(&self) -> &WebClient {
         self.runtime.deps.web.as_ref()
+    }
+
+    pub fn cache_file_for_test(&self, file: vrcx_0_contracts::FileMetadataOutput) {
+        self.file_cache_port.insert(file);
+    }
+
+    pub fn file_resolve_calls_for_test(&self) -> Vec<String> {
+        self.file_cache_port.resolve_calls()
     }
 
     pub fn cache_world_for_test(&self, id: &str, name: &str, updated_at: &str) {
@@ -129,7 +133,7 @@ impl TestRealtimeHostRuntime {
     pub fn prepare_pending_friend_baseline(
         &self,
         session: &RealtimeSessionContext,
-        friends_by_id: HashMap<String, FriendRecord>,
+        friends_by_id: HashMap<String, FriendBaselineEntry>,
     ) -> Result<()> {
         self.runtime.state.lock().unwrap().connection.active_context = None;
         self.runtime.friends.clear();
@@ -200,6 +204,34 @@ impl TestRealtimeHostRuntime {
 }
 
 #[cfg(test)]
+#[derive(Clone, Copy)]
+pub(super) struct DiscardTaskExecutor;
+
+#[cfg(test)]
+struct FinishedTaskHandle;
+
+#[cfg(test)]
+impl RuntimeTaskExecutor for DiscardTaskExecutor {
+    fn spawn(
+        &self,
+        _task: vrcx_0_application_core::RuntimeTask,
+    ) -> Box<dyn vrcx_0_application_core::RuntimeTaskHandle> {
+        Box::new(FinishedTaskHandle)
+    }
+}
+
+#[cfg(test)]
+impl vrcx_0_application_core::RuntimeTaskHandle for FinishedTaskHandle {
+    fn abort(&self) {}
+
+    fn is_finished(&self) -> bool {
+        true
+    }
+
+    fn join_or_abort(&mut self, _timeout: std::time::Duration) {}
+}
+
+#[cfg(test)]
 pub(super) mod config_store {
     use vrcx_0_application_core::Result;
 
@@ -245,6 +277,56 @@ pub(super) fn friend_log_history_query(
     store.friend_log_history(input)
 }
 
+#[cfg(any(test, feature = "test-utils"))]
+pub fn feed_lookup_input(user_id: String) -> FeedRowsQueryInput {
+    FeedRowsQueryInput {
+        user_id,
+        mode: FeedQueryMode::Lookup,
+        search: String::new(),
+        filters: Vec::new(),
+        vip_list: Vec::new(),
+        scoped_user_ids: Vec::new(),
+        excluded_user_ids: Vec::new(),
+        location_hidden_user_ids: Vec::new(),
+        max_entries: 20,
+        date_from: String::new(),
+        date_to: String::new(),
+        cursor: None,
+    }
+}
+
+#[cfg(any(test, feature = "test-utils"))]
+pub fn seed_friend_baseline(
+    runtime: &TestRealtimeHostRuntime,
+    active_session: &crate::realtime::RealtimeSessionContext,
+) {
+    runtime.runtime().friends.set_baseline(
+        vrcx_0_core::friends::FriendRosterBaseline {
+            current_user_id: active_session.user_id.clone(),
+            endpoint: active_session.endpoint.clone(),
+            websocket: active_session.websocket.clone(),
+            friends_by_id: [(
+                "usr_friend".to_string(),
+                vrcx_0_core::friends::FriendBaselineEntry {
+                    record: vrcx_0_core::friends::FriendRecord {
+                        id: "usr_friend".into(),
+                        display_name: "Friend".into(),
+                        ..vrcx_0_core::friends::FriendRecord::default()
+                    },
+                    presence: vrcx_0_core::friends::FriendBaselinePresence {
+                        state: "online".into(),
+                        ..vrcx_0_core::friends::FriendBaselinePresence::default()
+                    },
+                },
+            )]
+            .into_iter()
+            .collect(),
+        },
+        7,
+        0,
+    );
+}
+
 #[cfg(test)]
 pub(super) fn feed_rows_query(
     store: &TestRealtimeStore,
@@ -262,10 +344,9 @@ pub(super) struct TestActivitySink {
 #[cfg(test)]
 #[derive(Default)]
 struct TestActivitySinkState {
-    delivery_armed: bool,
     friend_user_ids: Vec<String>,
-    friend_projections: Vec<FriendProjection>,
-    notification_projections: Vec<RealtimeNotificationProjection>,
+    friend_updates: usize,
+    events: Vec<vrcx_0_contracts::activity::ActivityEvent>,
 }
 
 #[cfg(test)]
@@ -278,46 +359,54 @@ impl TestActivitySink {
         self.lock_state().friend_user_ids.clone()
     }
 
-    pub(super) fn take_friend_projections(&self) -> Vec<FriendProjection> {
-        std::mem::take(&mut self.lock_state().friend_projections)
+    pub(super) fn take_friend_updates(&self) -> usize {
+        std::mem::take(&mut self.lock_state().friend_updates)
     }
 
-    pub(super) fn notification_by_id(&self, id: &str) -> Option<serde_json::Value> {
+    pub(super) fn take_events(&self) -> Vec<vrcx_0_contracts::activity::ActivityEvent> {
+        std::mem::take(&mut self.lock_state().events)
+    }
+
+    pub(super) fn notification_by_id(
+        &self,
+        id: &str,
+    ) -> Option<vrcx_0_contracts::activity::ActivityEvent> {
+        let source_id = format!("notification:{id}");
         self.lock_state()
-            .notification_projections
+            .events
             .iter()
             .rev()
-            .flat_map(|projection| projection.upserts.iter())
-            .find(|upsert| upsert.notification["id"] == id)
-            .map(|upsert| upsert.notification.as_value().clone())
+            .find(|event| event.source_id == source_id)
+            .cloned()
     }
 }
 
 #[cfg(test)]
-impl OverlayActivityInputSink for TestActivitySink {
-    fn set_friend_user_ids(&self, user_ids: Vec<String>) {
+impl ActivityIngress for TestActivitySink {
+    fn ingest_activity(&self, events: Vec<vrcx_0_contracts::activity::ActivityEvent>) {
+        self.lock_state().events.extend(events);
+    }
+
+    fn replace_friend_ids(&self, user_ids: Vec<String>) {
         self.lock_state().friend_user_ids = user_ids;
     }
 
-    fn set_delivery_armed(&self, armed: bool) {
-        self.lock_state().delivery_armed = armed;
+    fn update_friend_ids(&self, added: Vec<String>, removed: Vec<String>) {
+        let mut state = self.lock_state();
+        state.friend_updates += 1;
+        state
+            .friend_user_ids
+            .retain(|user_id| !removed.contains(user_id));
+        for user_id in added {
+            if !state.friend_user_ids.contains(&user_id) {
+                state.friend_user_ids.push(user_id);
+            }
+        }
     }
 
-    fn ingest_friend_projection(&self, projection: &FriendProjection) {
-        self.lock_state()
-            .friend_projections
-            .push(projection.clone());
-    }
+    fn set_current_instance(&self, _location: &str, _user_ids: Vec<String>) {}
 
-    fn ingest_notification_projection(&self, projection: &RealtimeNotificationProjection) {
-        self.lock_state()
-            .notification_projections
-            .push(projection.clone());
-    }
-
-    fn ingest_instance_queue_projection(&self, _projection: &RealtimeInstanceQueueProjection) {}
-
-    fn ingest_instance_closed_projection(&self, _projection: &RealtimeInstanceClosedProjection) {}
+    fn arm_delivery(&self) {}
 }
 
 #[cfg(test)]
@@ -608,6 +697,8 @@ fn runtime_with_active_session_game_context(
     let world_cache = Arc::new(vrcx_0_application_core::WorldCache::new(
         world_cache_port.clone(),
     ));
+    let file_cache_port = MemoryFileCachePort::default();
+    let file_cache = vrcx_0_application_core::FileCache::new(file_cache_port.clone());
     #[cfg(test)]
     let test_local_game_context = local_game_context_available
         .then(|| Arc::new(TestLocalGameContextSource::new(session.clone())));
@@ -648,14 +739,15 @@ fn runtime_with_active_session_game_context(
         remote_mutations: Arc::new(vrcx_0_application_core::RemoteMutationGate::default()),
         local_game_context,
         #[cfg(test)]
-        activity_sink: Some(activity_sink.clone()),
+        activity: Some(activity_sink.clone()),
         #[cfg(not(test))]
-        activity_sink: None,
+        activity: None,
         #[cfg(test)]
         notification_projection_observer: Some(notification_projection_observer.clone()),
         #[cfg(not(test))]
         notification_projection_observer: None,
         world_cache,
+        file_cache,
         instance_dwell: Arc::new(vrcx_0_application_core::InstanceDwellRegistry::new()),
         print_cleanup: Arc::new(NoopPrintCleanupInputSink),
         current_user_snapshot_sink: None,
@@ -683,6 +775,7 @@ fn runtime_with_active_session_game_context(
             runtime,
             store,
             world_cache_port,
+            file_cache_port,
             #[cfg(test)]
             activity_sink,
             #[cfg(test)]
@@ -747,41 +840,8 @@ pub(super) fn feed_entry_of(entry_type: &str, created_at: &str) -> FeedLiveEntry
             previous_status_description: String::new(),
             owner_user_id: String::new(),
         },
-        "Bio" => FeedLiveEntry::Bio {
-            created_at,
-            user_id,
-            display_name,
-            bio: String::new(),
-            previous_bio: String::new(),
-            owner_user_id: String::new(),
-        },
-        "Avatar" => FeedLiveEntry::Avatar {
-            created_at,
-            user_id,
-            display_name,
-            owner_id: String::new(),
-            previous_owner_id: String::new(),
-            avatar_name: String::new(),
-            previous_avatar_name: String::new(),
-            current_avatar_image_url: String::new(),
-            current_avatar_thumbnail_image_url: String::new(),
-            previous_current_avatar_image_url: String::new(),
-            previous_current_avatar_thumbnail_image_url: String::new(),
-            current_avatar_tags: None,
-            previous_current_avatar_tags: None,
-            owner_user_id: String::new(),
-        },
         other => panic!("unsupported test feed entry type: {other}"),
     }
-}
-
-#[cfg(test)]
-pub(super) fn transient_avatar_entry(created_at: &str) -> FeedLiveEntry {
-    let mut entry = feed_entry_of("Avatar", created_at);
-    if let FeedLiveEntry::Avatar { avatar_name, .. } = &mut entry {
-        *avatar_name = "Transient Avatar".to_string();
-    }
-    entry
 }
 
 #[cfg(test)]

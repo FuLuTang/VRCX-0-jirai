@@ -1,24 +1,36 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import {
+    collectFavoriteGroupFriendIds,
+    resolveSelectedFavoriteGroupKeys
+} from '@/domain/favorites/favoriteGroupSelection';
+import { buildFavoriteIdSet } from '@/domain/favorites/favoriteIdSet';
 import type { FavoriteGroup, FavoriteGroupMap } from '@/domain/favorites/types';
-import { resolveObservedPlayerUserIds } from '@/domain/friends/sameInstanceFriends';
+import {
+    localGameLocation,
+    presenceOf,
+    presencePlatform
+} from '@/domain/friends/presence';
+import {
+    buildSameInstanceFriendGroups,
+    resolveObservedPlayerUserIds
+} from '@/domain/friends/sameInstanceFriends';
 import type { FriendRecord, FriendRosterById } from '@/domain/friends/types';
 import type { CurrentInstanceRosterPlayer } from '@/domain/instances/currentInstanceRoster';
 import {
     getVisibleKnownSizeRows,
     positionKnownSizeRows
 } from '@/lib/knownSizeVirtualRows';
-import { buildCurrentUserPresenceView } from '@/shared/utils/currentUserPresence';
+import { useFriendSortContext } from '@/lib/useFriendStats';
 import {
     checkCanInvite,
     type InviteLocationCurrentUserSnapshot,
-    type InviteLocationGameState
+    type InviteLocationGameState,
+    resolveCurrentInviteLocation
 } from '@/shared/utils/invite';
-import {
-    computeTrustLevel,
-    computeUserPlatform
-} from '@/shared/utils/userTransforms';
+import { normalizeString } from '@/shared/utils/string';
+import { computeTrustLevel } from '@/shared/utils/userTransforms';
 import { useFriendLocationTimeStore } from '@/state/friendLocationTimeStore';
 
 import {
@@ -32,16 +44,10 @@ import {
     type FriendsLocationsDensity
 } from './friendsLocationsDensity';
 import {
-    buildSameInstanceGroups,
-    normalizeFriendsLocationId as normalizeId,
     partitionFriendsByPrivateLocation,
-    resolveFriendsLocationsCurrentInviteLocation as resolveCurrentInviteLocation,
     uniqueFriendsById
 } from './friendsLocationsRows';
-import {
-    buildFriendsLocationsFavoriteIdSet as buildFavoriteIdSet,
-    matchesFriendLocationSearch as matchesSearch
-} from './friendsLocationsSearch';
+import { matchesFriendLocationSearch as matchesSearch } from './friendsLocationsSearch';
 import {
     buildFavoriteGroupLabelsByFriendId,
     buildFriendSections,
@@ -50,6 +56,12 @@ import {
     sortActiveFriendsBySidebarPrefs,
     sortFriendsBySidebarPrefs
 } from './friendsLocationsSections';
+import {
+    buildFriendWorldGroups,
+    type FriendsLocationsViewMode,
+    type FriendsLocationsWorldGroup
+} from './friendsLocationsWorlds';
+import { useFriendsLocationsWorldSummaries } from './useFriendsLocationsWorldSummaries';
 
 type FriendsLocationsFavoritePreferences = {
     isDivideByGroup: boolean;
@@ -73,7 +85,7 @@ type FriendsLocationsCurrentUserSnapshot = InviteLocationCurrentUserSnapshot &
 
 export type FriendsLocationsSection = {
     key: string;
-    type?: 'favoriteGroup' | string;
+    type?: 'favoriteGroup' | 'collapsibleGroup';
     groupKey?: string;
     title: string;
     description: string;
@@ -146,9 +158,11 @@ type FriendsLocationsPageDerivedStateInput = {
     remoteFavoriteFriendIds: string[];
     rosterStatus: string;
     scrollMetrics: FriendsLocationsScrollMetrics;
+    showFavoritesInOnline: boolean;
     showSameInstanceInOnline: boolean;
     sidebarFavoritePrefs: FriendsLocationsFavoritePreferences;
     sidebarSortMethods: string[];
+    viewMode: FriendsLocationsViewMode;
 };
 
 function isPresent<T>(value: T | null | undefined): value is T {
@@ -174,12 +188,15 @@ export function useFriendsLocationsPageDerivedState({
     remoteFavoriteFriendIds,
     rosterStatus,
     scrollMetrics,
+    showFavoritesInOnline,
     showSameInstanceInOnline,
     sidebarFavoritePrefs,
-    sidebarSortMethods
+    sidebarSortMethods,
+    viewMode
 }: FriendsLocationsPageDerivedStateInput) {
     const { t } = useTranslation();
     const locationTimes = useFriendLocationTimeStore((state) => state.byUserId);
+    const sortContext = useFriendSortContext(sidebarSortMethods, locationTimes);
     const densityConfig = useMemo(
         () => getFriendsLocationsDensityConfig(density),
         [density]
@@ -243,7 +260,7 @@ export function useFriendsLocationsPageDerivedState({
     const allFavoriteGroupKeys = useMemo<string[]>(
         () => [
             ...favoriteFriendGroups
-                .map((group) => normalizeId(group?.key))
+                .map((group) => normalizeString(group?.key))
                 .filter(Boolean),
             ...(localFriendFavoriteGroups.length
                 ? localFriendFavoriteGroups
@@ -254,72 +271,64 @@ export function useFriendsLocationsPageDerivedState({
         ],
         [favoriteFriendGroups, localFriendFavoriteGroups, localFriendFavorites]
     );
-    const selectedFavoriteGroupKeys = useMemo<Set<string>>(() => {
-        const configured = sidebarFavoritePrefs.selectedGroups.filter(
-            (groupKey) => allFavoriteGroupKeys.includes(groupKey)
-        );
-        return new Set(configured.length ? configured : allFavoriteGroupKeys);
-    }, [allFavoriteGroupKeys, sidebarFavoritePrefs.selectedGroups]);
-    const selectedFavoriteIds = useMemo<Set<string>>(() => {
-        if (!allFavoriteGroupKeys.length) {
-            return favoriteIds;
-        }
-        const ids = new Set<string>();
-        for (const groupKey of selectedFavoriteGroupKeys) {
-            if (groupKey.startsWith('local:')) {
-                for (const id of localFriendFavorites?.[groupKey.slice(6)] ||
-                    []) {
-                    const normalized = normalizeId(id);
-                    if (normalized) {
-                        ids.add(normalized);
-                    }
-                }
-                continue;
-            }
-            for (const id of groupedFavoriteFriendIdsByGroupKey?.[groupKey] ||
-                []) {
-                const normalized = normalizeId(id);
-                if (normalized) {
-                    ids.add(normalized);
-                }
-            }
-        }
-        return ids;
-    }, [
-        allFavoriteGroupKeys,
-        favoriteIds,
-        groupedFavoriteFriendIdsByGroupKey,
-        localFriendFavorites,
-        selectedFavoriteGroupKeys
-    ]);
+    const selectedFavoriteGroupKeys = useMemo<Set<string>>(
+        () =>
+            new Set(
+                resolveSelectedFavoriteGroupKeys(
+                    sidebarFavoritePrefs.selectedGroups,
+                    allFavoriteGroupKeys
+                )
+            ),
+        [allFavoriteGroupKeys, sidebarFavoritePrefs.selectedGroups]
+    );
+    const selectedFavoriteIds = useMemo<Set<string>>(
+        () =>
+            allFavoriteGroupKeys.length
+                ? collectFavoriteGroupFriendIds(
+                      selectedFavoriteGroupKeys,
+                      groupedFavoriteFriendIdsByGroupKey,
+                      localFriendFavorites
+                  )
+                : favoriteIds,
+        [
+            allFavoriteGroupKeys,
+            favoriteIds,
+            groupedFavoriteFriendIdsByGroupKey,
+            localFriendFavorites,
+            selectedFavoriteGroupKeys
+        ]
+    );
     const onlineFriends = useMemo<FriendRecord[]>(
         () =>
             sortFriendsBySidebarPrefs(
                 onlineIds.map((id) => friendsById[id]).filter(isPresent),
-                sidebarSortMethods
+                sidebarSortMethods,
+                sortContext
             ),
-        [friendsById, onlineIds, sidebarSortMethods]
+        [friendsById, onlineIds, sidebarSortMethods, sortContext]
     );
     const activeFriends = useMemo<FriendRecord[]>(
         () =>
             sortActiveFriendsBySidebarPrefs(
                 activeIds.map((id) => friendsById[id]).filter(isPresent),
-                sidebarSortMethods
+                sidebarSortMethods,
+                sortContext
             ),
-        [activeIds, friendsById, sidebarSortMethods]
+        [activeIds, friendsById, sidebarSortMethods, sortContext]
     );
     const offlineFriends = useMemo<FriendRecord[]>(
         () =>
             sortFriendsBySidebarPrefs(
                 offlineIds.map((id) => friendsById[id]).filter(isPresent),
-                sidebarSortMethods
+                sidebarSortMethods,
+                sortContext
             ),
-        [friendsById, offlineIds, sidebarSortMethods]
+        [friendsById, offlineIds, sidebarSortMethods, sortContext]
     );
     const favoriteFriends = useMemo<FriendRecord[]>(
         () =>
             onlineFriends.filter((friend) =>
-                selectedFavoriteIds.has(normalizeId(friend?.id))
+                selectedFavoriteIds.has(normalizeString(friend?.id))
             ),
         [onlineFriends, selectedFavoriteIds]
     );
@@ -331,15 +340,55 @@ export function useFriendsLocationsPageDerivedState({
         () =>
             onlineFriends.filter(
                 (friend) =>
-                    !onlineFavoriteExclusionIds.has(normalizeId(friend?.id))
+                    !onlineFavoriteExclusionIds.has(normalizeString(friend?.id))
             ),
         [onlineFavoriteExclusionIds, onlineFriends]
     );
+    const currentUserRecord = useMemo<FriendRecord | null>(() => {
+        const presence = presenceOf(currentUserSnapshot);
+        if (
+            !currentUserId ||
+            !currentUserSnapshot ||
+            !presence ||
+            normalizeString(currentUserSnapshot.id) !== currentUserId
+        ) {
+            return null;
+        }
+        const tags = Array.isArray(currentUserSnapshot.tags)
+            ? currentUserSnapshot.tags.filter(
+                  (tag): tag is string => typeof tag === 'string'
+              )
+            : [];
+        const trust = computeTrustLevel(
+            tags,
+            normalizeString(currentUserSnapshot.developerType)
+        );
+        return {
+            ...currentUserSnapshot,
+            id: currentUserId,
+            displayName:
+                normalizeString(currentUserSnapshot.displayName) ||
+                currentUserId,
+            tags,
+            $presence: presence,
+            $friendNumber: 0,
+            $trustLevel: trust.trustLevel,
+            $trustClass: trust.trustClass,
+            $trustSortNum: trust.trustSortNum,
+            $isModerator: trust.isModerator,
+            $isTroll: trust.isTroll,
+            $isProbableTroll: trust.isProbableTroll,
+            $platform: presencePlatform(
+                presence,
+                normalizeString(currentUserSnapshot.last_platform)
+            )
+        };
+    }, [currentUserId, currentUserSnapshot]);
     const sameInstanceGroups = useMemo<
         FriendsLocationsSameInstanceGroup[]
     >(() => {
         const onlineFriendIds = new Set(
-            onlineFriends.map((friend) => normalizeId(friend.id))
+            onlineFriends.map((friend) => normalizeString(friend.id))
         );
         const localFriends: FriendRecord[] = [];
         for (const [userId, time] of Object.entries(locationTimes)) {
@@ -354,10 +403,11 @@ export function useFriendsLocationsPageDerivedState({
         const candidates = localFriends.length
             ? sortFriendsBySidebarPrefs(
                   [...onlineFriends, ...localFriends],
-                  sidebarSortMethods
+                  sidebarSortMethods,
+                  sortContext
               )
             : onlineFriends;
-        const groups = buildSameInstanceGroups(
+        const groups = buildSameInstanceFriendGroups(
             candidates,
             currentLocationSnapshot,
             {
@@ -365,48 +415,15 @@ export function useFriendsLocationsPageDerivedState({
                 locationTimes
             }
         );
-        if (
-            !currentUserId ||
-            !currentUserSnapshot ||
-            normalizeId(currentUserSnapshot.id) !== currentUserId
-        ) {
+        if (!currentUserRecord) {
             return groups;
         }
-        const profile = buildCurrentUserPresenceView(currentUserSnapshot, {
-            gameState
-        });
-        const tags = Array.isArray(profile.tags)
-            ? profile.tags.filter(
-                  (tag): tag is string => typeof tag === 'string'
-              )
-            : [];
-        const trust = computeTrustLevel(
-            tags,
-            normalizeId(profile.developerType)
-        );
-        const currentUser: FriendRecord = {
-            ...profile,
-            id: currentUserId,
-            displayName: normalizeId(profile.displayName) || currentUserId,
-            tags,
-            state: 'online',
-            stateBucket: 'online',
-            location: currentInviteLocation,
-            $friendNumber: 0,
-            $trustLevel: trust.trustLevel,
-            $trustClass: trust.trustClass,
-            $trustSortNum: trust.trustSortNum,
-            $isModerator: trust.isModerator,
-            $isTroll: trust.isTroll,
-            $isProbableTroll: trust.isProbableTroll,
-            $platform: computeUserPlatform(normalizeId(profile.last_platform))
-        };
         return groups.map((group) =>
             group.location === currentInviteLocation
                 ? {
                       ...group,
                       friends: [
-                          currentUser,
+                          currentUserRecord,
                           ...group.friends.filter(
                               (friend) => friend.id !== currentUserId
                           )
@@ -418,12 +435,12 @@ export function useFriendsLocationsPageDerivedState({
         currentInviteLocation,
         currentLocationSnapshot,
         currentUserId,
-        currentUserSnapshot,
+        currentUserRecord,
         friendsById,
-        gameState,
         locationTimes,
         onlineFriends,
-        sidebarSortMethods
+        sidebarSortMethods,
+        sortContext
     ]);
     const sameInstanceFriends = useMemo<FriendRecord[]>(
         () => sameInstanceGroups.flatMap((group) => group.friends),
@@ -433,17 +450,21 @@ export function useFriendsLocationsPageDerivedState({
         () =>
             new Set(
                 sameInstanceFriends
-                    .map((friend) => normalizeId(friend?.id))
+                    .map((friend) => normalizeString(friend?.id))
                     .filter(Boolean)
             ),
         [sameInstanceFriends]
     );
+    const onlineSegmentFriends = showFavoritesInOnline
+        ? onlineFriends
+        : onlineNonFavoriteFriends;
     const onlineWithoutSameInstanceFriends = useMemo<FriendRecord[]>(
         () =>
-            onlineNonFavoriteFriends.filter(
-                (friend) => !sameInstanceFriendIds.has(normalizeId(friend?.id))
+            onlineSegmentFriends.filter(
+                (friend) =>
+                    !sameInstanceFriendIds.has(normalizeString(friend?.id))
             ),
-        [onlineNonFavoriteFriends, sameInstanceFriendIds]
+        [onlineSegmentFriends, sameInstanceFriendIds]
     );
     const segmentMap = useMemo<Record<string, FriendRecord[]>>(
         () => ({
@@ -452,10 +473,12 @@ export function useFriendsLocationsPageDerivedState({
             favorite: favoriteFriends,
             'same-instance': sameInstanceFriends,
             active: activeFriends.filter(
-                (friend) => !sameInstanceFriendIds.has(normalizeId(friend.id))
+                (friend) =>
+                    !sameInstanceFriendIds.has(normalizeString(friend.id))
             ),
             offline: offlineFriends.filter(
-                (friend) => !sameInstanceFriendIds.has(normalizeId(friend.id))
+                (friend) =>
+                    !sameInstanceFriendIds.has(normalizeString(friend.id))
             )
         }),
         [
@@ -501,7 +524,7 @@ export function useFriendsLocationsPageDerivedState({
         const source =
             activeSegment === 'online'
                 ? showSameInstanceInOnline
-                    ? onlineNonFavoriteFriends
+                    ? onlineSegmentFriends
                     : onlineWithoutSameInstanceFriends
                 : (segmentMap[activeSegment] ?? []);
         return source.filter((friend) =>
@@ -515,144 +538,166 @@ export function useFriendsLocationsPageDerivedState({
         favoriteIds,
         offlineFriends,
         onlineFriends,
-        onlineNonFavoriteFriends,
+        onlineSegmentFriends,
         onlineWithoutSameInstanceFriends,
         segmentMap,
         showSameInstanceInOnline
     ]);
-    const favoriteGroupSections = useMemo<FriendsLocationsSection[]>(() => {
-        if (
-            !sidebarFavoritePrefs.isDivideByGroup ||
-            activeSegment !== 'favorite' ||
-            deferredSearchQuery.trim()
-        ) {
-            return [];
-        }
-        const friendById = new Map<string, FriendRecord>(
-            favoriteFriends.map((friend) => [normalizeId(friend?.id), friend])
-        );
-        const seen = new Set<string>();
-        const sections: FriendsLocationsSection[] = [];
-        const orderedRemoteGroups = favoriteFriendGroups
-            .map((group): FriendsLocationsFavoriteGroupDescriptor => ({
-                key: normalizeId(group?.key),
-                label:
-                    group?.displayName || group?.name || normalizeId(group?.key)
-            }))
-            .filter(
-                (group) => group.key && selectedFavoriteGroupKeys.has(group.key)
-            )
-            .sort((left, right) =>
-                compareFavoriteGroups(
-                    left,
-                    right,
-                    sidebarFavoritePrefs.groupOrder
-                )
+    const groupFavoriteFriends = useCallback(
+        (
+            friends: FriendRecord[],
+            keyPrefix: string,
+            ungroupedTitle: string
+        ): FriendsLocationsSection[] => {
+            const friendById = new Map<string, FriendRecord>(
+                friends.map((friend) => [normalizeString(friend?.id), friend])
             );
-        const localGroupNames = localFriendFavoriteGroups.length
-            ? localFriendFavoriteGroups
-            : Object.keys(localFriendFavorites || {});
-        const orderedLocalGroups = localGroupNames
-            .map((groupName): FriendsLocationsFavoriteGroupDescriptor => ({
-                key: `local:${groupName}`,
-                label: groupName
-            }))
-            .filter((group) => selectedFavoriteGroupKeys.has(group.key))
-            .sort((left, right) =>
-                compareFavoriteGroups(
-                    left,
-                    right,
-                    sidebarFavoritePrefs.groupOrder
+            const seen = new Set<string>();
+            const sections: FriendsLocationsSection[] = [];
+            const orderedRemoteGroups = favoriteFriendGroups
+                .map((group): FriendsLocationsFavoriteGroupDescriptor => ({
+                    key: normalizeString(group?.key),
+                    label:
+                        group?.displayName ||
+                        group?.name ||
+                        normalizeString(group?.key)
+                }))
+                .filter(
+                    (group) =>
+                        group.key && selectedFavoriteGroupKeys.has(group.key)
                 )
+                .sort((left, right) =>
+                    compareFavoriteGroups(
+                        left,
+                        right,
+                        sidebarFavoritePrefs.groupOrder
+                    )
+                );
+            const localGroupNames = localFriendFavoriteGroups.length
+                ? localFriendFavoriteGroups
+                : Object.keys(localFriendFavorites || {});
+            const orderedLocalGroups = localGroupNames
+                .map((groupName): FriendsLocationsFavoriteGroupDescriptor => ({
+                    key: `local:${groupName}`,
+                    label: groupName
+                }))
+                .filter((group) => selectedFavoriteGroupKeys.has(group.key))
+                .sort((left, right) =>
+                    compareFavoriteGroups(
+                        left,
+                        right,
+                        sidebarFavoritePrefs.groupOrder
+                    )
+                );
+            for (const group of orderedRemoteGroups) {
+                const friendsInGroup = (
+                    groupedFavoriteFriendIdsByGroupKey?.[group.key] || []
+                )
+                    .map((id) => friendById.get(normalizeString(id)))
+                    .filter(isPresent);
+                if (!friendsInGroup.length) {
+                    continue;
+                }
+                for (const friend of friendsInGroup) {
+                    seen.add(normalizeString(friend?.id));
+                }
+                sections.push({
+                    key: `${keyPrefix}:${group.key}`,
+                    type: 'favoriteGroup',
+                    groupKey: group.key,
+                    title: group.label,
+                    description: '',
+                    friends: sortFriendsBySidebarPrefs(
+                        friendsInGroup,
+                        sidebarSortMethods,
+                        sortContext
+                    ),
+                    worldId: '',
+                    groupId: '',
+                    collapsed: collapsedGroups.has(group.key)
+                });
+            }
+            for (const group of orderedLocalGroups) {
+                const groupName = group.key.slice(6);
+                const friendsInGroup = (localFriendFavorites?.[groupName] || [])
+                    .map((id) => friendById.get(normalizeString(id)))
+                    .filter(isPresent);
+                if (!friendsInGroup.length) {
+                    continue;
+                }
+                for (const friend of friendsInGroup) {
+                    seen.add(normalizeString(friend?.id));
+                }
+                sections.push({
+                    key: `${keyPrefix}:${group.key}`,
+                    type: 'favoriteGroup',
+                    groupKey: group.key,
+                    title: group.label,
+                    description: '',
+                    friends: sortFriendsBySidebarPrefs(
+                        friendsInGroup,
+                        sidebarSortMethods,
+                        sortContext
+                    ),
+                    worldId: '',
+                    groupId: '',
+                    collapsed: collapsedGroups.has(group.key)
+                });
+            }
+            const ungrouped = friends.filter(
+                (friend) => !seen.has(normalizeString(friend?.id))
             );
-        for (const group of orderedRemoteGroups) {
-            const friendsInGroup = (
-                groupedFavoriteFriendIdsByGroupKey?.[group.key] || []
-            )
-                .map((id) => friendById.get(normalizeId(id)))
-                .filter(isPresent);
-            if (!friendsInGroup.length) {
-                continue;
+            if (ungrouped.length) {
+                sections.push({
+                    key: `${keyPrefix}:ungrouped`,
+                    type: 'favoriteGroup',
+                    groupKey: 'ungrouped',
+                    title: ungroupedTitle,
+                    description: '',
+                    friends: sortFriendsBySidebarPrefs(
+                        ungrouped,
+                        sidebarSortMethods,
+                        sortContext
+                    ),
+                    worldId: '',
+                    groupId: '',
+                    collapsed: collapsedGroups.has('ungrouped')
+                });
             }
-            for (const friend of friendsInGroup) {
-                seen.add(normalizeId(friend?.id));
-            }
-            sections.push({
-                key: `favorite:${group.key}`,
-                type: 'favoriteGroup',
-                groupKey: group.key,
-                title: group.label,
-                description: '',
-                friends: sortFriendsBySidebarPrefs(
-                    friendsInGroup,
-                    sidebarSortMethods
-                ),
-                worldId: '',
-                groupId: '',
-                collapsed: collapsedGroups.has(group.key)
-            });
-        }
-        for (const group of orderedLocalGroups) {
-            const groupName = group.key.slice(6);
-            const friendsInGroup = (localFriendFavorites?.[groupName] || [])
-                .map((id) => friendById.get(normalizeId(id)))
-                .filter(isPresent);
-            if (!friendsInGroup.length) {
-                continue;
-            }
-            for (const friend of friendsInGroup) {
-                seen.add(normalizeId(friend?.id));
-            }
-            sections.push({
-                key: `favorite:${group.key}`,
-                type: 'favoriteGroup',
-                groupKey: group.key,
-                title: group.label,
-                description: '',
-                friends: sortFriendsBySidebarPrefs(
-                    friendsInGroup,
-                    sidebarSortMethods
-                ),
-                worldId: '',
-                groupId: '',
-                collapsed: collapsedGroups.has(group.key)
-            });
-        }
-        const ungrouped = favoriteFriends.filter(
-            (friend) => !seen.has(normalizeId(friend?.id))
-        );
-        if (ungrouped.length) {
-            sections.push({
-                key: 'favorite:ungrouped',
-                type: 'favoriteGroup',
-                groupKey: 'ungrouped',
-                title: t('view.friends_locations.favorite'),
-                description: '',
-                friends: sortFriendsBySidebarPrefs(
-                    ungrouped,
-                    sidebarSortMethods
-                ),
-                worldId: '',
-                groupId: '',
-                collapsed: collapsedGroups.has('ungrouped')
-            });
-        }
-        return sections;
-    }, [
-        activeSegment,
-        collapsedGroups,
-        deferredSearchQuery,
-        favoriteFriendGroups,
-        favoriteFriends,
-        groupedFavoriteFriendIdsByGroupKey,
-        localFriendFavoriteGroups,
-        localFriendFavorites,
-        selectedFavoriteGroupKeys,
-        sidebarFavoritePrefs.groupOrder,
-        sidebarFavoritePrefs.isDivideByGroup,
-        sidebarSortMethods,
-        t
-    ]);
+            return sections;
+        },
+        [
+            collapsedGroups,
+            favoriteFriendGroups,
+            groupedFavoriteFriendIdsByGroupKey,
+            localFriendFavoriteGroups,
+            localFriendFavorites,
+            selectedFavoriteGroupKeys,
+            sidebarFavoritePrefs.groupOrder,
+            sidebarSortMethods,
+            sortContext
+        ]
+    );
+    const favoriteGroupSections = useMemo<FriendsLocationsSection[]>(
+        () =>
+            sidebarFavoritePrefs.isDivideByGroup &&
+            activeSegment === 'favorite' &&
+            !deferredSearchQuery.trim()
+                ? groupFavoriteFriends(
+                      favoriteFriends,
+                      'favorite',
+                      t('view.friends_locations.favorite')
+                  )
+                : [],
+        [
+            activeSegment,
+            deferredSearchQuery,
+            favoriteFriends,
+            groupFavoriteFriends,
+            sidebarFavoritePrefs.isDivideByGroup,
+            t
+        ]
+    );
     const visibleSections = useMemo<FriendsLocationsSection[]>(() => {
         if (favoriteGroupSections.length) {
             return favoriteGroupSections;
@@ -664,8 +709,8 @@ export function useFriendsLocationsPageDerivedState({
                     friends: group.friends.filter((friend) =>
                         visibleFriends.some(
                             (visibleFriend) =>
-                                normalizeId(visibleFriend?.id) ===
-                                normalizeId(friend?.id)
+                                normalizeString(visibleFriend?.id) ===
+                                normalizeString(friend?.id)
                         )
                     )
                 }))
@@ -698,10 +743,21 @@ export function useFriendsLocationsPageDerivedState({
             const remainingFriends = showSameInstanceInOnline
                 ? onlineWithoutSameInstanceFriends
                 : visibleFriends;
+            const onlineFavoriteFriends = remainingFriends.filter((friend) =>
+                onlineFavoriteExclusionIds.has(normalizeString(friend?.id))
+            );
             const {
                 visibleLocation: availableFriends,
                 privateLocation: privateFriends
-            } = partitionFriendsByPrivateLocation(remainingFriends);
+            } = partitionFriendsByPrivateLocation(
+                remainingFriends.filter(
+                    (friend) =>
+                        !onlineFavoriteExclusionIds.has(
+                            normalizeString(friend?.id)
+                        )
+                ),
+                (friendId) => localGameLocation(locationTimes[friendId])
+            );
             const privateSections: FriendsLocationsSection[] =
                 privateFriends.length
                     ? [
@@ -722,6 +778,26 @@ export function useFriendsLocationsPageDerivedState({
                     : [];
             return [
                 ...sameInstanceSections,
+                ...(sidebarFavoritePrefs.isDivideByGroup
+                    ? groupFavoriteFriends(
+                          onlineFavoriteFriends,
+                          'online:favorite',
+                          t('view.friends_locations.favorite_friends')
+                      )
+                    : onlineFavoriteFriends.length
+                      ? [
+                            {
+                                key: 'online:favorites',
+                                title: t(
+                                    'view.friends_locations.favorite_friends'
+                                ),
+                                description: '',
+                                friends: onlineFavoriteFriends,
+                                worldId: '',
+                                groupId: ''
+                            }
+                        ]
+                      : []),
                 ...(availableFriends.length
                     ? [
                           {
@@ -779,20 +855,98 @@ export function useFriendsLocationsPageDerivedState({
         favoriteGroupLabelsByFriendId,
         favoriteGroupSections,
         favoriteIds,
+        groupFavoriteFriends,
+        locationTimes,
+        onlineFavoriteExclusionIds,
         onlineWithoutSameInstanceFriends,
         sameInstanceGroups,
         sameInstanceFriends,
         showSameInstanceInOnline,
+        sidebarFavoritePrefs.isDivideByGroup,
         visibleFriends,
         t
     ]);
+    const worldViewFriends = useMemo<FriendRecord[]>(
+        () =>
+            viewMode === 'worlds'
+                ? sortActiveFriendsBySidebarPrefs(
+                      onlineFriends.filter((friend) =>
+                          matchesSearch(
+                              friend,
+                              deferredSearchQuery,
+                              favoriteIds
+                          )
+                      ),
+                      sidebarSortMethods,
+                      sortContext
+                  )
+                : [],
+        [
+            deferredSearchQuery,
+            favoriteIds,
+            onlineFriends,
+            sidebarSortMethods,
+            viewMode,
+            sortContext
+        ]
+    );
+    const worldGroups = useMemo<FriendsLocationsWorldGroup[]>(() => {
+        if (viewMode !== 'worlds') {
+            return [];
+        }
+        const groups = buildFriendWorldGroups(
+            worldViewFriends,
+            currentInviteLocation,
+            (friendId) => localGameLocation(locationTimes[friendId])
+        );
+        if (!currentUserRecord) {
+            return groups;
+        }
+        return groups.map((group) => ({
+            ...group,
+            instances: group.instances.map((instance) =>
+                instance.isCurrent
+                    ? {
+                          ...instance,
+                          friends: [currentUserRecord, ...instance.friends]
+                      }
+                    : instance
+            )
+        }));
+    }, [
+        currentInviteLocation,
+        currentUserRecord,
+        locationTimes,
+        viewMode,
+        worldViewFriends
+    ]);
+    const privateWorldFriends = useMemo<FriendRecord[]>(
+        () =>
+            partitionFriendsByPrivateLocation(worldViewFriends, (friendId) =>
+                localGameLocation(locationTimes[friendId])
+            ).privateLocation,
+        [locationTimes, worldViewFriends]
+    );
+    const worldIds = useMemo(
+        () => worldGroups.map((group) => group.worldId),
+        [worldGroups]
+    );
+    const worldSummaries = useFriendsLocationsWorldSummaries(worldIds);
     const hasVisibleSections = useMemo(
         () =>
-            visibleSections.some(
-                (section) =>
-                    Array.isArray(section.friends) && section.friends.length > 0
-            ),
-        [visibleSections]
+            viewMode === 'worlds'
+                ? worldGroups.length > 0 || privateWorldFriends.length > 0
+                : visibleSections.some(
+                      (section) =>
+                          Array.isArray(section.friends) &&
+                          section.friends.length > 0
+                  ),
+        [
+            privateWorldFriends.length,
+            viewMode,
+            visibleSections,
+            worldGroups.length
+        ]
     );
     const isLoading =
         rosterStatus === 'running' &&
@@ -923,7 +1077,11 @@ export function useFriendsLocationsPageDerivedState({
         hasVisibleSections,
         isLoading,
         positionedRows,
+        privateWorldFriends,
         segmentOptions,
-        visibleVirtualRows
+        viewMode,
+        visibleVirtualRows,
+        worldGroups,
+        worldSummaries
     };
 }

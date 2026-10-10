@@ -14,11 +14,10 @@ const mocks = vi.hoisted(() => ({
     toastError: vi.fn(),
     toastSuccess: vi.fn(),
     updateBadge: vi.fn(),
-    updateCurrentUser: vi.fn()
-}));
-
-vi.mock('react-i18next', () => ({
-    useTranslation: () => ({ t: (key: string) => key })
+    getUserAppearanceProfile: vi.fn(),
+    currentUserId: 'usr_self',
+    updateCurrentUser: vi.fn(),
+    updateCurrentUserProfile: vi.fn()
 }));
 
 vi.mock('@/services/toastService', () => ({
@@ -45,13 +44,19 @@ vi.mock('@/services/currentUserProfileService', () => ({
 }));
 
 vi.mock('@/repositories/userProfileRepository', () => ({
-    default: { updateCurrentUserBadge: mocks.updateBadge }
+    default: {
+        updateCurrentUserBadge: mocks.updateBadge,
+        updateCurrentUserProfile: mocks.updateCurrentUserProfile,
+        getUserAppearanceProfile: mocks.getUserAppearanceProfile
+    }
 }));
 
 vi.mock('@/state/runtimeStore', () => {
     const useRuntimeStore = Object.assign(vi.fn(), {
         getState: () => ({
             auth: {
+                currentUserId: mocks.currentUserId,
+                currentUserEndpoint: 'https://api.vrchat.cloud/api/1',
                 currentUserSnapshot: {
                     id: 'usr_self',
                     displayName: 'Stored User',
@@ -88,18 +93,18 @@ const profile: UserDialogProfileRecord = {
     tags: ['language_en']
 };
 
-function renderActions() {
+function renderActions(currentProfile: UserDialogProfileRecord = profile) {
     const actionStatusRef = { current: 'idle' };
     const setActionStatus = vi.fn();
     const setBaseProfile = vi.fn();
     const hook = renderHook(() =>
         useUserDialogSelfActions({
-            profile,
+            profile: currentProfile,
             isCurrentUser: true,
             currentUserId: 'usr_self',
             currentUserSnapshot: profile,
             currentEndpoint: 'https://api.vrchat.cloud/api/1',
-            baseProfile: profile,
+            baseProfile: currentProfile,
             setBaseProfile,
             actionStatusRef,
             setActionStatus
@@ -116,6 +121,7 @@ function renderActions() {
 describe('useUserDialogSelfActions', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        mocks.currentUserId = 'usr_self';
     });
 
     it('locks concurrent profile mutations and commits the resolved snapshot', async () => {
@@ -176,10 +182,142 @@ describe('useUserDialogSelfActions', () => {
         );
     });
 
-    it('applies profile fields and language removals before additions', async () => {
+    it.each([
+        [
+            'userIcon',
+            { userIcon: 'https://api.vrchat.cloud/api/1/file/file_new/1' }
+        ],
+        [
+            'banner',
+            {
+                bannerType: 'customImage',
+                bannerCustomUrl:
+                    'https://api.vrchat.cloud/api/1/file/file_new/1'
+            }
+        ]
+    ] as const)(
+        'reads canonical media after updating %s',
+        async (fieldName, params) => {
+            mocks.updateCurrentUserProfile.mockResolvedValue({
+                id: 'usr_self'
+            });
+            mocks.getUserAppearanceProfile.mockResolvedValue({
+                id: 'usr_self',
+                userIcon: 'https://image/file_icon/4',
+                bannerCustomUrl: 'https://image/file_banner/3',
+                iconUrl: 'https://image/icon/128'
+            });
+            const rendered = renderActions();
+            await act(async () =>
+                rendered.result.current.actions.setSelfProfileMediaField(
+                    fieldName,
+                    'file_new'
+                )
+            );
+            expect(mocks.updateCurrentUserProfile).toHaveBeenCalledWith({
+                expectedUserId: 'usr_self',
+                params
+            });
+            expect(mocks.getUserAppearanceProfile).toHaveBeenCalledWith({
+                userId: 'usr_self',
+                asSelf: true
+            });
+            expect(rendered.setBaseProfile).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    userIcon: 'https://image/file_icon/4',
+                    bannerCustomUrl: 'https://image/file_banner/3',
+                    iconUrl: 'https://image/icon/128'
+                })
+            );
+            expect(mocks.setAuthBootstrap).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    currentUserSnapshot: expect.objectContaining({
+                        userIcon: 'https://image/file_icon/4',
+                        bannerCustomUrl: 'https://image/file_banner/3',
+                        iconUrl: 'https://image/icon/128'
+                    })
+                })
+            );
+        }
+    );
+
+    it('uses bannerCustomUrl for no-op detection and clears omitted media after rereading', async () => {
+        const rendered = renderActions({
+            ...profile,
+            userIcon: 'https://image/file_icon/1',
+            bannerCustomUrl: 'https://image/file_banner/3'
+        });
+        await act(async () =>
+            rendered.result.current.actions.setSelfProfileMediaField(
+                'banner',
+                'file_banner'
+            )
+        );
+        expect(mocks.updateCurrentUserProfile).not.toHaveBeenCalled();
+        mocks.updateCurrentUserProfile.mockResolvedValue({ id: 'usr_self' });
+        mocks.getUserAppearanceProfile.mockResolvedValue({ id: 'usr_self' });
+        await act(async () =>
+            rendered.result.current.actions.setSelfProfileMediaField(
+                'banner',
+                ''
+            )
+        );
+        expect(mocks.updateCurrentUserProfile).toHaveBeenCalledWith({
+            expectedUserId: 'usr_self',
+            params: { bannerType: 'avatarBanner' }
+        });
+        expect(rendered.setBaseProfile).toHaveBeenCalledWith(
+            expect.objectContaining({ userIcon: '', bannerCustomUrl: '' })
+        );
+    });
+
+    it('preserves the displayed media and reports a failed profile reread', async () => {
+        mocks.updateCurrentUserProfile.mockResolvedValue({ id: 'usr_self' });
+        mocks.getUserAppearanceProfile.mockRejectedValue(
+            new Error('refresh failed')
+        );
+        const rendered = renderActions();
+        await act(async () =>
+            rendered.result.current.actions.setSelfProfileMediaField(
+                'userIcon',
+                'file_new'
+            )
+        );
+        expect(rendered.setBaseProfile).not.toHaveBeenCalled();
+        expect(mocks.setAuthBootstrap).not.toHaveBeenCalled();
+        expect(mocks.toastSuccess).not.toHaveBeenCalled();
+        expect(mocks.toastError).toHaveBeenCalledWith(
+            expect.objectContaining({ title: 'refresh failed' })
+        );
+    });
+
+    it('does not apply a media reread after switching accounts', async () => {
+        mocks.updateCurrentUserProfile.mockResolvedValue({ id: 'usr_self' });
+        mocks.getUserAppearanceProfile.mockImplementation(async () => {
+            mocks.currentUserId = 'usr_other';
+            return { id: 'usr_self', userIcon: 'https://image/file_new/1' };
+        });
+        const rendered = renderActions();
+        await act(async () =>
+            rendered.result.current.actions.setSelfProfileMediaField(
+                'userIcon',
+                'file_new'
+            )
+        );
+        expect(rendered.setBaseProfile).not.toHaveBeenCalled();
+        expect(mocks.setAuthBootstrap).not.toHaveBeenCalled();
+        expect(mocks.toastSuccess).not.toHaveBeenCalled();
+    });
+
+    it('saves bio through the profile endpoint, pronouns through the user endpoint, then language removals before additions', async () => {
+        mocks.updateCurrentUserProfile.mockResolvedValue({
+            id: 'usr_self',
+            bio: 'New bio',
+            bioLinks: ['https://new.example']
+        });
         mocks.updateCurrentUser.mockResolvedValue({
             ...profile,
-            bio: 'New bio'
+            pronouns: 'she/her'
         });
         mocks.removeTags.mockResolvedValue({
             ...profile,
@@ -206,14 +344,23 @@ describe('useUserDialogSelfActions', () => {
             rendered.result.current.profileDetailsDialog.onSave()
         );
 
-        expect(mocks.updateCurrentUser).toHaveBeenCalledWith({
-            userId: 'usr_self',
+        expect(mocks.updateCurrentUserProfile).toHaveBeenCalledWith({
+            expectedUserId: 'usr_self',
             params: {
                 bio: 'New bio',
-                bioLinks: ['https://new.example'],
-                pronouns: 'she/her'
+                bioLinks: ['https://new.example']
             }
         });
+        expect(mocks.updateCurrentUser).toHaveBeenCalledWith({
+            userId: 'usr_self',
+            params: { pronouns: 'she/her' }
+        });
+        expect(rendered.setBaseProfile).toHaveBeenCalledWith(
+            expect.objectContaining({
+                bio: 'New bio',
+                bioLinks: ['https://new.example']
+            })
+        );
         expect(mocks.removeTags).toHaveBeenCalledWith({
             userId: 'usr_self',
             tags: ['language_en']

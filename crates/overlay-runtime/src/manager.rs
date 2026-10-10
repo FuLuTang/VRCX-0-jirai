@@ -152,6 +152,14 @@ where
         self.service.active_backend()
     }
 
+    pub fn is_surface_visible(&self, surface_id: &OverlaySurfaceId) -> bool {
+        self.service.is_surface_visible(surface_id)
+    }
+
+    pub fn hmd_user_present(&self) -> Option<bool> {
+        self.service.hmd_user_present()
+    }
+
     pub fn into_inner(self) -> S {
         self.service
     }

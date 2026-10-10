@@ -3,7 +3,6 @@ import { describe, expect, test } from 'vitest';
 import {
     parseChangelog,
     parseReleaseChangelog,
-    parseLocalizedChangelog,
     resolvePostUpdateChangelogToastState,
     resolvePreferredChangelogLanguage
 } from './changelogService';
@@ -48,7 +47,7 @@ This release focuses on the changelog page.
     test('falls back to the full release body when marker blocks are absent', () => {
         const body = '### Changes\n\n- Fixed updater flow.';
 
-        expect(parseLocalizedChangelog(body)).toEqual([
+        expect(parseChangelog(body).entries).toEqual([
             {
                 lang: 'en',
                 label: 'English',
@@ -99,7 +98,7 @@ Second English section.
 <!-- vrcx-0-changelog:end -->
 `;
 
-        expect(parseLocalizedChangelog(body)).toEqual([
+        expect(parseChangelog(body).entries).toEqual([
             {
                 lang: 'en',
                 label: 'English',
@@ -110,7 +109,7 @@ Second English section.
     });
 
     test('prefers exact locale, then base language, then English', () => {
-        const entries = parseLocalizedChangelog(`
+        const { entries } = parseChangelog(`
 <!-- vrcx-0-changelog:start tag=vrcx-0-v240-en -->
 English body
 <!-- vrcx-0-changelog:end -->
@@ -132,16 +131,17 @@ English body
         expect(resolvePreferredChangelogLanguage(entries, 'ja')).toBe('en');
     });
 
-    test('shows the post-update changelog toast only once for an upgraded version', () => {
+    test('shows the post-update changelog only once for an upgraded version', () => {
         expect(
             resolvePostUpdateChangelogToastState({
                 currentVersion: '2026.06.02',
                 lastStartedVersion: '2026.05.30',
                 seenVersion: '',
-                enabled: true
+                autoOpen: true
             })
         ).toEqual({
             currentVersion: '2026.06.02',
+            autoOpen: true,
             shouldShow: true,
             shouldRecordStartedVersion: true
         });
@@ -151,7 +151,7 @@ English body
                 currentVersion: '2026.06.02',
                 lastStartedVersion: '2026.05.30',
                 seenVersion: '2026.06.02',
-                enabled: true
+                autoOpen: true
             }).shouldShow
         ).toBe(false);
 
@@ -160,16 +160,16 @@ English body
                 currentVersion: '2026.06.02',
                 lastStartedVersion: '2026.05.30',
                 seenVersion: '',
-                enabled: false
-            }).shouldShow
-        ).toBe(false);
+                autoOpen: false
+            })
+        ).toMatchObject({ autoOpen: false, shouldShow: true });
 
         expect(
             resolvePostUpdateChangelogToastState({
                 currentVersion: '2026.06.02',
                 lastStartedVersion: '',
                 seenVersion: '',
-                enabled: true
+                autoOpen: true
             }).shouldShow
         ).toBe(false);
     });

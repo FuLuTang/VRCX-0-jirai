@@ -11,19 +11,18 @@ const mocks = vi.hoisted(() => ({
     acceptFriendRequest: vi.fn(),
     confirm: vi.fn(),
     deleteNotification: vi.fn(),
+    expireLocally: vi.fn(),
+    hideRemote: vi.fn(),
     markAllSeen: vi.fn(),
     markSeen: vi.fn(),
     openImagePreview: vi.fn(),
     reload: vi.fn(),
     sendButtonResponse: vi.fn(),
+    sendInviteResponse: vi.fn(),
     signalFriendLogChanged: vi.fn(),
     toastError: vi.fn(),
     toastSuccess: vi.fn(),
     toastWarning: vi.fn()
-}));
-
-vi.mock('react-i18next', () => ({
-    useTranslation: () => ({ t: (key: string) => key })
 }));
 
 vi.mock('@/services/toastService', () => ({
@@ -82,9 +81,10 @@ vi.mock('@/services/friendLogMutationService', () => ({
 vi.mock('@/services/notificationActionService', () => ({
     acceptFriendRequestNotification: mocks.acceptFriendRequest,
     acceptRequestInviteNotification: vi.fn(),
-    hideRemoteAndExpireNotification: vi.fn(),
+    expireNotificationLocally: mocks.expireLocally,
+    hideRemoteAndExpireNotification: mocks.hideRemote,
     sendBoopReplyNotification: vi.fn(),
-    sendInviteResponseNotification: vi.fn(),
+    sendInviteResponseNotification: mocks.sendInviteResponse,
     sendNotificationButtonResponse: mocks.sendButtonResponse
 }));
 
@@ -161,6 +161,34 @@ describe('useNotificationActions', () => {
         );
     });
 
+    it('ignores an invite locally without touching VRChat', async () => {
+        mocks.expireLocally.mockResolvedValue(undefined);
+        const invite: NotificationRow = {
+            id: 'not_invite',
+            type: 'invite',
+            senderUserId: 'usr_sender',
+            version: 1
+        };
+        const { result } = renderActions();
+
+        await act(async () => result.current.ignoreNotificationLocally(invite));
+
+        expect(mocks.expireLocally).toHaveBeenCalledWith({
+            currentUserId: 'usr_self',
+            notification: invite
+        });
+        expect(mocks.hideRemote).not.toHaveBeenCalled();
+        expect(mocks.confirm).not.toHaveBeenCalled();
+        expect(mocks.expireLocally.mock.invocationCallOrder[0]).toBeLessThan(
+            mocks.reload.mock.invocationCallOrder[0]
+        );
+        expect(mocks.toastSuccess).toHaveBeenCalledWith(
+            expect.objectContaining({
+                title: 'view.notification.success.notification_ignored_locally'
+            })
+        );
+    });
+
     it('reports partial friend-request success and refreshes friend facts', async () => {
         mocks.confirm.mockResolvedValue({ ok: true, value: undefined });
         mocks.acceptFriendRequest.mockResolvedValue({
@@ -197,6 +225,29 @@ describe('useNotificationActions', () => {
         expect(mocks.reload).toHaveBeenCalledOnce();
         expect(mocks.toastError).toHaveBeenCalledWith(
             expect.objectContaining({ type: 'error', title: 'send failed' })
+        );
+    });
+
+    it('reports a sent invite response as sent when the follow-up refresh fails', async () => {
+        mocks.sendInviteResponse.mockResolvedValue({ sentPhoto: false });
+        mocks.reload.mockRejectedValue(new Error('sync failed'));
+        const { result } = renderActions();
+
+        await act(async () =>
+            result.current.sendInviteResponseSlot({
+                imageData: '',
+                notification: { id: 'not_request', type: 'requestInvite' },
+                row: { slot: 2 }
+            })
+        );
+
+        expect(mocks.sendInviteResponse).toHaveBeenCalledWith(
+            expect.objectContaining({ responseSlot: 2 })
+        );
+        expect(mocks.toastSuccess).toHaveBeenCalledWith(
+            expect.objectContaining({
+                title: 'view.notifications.toast.invite_response_sent'
+            })
         );
     });
 });

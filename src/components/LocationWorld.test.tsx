@@ -49,7 +49,6 @@ vi.mock('react-i18next', () => {
         'component.region_code_badge.dynamic.region_value': 'Region',
         'dialog.new_instance.access_type_friend_plus': 'Friends+',
         'dialog.new_instance.access_type_group': 'Group',
-        'dialog.new_instance.access_type_group_plus': 'Group Plus',
         'dialog.new_instance.group_access_type_plus': 'Group Plus',
         'dialog.new_instance.access_type_public': 'Public',
         'dialog.user.info.instance_closed': 'Instance closed',
@@ -126,6 +125,7 @@ type LocationWorldTestProps = {
     currentUserId?: string;
     worldDialogShortName?: string;
     interactive?: boolean;
+    showWorldName?: boolean;
 };
 
 function renderLocationWorld(props: LocationWorldTestProps = {}) {
@@ -168,16 +168,20 @@ describe('LocationWorld', () => {
         expect(html).toContain('7/24');
     });
 
-    it('marks an instance as unlocked when the short name matches', () => {
-        const html = renderLocationWorld({
-            locationObject: {
-                tag: 'wrld_beta:98765~hidden(usr_owner)',
-                shortName: 'abc12345'
-            },
-            worldDialogShortName: 'abc12345'
-        });
+    it('marks an instance as unlocked only when the short name matches', () => {
+        const renderWithShortName = (worldDialogShortName: string) =>
+            renderLocationWorld({
+                locationObject: {
+                    tag: 'wrld_beta:98765~hidden(usr_owner)',
+                    shortName: 'abc12345'
+                },
+                worldDialogShortName
+            });
 
-        expect(html).toContain('data-icon="inline-start"');
+        expect(renderWithShortName('abc12345')).toContain('lucide-lock-open');
+        expect(renderWithShortName('zzz99999')).not.toContain(
+            'lucide-lock-open'
+        );
     });
 
     it('renders non-interactive output without action buttons', () => {
@@ -188,6 +192,16 @@ describe('LocationWorld', () => {
 
         expect(html).toContain('World Beta · Public #98765');
         expect(html).not.toContain('<button');
+    });
+
+    it('omits the world name when the list already names the world', () => {
+        const html = renderLocationWorld({
+            locationObject: 'wrld_beta:98765~region(eu)',
+            showWorldName: false
+        });
+
+        expect(html).toContain('Public #98765');
+        expect(html).not.toContain('World Beta');
     });
 
     it('renders sentinel status labels without instance details', () => {

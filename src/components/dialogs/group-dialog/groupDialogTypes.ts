@@ -4,17 +4,17 @@ import type {
     GroupAnnouncementRecord,
     GroupDialogInstanceRow,
     GroupGalleryPhotoRow,
-    GroupMemberRow,
     GroupPostRecord,
     GroupProfileRecord
 } from '@/domain/entities/group';
 import type { LoadStatus, RemoteTabStatus } from '@/domain/shared/types';
 import type {
-    GroupMemberSort,
-    GroupMemberVisibility
+    GroupMemberVisibility,
+    GroupProfileUpdate
 } from '@/platform/tauri/bindings';
 import type { GroupCalendarEventRecord } from '@/repositories/vrchatToolsRepository';
 
+import type { GroupDialogMembersModel } from './useGroupDialogMembers';
 import type { GroupPreviousInstanceRow } from './useGroupDialogState';
 
 export type GroupActionStatus =
@@ -25,14 +25,15 @@ export type GroupActionStatus =
     | 'refresh'
     | 'represent'
     | 'member-props'
-    | 'block';
+    | 'block'
+    | 'profile'
+    | 'delete';
 
-export type GroupRemoteTab = 'posts' | 'members' | 'photos';
+export type GroupRemoteTab = 'posts' | 'photos';
 type GroupRemoteStatusValue = RemoteTabStatus;
 
 export type GroupRemoteData = {
     posts: GroupPostRecord[];
-    members: GroupMemberRow[];
     photos: GroupGalleryPhotoRow[];
 };
 
@@ -43,15 +44,12 @@ export type GroupRemoteErrors = Partial<Record<GroupRemoteTab, string>>;
 
 export type GroupDialogSearch = {
     posts: string;
-    members: string;
 };
 
 export type GroupLoadContext = {
     endpoint: string;
     groupId: string;
     gallerySignature: string;
-    memberSort: GroupMemberSort;
-    memberRoleId: string;
     tab?: GroupRemoteTab;
 };
 
@@ -75,6 +73,8 @@ export type GroupDialogView = {
     memberStatus: string;
     joinState: string;
     canJoin: boolean;
+    canLeave: boolean;
+    canDelete: boolean;
 };
 
 export type GroupDialogControls = {
@@ -84,11 +84,13 @@ export type GroupDialogControls = {
     onRefresh: () => void;
     onJoin: () => void;
     onLeave: () => void;
+    onDelete: () => void;
     onCancelRequest: () => void;
     onRepresent: (enabled: boolean) => void;
     onSubscribe: (enabled: boolean) => void;
     onVisibility: (visibility: GroupMemberVisibility) => void;
     onBlock: (enabled: boolean) => void;
+    onUpdateProfile: (params: GroupProfileUpdate) => Promise<boolean>;
 };
 
 export type GroupDialogTabModel = {
@@ -98,10 +100,6 @@ export type GroupDialogTabModel = {
     bannerUrl: string;
     canManagePosts: boolean;
     currentUserId: string | null;
-    filteredMembers: {
-        rows: GroupMemberRow[];
-        source: GroupMemberRow[];
-    };
     filteredPosts: GroupPostRecord[];
     group: GroupProfileRecord;
     groupEvents: GroupCalendarEventRecord[];
@@ -110,8 +108,7 @@ export type GroupDialogTabModel = {
     groupTitle: string;
     groupUrl: string;
     joinState: string;
-    memberRoleId: string;
-    memberSort: GroupMemberSort;
+    members: GroupDialogMembersModel;
     memberStatus: string;
     ownerLabel: string;
     photos: GroupGalleryPhotoRow[];
@@ -127,11 +124,9 @@ export type GroupDialogTabCommands = {
     onChangeTab: (tab: string) => void;
     onCopyGroupUrl: () => void;
     onDeletePost: (post: GroupPostRecord) => void;
-    onDownloadMembersJson: () => void;
     onEditPost: (post: GroupPostRecord) => void;
-    onLoadAllMembers: () => void;
-    onMemberRoleChange: (value: string) => void;
-    onMemberSortChange: (value: GroupMemberSort) => void;
+    onExportMembers: (scope: 'loaded' | 'all') => void;
+    onLoadMoreMembers: () => void;
     onOpenLink: (url: string) => void;
     onOpenOwner: () => void;
     onPreviousInstancesChange: Dispatch<

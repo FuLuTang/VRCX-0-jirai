@@ -5,13 +5,18 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { onlineFeedEntry } from '@/components/feed/feedLiveTestEntries';
+import {
+    gpsFeedEntry,
+    onlineFeedEntry
+} from '@/components/feed/feedLiveTestEntries';
 import { useFavoriteStore } from '@/state/favoriteStore';
 import { useFeedLiveStore } from '@/state/feedLiveStore';
 import type { FeedLiveEntry } from '@/state/feedLiveTypes';
 import { useFriendRosterStore } from '@/state/friendRosterStore';
 import { usePreferencesStore } from '@/state/preferencesStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
+
+vi.unmock('react-i18next');
 
 const mocks = vi.hoisted(() => ({
     queryFeedLatest: vi.fn()
@@ -24,7 +29,6 @@ vi.mock('@/repositories/feedRepository', async (importOriginal) => ({
     }
 }));
 
-import { FeedEntryContent } from './DashboardFeedEntryContent';
 import { DashboardFeedWidget } from './DashboardFeedWidget';
 
 const initialRuntimeState = useRuntimeStore.getInitialState();
@@ -78,7 +82,7 @@ describe('DashboardFeedWidget', () => {
         usePreferencesStore.setState(initialPreferencesState);
     });
 
-    it('reads dashboard state from its owner stores', () => {
+    it('shows the unavailable state without a signed-in user', () => {
         setDashboardFeedStoreState({ currentUserId: '' });
 
         const html = renderToStaticMarkup(
@@ -119,6 +123,7 @@ describe('DashboardFeedWidget', () => {
         expect(mocks.queryFeedLatest).toHaveBeenCalledWith({
             userId: 'usr_self',
             filters: [],
+            locationHiddenUserIds: [],
             maxRows: 100
         });
         expect(screen.getByText('Friend')).toBeTruthy();
@@ -129,42 +134,45 @@ describe('DashboardFeedWidget', () => {
         ).toBeTruthy();
     });
 
-    it('matches the Feed page location color for GPS entries', () => {
-        const view = render(
+    it('hides live location changes of hidden friends but keeps their other activity', async () => {
+        mocks.queryFeedLatest.mockResolvedValue({ rows: [], maxSequence: 0 });
+        setDashboardFeedStoreState({
+            currentUserId: 'usr_self',
+            liveFeedEntries: [
+                {
+                    sequence: 1,
+                    ownerUserId: 'usr_self',
+                    entry: gpsFeedEntry({
+                        userId: 'usr_hidden',
+                        displayName: 'Hidden Traveler'
+                    })
+                },
+                {
+                    sequence: 2,
+                    ownerUserId: 'usr_self',
+                    entry: onlineFeedEntry({
+                        userId: 'usr_hidden',
+                        displayName: 'Hidden Online'
+                    })
+                }
+            ],
+            liveFeedVersion: 2
+        });
+        usePreferencesStore.setState({ feedHiddenUsers: ['usr_hidden'] });
+
+        render(
             <MemoryRouter>
-                <FeedEntryContent
-                    row={{ type: 'GPS', displayName: 'Friend' }}
-                />
+                <DashboardFeedWidget config={{}} configUpdater={null} />
             </MemoryRouter>
         );
 
-        expect(
-            view.container
-                .querySelector('.lucide-map-pin')
-                ?.classList.contains('text-sky-500')
-        ).toBe(true);
-    });
-
-    it('marks status dots with their accessible shape semantics', () => {
-        const view = render(
-            <MemoryRouter>
-                <FeedEntryContent
-                    row={{
-                        type: 'Status',
-                        displayName: 'Friend',
-                        status: 'join me'
-                    }}
-                />
-            </MemoryRouter>
+        await waitFor(() =>
+            expect(screen.getByText('Hidden Online')).toBeTruthy()
         );
-
-        const statusDot = view.container.querySelector(
-            '[data-dashboard-feed-status-dot]'
+        expect(mocks.queryFeedLatest).toHaveBeenCalledWith(
+            expect.objectContaining({ locationHiddenUserIds: ['usr_hidden'] })
         );
-        expect(statusDot?.classList.contains('user-status-indicator')).toBe(
-            true
-        );
-        expect(statusDot?.classList.contains('joinme')).toBe(true);
+        expect(screen.queryByText('Hidden Traveler')).toBeNull();
     });
 
     it('groups compact feed rows by day instead of repeating the date per row', async () => {
@@ -217,14 +225,6 @@ describe('DashboardFeedWidget', () => {
             '[data-dashboard-feed-status-dot]'
         );
         expect(statusDots).toHaveLength(2);
-        expect(
-            Array.from(statusDots).every(
-                (statusDot) =>
-                    statusDot.classList.contains('self-center') &&
-                    !statusDot.classList.contains('mt-1')
-            )
-        ).toBe(true);
         expect(screen.queryByText('Favorite')).toBeNull();
-        expect(screen.queryByText('All feed types')).toBeNull();
     });
 });

@@ -10,7 +10,7 @@ import { AppSidebar } from './AppSidebar';
 import { AppStatusBar } from './AppStatusBar';
 import { useRightSidePanelVisibility } from './useRightSidePanelVisibility';
 
-const sidePanelStorageKey = 'vrcx-main-layout-right-sidebar-width';
+const sidePanelStorageKey = 'VRCX_0_RightSidebarWidth';
 
 function getResponsiveSidePanelWidth(preferredWidth: number): string {
     return `max(var(--vrcx-0-side-panel-min-width), min(${preferredWidth}px, calc(100% - var(--vrcx-0-main-content-preferred-min-width) - var(--vrcx-0-side-panel-resizer-width))))`;
@@ -25,16 +25,7 @@ function clampSidePanelWidth(value: string | number | null) {
 }
 
 function loadSidePanelWidth() {
-    if (typeof window === 'undefined') {
-        return 320;
-    }
-    try {
-        return clampSidePanelWidth(
-            window.localStorage.getItem(sidePanelStorageKey)
-        );
-    } catch {
-        return 320;
-    }
+    return clampSidePanelWidth(localStorage.getItem(sidePanelStorageKey));
 }
 
 export function AppShellLayout() {
@@ -55,14 +46,7 @@ export function AppShellLayout() {
     }, [sidePanelWidth]);
 
     useEffect(() => {
-        try {
-            window.localStorage.setItem(
-                sidePanelStorageKey,
-                String(sidePanelWidth)
-            );
-        } catch {
-            // no-op
-        }
+        localStorage.setItem(sidePanelStorageKey, String(sidePanelWidth));
     }, [sidePanelWidth]);
 
     useEffect(() => {

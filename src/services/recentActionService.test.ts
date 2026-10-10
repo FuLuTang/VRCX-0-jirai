@@ -24,7 +24,7 @@ async function loadRecentActionService(
 ) {
     vi.resetModules();
     const localStorage = createLocalStorage(initialStorage);
-    vi.stubGlobal('window', { localStorage });
+    vi.stubGlobal('localStorage', localStorage);
     const service = await import('./recentActionService');
     return { service, localStorage };
 }
@@ -37,10 +37,10 @@ describe('recentActionService', () => {
 
     afterEach(() => {
         vi.useRealTimers();
-        Reflect.deleteProperty(globalThis, 'window');
+        vi.unstubAllGlobals();
     });
 
-    it('records only tracked actions and respects the configured cooldown', async () => {
+    it('records an action for a trimmed user id and prunes it once the cooldown expires', async () => {
         const { service, localStorage } = await loadRecentActionService();
 
         service.configureRecentActionCooldown({ enabled: true, minutes: 30 });
@@ -117,12 +117,12 @@ describe('recentActionService', () => {
 
         service.configureRecentActionCooldown({ enabled: true, minutes: 60 });
         service.recordRecentAction('usr_abc', 'Invite');
-        service.clearRecentActions();
+        service.recordRecentAction('usr_def', 'Invite');
 
         expect(listener).toHaveBeenCalledTimes(3);
 
         unsubscribe();
-        service.clearRecentActions();
+        service.recordRecentAction('usr_ghi', 'Invite');
 
         expect(listener).toHaveBeenCalledTimes(3);
     });

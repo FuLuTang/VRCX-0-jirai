@@ -1,19 +1,17 @@
 use std::sync::Arc;
 
-use serde_json::json;
 use vrcx_0_application_core::vrchat_api::VrchatApiResponse;
 use vrcx_0_application_core::{
-    assert_json_contract, CallRecorder, RemoteMutationGate, RuntimeAuthScope,
-    RuntimeAuthScopeSnapshot,
+    CallRecorder, RemoteMutationGate, RuntimeAuthScope, RuntimeAuthScopeSnapshot,
 };
 
 use super::{
-    ContentFilter, CurrentUserMutationFuture, CurrentUserMutationPort, CurrentUserMutationRequest,
+    CurrentUserMutationFuture, CurrentUserMutationPort, CurrentUserMutationRequest,
     CurrentUserMutationRuntime, CurrentUserProfileUpdateRequest,
-    CurrentUserQueryInvalidationFuture, CurrentUserUpdateRequest, VrchatCurrentUserBadgeInput,
-    VrchatCurrentUserProfileUpdateInput, VrchatCurrentUserTagsInput, VrchatCurrentUserUpdateInput,
+    CurrentUserQueryInvalidationFuture, CurrentUserUpdateRequest, ProfileBackgroundType,
+    VrchatCurrentUserBadgeInput, VrchatCurrentUserProfileUpdateInput, VrchatCurrentUserTagsInput,
+    VrchatCurrentUserUpdateInput,
 };
-use crate::social::current_user_mutation::runtime::TEST_CURRENT_USER_REMOTE_MUTATION_INTERVAL;
 
 struct FakePort {
     response_status: i32,
@@ -74,6 +72,15 @@ fn runtime(port: Arc<FakePort>) -> (CurrentUserMutationRuntime, RuntimeAuthScope
     )
 }
 
+fn gradient_request() -> CurrentUserProfileUpdateRequest {
+    CurrentUserProfileUpdateRequest {
+        background_type: Some(ProfileBackgroundType::Gradient),
+        background_gradient_bottom: Some("21385B".into()),
+        background_gradient_top: Some("5d3f86".into()),
+        ..Default::default()
+    }
+}
+
 #[tokio::test]
 async fn successful_profile_update_uses_captured_scope_and_invalidates_the_user_query() {
     let port = Arc::new(FakePort::new(200));
@@ -81,10 +88,7 @@ async fn successful_profile_update_uses_captured_scope_and_invalidates_the_user_
 
     let response = runtime
         .update_profile(VrchatCurrentUserProfileUpdateInput {
-            params: CurrentUserProfileUpdateRequest::Gradient {
-                background_gradient_bottom: "21385B".into(),
-                background_gradient_top: "5d3f86".into(),
-            },
+            params: gradient_request(),
         })
         .await
         .unwrap();
@@ -95,10 +99,7 @@ async fn successful_profile_update_uses_captured_scope_and_invalidates_the_user_
     assert_eq!(calls[0].0.current_user_id, "usr_current");
     assert_eq!(
         calls[0].1,
-        CurrentUserMutationRequest::Profile(CurrentUserProfileUpdateRequest::Gradient {
-            background_gradient_bottom: "21385B".into(),
-            background_gradient_top: "5d3f86".into(),
-        })
+        CurrentUserMutationRequest::Profile(gradient_request())
     );
     assert_eq!(port.invalidations.len(), 1);
 }
@@ -194,38 +195,4 @@ async fn scope_change_during_remote_call_rejects_result_and_skips_invalidation()
         "Current-user tags mutation authentication scope changed."
     );
     assert!(port.invalidations.is_empty());
-}
-
-#[test]
-fn owned_input_types_preserve_the_existing_serialization_contract() {
-    assert_json_contract(
-        &CurrentUserProfileUpdateRequest::Gradient {
-            background_gradient_bottom: "21385B".into(),
-            background_gradient_top: "5d3f86".into(),
-        },
-        json!({
-            "backgroundType": "gradient",
-            "backgroundGradientTop": "5d3f86",
-            "backgroundGradientBottom": "21385B",
-        }),
-    );
-    assert_json_contract(
-        &CurrentUserUpdateRequest {
-            content_filters: Some(vec![ContentFilter::Horror, ContentFilter::Violence]),
-            ..Default::default()
-        },
-        json!({"contentFilters": ["content_horror", "content_violence"]}),
-    );
-    assert!(serde_json::from_value::<CurrentUserUpdateRequest>(json!({
-        "futureField": true
-    }))
-    .is_err());
-}
-
-#[test]
-fn mutation_interval_preserves_the_existing_250_milliseconds() {
-    assert_eq!(
-        TEST_CURRENT_USER_REMOTE_MUTATION_INTERVAL,
-        std::time::Duration::from_millis(250)
-    );
 }

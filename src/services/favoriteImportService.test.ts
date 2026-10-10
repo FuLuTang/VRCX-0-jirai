@@ -77,14 +77,11 @@ describe('favoriteImportService typed worker adapter', () => {
         const { useFavoriteImportStore } =
             await import('@/state/favoriteImportStore');
         const { useFavoriteStore } = await import('@/state/favoriteStore');
-        const { useNotificationStore } =
-            await import('@/state/notificationStore');
         const { useRuntimeStore } = await import('@/state/runtimeStore');
 
         useFavoriteImportStore.getState().resetImportState();
         useFavoriteImportStore.getState().closeDialog();
         useFavoriteStore.getState().resetFavorites();
-        useNotificationStore.getState().resetNotificationState();
         useRuntimeStore.getState().resetRuntimeState();
         useRuntimeStore.getState().setAuthBootstrap({
             currentUserId: 'usr_self',
@@ -187,25 +184,6 @@ describe('favoriteImportService typed worker adapter', () => {
                 'favorite-test-1'
             );
         });
-    });
-
-    it('provides config for each supported favorite import type', async () => {
-        const { useFavoriteImportStore } =
-            await import('@/state/favoriteImportStore');
-        const { getFavoriteImportTypeConfig, openFavoriteImportDialog } =
-            await import('./favoriteImportService');
-
-        expect(getFavoriteImportTypeConfig('avatar')).toMatchObject({
-            label: 'Avatar'
-        });
-        expect(getFavoriteImportTypeConfig('world')).toMatchObject({
-            label: 'World'
-        });
-        expect(getFavoriteImportTypeConfig('friend')).toMatchObject({
-            label: 'Friend'
-        });
-        openFavoriteImportDialog({ type: 'avatar' });
-        expect(useFavoriteImportStore.getState().type).toBe('avatar');
     });
 
     it('shows backend local duplicate failures without removing the preview row', async () => {

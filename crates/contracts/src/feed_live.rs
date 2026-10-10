@@ -95,13 +95,7 @@ pub enum FeedLiveEntry {
         avatar_name: String,
         previous_avatar_name: String,
         current_avatar_image_url: String,
-        current_avatar_thumbnail_image_url: String,
         previous_current_avatar_image_url: String,
-        previous_current_avatar_thumbnail_image_url: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        current_avatar_tags: Option<Vec<String>>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        previous_current_avatar_tags: Option<Vec<String>>,
         #[serde(default, skip_serializing_if = "String::is_empty")]
         owner_user_id: String,
     },
@@ -113,6 +107,17 @@ pub enum FeedLiveEntry {
         display_name: String,
         trust_level: String,
         previous_trust_level: String,
+        friend_number: i64,
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        owner_user_id: String,
+    },
+    #[serde(rename_all = "camelCase")]
+    DisplayName {
+        #[serde(rename = "created_at")]
+        created_at: String,
+        user_id: String,
+        display_name: String,
+        previous_display_name: String,
         friend_number: i64,
         #[serde(default, skip_serializing_if = "String::is_empty")]
         owner_user_id: String,
@@ -179,6 +184,7 @@ macro_rules! common_field {
             | FeedLiveEntry::Status { $field, .. }
             | FeedLiveEntry::Bio { $field, .. }
             | FeedLiveEntry::Avatar { $field, .. }
+            | FeedLiveEntry::DisplayName { $field, .. }
             | FeedLiveEntry::TrustLevel { $field, .. }
             | FeedLiveEntry::Friend { $field, .. }
             | FeedLiveEntry::Unfriend { $field, .. }
@@ -198,6 +204,7 @@ impl FeedLiveEntry {
             Self::Bio { .. } => "Bio",
             Self::Avatar { .. } => "Avatar",
             Self::TrustLevel { .. } => "TrustLevel",
+            Self::DisplayName { .. } => "DisplayName",
             Self::Friend { .. } => "Friend",
             Self::Unfriend { .. } => "Unfriend",
             Self::OnPlayerJoining { .. } => "OnPlayerJoining",
@@ -213,7 +220,8 @@ impl FeedLiveEntry {
             Self::Status { .. } => Some(FeedFilter::Status),
             Self::Bio { .. } => Some(FeedFilter::Bio),
             Self::Avatar { .. } => Some(FeedFilter::Avatar),
-            Self::TrustLevel { .. }
+            Self::DisplayName { .. }
+            | Self::TrustLevel { .. }
             | Self::Friend { .. }
             | Self::Unfriend { .. }
             | Self::OnPlayerJoining { .. }
@@ -241,6 +249,7 @@ impl FeedLiveEntry {
             | Self::Status { user_id, .. }
             | Self::Bio { user_id, .. }
             | Self::Avatar { user_id, .. }
+            | Self::DisplayName { user_id, .. }
             | Self::TrustLevel { user_id, .. }
             | Self::Friend { user_id, .. }
             | Self::Unfriend { user_id, .. }
@@ -257,6 +266,7 @@ impl FeedLiveEntry {
             | Self::Status { display_name, .. }
             | Self::Bio { display_name, .. }
             | Self::Avatar { display_name, .. }
+            | Self::DisplayName { display_name, .. }
             | Self::TrustLevel { display_name, .. }
             | Self::Friend { display_name, .. }
             | Self::Unfriend { display_name, .. }
@@ -273,6 +283,7 @@ impl FeedLiveEntry {
             | Self::Status { display_name, .. }
             | Self::Bio { display_name, .. }
             | Self::Avatar { display_name, .. }
+            | Self::DisplayName { display_name, .. }
             | Self::TrustLevel { display_name, .. }
             | Self::Friend { display_name, .. }
             | Self::Unfriend { display_name, .. }
@@ -291,6 +302,7 @@ impl FeedLiveEntry {
             Self::Status { .. }
             | Self::Bio { .. }
             | Self::Avatar { .. }
+            | Self::DisplayName { .. }
             | Self::TrustLevel { .. }
             | Self::Friend { .. }
             | Self::Unfriend { .. } => "",
@@ -305,6 +317,7 @@ impl FeedLiveEntry {
             Self::Status { .. }
             | Self::Bio { .. }
             | Self::Avatar { .. }
+            | Self::DisplayName { .. }
             | Self::TrustLevel { .. }
             | Self::Friend { .. }
             | Self::Unfriend { .. }
@@ -324,6 +337,7 @@ impl FeedLiveEntry {
             Self::Status { .. }
             | Self::Bio { .. }
             | Self::Avatar { .. }
+            | Self::DisplayName { .. }
             | Self::TrustLevel { .. }
             | Self::Friend { .. }
             | Self::Unfriend { .. } => "",
@@ -341,6 +355,7 @@ impl FeedLiveEntry {
             Self::Status { .. }
             | Self::Bio { .. }
             | Self::Avatar { .. }
+            | Self::DisplayName { .. }
             | Self::TrustLevel { .. }
             | Self::Friend { .. }
             | Self::Unfriend { .. } => {}
@@ -357,6 +372,7 @@ impl FeedLiveEntry {
             Self::Status { .. }
             | Self::Bio { .. }
             | Self::Avatar { .. }
+            | Self::DisplayName { .. }
             | Self::TrustLevel { .. }
             | Self::Friend { .. }
             | Self::Unfriend { .. } => "",
@@ -373,6 +389,7 @@ impl FeedLiveEntry {
             Self::Status { .. }
             | Self::Bio { .. }
             | Self::Avatar { .. }
+            | Self::DisplayName { .. }
             | Self::TrustLevel { .. }
             | Self::Friend { .. }
             | Self::Unfriend { .. } => {}
@@ -399,6 +416,7 @@ impl FeedLiveEntry {
             Self::Status { .. }
             | Self::Bio { .. }
             | Self::Avatar { .. }
+            | Self::DisplayName { .. }
             | Self::TrustLevel { .. }
             | Self::Friend { .. }
             | Self::Unfriend { .. } => None,
@@ -425,6 +443,7 @@ impl FeedLiveEntry {
             Self::Status { .. }
             | Self::Bio { .. }
             | Self::Avatar { .. }
+            | Self::DisplayName { .. }
             | Self::TrustLevel { .. }
             | Self::Friend { .. }
             | Self::Unfriend { .. } => {}
@@ -489,6 +508,11 @@ impl FeedLiveEntry {
                 avatar_name,
                 ..
             } => vec![display_name, avatar_name],
+            Self::DisplayName {
+                display_name,
+                previous_display_name,
+                ..
+            } => vec![display_name, previous_display_name],
             Self::TrustLevel { display_name, .. }
             | Self::Friend { display_name, .. }
             | Self::Unfriend { display_name, .. } => vec![display_name],
@@ -569,11 +593,7 @@ impl From<&FeedLiveEntry> for FeedRowOutput {
                 avatar_name,
                 previous_avatar_name,
                 current_avatar_image_url,
-                current_avatar_thumbnail_image_url,
                 previous_current_avatar_image_url,
-                previous_current_avatar_thumbnail_image_url,
-                current_avatar_tags,
-                previous_current_avatar_tags,
                 ..
             } => FeedRowOutput {
                 owner_id: optional_text(owner_id),
@@ -581,18 +601,11 @@ impl From<&FeedLiveEntry> for FeedRowOutput {
                 avatar_name: optional_text(avatar_name),
                 previous_avatar_name: optional_text(previous_avatar_name),
                 current_avatar_image_url: optional_text(current_avatar_image_url),
-                current_avatar_thumbnail_image_url: optional_text(
-                    current_avatar_thumbnail_image_url,
-                ),
                 previous_current_avatar_image_url: optional_text(previous_current_avatar_image_url),
-                previous_current_avatar_thumbnail_image_url: optional_text(
-                    previous_current_avatar_thumbnail_image_url,
-                ),
-                current_avatar_tags: current_avatar_tags.clone(),
-                previous_current_avatar_tags: previous_current_avatar_tags.clone(),
                 ..row
             },
-            FeedLiveEntry::TrustLevel { .. }
+            FeedLiveEntry::DisplayName { .. }
+            | FeedLiveEntry::TrustLevel { .. }
             | FeedLiveEntry::Friend { .. }
             | FeedLiveEntry::Unfriend { .. }
             | FeedLiveEntry::OnPlayerJoining { .. }

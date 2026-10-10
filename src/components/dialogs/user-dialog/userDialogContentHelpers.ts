@@ -1,24 +1,15 @@
 import { AppleIcon, MonitorIcon, RectangleGogglesIcon } from 'lucide-react';
 
+import { resolveFriendPresenceLocation } from '@/domain/friends/presence';
 import {
-    isExplicitlyOfflineFriend,
+    isOfflineOrLeavingFriend,
     resolveObservedPlayerUserIds
 } from '@/domain/friends/sameInstanceFriends';
 import type { CurrentInstanceRosterPlayer } from '@/domain/instances/currentInstanceRoster';
 import { hasGroupIdPrefix } from '@/shared/constants/vrchatIds';
-import {
-    parseLocation,
-    resolveFriendPresenceLocation
-} from '@/shared/utils/location';
-export { resolveCurrentInviteLocation } from '@/shared/utils/invite';
+import { parseLocation } from '@/shared/utils/location';
 
 import { normalizeUserId } from './userProfileFields';
-
-type LocationUserRow = Record<string, unknown> & {
-    id: string;
-    userId: string;
-    displayName: string;
-};
 
 function record(value: unknown): Record<string, unknown> {
     return value && typeof value === 'object'
@@ -127,13 +118,10 @@ export function resolvePlatformMeta(platform: unknown) {
     };
 }
 
-export function resolvePresenceLocation(profile: unknown) {
-    return resolveFriendPresenceLocation(profile);
-}
-
 export function resolveUserDialogTargetPresenceLocation({
     profile,
     targetUserId,
+    localLocation,
     currentLocation,
     currentLocationPlayerIds,
     currentLocationPlayers,
@@ -141,16 +129,22 @@ export function resolveUserDialogTargetPresenceLocation({
 }: {
     profile: unknown;
     targetUserId: string;
+    localLocation: string;
     currentLocation: string;
     currentLocationPlayerIds: readonly string[];
     currentLocationPlayers?: readonly CurrentInstanceRosterPlayer[];
     friendsById?: Record<string, unknown>;
 }) {
-    const presenceLocation = resolvePresenceLocation(profile);
+    if (localLocation) {
+        return localLocation;
+    }
+    const presenceLocation = resolveFriendPresenceLocation(profile, {
+        preferTraveling: true
+    });
     const normalizedTargetUserId = normalizeUserId(targetUserId);
     if (
         normalizedTargetUserId &&
-        isExplicitlyOfflineFriend(friendsById[normalizedTargetUserId])
+        isOfflineOrLeavingFriend(friendsById[normalizedTargetUserId])
     ) {
         return 'offline';
     }
@@ -193,107 +187,6 @@ export function isSameLocationTag(left: unknown, right: unknown) {
         leftLocation.worldId === rightLocation.worldId &&
         leftLocation.instanceId === rightLocation.instanceId
     );
-}
-
-function userDisplayName(user: unknown) {
-    if (typeof user === 'string') {
-        return normalizeUserId(user);
-    }
-    const source = record(user);
-    const nestedUser = record(source.user);
-    return normalizeUserId(
-        source.displayName ||
-            source.display_name ||
-            source.username ||
-            source.name ||
-            nestedUser.displayName ||
-            nestedUser.display_name ||
-            nestedUser.username ||
-            nestedUser.name ||
-            source.userId ||
-            source.user_id ||
-            source.id ||
-            nestedUser.id ||
-            nestedUser.userId ||
-            nestedUser.user_id
-    );
-}
-
-export function createLocationUserRow(
-    user: unknown,
-    fallbackSource: unknown = {}
-): LocationUserRow {
-    const source =
-        typeof user === 'string'
-            ? { id: user, userId: user, displayName: user }
-            : record(user);
-    const fallback = record(fallbackSource);
-    const nestedUser = record(source.user);
-    const userId = normalizeUserId(
-        source.id ||
-            source.userId ||
-            source.user_id ||
-            source.targetUserId ||
-            source.target_user_id ||
-            nestedUser.id ||
-            nestedUser.userId ||
-            nestedUser.user_id ||
-            fallback.id ||
-            fallback.userId ||
-            fallback.user_id
-    );
-    const displayName =
-        userDisplayName(source) ||
-        normalizeUserId(fallback.displayName || fallback.display_name) ||
-        userId;
-    return {
-        ...nestedUser,
-        ...(source && typeof source === 'object' ? source : {}),
-        id: userId,
-        userId,
-        displayName,
-        userIcon:
-            source.userIcon || nestedUser.userIcon || fallback.userIcon || '',
-        profilePicOverrideThumbnail:
-            source.profilePicOverrideThumbnail ||
-            nestedUser.profilePicOverrideThumbnail ||
-            fallback.profilePicOverrideThumbnail ||
-            '',
-        profilePicOverride:
-            source.profilePicOverride ||
-            nestedUser.profilePicOverride ||
-            fallback.profilePicOverride ||
-            '',
-        thumbnailUrl:
-            source.thumbnailUrl ||
-            nestedUser.thumbnailUrl ||
-            fallback.thumbnailUrl ||
-            '',
-        currentAvatarThumbnailImageUrl:
-            source.currentAvatarThumbnailImageUrl ||
-            nestedUser.currentAvatarThumbnailImageUrl ||
-            fallback.currentAvatarThumbnailImageUrl ||
-            '',
-        currentAvatarImageUrl:
-            source.currentAvatarImageUrl ||
-            nestedUser.currentAvatarImageUrl ||
-            fallback.currentAvatarImageUrl ||
-            '',
-        $subtitle: fallback.subtitle || '',
-        $location_at:
-            source?.$location_at ||
-            source?.locationAt ||
-            source?.location_at ||
-            fallback.joinedAt ||
-            fallback.joined_at ||
-            '',
-        joinedAt:
-            source?.joinedAt ||
-            source?.joined_at ||
-            fallback.joinedAt ||
-            fallback.joined_at ||
-            ''
-    };
 }
 
 export function createLocationGroupRow(

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { AppTable } from '@/components/data-table/appTable';
@@ -25,6 +26,8 @@ const FILTER_SCOPES = [
 ] satisfies readonly PlayerListFilterScope[];
 
 type PlayerListToolbarProps = {
+    groupSelector: ReactNode;
+    mutualScan: ReactNode;
     counts: PlayerListScopeCounts;
     onQueryChange: (query: string) => void;
     onResetLayout: () => void;
@@ -33,6 +36,8 @@ type PlayerListToolbarProps = {
 };
 
 export function PlayerListToolbar({
+    groupSelector,
+    mutualScan,
     counts,
     onQueryChange,
     onResetLayout,
@@ -68,6 +73,8 @@ export function PlayerListToolbar({
                 />
 
                 <ToolbarActions>
+                    {mutualScan}
+                    {groupSelector}
                     <TableColumnVisibilityMenu
                         table={table}
                         onResetLayout={onResetLayout}

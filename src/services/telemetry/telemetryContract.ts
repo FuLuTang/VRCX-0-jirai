@@ -1,4 +1,6 @@
 export const TELEMETRY_ROUTE_KEYS = [
+    'login',
+    'feed',
     'friends_locations',
     'game_log',
     'instance_history',
@@ -44,7 +46,8 @@ export const TELEMETRY_TOOL_KEYS = [
     'export-notes',
     'export-friend-list',
     'export-own-avatars',
-    'edit-invite-message'
+    'edit-invite-message',
+    'sync-workflow'
 ] as const;
 
 export type TelemetryPageRouteKey = (typeof TELEMETRY_ROUTE_KEYS)[number];

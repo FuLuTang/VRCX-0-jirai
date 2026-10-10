@@ -22,7 +22,6 @@ import { UserStatusDot } from '@/components/UserStatusDot';
 import type { UserBadgeRecord } from '@/domain/entities/user';
 import { userFacingErrorMessage } from '@/lib/errorDisplay';
 import { cn } from '@/lib/utils';
-import { userImage } from '@/services/entityMediaService';
 import type { RecentActionType } from '@/services/recentActionService';
 import { useResolvedThemeMode } from '@/services/themeService';
 import { OWNER_USER_ID } from '@/shared/constants/user';
@@ -332,7 +331,7 @@ function HeaderPreferenceRow({
                 aria-pressed={checked}
                 disabled={disabled}
                 onClick={onToggle}
-                className="text-muted-foreground hover:text-primary h-auto min-w-0 px-1 py-0 text-xs"
+                className="text-muted-foreground hover:text-foreground h-auto min-w-0 px-1 py-0 text-xs"
             >
                 <span className="min-w-0 truncate text-right">{value}</span>
             </Button>
@@ -405,7 +404,7 @@ function UserDialogHeaderFacts({
         typeof profile.discordId === 'string' ? profile.discordId : '';
 
     return (
-        <EntityFactList className="border-t pt-3">
+        <EntityFactList className="border-stroke-subtle border-t pt-3">
             <HeaderPreferenceRow
                 label={t('dialog.user.info.avatar_cloning')}
                 checked={Boolean(profile.allowAvatarCopying)}
@@ -638,7 +637,6 @@ export function UserDialogHeaderSection({
         onToggleSelfDiscordConnections,
         onToggleSelfSharedConnections
     };
-    const userIconUrl = profileIconUrl || userImage(profile, true, '256', true);
     const hasTitleMeta = Boolean(profileLanguages?.length);
     const hasIdentityMeta = Boolean(
         pronounsText || previousDisplayNames.length
@@ -683,6 +681,7 @@ export function UserDialogHeaderSection({
             )}
             media={
                 <UserDialogHeaderMedia
+                    key={profile.id}
                     bannerAlt={profile.displayName || profile.id || 'User'}
                     bannerFallbackUrl={bannerFallbackUrl}
                     bannerUrl={imageUrl}
@@ -694,7 +693,7 @@ export function UserDialogHeaderSection({
                     onBannerClick={onImageClick}
                     onOpenUserIcon={onOpenUserIcon}
                     userIconLabel={t('dialog.user.action.open_user_icon')}
-                    userIconUrl={userIconUrl}
+                    userIconUrl={profileIconUrl}
                 />
             }
         >
@@ -912,7 +911,7 @@ export function UserDialogHeaderSection({
                         <Button
                             type="button"
                             variant="ghost"
-                            className="text-muted-foreground hover:text-primary h-auto max-h-24 w-full min-w-0 justify-start overflow-auto p-0 text-left text-sm whitespace-pre-wrap hover:bg-transparent"
+                            className="text-muted-foreground hover:text-foreground h-auto max-h-24 w-full min-w-0 justify-start overflow-auto p-0 text-left text-sm whitespace-pre-wrap hover:bg-transparent"
                             title={t('dialog.user.actions.edit_status')}
                             onClick={onEditSelfStatus}
                         >

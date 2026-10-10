@@ -68,13 +68,6 @@ fn parse_friend_note_cursor_splits_on_last_separator() {
 }
 
 #[test]
-fn friend_change_kind_name_maps_all_variants() {
-    assert_eq!(friend_change_kind_name(&FriendChangeKind::Status), "status");
-    assert_eq!(friend_change_kind_name(&FriendChangeKind::Avatar), "avatar");
-    assert_eq!(friend_change_kind_name(&FriendChangeKind::Bio), "bio");
-}
-
-#[test]
 fn latest_bio_from_changes_returns_none_when_no_bio_kind_present() {
     let rows = vec![change_summary(
         "status",
@@ -158,7 +151,6 @@ fn fallback_friend_profile_current_builds_from_display_name_only() {
     assert_eq!(result.status, "");
     assert_eq!(result.status_description, "");
     assert_eq!(result.platform, "");
-    assert_eq!(result.current_avatar_name, "");
 }
 
 #[test]

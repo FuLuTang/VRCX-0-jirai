@@ -9,7 +9,7 @@ use vrcx_0_application_activity::notification::{
     NotificationRemoteFuture, NotificationWebhookFuture, NotificationWebhookTransport,
     NotificationWebhookTransportError,
 };
-use vrcx_0_application_core::{WebClient, WebExecuteRequest, WorldCache};
+use vrcx_0_application_core::{FileCache, WebClient, WebExecuteRequest, WorldCache};
 use vrcx_0_application_realtime::RealtimeHostRuntime;
 use vrcx_0_persistence::config::ConfigRepository;
 use vrcx_0_vrchat_client::http_api::ApiScope;
@@ -52,11 +52,16 @@ impl NotificationConfig for LocalNotificationConfig {
 pub struct VrchatNotificationRemote {
     web: Arc<WebClient>,
     world_cache: Arc<WorldCache>,
+    file_cache: FileCache,
 }
 
 impl VrchatNotificationRemote {
-    pub fn new(web: Arc<WebClient>, world_cache: Arc<WorldCache>) -> Self {
-        Self { web, world_cache }
+    pub fn new(web: Arc<WebClient>, world_cache: Arc<WorldCache>, file_cache: FileCache) -> Self {
+        Self {
+            web,
+            world_cache,
+            file_cache,
+        }
     }
 }
 
@@ -86,21 +91,10 @@ impl NotificationRemote for VrchatNotificationRemote {
         file_id: &'a str,
     ) -> NotificationRemoteFuture<'a, String> {
         Box::pin(async move {
-            let (_, request) = vrcx_0_vrchat_client::avatars::avatar_file_get_input(
-                endpoint.to_string(),
-                file_id.to_string(),
-            )
-            .ok()?;
-            let response = self.web.execute_api(request, ApiScope::Vrchat).await.ok()?;
-            if !(200..=299).contains(&response.status) {
-                return None;
-            }
-            let value = serde_json::from_str::<Value>(&response.data).ok()?;
-            value
-                .get("name")
-                .and_then(Value::as_str)
-                .and_then(vrcx_0_core::avatar::avatar_name_from_file_name)
-                .filter(|name| !name.is_empty())
+            self.file_cache
+                .resolve(self.web.as_ref(), endpoint, file_id)
+                .await?
+                .avatar_name
         })
     }
 
@@ -170,11 +164,15 @@ impl RealtimeNotificationUserImageResolver {
 }
 
 impl CachedNotificationUserImageResolver for RealtimeNotificationUserImageResolver {
-    fn cached_url(&self, endpoint: &str, user_id: &str, allow_user_icon: bool) -> Option<String> {
-        self.runtime.upgrade()?.cached_user_notification_image_url(
-            endpoint,
-            user_id,
-            allow_user_icon,
-        )
+    fn cached_url(&self, endpoint: &str, user_id: &str) -> Option<String> {
+        self.runtime
+            .upgrade()?
+            .cached_user_notification_image_url(endpoint, user_id)
+    }
+
+    fn cached_friend_url(&self, endpoint: &str, user_id: &str) -> Option<String> {
+        self.runtime
+            .upgrade()?
+            .cached_friend_notification_image_url(endpoint, user_id)
     }
 }

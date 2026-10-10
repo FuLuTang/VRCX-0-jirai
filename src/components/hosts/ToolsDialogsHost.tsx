@@ -71,7 +71,7 @@ const ProfileBackupDialog = lazy(() =>
     }))
 );
 const SyncWorkflowDialog = lazy(() =>
-    import('@/features/workflows/SyncWorkflowDialog').then((module) => ({
+    import('./tools-dialogs/SyncWorkflowDialog').then((module) => ({
         default: module.SyncWorkflowDialog
     }))
 );

@@ -361,6 +361,188 @@ fn repair_zero_copresence_durations_pairs_leave_with_join() -> Result<(), Error>
 }
 
 #[test]
+fn empty_leave_location_repair_restores_the_instance_the_session_started_in() -> Result<(), Error> {
+    let dir = TestDir::new("gamelog-repair-empty-leave-location");
+    let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3"))?;
+    ensure_game_log_tables(&db)?;
+    for (created_at, location) in [
+        ("2026-08-13T10:00:00.000Z", "wrld_a:1~friends(usr_x)"),
+        ("2026-08-13T12:00:00.000Z", "wrld_b:2~hidden(usr_x)"),
+    ] {
+        db.execute_non_query(
+            "INSERT INTO gamelog_location (created_at, location, world_id, world_name, time, group_name)
+             VALUES (@created_at, @location, '', '', 0, '')",
+            &ParamsBuilder::new()
+                .set("created_at", created_at)
+                .set("location", location)
+                .build(),
+        )?;
+    }
+    let minutes = |value: i64| value * 60 * 1000;
+    for (created_at, location, user_id, time) in [
+        ("2026-08-13T11:30:00.000Z", "", "usr_inside", minutes(85)),
+        ("2026-08-13T13:00:00.000Z", "", "usr_boundary", minutes(60)),
+        ("2026-08-13T12:30:00.000Z", "", "usr_crossed", minutes(150)),
+        ("2026-08-13T09:30:00.000Z", "", "usr_before", minutes(10)),
+        ("2026-08-13T11:00:00.000Z", "", "usr_zero", 0),
+        (
+            "2026-08-13T11:00:00.000Z",
+            "wrld_c:3",
+            "usr_known",
+            minutes(30),
+        ),
+        ("2026-08-13 11:30:00", "", "usr_unnormalized", minutes(85)),
+    ] {
+        insert_join_leave(
+            &db,
+            created_at,
+            "OnPlayerLeft",
+            user_id,
+            location,
+            user_id,
+            time,
+        );
+    }
+
+    database_maintenance_run(&db, DatabaseMaintenanceTask::RepairEmptyLeaveLocations)?;
+
+    let leave_location = |user_id: &str| {
+        db.execute(
+            "SELECT location FROM gamelog_join_leave WHERE user_id = @user_id",
+            &ParamsBuilder::new().set("user_id", user_id).build(),
+        )
+        .unwrap()
+        .first()
+        .map(|row| row_string(row, 0))
+        .unwrap()
+    };
+    assert_eq!(leave_location("usr_inside"), "wrld_a:1~friends(usr_x)");
+    assert_eq!(leave_location("usr_boundary"), "wrld_b:2~hidden(usr_x)");
+    assert_eq!(leave_location("usr_crossed"), "");
+    assert_eq!(leave_location("usr_before"), "");
+    assert_eq!(leave_location("usr_zero"), "");
+    assert_eq!(leave_location("usr_known"), "wrld_c:3");
+    assert_eq!(leave_location("usr_unnormalized"), "");
+    Ok(())
+}
+
+#[test]
+fn empty_leave_location_repair_skips_a_previous_location_stay_that_ended_before_the_join(
+) -> Result<(), Error> {
+    let dir = TestDir::new("gamelog-repair-empty-leave-location-stale");
+    let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3"))?;
+    ensure_game_log_tables(&db)?;
+    for (created_at, location, time) in [
+        ("2026-08-10T20:00:00.000Z", "wrld_old:1", 60 * 60 * 1000),
+        ("2026-08-13T10:00:00.000Z", "wrld_open:2", 0),
+    ] {
+        db.execute_non_query(
+            "INSERT INTO gamelog_location (created_at, location, world_id, world_name, time, group_name)
+             VALUES (@created_at, @location, '', '', @time, '')",
+            &ParamsBuilder::new()
+                .set("created_at", created_at)
+                .set("location", location)
+                .set("time", time)
+                .build(),
+        )?;
+    }
+    for (created_at, user_id) in [
+        ("2026-08-12T12:00:00.000Z", "usr_missing_session"),
+        ("2026-08-13T11:00:00.000Z", "usr_open_session"),
+    ] {
+        insert_join_leave(
+            &db,
+            created_at,
+            "OnPlayerLeft",
+            user_id,
+            "",
+            user_id,
+            30 * 60 * 1000,
+        );
+    }
+
+    database_maintenance_run(&db, DatabaseMaintenanceTask::RepairEmptyLeaveLocations)?;
+
+    let rows = db.execute(
+        "SELECT user_id, location FROM gamelog_join_leave ORDER BY user_id",
+        &Default::default(),
+    )?;
+    let locations = rows
+        .iter()
+        .map(|row| (row_string(row, 0), row_string(row, 1)))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        locations,
+        [
+            ("usr_missing_session".to_string(), String::new()),
+            ("usr_open_session".to_string(), "wrld_open:2".to_string()),
+        ]
+    );
+    Ok(())
+}
+
+#[test]
+fn empty_leave_location_repair_skips_when_the_matching_join_recorded_another_instance(
+) -> Result<(), Error> {
+    let dir = TestDir::new("gamelog-repair-empty-leave-location-join-conflict");
+    let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3"))?;
+    ensure_game_log_tables(&db)?;
+    db.execute_non_query(
+        "INSERT INTO gamelog_location (created_at, location, world_id, world_name, time, group_name)
+         VALUES ('2026-08-13T10:00:00.000Z', 'wrld_prev:1', '', '', 0, '')",
+        &Default::default(),
+    )?;
+    let joined_at = "2026-08-13T11:00:00.000Z";
+    let left_at = "2026-08-13T11:30:00.000Z";
+    for (display_name, user_id, join_location) in [
+        ("Moved", "usr_moved", "wrld_missing:9"),
+        ("Stayed", "usr_stayed", "wrld_prev:1"),
+        ("Untracked", "usr_untracked", ""),
+        ("Nameless", "", "wrld_missing:9"),
+    ] {
+        insert_join_leave(
+            &db,
+            joined_at,
+            "OnPlayerJoined",
+            display_name,
+            join_location,
+            user_id,
+            0,
+        );
+        insert_join_leave(
+            &db,
+            left_at,
+            "OnPlayerLeft",
+            display_name,
+            "",
+            user_id,
+            30 * 60 * 1000,
+        );
+    }
+
+    database_maintenance_run(&db, DatabaseMaintenanceTask::RepairEmptyLeaveLocations)?;
+
+    let rows = db.execute(
+        "SELECT display_name, location FROM gamelog_join_leave WHERE type = 'OnPlayerLeft' ORDER BY display_name",
+        &Default::default(),
+    )?;
+    let locations = rows
+        .iter()
+        .map(|row| (row_string(row, 0), row_string(row, 1)))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        locations,
+        [
+            ("Moved".to_string(), String::new()),
+            ("Nameless".to_string(), String::new()),
+            ("Stayed".to_string(), "wrld_prev:1".to_string()),
+            ("Untracked".to_string(), "wrld_prev:1".to_string()),
+        ]
+    );
+    Ok(())
+}
+
+#[test]
 fn copresence_repair_uses_the_latest_matching_join_in_the_same_instance() -> Result<(), Error> {
     let dir = TestDir::new("gamelog-repair-latest-matching-join");
     let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3"))?;
@@ -629,13 +811,70 @@ fn concurrent_reads_survive_a_vacuum_instead_of_failing_busy() -> Result<(), Err
 }
 
 #[test]
-fn page_stats_come_from_a_single_snapshot() -> Result<(), Error> {
-    let dir = TestDir::new("vacuum-stats");
-    let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3"))?;
+fn import_upstream_print_favorites_merges_rows_into_config_and_drops_table() -> Result<(), Error> {
+    let (_dir, db) = cleanup_test_db("import-upstream-print-favorites")?;
+    crate::config::set_json(
+        &db,
+        PRINT_FAVORITE_IDS_CONFIG_KEY,
+        &serde_json::json!(["prnt_local", "prnt_both"]),
+    )?;
+    db.execute_non_query(
+        "CREATE TABLE favorite_print (id INTEGER PRIMARY KEY, print_id TEXT UNIQUE, created_at TEXT)",
+        &Default::default(),
+    )?;
+    db.execute_non_query(
+        "INSERT INTO favorite_print (print_id, created_at) VALUES
+            ('prnt_newer', '2026-08-02T00:00:00.000Z'),
+            ('prnt_both', '2026-08-01T00:00:00.000Z'),
+            ('prnt_older', '2026-08-01T00:00:00.000Z'),
+            ('', '2026-08-03T00:00:00.000Z')",
+        &Default::default(),
+    )?;
 
-    let (free_pages, page_count) = read_page_stats(&db)?;
-    assert!(page_count > 0);
-    assert!(free_pages >= 0);
-    assert!(free_pages <= page_count);
+    database_maintenance_run(&db, DatabaseMaintenanceTask::ImportUpstreamPrintFavorites)?;
+
+    assert_eq!(
+        crate::config::get_json(&db, PRINT_FAVORITE_IDS_CONFIG_KEY, Value::Null)?,
+        serde_json::json!(["prnt_local", "prnt_both", "prnt_older", "prnt_newer"])
+    );
+    assert!(select_table_names(&db, "name = 'favorite_print'")?.is_empty());
+
+    database_maintenance_run(&db, DatabaseMaintenanceTask::ImportUpstreamPrintFavorites)?;
+    assert_eq!(
+        crate::config::get_json(&db, PRINT_FAVORITE_IDS_CONFIG_KEY, Value::Null)?,
+        serde_json::json!(["prnt_local", "prnt_both", "prnt_older", "prnt_newer"])
+    );
+    Ok(())
+}
+
+#[test]
+fn repair_expired_notifications_seen_marks_every_user_table() -> Result<(), Error> {
+    let dir = TestDir::new("notification-expired-seen-repair");
+    let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3"))?;
+    for prefix in ["usra", "usrb"] {
+        ensure_realtime_tables(&db, prefix)?;
+        db.execute_non_query(
+            &format!(
+                "INSERT INTO {prefix}_notifications (id, created_at, type, expired, seen) VALUES ('active', '2026-08-20T11:00:00Z', 'friendRequest', 0, 0), ('expired', '2026-08-20T10:00:00Z', 'friendRequest', 1, 0)"
+            ),
+            &Default::default(),
+        )?;
+    }
+
+    database_maintenance_run(&db, DatabaseMaintenanceTask::RepairExpiredNotificationsSeen)?;
+
+    for prefix in ["usra", "usrb"] {
+        let rows = db.execute(
+            &format!("SELECT id, seen FROM {prefix}_notifications ORDER BY id"),
+            &Default::default(),
+        )?;
+        assert_eq!(
+            rows,
+            vec![
+                vec![serde_json::json!("active"), serde_json::json!(0)],
+                vec![serde_json::json!("expired"), serde_json::json!(1)]
+            ]
+        );
+    }
     Ok(())
 }

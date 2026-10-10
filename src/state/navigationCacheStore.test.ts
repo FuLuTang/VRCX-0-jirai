@@ -26,21 +26,24 @@ describe('navigation cache', () => {
                     'system.application': false,
                     'advanced.troubleshooting': true,
                     invalid: 'true'
-                }
+                },
+                toolRows: { 'status-schedule': false, invalid: 1 }
             })
         );
         const { useNavigationCacheStore } =
             await import('./navigationCacheStore');
         await useNavigationCacheStore.getState().hydrate();
-        expect(useNavigationCacheStore.getState()).toMatchObject({
+        const state = useNavigationCacheStore.getState();
+        expect(state).toMatchObject({
             hydrated: true,
-            lastRoute: '/settings?tab=appearance',
-            folders: { favorites: false, tools: true },
-            settingsCards: {
-                'system.application': false,
-                'advanced.troubleshooting': true
-            }
+            lastRoute: '/settings?tab=appearance'
         });
+        expect(state.folders).toEqual({ favorites: false, tools: true });
+        expect(state.settingsCards).toEqual({
+            'system.application': false,
+            'advanced.troubleshooting': true
+        });
+        expect(state.toolRows).toEqual({ 'status-schedule': false });
         expect(fs.writeTextFile).not.toHaveBeenCalled();
     });
 
@@ -85,13 +88,17 @@ describe('navigation cache', () => {
         expect(useNavigationCacheStore.getState().hydrated).toBe(true);
         useNavigationCacheStore.getState().setFolderOpen('favorites', false);
         useNavigationCacheStore.getState().setLastRoute('/friends-locations');
+        useNavigationCacheStore
+            .getState()
+            .setToolRowOpen('status-schedule', false);
         await vi.waitFor(() =>
-            expect(fs.writeTextFile).toHaveBeenCalledTimes(2)
+            expect(fs.writeTextFile).toHaveBeenCalledTimes(3)
         );
-        expect(JSON.parse(fs.writeTextFile.mock.calls[1][1])).toEqual({
+        expect(JSON.parse(fs.writeTextFile.mock.calls[2][1])).toEqual({
             lastRoute: '/friends-locations',
             folders: { favorites: false },
-            settingsCards: {}
+            settingsCards: {},
+            toolRows: { 'status-schedule': false }
         });
     });
 
@@ -129,7 +136,8 @@ describe('navigation cache', () => {
             settingsCards: {
                 'system.application': false,
                 'advanced.troubleshooting': true
-            }
+            },
+            toolRows: {}
         });
         fs.readTextFile.mockResolvedValue(saved);
         vi.resetModules();

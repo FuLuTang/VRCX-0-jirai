@@ -62,7 +62,14 @@ impl Drop for TestDir {
 }
 
 fn set_version(db: &DatabaseService, version: i64) {
-    write_database_schema_versions(db, version).unwrap();
+    write_vrcx0_schema_version(db, version).unwrap();
+}
+
+fn target_migration_version() -> i64 {
+    migrations()
+        .last()
+        .map(|migration| migration.version)
+        .unwrap_or(0)
 }
 
 fn set_migration_version(db: &DatabaseService, version: i64) {
@@ -73,7 +80,7 @@ fn set_migration_version(db: &DatabaseService, version: i64) {
 }
 
 fn install_failing_repair_fixture(db: &DatabaseService) {
-    database_maintenance_run(db, DatabaseMaintenanceTask::InitGlobalTables).unwrap();
+    ensure_required_database_schema(db).unwrap();
     let conn = rusqlite::Connection::open(db.db_path()).unwrap();
     conn.execute_batch(
         "INSERT INTO gamelog_join_leave
@@ -97,9 +104,9 @@ fn preflight_reports_current_upgrade_and_newer_spans() {
     let target = target_migration_version();
     let schema = VRCX0_SCHEMA_VERSION;
     for (schema_version, migration, expected, span) in [
-        (0, target, UpgradeRequired, (target, target)),
-        (16, target, UpgradeRequired, (target, target)),
-        (schema, target, Current, (target, target)),
+        (0, target, UpgradeRequired, (0, schema)),
+        (16, target, UpgradeRequired, (16, schema)),
+        (schema, target, Current, (schema, schema)),
         (schema + 1, target, NewerSchema, (schema + 1, schema)),
         (schema, target + 1, NewerSchema, (target + 1, target)),
     ] {
@@ -120,6 +127,20 @@ fn preflight_reports_current_upgrade_and_newer_spans() {
 }
 
 #[test]
+fn preflight_ignores_the_upstream_schema_version() {
+    let dir = TestDir::new("database-upgrade-preflight-upstream-line");
+    let db = dir.database();
+    write_upstream_schema_version(&db, VRCX0_SCHEMA_VERSION + 1).unwrap();
+
+    let preflight = database_upgrade_preflight(&db).unwrap();
+
+    assert_eq!(
+        preflight.status,
+        DatabaseUpgradePreflightStatus::UpgradeRequired
+    );
+}
+
+#[test]
 fn upgrades_every_supported_old_version_span_and_is_idempotent() {
     for version in [0, 15, 16, 17] {
         let dir = TestDir::new(&format!("database-upgrade-span-{version}"));
@@ -131,26 +152,27 @@ fn upgrades_every_supported_old_version_span_and_is_idempotent() {
         let upgraded = run_database_upgrade(&db);
 
         assert_eq!(upgraded.status, DatabaseUpgradeRunStatus::Upgraded);
-        assert_eq!(upgraded.from_version, 0);
-        assert_eq!(upgraded.to_version, target_migration_version());
+        assert_eq!(upgraded.from_version, version);
+        assert_eq!(upgraded.to_version, VRCX0_SCHEMA_VERSION);
         assert_eq!(migration_version(&db).unwrap(), target_migration_version());
         assert_eq!(
-            prepare_vrcx0_schema_version(&db).unwrap(),
+            read_vrcx0_schema_version(&db).unwrap(),
             VRCX0_SCHEMA_VERSION
         );
         assert_eq!(
-            vrcx_0_persistence::config::get_string(&db, "databaseVersion", "0").unwrap(),
-            VRCX0_SCHEMA_VERSION.to_string()
+            read_upstream_schema_version(&db).unwrap(),
+            UPSTREAM_CLEANUP_SCHEMA_VERSION
         );
-        assert_eq!(
-            vrcx_0_persistence::config::get_string(&db, COPRESENCE_DURATION_REPAIR_KEY, "")
-                .unwrap(),
-            "1"
-        );
+        for (key, _) in ONE_TIME_DATA_REPAIRS {
+            assert_eq!(
+                vrcx_0_persistence::config::get_string(&db, key, "").unwrap(),
+                "1"
+            );
+        }
 
         let repeated = run_database_upgrade(&db);
         assert_eq!(repeated.status, DatabaseUpgradeRunStatus::Current);
-        assert_eq!(repeated.from_version, target_migration_version());
+        assert_eq!(repeated.from_version, VRCX0_SCHEMA_VERSION);
     }
 }
 
@@ -186,7 +208,7 @@ fn reports_determinate_work_copy_progress_and_indeterminate_schema_stages() {
 fn legacy_upgrade_repairs_rows_that_match_old_cleanup_rules() {
     let dir = TestDir::new("database-upgrade-repairs-legacy-rows");
     let db = dir.database();
-    set_version(&db, 15);
+    write_upstream_schema_version(&db, 15).unwrap();
     rusqlite::Connection::open(db.db_path())
         .unwrap()
         .execute_batch(
@@ -209,6 +231,10 @@ fn legacy_upgrade_repairs_rows_that_match_old_cleanup_rules() {
     let result = run_database_upgrade(&db);
 
     assert_eq!(result.status, DatabaseUpgradeRunStatus::Upgraded);
+    assert_eq!(
+        read_upstream_schema_version(&db).unwrap(),
+        UPSTREAM_CLEANUP_SCHEMA_VERSION
+    );
     let conn = rusqlite::Connection::open(db.db_path()).unwrap();
     assert_eq!(
         conn.query_row(
@@ -231,10 +257,127 @@ fn legacy_upgrade_repairs_rows_that_match_old_cleanup_rules() {
 }
 
 #[test]
+fn upstream_import_carries_the_hmd_position_and_timeout_over_once() {
+    let config =
+        |db: &DatabaseService, key: &str| vrcx_0_persistence::config::get_raw(db, key).unwrap();
+    for (position, timeout, expected_position, expected_timeout) in [
+        ("topRight", "60000", Some("top"), Some("30000")),
+        ("centerLeft", "0", Some("center"), None),
+        ("bottom", "8000", Some("bottom"), Some("8000")),
+        ("topCenter", "abc", Some("top"), None),
+        ("", "1500", None, Some("1500")),
+    ] {
+        let dir = TestDir::new("database-upgrade-upstream-hmd-notifications");
+        let db = dir.database();
+        write_upstream_schema_version(&db, 17).unwrap();
+        vrcx_0_persistence::config::set_string(&db, "VRCX_notificationPosition", position).unwrap();
+        vrcx_0_persistence::config::set_string(&db, "VRCX_notificationTimeout", timeout).unwrap();
+
+        assert_eq!(
+            run_database_upgrade(&db).status,
+            DatabaseUpgradeRunStatus::Upgraded
+        );
+        assert_eq!(
+            config(&db, "hmdNotificationPosition").as_deref(),
+            expected_position
+        );
+        assert_eq!(
+            config(&db, "hmdNotificationTimeout").as_deref(),
+            expected_timeout
+        );
+    }
+
+    let dir = TestDir::new("database-upgrade-own-database-hmd-notifications");
+    let db = dir.database();
+    write_upstream_schema_version(&db, 17).unwrap();
+    set_version(&db, VRCX0_SCHEMA_VERSION - 1);
+    vrcx_0_persistence::config::set_string(&db, "VRCX_notificationPosition", "topLeft").unwrap();
+    vrcx_0_persistence::config::set_string(&db, "VRCX_notificationTimeout", "8000").unwrap();
+
+    assert_eq!(
+        run_database_upgrade(&db).status,
+        DatabaseUpgradeRunStatus::Upgraded
+    );
+    assert_eq!(config(&db, "hmdNotificationPosition"), None);
+    assert_eq!(config(&db, "hmdNotificationTimeout"), None);
+}
+
+#[test]
+fn upstream_import_keeps_hmd_settings_that_are_already_saved() {
+    let dir = TestDir::new("database-upgrade-upstream-hmd-notifications-saved");
+    let db = dir.database();
+    write_upstream_schema_version(&db, 17).unwrap();
+    vrcx_0_persistence::config::set_string(&db, "VRCX_notificationPosition", "topLeft").unwrap();
+    vrcx_0_persistence::config::set_string(&db, "VRCX_notificationTimeout", "8000").unwrap();
+    vrcx_0_persistence::config::set_string(&db, "hmdNotificationPosition", "center").unwrap();
+    vrcx_0_persistence::config::set_string(&db, "hmdNotificationTimeout", "4000").unwrap();
+
+    run_database_upgrade(&db);
+
+    assert_eq!(
+        vrcx_0_persistence::config::get_raw(&db, "hmdNotificationPosition")
+            .unwrap()
+            .as_deref(),
+        Some("center")
+    );
+    assert_eq!(
+        vrcx_0_persistence::config::get_raw(&db, "hmdNotificationTimeout")
+            .unwrap()
+            .as_deref(),
+        Some("4000")
+    );
+}
+
+#[test]
+fn upstream_17_upgrade_moves_print_favorites_into_config() {
+    let dir = TestDir::new("database-upgrade-upstream-17-print-favorites");
+    let db = dir.database();
+    write_upstream_schema_version(&db, 17).unwrap();
+    rusqlite::Connection::open(db.db_path())
+        .unwrap()
+        .execute_batch(
+            "CREATE TABLE favorite_print (id INTEGER PRIMARY KEY, print_id TEXT UNIQUE, created_at TEXT);
+             INSERT INTO favorite_print (print_id, created_at) VALUES
+                ('prnt_second', '2026-08-02T00:00:00.000Z'),
+                ('prnt_first', '2026-08-01T00:00:00.000Z');",
+        )
+        .unwrap();
+
+    let result = run_database_upgrade(&db);
+
+    assert_eq!(result.status, DatabaseUpgradeRunStatus::Upgraded);
+    assert_eq!(
+        read_vrcx0_schema_version(&db).unwrap(),
+        VRCX0_SCHEMA_VERSION
+    );
+    assert_eq!(read_upstream_schema_version(&db).unwrap(), 17);
+    assert_eq!(
+        vrcx_0_persistence::config::get_json(
+            &db,
+            vrcx_0_persistence::maintenance::PRINT_FAVORITE_IDS_CONFIG_KEY,
+            serde_json::Value::Null,
+        )
+        .unwrap(),
+        serde_json::json!(["prnt_first", "prnt_second"])
+    );
+    let conn = rusqlite::Connection::open(db.db_path()).unwrap();
+    assert_eq!(
+        conn.query_row(
+            "SELECT COUNT(*) FROM sqlite_schema WHERE type = 'table' AND name = 'favorite_print'",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .unwrap(),
+        0
+    );
+}
+
+#[test]
 fn preserves_failed_work_copy_and_blocks_reentry() {
     let dir = TestDir::new("database-upgrade-failed-copy");
     let db = dir.database();
     set_version(&db, 17);
+    write_upstream_schema_version(&db, 17).unwrap();
     vrcx_0_persistence::game_log::ensure_game_log_tables(&db).unwrap();
     let conn = rusqlite::Connection::open(db.db_path()).unwrap();
     conn.execute_batch(
@@ -263,7 +406,7 @@ fn preserves_failed_work_copy_and_blocks_reentry() {
     );
     assert!(std::path::Path::new(&failed_upgrade.work_db_path).exists());
     assert!(db.is_main_mode());
-    assert_eq!(prepare_vrcx0_schema_version(&db).unwrap(), 17);
+    assert_eq!(read_vrcx0_schema_version(&db).unwrap(), 17);
 
     let blocked = run_database_upgrade(&db);
     assert_eq!(blocked.status, DatabaseUpgradeRunStatus::Blocked);
@@ -281,10 +424,62 @@ fn refuses_to_modify_a_newer_schema() {
 
     assert_eq!(result.status, DatabaseUpgradeRunStatus::NewerSchema);
     assert_eq!(
-        prepare_vrcx0_schema_version(&db).unwrap(),
+        read_vrcx0_schema_version(&db).unwrap(),
         VRCX0_SCHEMA_VERSION + 1
     );
     assert!(db.get_failed_upgrade().unwrap().is_none());
+}
+
+#[test]
+fn preflight_reports_pending_one_time_repairs_until_they_complete() {
+    let dir = TestDir::new("database-upgrade-repair-pending");
+    let db = dir.database();
+    set_version(&db, VRCX0_SCHEMA_VERSION);
+    set_migration_version(&db, target_migration_version());
+    ensure_required_database_schema(&db).unwrap();
+
+    let before = database_upgrade_preflight(&db).unwrap();
+    assert_eq!(before.status, DatabaseUpgradePreflightStatus::Current);
+    assert!(before.repair_pending);
+
+    let mut stages = Vec::new();
+    let result = run_database_upgrade_with_progress(&db, |progress| stages.push(progress.stage));
+    assert_eq!(result.status, DatabaseUpgradeRunStatus::Current);
+    assert!(stages.contains(&DatabaseUpgradeStage::RepairData));
+
+    assert!(!database_upgrade_preflight(&db).unwrap().repair_pending);
+    let mut rerun_stages = Vec::new();
+    run_database_upgrade_with_progress(&db, |progress| rerun_stages.push(progress.stage));
+    assert!(!rerun_stages.contains(&DatabaseUpgradeStage::RepairData));
+}
+
+#[test]
+fn one_time_repair_marks_expired_legacy_notifications_seen() {
+    let dir = TestDir::new("database-upgrade-expired-notification-repair");
+    let db = dir.database();
+    set_version(&db, VRCX0_SCHEMA_VERSION);
+    set_migration_version(&db, target_migration_version());
+    ensure_required_database_schema(&db).unwrap();
+    vrcx_0_persistence::realtime::ensure_realtime_tables(&db, "usrself").unwrap();
+    rusqlite::Connection::open(db.db_path())
+        .unwrap()
+        .execute_batch(
+            "INSERT INTO usrself_notifications (id, created_at, type, expired, seen)
+             VALUES ('expired', '2026-08-20T10:00:00Z', 'friendRequest', 1, 0);",
+        )
+        .unwrap();
+
+    run_database_upgrade(&db);
+
+    let seen: i64 = rusqlite::Connection::open(db.db_path())
+        .unwrap()
+        .query_row(
+            "SELECT seen FROM usrself_notifications WHERE id = 'expired'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(seen, 1);
 }
 
 #[test]

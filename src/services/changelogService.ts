@@ -45,7 +45,7 @@ type PostUpdateChangelogToastInput = {
     currentVersion?: string;
     lastStartedVersion?: string;
     seenVersion?: string;
-    enabled?: boolean;
+    autoOpen?: boolean;
 };
 
 function normalizeVersion(value: string | undefined) {
@@ -154,10 +154,6 @@ export function parseReleaseChangelog(
     };
 }
 
-export function parseLocalizedChangelog(body: unknown) {
-    return parseChangelog(body).entries;
-}
-
 export function resolvePreferredChangelogLanguage(
     entries: LocalizedChangelogEntry[],
     locale: string
@@ -182,7 +178,7 @@ export function resolvePostUpdateChangelogToastState({
     currentVersion,
     lastStartedVersion,
     seenVersion,
-    enabled
+    autoOpen
 }: PostUpdateChangelogToastInput) {
     const normalizedCurrentVersion = normalizeVersion(currentVersion);
     const normalizedLastStartedVersion = normalizeVersion(lastStartedVersion);
@@ -194,8 +190,8 @@ export function resolvePostUpdateChangelogToastState({
 
     return {
         currentVersion: normalizedCurrentVersion,
+        autoOpen: Boolean(autoOpen),
         shouldShow:
-            Boolean(enabled) &&
             Boolean(normalizedCurrentVersion) &&
             versionChanged &&
             normalizedSeenVersion !== normalizedCurrentVersion,
@@ -260,7 +256,7 @@ export async function loadPostUpdateChangelogToastState(
     version: string = getCurrentVersion()
 ) {
     const currentVersion = normalizeVersion(version);
-    const [enabled, lastStartedVersion, seenVersion] = await Promise.all([
+    const [autoOpen, lastStartedVersion, seenVersion] = await Promise.all([
         configRepository.getBool(POST_UPDATE_CHANGELOG_TOAST_CONFIG_KEY, true),
         configRepository.getString(LAST_STARTED_VERSION_CONFIG_KEY, ''),
         configRepository.getString(
@@ -272,7 +268,7 @@ export async function loadPostUpdateChangelogToastState(
         currentVersion,
         lastStartedVersion,
         seenVersion,
-        enabled
+        autoOpen
     });
 
     if (state.shouldRecordStartedVersion && !state.shouldShow) {

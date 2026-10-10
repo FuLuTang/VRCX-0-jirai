@@ -51,7 +51,7 @@ static APPLICATION_EXIT_STARTED: AtomicBool = AtomicBool::new(false);
 static TRAY_ICON_DEFAULT_IMAGE: OnceLock<Option<tauri::image::Image<'static>>> = OnceLock::new();
 static TRAY_ICON_NOTIFY_IMAGE: OnceLock<Option<tauri::image::Image<'static>>> = OnceLock::new();
 
-fn tray_icon_image(notify: bool) -> Option<&'static tauri::image::Image<'static>> {
+pub(crate) fn tray_icon_image(notify: bool) -> Option<&'static tauri::image::Image<'static>> {
     let (cache, bytes) = if notify {
         (&TRAY_ICON_NOTIFY_IMAGE, TRAY_ICON_NOTIFY)
     } else {
@@ -121,7 +121,6 @@ pub(crate) fn stop_runtime_services(app_handle: &AppHandle) {
     crate::bootstrap::linux_rendering::stop(app_handle);
     crate::bootstrap::sidebar_auto_hide::park(app_handle, true);
     if let Some(state) = app_handle.try_state::<AppState>() {
-        state.log_watcher_compat_bridge().stop();
         state
             .runtime_host()
             .stop_for_application_exit("application-exit", || {

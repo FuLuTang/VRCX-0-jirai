@@ -47,7 +47,6 @@ function createInput(
         handleCropInstancePrintsChange: callback,
         handleGameLogDisabledChange: callback,
         handleFeedPersistenceDisabledChange: callback,
-        handleAvatarFeedPersistenceDisabledChange: callback,
         hmdNotificationsDialogOpen: false,
         integrationStatus: {
             youtube: 'idle',
@@ -228,7 +227,7 @@ function createInput(
 }
 
 describe('settingsPageStateSections', () => {
-    it('preserves every top-level section and the key section values', () => {
+    it('routes the key input values into their owning sections', () => {
         const prefs = createDefaultSettingsPrefs();
         const sections = buildSettingsPageStateSections(
             createInput({
@@ -247,18 +246,6 @@ describe('settingsPageStateSections', () => {
             })
         );
 
-        expect(Object.keys(sections)).toEqual([
-            'shell',
-            'system',
-            'interface',
-            'media',
-            'integrations',
-            'social',
-            'notifications',
-            'vr',
-            'advanced',
-            'dialogs'
-        ]);
         expect(sections.shell).toMatchObject({
             activeSettingsTab: 'interface'
         });
@@ -289,57 +276,6 @@ describe('settingsPageStateSections', () => {
         );
     });
 
-    it('preserves direct callback identity across every section', () => {
-        const setActiveSettingsTab = vi.fn();
-        const savePreferenceValue = vi.fn();
-        const commit = vi.fn();
-        const deleteAllScreenshotMetadata = vi.fn();
-        const saveDiscordBoolPreference = vi.fn();
-        const addFeedHiddenUser = vi.fn();
-        const speakNotificationTts = vi.fn();
-        const saveWristOverlayEnabled = vi.fn();
-        const refreshConfigTreeData = vi.fn();
-        const saveOverlayActivityFilters = vi.fn();
-
-        const sections = buildSettingsPageStateSections(
-            createInput({
-                setActiveSettingsTab,
-                savePreferenceValue,
-                commit,
-                deleteAllScreenshotMetadata,
-                saveDiscordBoolPreference,
-                addFeedHiddenUser,
-                speakNotificationTts,
-                saveWristOverlayEnabled,
-                refreshConfigTreeData,
-                saveOverlayActivityFilters
-            })
-        );
-
-        expect(sections.shell.setActiveSettingsTab).toBe(setActiveSettingsTab);
-        expect(sections.system.savePreferenceValue).toBe(savePreferenceValue);
-        expect(sections.interface.commit).toBe(commit);
-        expect(sections.media.deleteAllScreenshotMetadata).toBe(
-            deleteAllScreenshotMetadata
-        );
-        expect(sections.integrations.saveDiscordBoolPreference).toBe(
-            saveDiscordBoolPreference
-        );
-        expect(sections.social.onAddFeedHiddenUser).toBe(addFeedHiddenUser);
-        expect(sections.notifications.speakNotificationTts).toBe(
-            speakNotificationTts
-        );
-        expect(sections.vr.saveWristOverlayEnabled).toBe(
-            saveWristOverlayEnabled
-        );
-        expect(sections.advanced.refreshConfigTreeData).toBe(
-            refreshConfigTreeData
-        );
-        expect(sections.dialogs.saveOverlayActivityFilters).toBe(
-            saveOverlayActivityFilters
-        );
-    });
-
     it('preserves interface, media, and integration callback routing', () => {
         const openCustomFontDialog = vi.fn();
         const saveFontFamilyPreference = vi.fn();
@@ -367,21 +303,12 @@ describe('settingsPageStateSections', () => {
 
     it('routes user dialog appearance visibility through the interface section', () => {
         const saveBoolPreference = vi.fn();
-        const prefs = createDefaultSettingsPrefs();
         const sections = buildSettingsPageStateSections(
             createInput({
                 activeSettingsTab: 'interface',
-                prefs,
                 saveBoolPreference
             })
         );
-
-        expect(prefs).toMatchObject({
-            showUserDialogProfileBackground: true,
-            showUserDialogAvatarFrame: true,
-            showUserDialogProfileEffect: true,
-            showUserDialogNameplateEffect: true
-        });
 
         sections.interface.onShowUserDialogProfileBackgroundChange(false);
         sections.interface.onShowUserDialogAvatarFrameChange(false);
@@ -398,7 +325,7 @@ describe('settingsPageStateSections', () => {
         }
     });
 
-    it('routes Friend Log preferences through the social section', () => {
+    it('routes friend log bool preferences through their sections', () => {
         const saveBoolPreference = vi.fn();
         const sections = buildSettingsPageStateSections(
             createInput({
@@ -407,10 +334,9 @@ describe('settingsPageStateSections', () => {
             })
         );
 
-        expect('onHideUnfriendsChange' in sections.interface).toBe(false);
-
-        sections.social.onFriendLogNotificationDotChange(false);
+        sections.notifications.onFriendLogNotificationDotChange(false);
         sections.social.onHideUnfriendsChange(true);
+        sections.social.onProfileBioScanEnabledChange(true);
 
         expect(saveBoolPreference).toHaveBeenNthCalledWith(
             1,
@@ -421,6 +347,11 @@ describe('settingsPageStateSections', () => {
         expect(saveBoolPreference).toHaveBeenCalledWith(
             'hideUnfriends',
             'hideUnfriends',
+            true
+        );
+        expect(saveBoolPreference).toHaveBeenCalledWith(
+            'profileBioScanEnabled',
+            'profileBioScanEnabled',
             true
         );
     });

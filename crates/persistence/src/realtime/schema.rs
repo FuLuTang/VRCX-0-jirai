@@ -8,17 +8,18 @@ pub fn ensure_realtime_tables(db: &DatabaseService, user_prefix: &str) -> Result
             db.execute_non_query(&sql, &Default::default())?;
         }
         let notification_v1_table = format!("{user_prefix}_notifications");
-        add_column_if_missing(
+        if add_column_if_missing(
             db,
             &notification_v1_table,
             "seen",
             "INTEGER NOT NULL DEFAULT 0",
-        )?;
+        )? {
+            db.execute_non_query(
+                &format!("UPDATE {notification_v1_table} SET seen = 1 WHERE expired = 1"),
+                &Default::default(),
+            )?;
+        }
         add_column_if_missing(db, &notification_v1_table, "location", "TEXT")?;
-        db.execute_non_query(
-            &format!("UPDATE {notification_v1_table} SET seen = 1 WHERE expired = 1 AND seen = 0"),
-            &Default::default(),
-        )?;
         Ok(())
     })
 }
@@ -92,6 +93,7 @@ fn realtime_table_statements(user_prefix: &str) -> Vec<String> {
         format!("CREATE INDEX IF NOT EXISTS {user_prefix}_notifications_v2_seen_created_id_idx ON {user_prefix}_notifications_v2 (seen, created_at DESC, id DESC)"),
         format!("CREATE INDEX IF NOT EXISTS {user_prefix}_notifications_v2_type_created_id_idx ON {user_prefix}_notifications_v2 (type, created_at DESC, id DESC)"),
         format!("CREATE TABLE IF NOT EXISTS {user_prefix}_avatar_history (avatar_id TEXT PRIMARY KEY, created_at TEXT, time INTEGER)"),
+        // Recorded since 2026-08-26; earlier visits only have the cumulative `_avatar_history.time`.
         format!("CREATE TABLE IF NOT EXISTS {user_prefix}_avatar_wear_log (id INTEGER PRIMARY KEY AUTOINCREMENT, avatar_id TEXT NOT NULL, started_at TEXT NOT NULL, ended_at TEXT NOT NULL, time INTEGER NOT NULL)"),
         format!("CREATE INDEX IF NOT EXISTS {user_prefix}_avatar_wear_log_ended_idx ON {user_prefix}_avatar_wear_log (ended_at)"),
         format!("CREATE INDEX IF NOT EXISTS {user_prefix}_avatar_wear_log_started_idx ON {user_prefix}_avatar_wear_log (started_at)"),

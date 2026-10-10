@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { offlinePresence, onlinePresence } from '@/test/presenceFixtures';
+
 import {
     languageCodeLabel,
     languageTooltipLabel,
@@ -19,16 +21,16 @@ describe('friendListDisplay', () => {
         expect(languageTooltipLabel({}, '')).toBe('');
     });
 
-    it('shows status text, indicator state, and sort rank for friend status badges', () => {
+    it('shows status text and indicator state for friend status badges', () => {
         const active = resolveFriendStatusMeta({
             status: 'active',
             statusDescription: '',
-            state: 'online'
+            $presence: onlinePresence()
         });
         expect(active.label).toBe('');
-        expect(active.badgeVariant).toBe('outline');
-        expect(active.showIndicator).toBe(true);
-        expect(active.sortRank).toEqual(expect.any(Number));
+        expect(active.statusDotClassName).toBe(
+            'user-status-indicator online bg-[var(--status-online)]'
+        );
 
         const custom = resolveFriendStatusMeta({
             status: 'busy',
@@ -36,8 +38,19 @@ describe('friendListDisplay', () => {
         });
         expect(custom.label).toBe('Do not disturb');
 
-        const empty = resolveFriendStatusMeta(null);
-        expect(empty.badgeVariant).toBe('outline');
-        expect(empty.showIndicator).toBe(false);
+        expect(resolveFriendStatusMeta(null).statusDotClassName).toBe('');
+    });
+
+    it('ranks join me, active, ask me, busy, then offline friends for sorting', () => {
+        const ranks = [
+            { status: 'join me', $presence: onlinePresence() },
+            { status: 'active', $presence: onlinePresence() },
+            { status: 'ask me', $presence: onlinePresence() },
+            { status: 'busy', $presence: onlinePresence() },
+            { status: 'active', $presence: offlinePresence }
+        ].map((friend) => resolveFriendStatusMeta(friend).sortRank);
+
+        expect([...ranks].sort((left, right) => left - right)).toEqual(ranks);
+        expect(new Set(ranks).size).toBe(ranks.length);
     });
 });
