@@ -1,126 +1,86 @@
 <div align="center">
 
-# <img src="images/VRCX-0.png" alt="VRCX-0 Logo" width="25"> VRCX-0
+# <img src="images/VRCX-0.png" alt="项目图标" width="32"> VRCX-0-jirai
 
-### The fast, lightweight VRCX.
-
-English | [Français](README.fr-FR.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-Hant.md) | [日本語](README.ja-JP.md) | [한국어](README.ko-KR.md)
-
-[![Release](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Map1en/VRCX-0/badge-data/version.json&style=flat&color=4c566a&labelColor=1f2328&logo=github&logoColor=white)](https://github.com/Map1en/VRCX-0/releases/latest)
-[![Downloads](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Map1en/VRCX-0/badge-data/downloads.json&style=flat&color=4c566a&labelColor=1f2328)](https://github.com/Map1en/VRCX-0/releases)
-[![Windows installer size](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Map1en/VRCX-0/badge-data/windows-installer-size.json&style=flat&label=installer&color=4c566a&labelColor=1f2328&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ZmZiI%2BPHBhdGggZD0iTTIuNCAyLjRoOC41djguNUgyLjR6TTEzLjEgMi40SDIxLjZ2OC41aC04LjV6TTIuNCAxMy4xaDguNVYyMS42SDIuNHpNMTMuMSAxMy4xSDIxLjZWMjEuNmgtOC41eiIvPjwvc3ZnPg%3D%3D)](https://github.com/Map1en/VRCX-0/releases/latest)
-[![Discord](https://img.shields.io/discord/1494343220467994644?style=flat&logo=discord&logoColor=white&label=discord&color=5865f2&labelColor=1f2328)](https://discord.gg/fehKP3SVPN)
-<br>
-[![CI](https://img.shields.io/github/actions/workflow/status/Map1en/VRCX-0/ci.yml?branch=master&label=ci&style=flat&labelColor=1f2328)](https://github.com/Map1en/VRCX-0/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Map1en/VRCX-0/badge-data/coverage.json&style=flat&color=4c566a&labelColor=1f2328)](https://github.com/Map1en/VRCX-0/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/license-GPL--3.0-4c566a?style=flat&labelColor=1f2328)](LICENSE)
-
-[![Download](https://img.shields.io/badge/Download%20VRCX--0-4340a2?style=for-the-badge)](https://github.com/Map1en/VRCX-0/releases/latest)
-
-Windows · macOS · Linux
-
-![VRCX-0](images/screenshot-user-dialog.webp)
+基于 [VRCX-0](https://github.com/Map1en/VRCX-0) 的地雷版：延续 [VRCX-jirai](https://github.com/FuLuTang/VRCX-jirai) 的部分社交记录与展示功能。
 
 </div>
 
-VRCX-0 is a ground-up rewrite of VRCX by one of its former maintainers, with a Rust backend (Tauri + React) and significantly improved performance: years of accumulated history stay smooth, and both memory usage and install size are far below the original.
+这是面向 VRChat 的非官方桌面客户端分支。它以 VRCX-0 的 Rust、Tauri 和 React 实现为基础，将旧版 VRCX-jirai 的部分功能按新架构重新实现；不是旧版 Electron 客户端的直接升级，也不代表旧版数据库或全部交互都已原样迁移。
 
-On first launch it automatically imports your existing VRCX data and settings. The original data is never modified — you can switch back at any time.
+> 本页描述的是当前 `port/legacy-audit-simple-ui` 移植分支中的代码。该分支的功能不应被理解为已经包含在仓库的 `main` 分支或上游 VRCX-0 的安装包中。部分桌面交互仍需在实际运行环境中手动验收。
 
-VRCX is a mature, stable release; VRCX-0 is where new features are being built.
+## 已实现的地雷版功能
 
-## Install
+### 社交记录与关系图
 
-Grab the file for your platform from the [latest release](https://github.com/Map1en/VRCX-0/releases/latest):
+- **共同实例查询**：在两位好友的已有位置记录中查找同处一个实例的时间段，查看重叠时长、进入先后和自己是否也在场。结果只反映本地已记录的历史，不能据此断言两人约好同行。
+- **关系时间线**：按已保存的位置与上下线历史展示与各人的相处时间，支持按时间范围查看和好友筛选。
+- **好友关系图增强**：在互惠好友关系图上显示已跟踪的非好友，并通过独立的手动关系记录添加或删除绿色关系线；人工添加的线不会写入上游互惠关系快照。
+- **追踪非好友**：可通过用户编号或非好友资料页管理追踪名单，在侧栏查看；资料刷新会将已跟踪对象纳入个人简介和状态变更记录。名单与历史按当前登录账户隔离，不会把追踪对象伪装成好友。
 
-| Platform              | File                                        |
-| --------------------- | ------------------------------------------- |
-| Windows               | `VRCX-0_<version>_windows_x86_64_setup.exe` |
-| macOS (Apple Silicon) | `VRCX-0_<version>_macos_aarch64.dmg`        |
-| macOS (Intel)         | `VRCX-0_<version>_macos_x86_64.dmg`         |
-| Linux                 | `.AppImage`, `.deb`, or `.rpm`              |
+### 个人资料与历史
 
-You only need to do this once — VRCX-0 updates itself from then on.
+- **个人简介差异**：在用户资料中对比历史简介的增删内容；相近时间内的多次修改会合并展示。
+- **在线状态分布**：在用户资料中按需统计已有记录中的在线灯色时长，计算时排除离线区间；也可查看自己的记录。没有被记录的时段无法还原。
+- **启动时补记上线**：好友列表加载后，若好友目前在线，而最近一条上下线记录为离线或尚无记录，就以当前确认时间写入一条上线记录；不会倒推实际上线时间或补写下线记录。
+- **自动资料抓取**：启动或好友刷新后，对好友及已跟踪的非好友去重抓取资料；仅在简介或受支持的在线状态确有变化时写入历史。同步进度可在工具页的自动化工作流中查看，也可取消正在运行的任务。
 
-On Linux, **Settings → System → Hardware acceleration (experimental)** is off
-by default and applies after a restart. After enabling, confirm that the interface
-works within 30 seconds of startup; otherwise acceleration is turned off and
-VRCX-0 restarts. If the application crashes or is forcibly closed before
-confirmation, the next launch also starts with acceleration off. Setting
-`WEBKIT_DISABLE_DMABUF_RENDERER` yourself hides the option and leaves the
-rendering mode entirely to your environment.
+### 日常操作
 
-## Highlights
+- **动态页图片拖放**：将单张图片拖入好友动态页的指定区域，可转到图库中对应的图片、图标、表情、贴纸或照片分类，继续使用现有的裁剪与上传流程。
+- **开发者群自动加入**：在设置启用对应选项后，加载当前账户的群组列表时，若尚未加入指定群组，会尝试加入并刷新列表。此操作依赖 VRChat 群组接口及账户权限。
 
-- **Years of history won't slow it down** — data that makes VRCX visibly
-  sluggish stays smooth in VRCX-0; it runs fine even on a potato PC or a home
-  server
-- **About 50%–70% less memory than VRCX** in normal use
-- **Background mode** brings memory down to just tens of MB while all core
-  features keep running
-- **Smaller than a single avatar bundle** — just over 10 MB to download, just
-  over 30 MB on disk; over 10× smaller than VRCX
-- **Zero-friction migration** — your VRCX database and settings import
-  automatically; the original data is never modified
+以上条目描述的是现有功能入口和数据处理边界，并不保证网络接口始终可用，也不保证离线期间未被记录的活动能够恢复。VRChat 的隐私设置和接口可见性仍然适用；请尊重他人的隐私，不要把本地记录或推测当作他人的真实关系证明。
 
-Beyond that:
+## VRCX-0 基础能力
 
-- **Social AI** — a built-in assistant that helps you make sense of your VRChat
-  life: ask who you play with most, who you're drifting away from, or the best
-  time to catch friends online. Connect your own AI service to get started
-- **MCP server** — let external AI tools access your local social data directly,
-  far more flexible than the built-in assistant; recommended for advanced users
-- **Per-account local history** — game logs and account-specific history are
-  stored separately, so activity no longer gets mixed into a single timeline
-  when you use multiple accounts
-- **Backup & restore** — one-click compressed backup of your database, with
-  scheduled automatic backups and multiple versions; restore from any backup at
-  any time
-- **Shareable world collections** — turn your favorite worlds into a shareable
-  page others can browse, open, or import; also supports share links for
-  individual worlds and avatars
-- **Social Automation** — auto-switch your status and bio based on time of day,
-  instance type, or who you're with; auto-accept invite requests; restores your
-  previous state when rules expire
-- **Lightweight VR wrist overlay** — supports OpenVR (SteamVR) and
-  **OpenXR on Linux (tested with WiVRn)**
-- **Community Themes** — browse and install themes from a catalog, set a custom
-  background image, and layer your own CSS on top
-- **Notifications** — desktop, text-to-speech, VR overlay, wrist overlay, and
-  webhooks — five channels independently configured per event type; webhooks
-  use a Discord-compatible format
-- Full keyboard navigation
-- Integration API for third-party apps — real-time room data while in-game, expanding over time
-- Headless mode for advanced setups — see `crates/headless`
+本项目保留 VRCX-0 的好友、动态、世界、图库等基础功能，以及其本地数据存储与桌面应用架构。VRCX-0 支持导入原版 VRCX 的已有数据和设置；具体行为以所运行版本为准。这里列出的地雷版功能是**在 VRCX-0 基础上的增量**，并非将上游已有功能据为本分支原创。
 
-## License
+## 获取与使用
 
-VRCX-0 is licensed under the GNU General Public License v3.0 (GPLv3).
+请先确认需要的是本仓库的构建，而不是[上游 VRCX-0 的发布包](https://github.com/Map1en/VRCX-0/releases)。如需查看本项目是否提供可用安装包，请访问[本仓库发布页](https://github.com/FuLuTang/VRCX-0-jirai/releases)；没有适用的发布包时，可按下文从源码构建。首次使用前建议备份自己的数据。
 
-[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FMap1en%2FVRCX-0.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FMap1en%2FVRCX-0?ref=badge_large)
+常用入口：
 
-## Building from source
+| 想做什么                                       | 在应用中查看的位置                   |
+| ---------------------------------------------- | ------------------------------------ |
+| 查看两位好友的共同实例、关系时间线或好友关系图 | 图表页面                             |
+| 查看简介差异与在线状态分布                     | 用户资料页                           |
+| 添加或移除追踪对象                             | 非好友资料菜单、侧栏追踪名单         |
+| 添加或移除人工关系线                           | 图表页面的好友关系图                 |
+| 查看或取消自动资料抓取                         | 工具页面的自动化工作流               |
+| 上传好友动态页的图片                           | 将单张图片拖入动态页面显示的投放区域 |
 
-Use these steps to contribute or build VRCX-0 locally. Before contributing, see [CONTRIBUTING.md](CONTRIBUTING.md).
+## 从源码构建
 
-Requirements: Node.js ≥ 24.10, npm ≥ 11.5, and a stable Rust toolchain via rustup.
-On Windows, also install **Visual Studio Build Tools** with the **Desktop development with C++** workload.
+需要 Node.js 24.10 或更新版本、npm 11.5 或更新版本，以及稳定版 Rust 工具链。Windows 还需要安装 Visual Studio 构建工具中的“使用 C++ 的桌面开发”组件，并在可用的开发者命令行环境中构建。其他系统还需满足 [Tauri 的平台依赖](https://v2.tauri.app/start/prerequisites/)。
 
 ```bash
-git clone https://github.com/Map1en/VRCX-0
-cd VRCX-0
-
-npm install
-```
-
-Start the dev server:
-
-```bash
+git clone https://github.com/FuLuTang/VRCX-0-jirai.git
+cd VRCX-0-jirai
+npm ci
 npm run tauri:dev
 ```
 
-Build for release (skip code signing and installer):
+不签名且不打安装包的构建命令：
 
 ```bash
 npm run tauri:build -- --no-sign --no-bundle
 ```
+
+参与开发前可阅读[贡献说明](CONTRIBUTING.md)。
+
+## 功能记录
+
+| 阶段       | 已落实的内容                                                                     |
+| ---------- | -------------------------------------------------------------------------------- |
+| 基础移植   | 分支品牌、个人简介差异、共同实例查询和关系时间线                                 |
+| 后续移植   | 在线状态分布、动态页到图库的图片拖放、开发者群自动加入、同步工作流与启动上线补记 |
+| 数据与资料 | 已跟踪非好友、独立的手动关系线、好友及追踪对象的资料变化抓取                     |
+
+本表是功能范围记录，不作为安装包版本号或发布承诺；详细的历史与实现边界以仓库代码和提交记录为准。
+
+## 许可与声明
+
+本项目遵循 [GNU 通用公共许可证第 3 版](LICENSE)。VRCX-0-jirai 与 VRChat 官方无隶属或背书关系；VRChat 及相关标识属于各自权利人。
