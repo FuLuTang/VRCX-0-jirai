@@ -2,11 +2,9 @@
 
 use tauri::State;
 use vrcx_0_application_activity::notification::{
-    NotificationActivityFiltersSetInput, OverlayActivityPreferenceFilters,
+    ActivityFilterProfile, NotificationActivityFilterProfiles, NotificationActivityFiltersSetInput,
 };
-use vrcx_0_application_activity::{
-    overlay_activity_type_definitions, OverlayActivityTypeDefinition,
-};
+use vrcx_0_application_activity::{activity_type_definitions, ActivityTypeDefinition};
 
 use crate::error::AppError;
 use crate::state::AppState;
@@ -27,21 +25,22 @@ pub fn app__relationship_recommendations_set(
 
 #[tauri::command(async)]
 #[specta::specta]
-pub fn app__overlay_activity_definitions_get(
-) -> Result<Vec<OverlayActivityTypeDefinition>, AppError> {
-    Ok(overlay_activity_type_definitions())
+pub fn app__overlay_activity_definitions_get() -> Result<Vec<ActivityTypeDefinition>, AppError> {
+    Ok(activity_type_definitions())
 }
 
 #[tauri::command(async)]
 #[specta::specta]
-pub fn app__overlay_activity_filters_set(
+pub fn app__notification_activity_filters_get(
     state: State<'_, AppState>,
-    filters: OverlayActivityPreferenceFilters,
-) -> Result<(), AppError> {
-    state
-        .runtime_host()
-        .set_overlay_activity_filters(filters)
-        .map_err(AppError::from)
+) -> NotificationActivityFilterProfiles {
+    state.runtime_host().notification_activity_filter_profiles()
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn app__notification_test_send(state: State<'_, AppState>, message: String) {
+    state.runtime_host().send_test_notification(&message);
 }
 
 #[tauri::command(async)]
@@ -49,7 +48,7 @@ pub fn app__overlay_activity_filters_set(
 pub fn app__notification_activity_filters_set(
     state: State<'_, AppState>,
     input: NotificationActivityFiltersSetInput,
-) -> Result<(), AppError> {
+) -> Result<ActivityFilterProfile, AppError> {
     state
         .runtime_host()
         .set_notification_activity_filters(input)

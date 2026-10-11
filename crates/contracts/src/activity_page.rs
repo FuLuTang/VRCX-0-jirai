@@ -116,6 +116,7 @@ pub struct ActivityPageFadingRow {
 pub struct ActivityPagePeople {
     pub order: ActivityCompanionOrder,
     pub companions: Vec<ActivityPageCompanionRow>,
+    pub strangers: Vec<ActivityPageCompanionRow>,
     pub fading: Vec<ActivityPageFadingRow>,
     pub encountered_count: i64,
     pub new_face_count: i64,
@@ -162,4 +163,40 @@ pub struct CachedActivityPage {
     pub view: ActivityPageView,
     pub built_from_cursor: String,
     pub payload_version: i64,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ActivityJourneyDayInput {
+    pub owner_user_id: OwnerId,
+    pub from_ms: i64,
+    pub to_ms: i64,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ActivityJourneyDaysInput {
+    pub owner_user_id: OwnerId,
+    pub utc_offset_minutes: i64,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ActivityJourneyCompanion {
+    pub user_id: String,
+    pub display_name: String,
+    pub is_friend: bool,
+    pub shared_ms: i64,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ActivityJourneyVisit {
+    pub location: String,
+    pub world_id: String,
+    pub world_name: String,
+    pub world_image_url: String,
+    pub start_ms: i64,
+    pub end_ms: i64,
+    pub companions: Vec<ActivityJourneyCompanion>,
 }

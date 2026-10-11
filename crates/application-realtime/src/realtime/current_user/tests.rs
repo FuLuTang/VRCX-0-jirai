@@ -5,6 +5,8 @@ use vrcx_0_core::realtime::RealtimeWsMessagePayload;
 use vrcx_0_application_core::LocalGameContextSnapshot;
 
 use super::runtime::RealtimeCurrentUserRuntime;
+use crate::realtime::RealtimeCurrentUserOutput;
+use vrcx_0_contracts::realtime::SelfProfileField;
 
 fn game_not_running(available: bool) -> LocalGameContextSnapshot {
     if !available {
@@ -204,6 +206,105 @@ fn refreshed_snapshot_with_stale_sequence_is_dropped() {
         )
         .expect("fresh sequence applies");
     assert_eq!(output.snapshot["bio"], json!("fresh bio"));
+}
+
+fn user_update_message(user: serde_json::Value) -> RealtimeWsMessagePayload {
+    RealtimeWsMessagePayload {
+        json: json!({
+            "type": "user-update",
+            "content": { "userId": "usr_self", "user": user }
+        }),
+        raw: String::new(),
+        received_at: "2026-05-15T00:00:00Z".into(),
+    }
+}
+
+fn self_profile_observations(
+    output: Option<RealtimeCurrentUserOutput>,
+) -> Vec<(SelfProfileField, String)> {
+    output
+        .expect("current user output")
+        .persistence
+        .self_profile_observations
+        .into_iter()
+        .map(|observation| (observation.field, observation.value))
+        .collect()
+}
+
+fn refresh_with(
+    runtime: &RealtimeCurrentUserRuntime,
+    user: serde_json::Value,
+) -> Option<RealtimeCurrentUserOutput> {
+    let sequence = runtime.snapshot_sequence(7).expect("sequence");
+    runtime.apply_refreshed_snapshot_if_sequence(
+        7,
+        sequence,
+        user,
+        json!({}),
+        game_not_running(true),
+    )
+}
+
+fn runtime_with_profile() -> RealtimeCurrentUserRuntime {
+    let runtime = RealtimeCurrentUserRuntime::new();
+    runtime.set_snapshot(
+        "usr_self".into(),
+        7,
+        json!({ "id": "usr_self", "status": "join me", "statusDescription": "hi", "bio": "same" }),
+    );
+    runtime
+}
+
+#[test]
+fn ws_user_update_reports_every_profile_field_it_carries() {
+    let runtime = runtime_with_profile();
+    let update = || {
+        self_profile_observations(runtime.apply_ws_message(
+            7,
+            &user_update_message(json!({
+                "id": "usr_self", "status": "join me", "statusDescription": "hi", "bio": "same"
+            })),
+            game_not_running(true),
+        ))
+    };
+    let expected = vec![
+        (SelfProfileField::Status, "join me".to_string()),
+        (SelfProfileField::StatusDescription, "hi".to_string()),
+        (SelfProfileField::Bio, "same".to_string()),
+    ];
+
+    assert_eq!(update(), expected);
+    assert_eq!(update(), expected);
+}
+
+#[test]
+fn api_refresh_reports_bio_but_leaves_status_to_realtime() {
+    let runtime = runtime_with_profile();
+
+    assert_eq!(
+        self_profile_observations(refresh_with(
+            &runtime,
+            json!({ "id": "usr_self", "status": "busy", "statusDescription": "away", "bio": "edited" }),
+        )),
+        vec![(SelfProfileField::Bio, "edited".to_string())]
+    );
+}
+
+#[test]
+fn updates_without_profile_fields_report_nothing() {
+    let runtime = runtime_with_profile();
+
+    assert!(self_profile_observations(runtime.apply_ws_message(
+        7,
+        &current_user_location_message("wrld_remote:456", "", "2026-05-15T00:00:00Z"),
+        game_not_running(true),
+    ))
+    .is_empty());
+    assert!(self_profile_observations(refresh_with(
+        &runtime,
+        json!({ "id": "usr_self", "bio": null })
+    ))
+    .is_empty());
 }
 
 #[test]
@@ -798,4 +899,38 @@ fn current_user_presence_reports_the_travel_destination_from_the_local_game() {
     let presence = presence_of(&output);
     assert_eq!(presence["place"]["location"]["isTraveling"], true);
     assert_eq!(presence["place"]["travelingTo"]["tag"], "wrld_next:3");
+}
+
+#[test]
+fn avatar_wear_checkpoint_saves_the_open_segment_and_closing_adds_only_the_rest() {
+    let runtime = RealtimeCurrentUserRuntime::new();
+    runtime.set_snapshot(
+        "usr_self".into(),
+        7,
+        json!({ "id": "usr_self", "currentAvatar": "avtr_worn" }),
+    );
+    runtime
+        .apply_game_running_state(7, game_running_at("wrld_1:1", "World"))
+        .expect("game start output");
+    std::thread::sleep(std::time::Duration::from_millis(5));
+
+    let (owner, checkpoint) = runtime
+        .checkpoint_avatar_wear(7, game_running_at("wrld_1:1", "World"))
+        .expect("checkpoint while wearing");
+    let saved = &checkpoint.avatar_time_spent_upserts[0];
+    assert_eq!(owner.as_str(), "usr_self");
+    assert_eq!(saved.avatar_id, "avtr_worn");
+    assert!(saved.time_spent > 0);
+    assert_eq!(saved.time_spent, saved.ended_at_ms - saved.started_at_ms);
+    std::thread::sleep(std::time::Duration::from_millis(5));
+
+    let stopped = runtime
+        .apply_game_running_state(7, game_not_running(true))
+        .expect("game stop output");
+    let closing = &stopped.persistence.avatar_time_spent_upserts[0];
+    assert_eq!(closing.started_at_ms, saved.started_at_ms);
+    assert_eq!(closing.time_spent, closing.ended_at_ms - saved.ended_at_ms);
+    assert!(runtime
+        .checkpoint_avatar_wear(7, game_not_running(true))
+        .is_none());
 }

@@ -1,18 +1,42 @@
-import type { MouseEventHandler, ReactNode } from 'react';
+import {
+    useEffect,
+    useRef,
+    type MouseEventHandler,
+    type ReactNode
+} from 'react';
 
+import { dimBlink } from '@/lib/dimBlink';
 import { cn } from '@/lib/utils';
 import { Button } from '@/ui/shadcn/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/shadcn/tooltip';
 
+export type StatusDotAlert = 'warn' | 'danger';
+
+const ALERT_BLINK = { opacity: 0.15, halfCycles: 6, halfCycleMs: 600 };
+
 export function StatusDot({
     active,
     warn = false,
+    alert,
     className
 }: {
     active: boolean;
     warn?: boolean;
+    alert?: StatusDotAlert | null;
     className?: string;
 }) {
+    const dotRef = useRef<HTMLSpanElement>(null);
+    const alertState = alert ?? (warn ? 'warn' : null);
+
+    useEffect(() => {
+        const dot = dotRef.current;
+        if (!alertState || !dot) {
+            return;
+        }
+        const blink = dimBlink(dot, ALERT_BLINK);
+        return () => blink.cancel();
+    }, [alertState]);
+
     let color = 'bg-muted-foreground/40';
     if (warn) {
         color = 'bg-[var(--status-active)]';
@@ -22,8 +46,9 @@ export function StatusDot({
 
     return (
         <span
+            ref={dotRef}
             className={cn(
-                'inline-block size-2 shrink-0 rounded-full transition-colors duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none',
+                'inline-block size-2 shrink-0 rounded-full transition-colors duration-500 ease-in-out',
                 color,
                 className
             )}
@@ -35,8 +60,10 @@ export function StatusSegment({
     visible = true,
     active = false,
     warn = false,
+    alert,
     showDot = true,
     dimWhenInactive = false,
+    icon,
     label,
     value,
     children,
@@ -51,8 +78,10 @@ export function StatusSegment({
     visible?: boolean;
     active?: boolean;
     warn?: boolean;
+    alert?: StatusDotAlert | null;
     showDot?: boolean;
     dimWhenInactive?: boolean;
+    icon?: ReactNode;
     label: ReactNode;
     value?: ReactNode;
     children?: ReactNode;
@@ -70,16 +99,18 @@ export function StatusSegment({
 
     const content = (
         <>
-            {showDot ? (
+            {icon}
+            {!icon && showDot ? (
                 <StatusDot
                     active={active}
+                    alert={alert}
                     className={dotClassName}
                     warn={warn}
                 />
             ) : null}
             <span
                 className={cn(
-                    'shrink-0 text-xs',
+                    'shrink-0 text-xs transition-colors duration-500 ease-in-out',
                     dimWhenInactive && !active
                         ? 'text-content-tertiary/55'
                         : 'text-content-tertiary',

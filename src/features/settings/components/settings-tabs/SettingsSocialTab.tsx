@@ -61,11 +61,12 @@ export function SettingsSocialTab() {
         useShallow((state) => ({
             recentActionCooldownEnabled: state.recentActionCooldownEnabled,
             recentActionCooldownMinutes: state.recentActionCooldownMinutes,
-            friendLogNotificationDot: state.friendLogNotificationDot,
+            autoDeclineFriendRequests: state.autoDeclineFriendRequests,
             hideUnfriends: state.hideUnfriends,
             profileBioScanEnabled: state.profileBioScanEnabled,
             feedHiddenUsersHideNotifications:
-                state.feedHiddenUsersHideNotifications
+                state.feedHiddenUsersHideNotifications,
+            hidePrivateFromFeed: state.hidePrivateFromFeed
         }))
     );
     const {
@@ -76,8 +77,9 @@ export function SettingsSocialTab() {
         localFavoriteFriendsGroups,
         feedHiddenUsers = [],
         onAddFeedHiddenUser,
+        onAutoDeclineFriendRequestsChange,
         onFeedHiddenUsersHideNotificationsChange,
-        onFriendLogNotificationDotChange,
+        onHidePrivateFromFeedChange,
         onHideUnfriendsChange,
         onProfileBioScanEnabledChange,
         onRemoveFeedHiddenUser,
@@ -191,21 +193,24 @@ export function SettingsSocialTab() {
                         ) : null}
                     </div>
                 </Field>
+                <Field
+                    label={t(
+                        'view.settings.social.interaction.auto_decline_friend_requests'
+                    )}
+                    description={t(
+                        'view.settings.social.interaction.auto_decline_friend_requests_description'
+                    )}
+                >
+                    <Switch
+                        checked={prefs.autoDeclineFriendRequests}
+                        onCheckedChange={onAutoDeclineFriendRequestsChange}
+                    />
+                </Field>
             </SettingsCard>
             <SettingsCard
                 cardId="social.friend-log"
                 title={t('view.settings.appearance.friend_log.header')}
             >
-                <Field
-                    label={t(
-                        'view.settings.appearance.friend_log.show_notification_dot'
-                    )}
-                >
-                    <Switch
-                        checked={prefs.friendLogNotificationDot}
-                        onCheckedChange={onFriendLogNotificationDotChange}
-                    />
-                </Field>
                 <Field
                     label={t(
                         'view.settings.appearance.friend_log.hide_unfriends'
@@ -387,6 +392,19 @@ export function SettingsSocialTab() {
                         onCheckedChange={
                             onFeedHiddenUsersHideNotificationsChange
                         }
+                    />
+                </Field>
+                <Field
+                    label={t(
+                        'view.settings.social.hidden_feed.hide_private_location_changes'
+                    )}
+                    description={t(
+                        'view.settings.social.hidden_feed.hide_private_location_changes_description'
+                    )}
+                >
+                    <Switch
+                        checked={prefs.hidePrivateFromFeed}
+                        onCheckedChange={onHidePrivateFromFeedChange}
                     />
                 </Field>
             </SettingsCard>

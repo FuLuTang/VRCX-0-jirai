@@ -1,10 +1,7 @@
 import { FolderOpenIcon, MoreHorizontalIcon, Trash2Icon } from 'lucide-react';
-import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { commands } from '@/platform/tauri/bindings';
 import { formatDataDirMigrationBytes } from '@/services/dataDirMigrationI18n';
-import { toast } from '@/services/toastService';
 import { normalizeAvatarAutoCleanupPreference } from '@/shared/constants/settings';
 import { dataDirectoryPathForDisplay } from '@/shared/utils/dataDirectoryPath';
 import { useRuntimeStore } from '@/state/runtimeStore';
@@ -34,6 +31,7 @@ import { Field } from '../SettingsField';
 import { SettingsTabContent } from '../SettingsViewParts';
 import { useSettingsAdvancedTabState } from '../useSettingsAdvancedTabState';
 import { AdvancedTroubleshootingGroup } from './AdvancedTroubleshootingGroup';
+import { GameLogImportField } from './GameLogImportField';
 import type { SettingsAdvancedModel } from './settingsAdvancedTypes';
 
 type SettingsAdvancedTabContentProps = {
@@ -52,92 +50,6 @@ function DataDirectoryPath({ value }: DataDirectoryPathProps) {
     );
 }
 
-function DeepLinkRegistrationField() {
-    const { t } = useTranslation();
-    const [registered, setRegistered] = useState<boolean | null>();
-    const [repairing, setRepairing] = useState(false);
-
-    useEffect(() => {
-        let active = true;
-
-        commands
-            .appDeepLinkRegistrationStatus()
-            .then((status) => {
-                if (active) {
-                    setRegistered(status);
-                }
-            })
-            .catch(() => {
-                if (active) {
-                    setRegistered(false);
-                }
-            });
-
-        return () => {
-            active = false;
-        };
-    }, []);
-
-    if (registered === undefined || registered === null) {
-        return null;
-    }
-
-    async function repairRegistration() {
-        setRepairing(true);
-        try {
-            const status = await commands.appDeepLinkRegistrationRepair();
-            setRegistered(status);
-            if (status) {
-                toast.add({
-                    type: 'success',
-                    title: t(
-                        'view.settings.advanced.advanced_ui.behavior.deep_link_repair_success'
-                    )
-                });
-            } else {
-                toast.add({
-                    type: 'error',
-                    title: t(
-                        'view.settings.advanced.advanced_ui.behavior.deep_link_repair_failed'
-                    )
-                });
-            }
-        } catch (error: unknown) {
-            toast.add({
-                type: 'error',
-                title: error instanceof Error ? error.message : String(error)
-            });
-        } finally {
-            setRepairing(false);
-        }
-    }
-
-    return (
-        <Field
-            label={t(
-                'view.settings.advanced.advanced_ui.behavior.deep_link_registration'
-            )}
-            description={t(
-                registered
-                    ? 'view.settings.advanced.advanced_ui.behavior.deep_link_registered'
-                    : 'view.settings.advanced.advanced_ui.behavior.deep_link_not_registered'
-            )}
-        >
-            <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={repairing}
-                onClick={() => void repairRegistration()}
-            >
-                {t(
-                    'view.settings.advanced.advanced_ui.behavior.deep_link_repair'
-                )}
-            </Button>
-        </Field>
-    );
-}
-
 export function SettingsAdvancedTab() {
     const state = useSettingsAdvancedTabState();
     return <SettingsAdvancedTabContent advanced={state} />;
@@ -150,7 +62,6 @@ export function SettingsAdvancedTabContent({
         (state) => state.hostCapabilities.runtimeGameLogIngest.supported
     );
     const {
-        hostPlatform,
         prefs,
         avatarAutoCleanupOptions,
         sqliteTableSizes,
@@ -159,9 +70,6 @@ export function SettingsAdvancedTabContent({
         configTreeData,
         appDataDirState,
         onAutoJoinGroupCertificationChange,
-        onRelaunchVRChatAfterCrashChange,
-        onVrcQuitFixChange,
-        onFocusVrchatOnJoinChange,
         onAutoSweepVRChatCacheChange,
         onUdonExceptionLoggingChange,
         onLogResourceLoadChange,
@@ -198,20 +106,6 @@ export function SettingsAdvancedTabContent({
             >
                 <Field
                     label={t(
-                        'view.settings.advanced.advanced.relaunch_vrchat.header'
-                    )}
-                    description={t(
-                        'view.settings.advanced.advanced.relaunch_vrchat.description'
-                    )}
-                >
-                    <Switch
-                        checked={prefs.relaunchVRChatAfterCrash}
-                        onCheckedChange={onRelaunchVRChatAfterCrashChange}
-                    />
-                </Field>
-
-                <Field
-                    label={t(
                         'view.settings.advanced.advanced.auto_join_group_certification.header'
                     )}
                     description={t(
@@ -223,37 +117,6 @@ export function SettingsAdvancedTabContent({
                         onCheckedChange={onAutoJoinGroupCertificationChange}
                     />
                 </Field>
-
-                <Field
-                    label={t(
-                        'view.settings.advanced.advanced_ui.behavior.quit_header'
-                    )}
-                    description={t(
-                        'view.settings.advanced.advanced_ui.behavior.quit_description'
-                    )}
-                >
-                    <Switch
-                        checked={prefs.vrcQuitFix}
-                        onCheckedChange={onVrcQuitFixChange}
-                    />
-                </Field>
-
-                {hostPlatform === 'windows' ? (
-                    <Field
-                        label={t(
-                            'view.settings.advanced.advanced_ui.behavior.focus_on_join_header'
-                        )}
-                        description={t(
-                            'view.settings.advanced.advanced_ui.behavior.focus_on_join_description'
-                        )}
-                    >
-                        <Switch
-                            checked={prefs.focusVrchatOnJoin}
-                            onCheckedChange={onFocusVrchatOnJoinChange}
-                        />
-                    </Field>
-                ) : null}
-                <DeepLinkRegistrationField />
             </SettingsCard>
 
             <SettingsCard
@@ -539,6 +402,7 @@ export function SettingsAdvancedTabContent({
                         )}
                     </Button>
                 </Field>
+                {gameLogPersistenceSupported ? <GameLogImportField /> : null}
             </SettingsCard>
             <SettingsCard
                 cardId="advanced.usage-data"

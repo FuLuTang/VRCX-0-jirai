@@ -19,12 +19,33 @@ vi.mock('@/components/user-hover-card/UserHoverCard', () => ({
 
 vi.mock('@/components/UserDetailTile', () => ({
     UserDetailContent: ({
+        avatarFrame,
         subline,
         statusDotClassName
     }: {
+        avatarFrame?: ReactNode;
         subline?: ReactNode;
         statusDotClassName?: string;
-    }) => <div data-status-dot={statusDotClassName}>{subline}</div>
+    }) => (
+        <div data-status-dot={statusDotClassName}>
+            {avatarFrame}
+            {subline}
+        </div>
+    )
+}));
+
+vi.mock('@/components/ProfileDecorations', () => ({
+    ProfileAvatarFrame: ({
+        templateId,
+        active
+    }: {
+        templateId: string;
+        active: boolean;
+    }) => <span data-avatar-frame={templateId} data-active={active} />,
+    ProfileNameplate: ({ templateId }: { templateId: string }) => (
+        <span data-nameplate={templateId} />
+    ),
+    useDecorationHover: () => ({ active: false, hoverProps: {} })
 }));
 
 vi.mock('@/ui/shadcn/context-menu', () => ({
@@ -45,7 +66,12 @@ vi.mock('./FriendsSidebarActionItems', () => ({
     FriendActionItems: () => null
 }));
 
-import { activePresence } from '@/test/presenceFixtures';
+import {
+    activePresence,
+    onlinePresence,
+    pendingPresence,
+    travelingPresence
+} from '@/test/presenceFixtures';
 
 import { FriendRow } from './FriendsSidebarFriendRow';
 
@@ -85,5 +111,95 @@ describe('FriendsSidebarFriendRow instance timer', () => {
         );
 
         expect(html).toContain('data-status-dot="user-status-indicator');
+    });
+});
+
+describe('FriendsSidebarFriendRow profile decorations', () => {
+    const friend = {
+        id: 'usr_a',
+        displayName: 'Friend',
+        iconFrame: 'invt_frame',
+        nameplateEffect: 'invt_plate'
+    };
+
+    it('renders the avatar frame and nameplate independently when enabled', () => {
+        const frameOnly = renderToStaticMarkup(
+            <FriendRow friend={friend} appearance={{ showAvatarFrame: true }} />
+        );
+        const nameplateOnly = renderToStaticMarkup(
+            <FriendRow friend={friend} appearance={{ showNameplate: true }} />
+        );
+
+        expect(frameOnly).toContain('data-avatar-frame="invt_frame"');
+        expect(frameOnly).not.toContain('data-nameplate');
+        expect(nameplateOnly).toContain('data-nameplate="invt_plate"');
+        expect(nameplateOnly).not.toContain('data-avatar-frame');
+    });
+
+    it('renders no decorations by default', () => {
+        const html = renderToStaticMarkup(<FriendRow friend={friend} />);
+
+        expect(html).not.toContain('data-avatar-frame');
+        expect(html).not.toContain('data-nameplate');
+    });
+});
+
+describe('FriendsSidebarFriendRow pending offline', () => {
+    it('mutes the whole row only while the friend may be offline', () => {
+        const pending = renderToStaticMarkup(
+            <FriendRow
+                friend={{
+                    id: 'usr_a',
+                    displayName: 'Friend',
+                    $presence: pendingPresence()
+                }}
+            />
+        );
+        const online = renderToStaticMarkup(
+            <FriendRow
+                friend={{
+                    id: 'usr_a',
+                    displayName: 'Friend',
+                    $presence: onlinePresence()
+                }}
+            />
+        );
+
+        expect(pending).toContain('data-pending-offline="true"');
+        expect(pending).toContain('side_panel.pending_offline');
+        expect(online).not.toContain('data-pending-offline=');
+    });
+});
+
+describe('FriendsSidebarFriendRow traveling', () => {
+    const friend = {
+        id: 'usr_a',
+        displayName: 'Friend',
+        iconFrame: 'invt_frame'
+    };
+
+    it('keeps the avatar frame animated while the friend is traveling', () => {
+        const traveling = renderToStaticMarkup(
+            <FriendRow
+                friend={{
+                    ...friend,
+                    $presence: travelingPresence('wrld_next:1')
+                }}
+                appearance={{ showAvatarFrame: true }}
+            />
+        );
+        const settled = renderToStaticMarkup(
+            <FriendRow
+                friend={{ ...friend, $presence: onlinePresence() }}
+                appearance={{ showAvatarFrame: true }}
+            />
+        );
+
+        expect(traveling).toContain(
+            'data-avatar-frame="invt_frame" data-active="true"'
+        );
+        expect(settled).toContain(
+            'data-avatar-frame="invt_frame" data-active="false"'
+        );
     });
 });

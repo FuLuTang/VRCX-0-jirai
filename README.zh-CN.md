@@ -41,7 +41,7 @@ VRCX-0 是 VRCX 的完全重写版本，由 VRCX 前维护者之一开发。基�
 - **侧栏模式** — 以窄侧栏随时关注好友动态；Windows、macOS 支持贴边自动隐藏
 - **快捷键** — 常用操作无需鼠标；Windows 支持全局热键
 - **锁定** — 密码锁定界面，保护你的隐私
-- **分享** — 世界合集、世界、模型、实例均可生成分享链接
+- **分享** — 世界合集、世界、模型、房间均可生成分享链接
 
 ### 进阶
 
@@ -53,14 +53,14 @@ VRCX-0 是 VRCX 的完全重写版本，由 VRCX 前维护者之一开发。基�
 
 | 功能           | VRCX                                           | VRCX-0（+ 为新增）                                  |
 | -------------- | ---------------------------------------------- | --------------------------------------------------- |
-| **社交自动化** | 按是否独处切换状态；自动回复邀请请求           | + 定时规则、多条情境规则与优先级、结束后恢复原状态  |
+| **社交自动化** | 按是否独处切换状态；自动回复加入请求           | + 定时规则、多条情境规则与优先级、结束后恢复原状态  |
 | **通知**       | 桌面、语音、XSOverlay、OVR Toolkit、腕部悬浮层 | + Discord Webhook、勿扰模式；所有通道按事件独立筛选 |
 | **VR 悬浮层**  | 浏览器渲染（100 MB+）；OpenVR                  | + 原生渲染（几十 MB）；OpenXR（**WiVRn 实测通过**） |
 | 截图           | 查看和搜索元数据                               | + 网格视图、批量管理、ZIP 导出                      |
 | 模型详情       | 性能等级、文件大小                             | + 完整性能指标，对照各平台上限                      |
 | 备份           | VRChat 注册表设置                              | + 数据库定时备份、一键恢复                          |
-| 好友位置       | 按同一实例分组                                 | + 世界视图                                          |
-| 群组管理       | 逐个设置可见性                                 | + 批量退出、批量设置可见性；玩家列表显示群组角色    |
+| 好友位置       | 按同一房间分组                                 | + 世界视图                                          |
+| 群组管理       | 逐个设置可见性                                 | + 批量退出、批量设置可见性；玩家列表显示群组身份组  |
 | 主题           | 内置主题、自定义 CSS 文件                      | + 社区主题、背景图片、应用内 CSS 编辑、强调色       |
 | 游戏日志       | 多账号记录混合                                 | 按账号分开存储                                      |
 
@@ -95,7 +95,7 @@ VRCX-0-jirai 正在逐步还原并重写旧版 VRCX-jirai 的部分功能。**�
 | 双人共同实例历史           | **【已接入，待实测】共同实例与时间保留，补本地记录峰值人数；记录不足显示未知，近时出现不再等同相约。见 src/features/charts/TwoPersonRelationshipPageImpl.tsx。**                                                                                                                                                                                                                                                                                                                                                                                                             |
 | 共同好友关系网             | **【已还原/已重写，待实测】**CURRENT 与 OLD 历史边、按账号的追踪节点、手动关系管理和绿灰日期融合已有实现。当前 API 关系普通色、手动绿色、仅 OLD 历史为淡普通色，适配亮暗主题；来源重叠依次优先 API、手动、OLD。非好友详情成功抓取也写 OLD，失败或拒绝共享不刷新最后确认日期；OLD 查询失败仍保留 API 行。手动类型目前为 `friend`。参考：`src/features/charts/MutualFriendsPageImpl.tsx`、`src/lib/mutual-friends/mutualFriendsSigmaGraph.ts`、`crates/application/src/social/mutual_graph_fetch/request.rs`、`crates/persistence/src/mutual_graph.rs`。资料自动采集另见下项。 |
 | Bio Diff                   | **【已还原/已重写】**Git 风格逐行差异和历史切换仍融合在原有个人资料 Bio 面板。相邻间隔不超过 24 小时的连续修改会合并成一组，以组内第一条旧 Bio 和最新 Bio 计算差异；历史按组选择，而不是每次修改单独显示。证据：`src/components/dialogs/user-dialog/components/UserDialogInfoTab.tsx`、`src/components/dialogs/user-dialog/bioHistory.ts`、`crates/application/src/social/profile_bio/mod.rs`。                                                                                                                                                                              |
-| “或许是好友”关系推测       | **【已接入，待实测】移植旧评分／私房优先与过滤；手动关系管理提供证据、确认与本次忽略。真实同房进房提醒默认开启、可关闭，连续同房去重；不伪造日志。见 src/features/charts/relationship-recommendations/。**                                                                                                                                                                                                                                                                                                                                                                   |
+| “或许是好友”关系推测       | **【已接入，待实测】移植旧评分／私房优先与过滤；手动关系管理提供证据、确认与本次忽略。真实同房进房提醒默认开启、可关闭，连续同房去重；本次 VRCX-0 v2.31 通知路由重构后改由 ActivityEvent／ActivityRouter 投递，不伪造日志。见 `crates/application-game/src/activity_events/relationship_recommendations.rs`、`crates/application-activity/src/router/`。**                                                                                                                                                                                                                   |
 | 关系时间轴                 | **【已还原/已重写】**会话和分时间区间排名算法已基于保存的 GPS/离线 Feed 重建，并支持“其他用户”、仅看当前好友和缩放。**【行为或 UI 有出入】**用户补充的旧行为是：停止拖动滑条一秒后再执行数据库查询。当前的一秒延迟只推迟前端图表重算；数据库历史只在加载/手动刷新时查询一次。历史范围受已记录数据限制。算法测试不能证明完整的视觉效果一致。证据：`src/features/charts/relationshipHistory.ts`、相关测试、`src/features/charts/RelationshipTimelinePageImpl.tsx`。                                                                                                            |
 | 仅统计在线时长的灯色分布图 | **【已接入，待实测】保留数字时长，增加 UTC 分桶堆叠占比图、缩放、日期提示与亮暗主题；滑条停止一秒后重算，不逐格查库。自己仅统计有记录的游戏区间。见 UserDialogStatusDistribution.tsx、statusDistributionQuery.ts。**                                                                                                                                                                                                                                                                                                                                                         |
 | Feed 中追踪非好友          | **【已接入，待实测】按账号名单与好友合并去重，自动／手动增强抓取共用资料、名字更新与 Bio／有效灯色历史；自动增强默认开启，保留缺字段保护与账号取消。见 src/services/enhancedInfoFetchService.ts。**                                                                                                                                                                                                                                                                                                                                                                          |
@@ -151,6 +151,7 @@ macOS 首次启动如被系统拦截，请前往 **系统设置 → 隐私与安
 
 - 交流与提问：[Discord](https://discord.gg/fehKP3SVPN)
 - 问题反馈与功能建议：[GitHub Issues](https://github.com/Map1en/VRCX-0/issues)
+- 开发 blog：[blog.vrcx-0.dev](https://blog.vrcx-0.dev/zh/)
 
 ## 从源码构建
 

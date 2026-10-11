@@ -12,10 +12,6 @@ import {
     onlinePresence
 } from '@/test/presenceFixtures';
 
-import {
-    getFriendsLocationsCardRowHeight,
-    getFriendsLocationsDensityConfig
-} from './friendsLocationsDensity';
 import * as friendSections from './friendsLocationsSections';
 import { useFriendsLocationsPageDerivedState } from './useFriendsLocationsPageDerivedState';
 
@@ -84,6 +80,7 @@ function pageInput(
         remoteFavoriteFriendIds: [],
         rosterStatus: 'ready',
         scrollMetrics: { width: 1_000, viewportHeight: 1_000, scrollTop: 0 },
+        showFavoritesInOnline: true,
         showSameInstanceInOnline: true,
         sidebarFavoritePrefs: {
             isDivideByGroup: false,
@@ -129,6 +126,93 @@ describe('useFriendsLocationsPageDerivedState', () => {
         }
     );
 
+    it.each([
+        [true, ['usr_fav', 'usr_plain']],
+        [false, ['usr_plain']]
+    ] as const)(
+        'shows favorite friends in the online view only when enabled (%s)',
+        (showFavoritesInOnline, expectedIds) => {
+            const input = pageInput([
+                { ...friendAt('wrld_away:1'), id: 'usr_fav', displayName: 'A' },
+                {
+                    ...friendAt('wrld_away:2'),
+                    id: 'usr_plain',
+                    displayName: 'B'
+                }
+            ]);
+            input.activeSegment = 'online';
+            input.remoteFavoriteFriendIds = ['usr_fav'];
+            input.showFavoritesInOnline = showFavoritesInOnline;
+            const { result } = renderHook(() =>
+                useFriendsLocationsPageDerivedState(input)
+            );
+
+            expect(
+                result.current.visibleVirtualRows
+                    .flatMap((row) => (row.type === 'cards' ? row.friends : []))
+                    .map((friend) => friend.id)
+                    .sort()
+            ).toEqual(expectedIds);
+        }
+    );
+
+    it('groups favorite friends under their own online section', () => {
+        const input = pageInput([
+            { ...friendAt('wrld_away:1'), id: 'usr_fav', displayName: 'A' },
+            { ...friendAt('wrld_away:2'), id: 'usr_plain', displayName: 'B' }
+        ]);
+        input.activeSegment = 'online';
+        input.remoteFavoriteFriendIds = ['usr_fav'];
+        const { result } = renderHook(() =>
+            useFriendsLocationsPageDerivedState(input)
+        );
+
+        const sections = result.current.visibleVirtualRows.reduce<
+            Record<string, string[]>
+        >((acc, row) => {
+            if (row.type === 'cards') {
+                acc[row.section.key] = [
+                    ...(acc[row.section.key] ?? []),
+                    ...row.friends.map((friend) => friend.id)
+                ];
+            }
+            return acc;
+        }, {});
+        expect(sections).toEqual({
+            'online:favorites': ['usr_fav'],
+            'online:remaining': ['usr_plain']
+        });
+    });
+
+    it('splits online favorite friends by group when the sidebar divides by group', () => {
+        const input = pageInput([
+            { ...friendAt('wrld_away:1'), id: 'usr_fav', displayName: 'A' },
+            { ...friendAt('wrld_away:2'), id: 'usr_plain', displayName: 'B' }
+        ]);
+        input.activeSegment = 'online';
+        input.localFriendFavoriteGroups = ['Besties'];
+        input.localFriendFavorites = { Besties: ['usr_fav'] };
+        input.sidebarFavoritePrefs = {
+            isDivideByGroup: true,
+            selectedGroups: [],
+            groupOrder: []
+        };
+        const { result } = renderHook(() =>
+            useFriendsLocationsPageDerivedState(input)
+        );
+
+        expect(
+            result.current.visibleVirtualRows.flatMap((row) =>
+                row.type === 'cards'
+                    ? row.friends.map((friend) => [row.section.key, friend.id])
+                    : []
+            )
+        ).toEqual([
+            ['online:favorite:local:Besties', 'usr_fav'],
+            ['online:remaining', 'usr_plain']
+        ]);
+    });
+
     it('does not show a previous account snapshot as the current user', () => {
         const input = pageInput([friendAt('wrld_local:1')]);
         input.currentUserSnapshot = {
@@ -149,7 +233,7 @@ describe('useFriendsLocationsPageDerivedState', () => {
     });
 
     it.each(['standard', 'compact', 'dense'])(
-        'uses the %s content heights for each virtual card row without changing the friends',
+        'keeps all friends and section headers in the %s density',
         (density) => {
             const friends = Array.from({ length: 8 }, (_, index) => ({
                 ...friendAt(index < 6 ? 'wrld_remote:2' : 'private'),
@@ -162,7 +246,6 @@ describe('useFriendsLocationsPageDerivedState', () => {
             const { result } = renderHook(() =>
                 useFriendsLocationsPageDerivedState(input)
             );
-            const config = getFriendsLocationsDensityConfig(density);
             const cardRows = result.current.visibleVirtualRows.filter(
                 (row) => row.type === 'cards'
             );
@@ -179,34 +262,6 @@ describe('useFriendsLocationsPageDerivedState', () => {
             const rows = result.current.positionedRows.rows;
             expect(rows.some((row) => row.type === 'header')).toBe(true);
             expect(rows.some((row) => row.type === 'group-header')).toBe(true);
-            for (const [index, row] of rows.entries()) {
-                expect(row.top).toBe(
-                    index === 0
-                        ? 0
-                        : rows[index - 1].top + rows[index - 1].height
-                );
-                if (row.type === 'header' || row.type === 'group-header') {
-                    expect(row.height).toBe(40 + row.topGap);
-                    if (index === 0) {
-                        expect(row.topGap).toBe(0);
-                    }
-                    const next = rows[index + 1];
-                    expect(next?.type).toBe('cards');
-                    if (next?.type === 'cards') {
-                        expect(next.topGap).toBe(row.type === 'header' ? 4 : 0);
-                    }
-                }
-            }
-            for (const row of cardRows) {
-                const expectedHeight = getFriendsLocationsCardRowHeight(
-                    config,
-                    row.section.cardContentMode
-                );
-                expect(row.gridRowHeight).toBe(expectedHeight);
-                expect(row.height).toBe(
-                    expectedHeight + config.gridGap + row.topGap
-                );
-            }
         }
     );
 
@@ -455,6 +510,7 @@ describe('useFriendsLocationsPageDerivedState', () => {
                     viewportHeight: 1000,
                     scrollTop: 0
                 },
+                showFavoritesInOnline: true,
                 showSameInstanceInOnline: true,
                 sidebarFavoritePrefs: {
                     isDivideByGroup: false,

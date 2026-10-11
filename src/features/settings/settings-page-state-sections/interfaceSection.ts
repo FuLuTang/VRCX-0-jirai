@@ -1,13 +1,14 @@
 import type { TrustColorKey } from '@/shared/utils/trustColors';
-import { normalizeFeedTimeDisplayMode } from '@/state/preferencesStore';
-import type { NotificationLayout, TableDensity } from '@/state/shellStore';
+import {
+    normalizeFeedTimeDisplayMode,
+    normalizeUserNameColourStyle
+} from '@/state/preferencesStore';
+import type { TableDensity } from '@/state/shellStore';
 
-import { notificationLayoutOptions } from '../settingsOptions';
 import type { SettingsSectionInput } from '../settingsPageStateSectionTypes';
 
 type InterfaceSectionInput = SettingsSectionInput<
     | 'locale'
-    | 'prefs'
     | 'zoomInput'
     | 'zoomLevel'
     | 'commit'
@@ -29,14 +30,12 @@ type InterfaceSectionInput = SettingsSectionInput<
     | 'saveTrustColor'
     | 'setPrefs'
     | 'saveInterfaceZoomLevel'
-    | 'setNotificationLayoutPreference'
     | 'saveStringPreference'
     | 'setTableDensityPreference'
 >;
 
 export function buildInterfaceSection({
     locale,
-    prefs,
     zoomInput,
     zoomLevel,
     commit,
@@ -58,7 +57,6 @@ export function buildInterfaceSection({
     saveTrustColor,
     setPrefs,
     saveInterfaceZoomLevel,
-    setNotificationLayoutPreference,
     saveStringPreference,
     setTableDensityPreference
 }: InterfaceSectionInput) {
@@ -66,7 +64,6 @@ export function buildInterfaceSection({
         locale,
         zoomInput,
         zoomLevel,
-        notificationLayoutOptions,
         commit,
         setAppLanguagePreference,
         openCustomFontDialog,
@@ -103,40 +100,6 @@ export function buildInterfaceSection({
         },
         onZoomBlur: (value: string) => {
             saveInterfaceZoomLevel(value);
-        },
-        onNotificationLayoutChange: (value: NotificationLayout) => {
-            commit(
-                async () => {
-                    const nextLayout =
-                        await setNotificationLayoutPreference(value);
-                    setPrefs((current) => ({
-                        ...current,
-                        notificationLayout: nextLayout
-                    }));
-                },
-                () => {
-                    const previous = prefs.notificationLayout;
-                    setPrefs((current) => ({
-                        ...current,
-                        notificationLayout: value
-                    }));
-                    return () =>
-                        setPrefs((current) => ({
-                            ...current,
-                            notificationLayout: previous
-                        }));
-                }
-            );
-        },
-        onNotificationIconDotChange: (checked: boolean) => {
-            saveBoolPreference(
-                'notificationIconDot',
-                'notificationIconDot',
-                checked
-            );
-        },
-        onTaskbarIconDotChange: (checked: boolean) => {
-            saveBoolPreference('taskbarIconDot', 'taskbarIconDot', checked);
         },
         onTableDensityChange: (value: TableDensity) => {
             savePreferenceValue('tableDensity', value, () =>
@@ -205,6 +168,83 @@ export function buildInterfaceSection({
                 checked
             );
         },
+        onShowSidebarAvatarFrameChange: (checked: boolean) => {
+            saveBoolPreference(
+                'showSidebarAvatarFrame',
+                'showSidebarAvatarFrame',
+                checked
+            );
+        },
+        onShowSidebarNameplateChange: (checked: boolean) => {
+            saveBoolPreference(
+                'showSidebarNameplate',
+                'showSidebarNameplate',
+                checked
+            );
+        },
+        onShowHoverCardAvatarFrameChange: (checked: boolean) => {
+            saveBoolPreference(
+                'showHoverCardAvatarFrame',
+                'showHoverCardAvatarFrame',
+                checked
+            );
+        },
+        onShowHoverCardProfileEffectChange: (checked: boolean) => {
+            saveBoolPreference(
+                'showHoverCardProfileEffect',
+                'showHoverCardProfileEffect',
+                checked
+            );
+        },
+        onShowHoverCardNameplateChange: (checked: boolean) => {
+            saveBoolPreference(
+                'showHoverCardNameplate',
+                'showHoverCardNameplate',
+                checked
+            );
+        },
+        onShowFriendsLocationsPeopleAvatarFrameChange: (checked: boolean) => {
+            saveBoolPreference(
+                'showFriendsLocationsPeopleAvatarFrame',
+                'showFriendsLocationsPeopleAvatarFrame',
+                checked
+            );
+        },
+        onShowFriendsLocationsPeopleNameplateChange: (checked: boolean) => {
+            saveBoolPreference(
+                'showFriendsLocationsPeopleNameplate',
+                'showFriendsLocationsPeopleNameplate',
+                checked
+            );
+        },
+        onShowFriendsLocationsWorldsAvatarFrameChange: (checked: boolean) => {
+            saveBoolPreference(
+                'showFriendsLocationsWorldsAvatarFrame',
+                'showFriendsLocationsWorldsAvatarFrame',
+                checked
+            );
+        },
+        onShowFriendsLocationsWorldsNameplateChange: (checked: boolean) => {
+            saveBoolPreference(
+                'showFriendsLocationsWorldsNameplate',
+                'showFriendsLocationsWorldsNameplate',
+                checked
+            );
+        },
+        onShowActivityJourneyAvatarFrameChange: (checked: boolean) => {
+            saveBoolPreference(
+                'showActivityJourneyAvatarFrame',
+                'showActivityJourneyAvatarFrame',
+                checked
+            );
+        },
+        onShowActivityJourneyNameplateChange: (checked: boolean) => {
+            saveBoolPreference(
+                'showActivityJourneyNameplate',
+                'showActivityJourneyNameplate',
+                checked
+            );
+        },
         onShowNewDashboardButtonChange: (checked: boolean) => {
             savePreferenceValue('showNewDashboardButton', checked, () =>
                 setShowNewDashboardButtonPreference(checked)
@@ -251,6 +291,13 @@ export function buildInterfaceSection({
                 'randomUserColours',
                 'randomUserColours',
                 checked
+            );
+        },
+        onRandomUserColourStyleChange: (value: string) => {
+            saveStringPreference(
+                'randomUserColourStyle',
+                'randomUserColourStyle',
+                normalizeUserNameColourStyle(value)
             );
         },
         onResetTrustColors: () => {

@@ -13,6 +13,8 @@ export const FRIEND_PROFILE_STRING_FIELDS = [
     'friendKey',
     'iconFrame',
     'iconUrl',
+    'nameplateEffect',
+    'profileEffect',
     'status',
     'statusDescription'
 ] as const;

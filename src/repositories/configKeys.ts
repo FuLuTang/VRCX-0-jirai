@@ -81,6 +81,17 @@ export const ConfigKeys = defineConfigKeys({
     showUserDialogAvatarFrame: { type: 'bool', default: true },
     showUserDialogProfileEffect: { type: 'bool', default: true },
     showUserDialogNameplateEffect: { type: 'bool', default: true },
+    showSidebarAvatarFrame: { type: 'bool', default: true },
+    showSidebarNameplate: { type: 'bool', default: true },
+    showHoverCardAvatarFrame: { type: 'bool', default: true },
+    showHoverCardProfileEffect: { type: 'bool', default: false },
+    showHoverCardNameplate: { type: 'bool', default: false },
+    showFriendsLocationsPeopleAvatarFrame: { type: 'bool', default: true },
+    showFriendsLocationsPeopleNameplate: { type: 'bool', default: false },
+    showFriendsLocationsWorldsAvatarFrame: { type: 'bool', default: true },
+    showFriendsLocationsWorldsNameplate: { type: 'bool', default: true },
+    showActivityJourneyAvatarFrame: { type: 'bool', default: true },
+    showActivityJourneyNameplate: { type: 'bool', default: true },
     hideUserMemos: { type: 'bool', default: false },
     hideUserNotes: { type: 'bool', default: false },
     compactTableMode: { type: 'bool', default: false },
@@ -89,12 +100,14 @@ export const ConfigKeys = defineConfigKeys({
     reducedMotionAndBlur: { type: 'bool', default: false },
     tablePageSize: { type: 'int', default: null },
     randomUserColours: { type: 'bool', default: false },
+    randomUserColourStyle: { type: 'string', default: 'classic' },
     backgroundImageEnabled: { type: 'bool', default: false },
     backgroundImageMode: { type: 'string', default: 'off' },
     backgroundImageProviderId: { type: 'string', default: 'nasa-epic' },
     backgroundImageSnapshots: { type: 'string', default: '{}' },
     backgroundImageCustomSource: { type: 'string', default: '{}' },
     backgroundImageDecorationUrl: { type: 'string', default: '' },
+    backgroundImageScrim: { type: 'string', default: 'balanced' },
     officialBackgroundEnabled: { type: 'bool', default: false },
     officialBackgroundProviderId: { type: 'string', default: 'nasa-epic' },
     officialBackgroundSnapshots: { type: 'string', default: '{}' },
@@ -150,8 +163,11 @@ export const ConfigKeys = defineConfigKeys({
     // ── Settings - Notifications ─────────────────────
     desktopToast: { type: 'string', default: 'Never' },
     afkDesktopToast: { type: 'bool', default: false },
+    overlayToast: { type: 'string', default: 'Game Running' },
     desktopNotificationSound: { type: 'bool', default: false },
+    desktopNotificationAvatars: { type: 'bool', default: true },
     notificationDoNotDisturbEndOnGameStart: { type: 'bool', default: true },
+    busyStatusDoNotDisturb: { type: 'bool', default: true },
     notificationLayout: { type: 'string', default: null },
     notificationTTS: { type: 'string', default: 'Never' },
     notificationTTSVoiceNative: { type: 'string', default: '' },
@@ -170,8 +186,10 @@ export const ConfigKeys = defineConfigKeys({
     hmdNotificationsEnabled: { type: 'bool', default: false },
     hmdNotificationStartMode: { type: 'string', default: 'vrchatVrMode' },
     hmdNotificationTimeout: { type: 'int', default: 5000 },
-    hmdNotificationOpacity: { type: 'int', default: 100 },
+    hmdNotificationOpacity: { type: 'int', default: 90 },
     hmdNotificationPosition: { type: 'string', default: 'bottom' },
+    hmdNotificationStyle: { type: 'string', default: 'standard' },
+    hmdNotificationAvatars: { type: 'bool', default: true },
     webhookEnabled: { type: 'bool', default: false },
     webhookAuthEventsEnabled: { type: 'bool', default: true },
     webhookUrl: { type: 'string', default: '' },
@@ -180,11 +198,6 @@ export const ConfigKeys = defineConfigKeys({
         type: 'string',
         default: DEFAULT_GENERIC_WEBHOOK_FIELDS
     },
-    vrNotificationActivityFilters: { type: 'string', default: '' },
-    desktopNotificationActivityFilters: { type: 'string', default: '' },
-    webhookActivityFilters: { type: 'string', default: '' },
-    ttsNotificationActivityFilters: { type: 'string', default: '' },
-    hmdNotificationActivityFilters: { type: 'string', default: '' },
 
     // ── Settings - Overlay ───────────────────────────
     wristOverlayEnabled: { type: 'bool', default: false },
@@ -200,6 +213,7 @@ export const ConfigKeys = defineConfigKeys({
     // ── Settings - VR Background ─────────────────────
     // ── Auto State Change ────────────────────────────
     autoAcceptInviteRequests: { type: 'string', default: 'Off' },
+    autoDeclineFriendRequests: { type: 'bool', default: false },
     autoAcceptInviteGroups: { type: 'string', default: '[]' },
     presenceAutomationTimeRules: { type: 'string', default: '[]' },
     presenceAutomationContextRules: { type: 'string', default: '[]' },
@@ -270,6 +284,7 @@ export const ConfigKeys = defineConfigKeys({
     FriendLocationCardScale: { type: 'string', default: '1' },
     FriendLocationCardSpacing: { type: 'string', default: '1' },
     FriendLocationDensity: { type: 'string', default: 'compact' },
+    FriendLocationShowFavoritesInOnline: { type: 'bool', default: null },
     FriendLocationShowSameInstance: { type: 'bool', default: null },
     FriendLocationViewMode: { type: 'string', default: 'people' },
     InstanceActivityBarWidth: { type: 'int', default: 25 },
@@ -286,6 +301,8 @@ export const ConfigKeys = defineConfigKeys({
     MutualGraphCommunitySeparation: { type: 'float', default: null },
 
     // ── Activity ─────────────────────────────────────
+    activityPageMode: { type: 'string', default: null },
+    activityJourneyDensity: { type: 'string', default: null },
     activityPageRange: { type: 'string', default: null },
     activityPageShowHomeWorld: { type: 'bool', default: false },
     activityPageCompanionOrder: { type: 'string', default: null },
@@ -348,6 +365,8 @@ export const FAVORITES_LAYOUT_CONFIG_KEYS = Object.freeze({
 });
 
 export const ACTIVITY_PAGE_CONFIG_KEYS = Object.freeze({
+    mode: 'activityPageMode',
+    journeyDensity: 'activityJourneyDensity',
     range: 'activityPageRange',
     showHomeWorld: 'activityPageShowHomeWorld',
     companionOrder: 'activityPageCompanionOrder'

@@ -12,7 +12,7 @@ pub use self_status_history::{
 pub use types::{
     AvatarHistoryUpsert, AvatarTimeSpentUpsert, FriendLogDelete, FriendLogUpsert,
     NotificationExpiration, NotificationV2Update, RealtimePersistenceBatch, RealtimeWriteCounts,
-    SelfProfileField, SelfProfileLogEntry,
+    SelfProfileField, SelfProfileObservation,
 };
 pub use write::{
     insert_startup_online_backfill, profile_feed_reconcile,

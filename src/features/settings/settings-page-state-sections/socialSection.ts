@@ -54,6 +54,20 @@ export function buildSocialSection({
                 checked
             );
         },
+        onAutoDeclineFriendRequestsChange: (checked: boolean) => {
+            saveBoolPreference(
+                'autoDeclineFriendRequests',
+                'autoDeclineFriendRequests',
+                checked
+            );
+        },
+        onHidePrivateFromFeedChange: (checked: boolean) => {
+            saveBoolPreference(
+                'hidePrivateFromFeed',
+                'hidePrivateFromFeed',
+                checked
+            );
+        },
         setRecentActionCooldownEnabledPreference,
         setRecentActionCooldownMinutesPreference,
         toggleLocalFavoriteFriendsGroup,
@@ -65,13 +79,6 @@ export function buildSocialSection({
             saveBoolPreference(
                 'profileBioScanEnabled',
                 'profileBioScanEnabled',
-                checked
-            );
-        },
-        onFriendLogNotificationDotChange: (checked: boolean) => {
-            saveBoolPreference(
-                'friendLogNotificationDot',
-                'friendLogNotificationDot',
                 checked
             );
         },

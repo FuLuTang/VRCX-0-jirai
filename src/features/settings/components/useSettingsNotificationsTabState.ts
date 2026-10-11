@@ -1,7 +1,9 @@
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 
+import { commands } from '@/platform/tauri/bindings';
 import { usePreferencesStore } from '@/state/preferencesStore';
+import { useRuntimeStore } from '@/state/runtimeStore';
 
 import { useSettingsPageSection } from '../SettingsPageStateContext';
 
@@ -10,11 +12,17 @@ export function useSettingsNotificationsTabState() {
     const notifications = useSettingsPageSection('notifications');
     const prefs = usePreferencesStore(
         useShallow((state) => ({
+            notificationLayout: state.notificationLayout,
+            notificationIconDot: state.notificationIconDot,
+            taskbarIconDot: state.taskbarIconDot,
+            friendLogNotificationDot: state.friendLogNotificationDot,
             desktopToast: state.desktopToast,
             afkDesktopToast: state.afkDesktopToast,
             desktopNotificationSound: state.desktopNotificationSound,
+            desktopNotificationAvatars: state.desktopNotificationAvatars,
             notificationDoNotDisturbEndOnGameStart:
                 state.notificationDoNotDisturbEndOnGameStart,
+            busyStatusDoNotDisturb: state.busyStatusDoNotDisturb,
             notificationTTS: state.notificationTTS,
             notificationTTSVoiceNative: state.notificationTTSVoiceNative,
             notificationTTSVolume: state.notificationTTSVolume,
@@ -22,7 +30,15 @@ export function useSettingsNotificationsTabState() {
             notificationTTSNickName: state.notificationTTSNickName
         }))
     );
+    const showTaskbarIconDot = useRuntimeStore(
+        (state) => state.hostCapabilities.platform === 'windows'
+    );
     const {
+        notificationLayoutOptions,
+        onNotificationLayoutChange,
+        onNotificationIconDotChange,
+        onTaskbarIconDotChange,
+        onFriendLogNotificationDotChange,
         desktopToastOptions,
         notificationTtsOptions,
         notificationTtsNameModeOptions,
@@ -44,6 +60,12 @@ export function useSettingsNotificationsTabState() {
 
     return {
         prefs,
+        notificationLayoutOptions,
+        showTaskbarIconDot,
+        onNotificationLayoutChange,
+        onNotificationIconDotChange,
+        onTaskbarIconDotChange,
+        onFriendLogNotificationDotChange,
         desktopToastOptions,
         notificationTtsOptions,
         notificationTtsNameModeOptions,
@@ -67,10 +89,24 @@ export function useSettingsNotificationsTabState() {
                 enabled
             );
         },
+        onDesktopNotificationAvatarsChange: (enabled: boolean) => {
+            saveBoolPreference(
+                'desktopNotificationAvatars',
+                'desktopNotificationAvatars',
+                enabled
+            );
+        },
         onNotificationDoNotDisturbEndOnGameStartChange: (enabled: boolean) => {
             saveBoolPreference(
                 'notificationDoNotDisturbEndOnGameStart',
                 'notificationDoNotDisturbEndOnGameStart',
+                enabled
+            );
+        },
+        onBusyStatusDoNotDisturbChange: (enabled: boolean) => {
+            saveBoolPreference(
+                'busyStatusDoNotDisturb',
+                'busyStatusDoNotDisturb',
                 enabled
             );
         },
@@ -96,6 +132,17 @@ export function useSettingsNotificationsTabState() {
                 'notificationTTSNameMode',
                 value
             );
+        },
+        onSendTestNotification: () => {
+            commands
+                .appNotificationTestSend(
+                    t(
+                        'view.settings.notifications.notifications.test_notification.message'
+                    )
+                )
+                .catch((error) => {
+                    console.warn('Failed to send test notification', error);
+                });
         },
         onNotificationTtsTestVisibleChange: setNotificationTtsTestVisible,
         onNotificationTtsTestChange: setNotificationTtsTest,

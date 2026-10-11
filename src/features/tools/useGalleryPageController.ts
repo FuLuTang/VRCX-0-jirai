@@ -23,7 +23,7 @@ import { useGalleryActions } from './useGalleryActions';
 import { useGalleryBulkActions } from './useGalleryBulkActions';
 import { useGalleryRuntimeState } from './useGalleryRuntimeState';
 
-const GALLERY_GRID_DENSITY_STORAGE_KEY = 'VRCX_GalleryGridDensity';
+const GALLERY_GRID_DENSITY_STORAGE_KEY = 'VRCX_0_GalleryGridDensity';
 
 function readFeedImageDrop(state: unknown): GalleryPendingUpload | null {
     if (!state || typeof state !== 'object') {

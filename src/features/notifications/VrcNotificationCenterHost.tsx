@@ -17,7 +17,10 @@ import { cn } from '@/lib/utils';
 import { openWorldDialog } from '@/services/dialogService';
 import { toast } from '@/services/toastService';
 import { useShellStore } from '@/state/shellStore';
-import { useVrcNotificationStore } from '@/state/vrcNotificationStore';
+import {
+    selectCanMarkAllSeen,
+    useVrcNotificationStore
+} from '@/state/vrcNotificationStore';
 import { Badge } from '@/ui/shadcn/badge';
 import { Button } from '@/ui/shadcn/button';
 import {
@@ -56,6 +59,7 @@ export function VrcNotificationCenterHost() {
     const isCenterOpen = useVrcNotificationStore((state) => state.isCenterOpen);
     const categories = useVrcNotificationStore((state) => state.categories);
     const unseenCount = useVrcNotificationStore((state) => state.unseenCount);
+    const canMarkAllSeen = useVrcNotificationStore(selectCanMarkAllSeen);
     const loadStatus = useVrcNotificationStore((state) => state.loadStatus);
     const detail = useVrcNotificationStore((state) => state.detail);
     const setCenterOpen = useVrcNotificationStore(
@@ -73,6 +77,7 @@ export function VrcNotificationCenterHost() {
         acceptRequestInvite,
         deleteNotification,
         hideNotification,
+        ignoreNotificationLocally,
         markAllSeen,
         markSeen,
         sendBoopReply,
@@ -90,9 +95,6 @@ export function VrcNotificationCenterHost() {
     });
 
     function markAllRead() {
-        if (unseenCount <= 0) {
-            return;
-        }
         void markAllSeen();
     }
 
@@ -170,7 +172,7 @@ export function VrcNotificationCenterHost() {
                                                 aria-label={t(
                                                     'side_panel.notification_center.mark_all_read'
                                                 )}
-                                                disabled={unseenCount <= 0}
+                                                disabled={!canMarkAllSeen}
                                                 onClick={markAllRead}
                                             >
                                                 <CheckCheckIcon data-icon="inline-start" />
@@ -265,6 +267,8 @@ export function VrcNotificationCenterHost() {
                             onSendNotificationResponse:
                                 sendNotificationResponse,
                             onHideNotification: hideNotification,
+                            onIgnoreNotificationLocally:
+                                ignoreNotificationLocally,
                             onDeleteNotification: deleteNotification,
                             onMarkSeen: markSeen,
                             onJoinQueueReady: joinQueueReady

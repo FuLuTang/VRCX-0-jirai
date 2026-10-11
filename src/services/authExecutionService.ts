@@ -5,6 +5,7 @@ import {
     type LoginFailureKind,
     type LoginSessionState
 } from '@/platform/tauri/bindings';
+import { flashWindow } from '@/platform/tauri/webview';
 import authRepository, {
     type SavedAuthSnapshot,
     type SavedCredentialRecord
@@ -20,7 +21,6 @@ import { useFeedLiveStore } from '@/state/feedLiveStore';
 import { useFriendLocationTimeStore } from '@/state/friendLocationTimeStore';
 import { useFriendRosterStore } from '@/state/friendRosterStore';
 import { useModalStore } from '@/state/modalStore';
-import { useNotificationStore } from '@/state/notificationStore';
 import {
     createGroupInstancesState,
     useRuntimeStore
@@ -289,6 +289,8 @@ async function completeTwoFactorChallenge(
     let mode = normalizeTwoFactorMode(challenge.mode);
     let challengeAttemptId = challenge.attemptId;
 
+    flashWindow().catch(() => {});
+
     while (true) {
         ensureCurrentAuthAttempt(attempt);
         const result = await promptForTwoFactorCode(mode);
@@ -446,7 +448,6 @@ export async function logoutWithoutConfirmation() {
 
     useDialogStore.getState().clearDialogState();
     useModalStore.getState().resetModalState();
-    useNotificationStore.getState().resetNotificationState();
     useVrcNotificationStore.getState().resetVrcNotificationState();
 
     if (!currentUserId && sessionPhase !== 'authenticating') {

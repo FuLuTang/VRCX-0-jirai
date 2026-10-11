@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use vrcx_0_application_core::{
-    BackendRuntimeStatusPublisher, InstanceRosterMember, InstanceRosterObserver,
+    ActivityIngress, BackendRuntimeStatusPublisher, InstanceRosterMember, InstanceRosterObserver,
     InstanceRosterSnapshot, RuntimeOperationStatus,
 };
 
@@ -11,6 +11,7 @@ use vrcx_0_contracts::game_log::{GameLogJoinLeaveEntry, GameLogWriteBatch};
 use vrcx_0_core::game_log_parser::GameLogEvent;
 use vrcx_0_core::location::{is_meaningful_world_name, world_id_from_location};
 
+use crate::activity_events::{game_log_activity_events, lobby_avatar_change_event};
 use crate::game_log::host::GameLogHostActions;
 use crate::game_log::ingest::{
     GameLogIngestEngine, GameLogIngestOptions, GameLogIngestOutput, GameLogProcessEvent,
@@ -19,7 +20,6 @@ use crate::game_log::ingest::{
 use crate::game_log::instance_media::InstanceMediaQueue;
 use crate::game_log::runtime_state::{RuntimeSnapshot, RuntimeSnapshotStore};
 use crate::game_log::video::NowPlayingClock;
-use crate::overlay_activity::OverlayActivityGameIngestExt;
 use crate::GameLogEventOrigin;
 use crate::RuntimeAuthScope;
 use crate::RuntimeEventBus;
@@ -27,7 +27,6 @@ use crate::RuntimeGameEventBusExt;
 use crate::{Error, Result};
 use crate::{GameLogPersistenceFallbackPayload, RuntimeGameLogEventPayload};
 use crate::{InstanceMediaPort, RuntimeSyncEngine, TaskSupervisor, VideoMetadataPort, WorldCache};
-use vrcx_0_application_activity::OverlayActivityRuntime;
 
 use self::side_effects::{dispatch_side_effect, GameLogSideEffectDeps};
 use vrcx_0_core::OwnerId;
@@ -73,7 +72,7 @@ pub struct GameLogProcessorDeps {
     pub auth_scope: RuntimeAuthScope,
     pub snapshot: RuntimeSnapshotStore,
     pub host_actions: Arc<dyn GameLogHostActions>,
-    pub overlay_activity: OverlayActivityRuntime,
+    pub activity: Arc<dyn ActivityIngress>,
     pub world_cache: Arc<WorldCache>,
     pub instance_roster_observer: Option<Arc<dyn InstanceRosterObserver>>,
 }
@@ -134,8 +133,8 @@ impl GameLogProcessorDeps {
         };
         self.snapshot.replace(snapshot);
         if let Some((current_location, current_player_user_ids)) = current_instance_presence {
-            self.overlay_activity
-                .set_current_instance_presence(&current_location, current_player_user_ids);
+            self.activity
+                .set_current_instance(&current_location, current_player_user_ids);
         }
         if let (Some(observer), Some(snapshot)) =
             (&self.instance_roster_observer, instance_roster_snapshot)
@@ -170,7 +169,7 @@ pub struct GameLogProcessor {
     pending_write: Arc<Mutex<Option<PendingGameLogWrite>>>,
     recommendations: Arc<
         Mutex<
-            crate::overlay_activity::relationship_recommendations::RelationshipRecommendationCache,
+            crate::activity_events::relationship_recommendations::RelationshipRecommendationCache,
         >,
     >,
 }
@@ -663,7 +662,11 @@ impl GameLogProcessor {
         let current_started_at = snapshot.started_at.clone();
         let scope = self.deps.auth_scope.snapshot();
         let current_user_id = scope.current_user_id.clone();
-        let present = snapshot.players.iter().map(|p| p.user_id.clone()).collect();
+        let present = snapshot
+            .players
+            .iter()
+            .map(|player| player.user_id.clone())
+            .collect::<std::collections::HashSet<_>>();
         let joined = output
             .batch
             .join_leave
@@ -684,13 +687,38 @@ impl GameLogProcessor {
             .last()
             .map(|e| e.created_at.as_str())
             .unwrap_or("");
+        let owner = OwnerId::new(current_user_id.clone());
+        let context = OverlayJoinLeaveSuppressionContext::from_output(
+            output,
+            current_location,
+            current_started_at,
+        );
+        let mut events = game_log_activity_events(
+            output,
+            |entry| should_deliver_join_leave_overlay_activity(entry, &context, &current_user_id),
+            |entry| {
+                self.deps
+                    .store
+                    .player_moderation(&owner, &entry.user_id)
+                    .unwrap_or_default()
+            },
+        );
+        events.extend(
+            output
+                .avatar_changes
+                .iter()
+                .filter(|change| {
+                    current_user_id.trim().is_empty() || change.user_id != current_user_id.trim()
+                })
+                .map(lobby_avatar_change_event),
+        );
         if let Ok(mut cache) = self.recommendations.lock() {
             let enabled = self
                 .deps
                 .store
                 .get_bool("relationshipRecommendationOverlayEnabled", true)
                 .unwrap_or(true);
-            for candidate in cache.live_candidates(
+            events.extend(cache.live_candidates(
                 &current_user_id,
                 scope.generation,
                 &snapshot.location,
@@ -700,20 +728,9 @@ impl GameLogProcessor {
                 created_at,
                 enabled && scope.active && snapshot.ready,
                 historical,
-            ) {
-                self.deps.overlay_activity.ingest_candidate(candidate);
-            }
+            ));
         }
-        let context = OverlayJoinLeaveSuppressionContext::from_output(
-            output,
-            current_location,
-            current_started_at,
-        );
-        self.deps
-            .overlay_activity
-            .ingest_game_log_output_with_join_leave_filter(output, |entry| {
-                should_deliver_join_leave_overlay_activity(entry, &context, &current_user_id)
-            });
+        self.deps.activity.ingest_activity(events);
     }
 
     fn enrich_ingest_output_world_names(&self, output: &mut GameLogIngestOutput) {
