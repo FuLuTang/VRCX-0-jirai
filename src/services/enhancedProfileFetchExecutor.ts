@@ -11,8 +11,8 @@ import {
     type RawEnhancedProfile
 } from './enhancedProfileFetchRequest';
 
-// Short sequential pacing; HTTP 429 owns the server-directed queue pause.
-const REQUEST_INTERVAL_MS = 350;
+// Pace individual requests globally while a small worker pool overlaps responses.
+const MAX_CONCURRENT_TARGETS = 3;
 const RETRY_INTERVAL_MS = 3_000;
 
 function requestStatus(error: unknown): number | null {
@@ -139,8 +139,14 @@ export function createProfileFetchExecutor(
         let processed = 0,
             succeeded = 0,
             unchanged = 0;
+        const activeTargets = new Map<
+            string,
+            { userId: string; displayName: string }
+        >();
         const publish = (
-            currentTarget: { userId: string; displayName: string } | null,
+            currentTarget: { userId: string; displayName: string } | null = [
+                ...activeTargets.values()
+            ][0] ?? null,
             pauseReason: string | null = null,
             nextRunAt: string | null = null
         ) =>
@@ -159,7 +165,12 @@ export function createProfileFetchExecutor(
             });
         publish(null);
         const targetEntries = [...targets];
-        for (let index = 0; index < targetEntries.length; index += 1) {
+        let nextIndex = 0;
+        let fatalError: unknown;
+        let fatalOutcome: EnhancedProfileFetchOutcome | null = null;
+        const runTarget = async (
+            index: number
+        ): Promise<EnhancedProfileFetchOutcome | undefined> => {
             const [userId, target] = targetEntries[index];
             abortIfNeeded(context.signal);
             if (!dependencies.isAccountCurrent(accountId))
@@ -317,10 +328,45 @@ export function createProfileFetchExecutor(
             }
             processed += 1;
             publish({ userId, displayName: target.displayName });
-            if (index + 1 < targetEntries.length) {
-                await dependencies.wait(REQUEST_INTERVAL_MS, context.signal);
+        };
+        const worker = async () => {
+            while (
+                nextIndex < targetEntries.length &&
+                !fatalError &&
+                !fatalOutcome
+            ) {
+                const index = nextIndex++;
+                const [userId, target] = targetEntries[index];
+                const activeTarget = {
+                    userId,
+                    displayName: target.displayName
+                };
+                activeTargets.set(userId, activeTarget);
+                publish();
+                try {
+                    const outcome = await runTarget(index);
+                    if (outcome) fatalOutcome = outcome;
+                } catch (error) {
+                    fatalError ??= error;
+                } finally {
+                    activeTargets.delete(userId);
+                    publish();
+                }
             }
-        }
+        };
+        await Promise.all(
+            Array.from(
+                {
+                    length: Math.min(
+                        MAX_CONCURRENT_TARGETS,
+                        targetEntries.length
+                    )
+                },
+                () => worker()
+            )
+        );
+        if (fatalError) throw fatalError;
+        if (fatalOutcome) return fatalOutcome;
         publish(null);
         return {
             status: 'completed',

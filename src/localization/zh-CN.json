@@ -5,6 +5,10 @@
         "count": "已追踪：{count} 人",
         "add_user": "追踪玩家",
         "remove_user": "停止追踪",
+        "confirm_remove": {
+            "title": "停止追踪这名玩家？",
+            "description": "停止追踪后，将不再为这名非好友补充资料。"
+        },
         "empty": "没有符合条件的已追踪陌生人",
         "load_error": "无法加载已追踪陌生人",
         "mutation_error": "无法更新已追踪陌生人"
@@ -988,7 +992,7 @@
                 "display_mode": "标签显示",
                 "subtitle": "重新排列侧边栏标签，或用收藏分组创建新标签。",
                 "display_hint": "标签在侧边栏中的显示方式。",
-                "layout_hint": "拖动可重新排序。好友和群组为内置标签，也可以把收藏分组添加为自定义标签。",
+                "layout_hint": "拖动可重新排序。好友、已追踪陌生人和群组房间为内置标签，也可以把收藏分组添加为自定义标签。",
                 "system_badge": "内置",
                 "world_badge": "世界",
                 "always_visible": "始终显示",

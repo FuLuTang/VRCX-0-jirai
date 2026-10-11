@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
     normalizeSidebarTabLayout,
+    DEFAULT_SIDEBAR_TAB_LAYOUT,
+    getVisibleSidebarTabs,
+    moveSidebarTab,
     serializeSidebarTabLayout,
     type SidebarTabLayout
 } from '@/shared/utils/sidebarTabLayout';
@@ -15,6 +18,52 @@ function savedWorldTabs(saved: unknown) {
 }
 
 describe('saved sidebar layout with world tabs', () => {
+    it('defaults to friends, tracked users, then groups', () => {
+        expect(normalizeSidebarTabLayout([]).map((item) => item.id)).toEqual([
+            'friends',
+            'tracked-nonfriends',
+            'groups'
+        ]);
+        expect(DEFAULT_SIDEBAR_TAB_LAYOUT.map((item) => item.id)).toEqual([
+            'friends',
+            'tracked-nonfriends',
+            'groups'
+        ]);
+    });
+    it('inserts tracked users after friends into legacy layouts without reordering existing tabs', () => {
+        const saved = [
+            DEFAULT_SIDEBAR_TAB_LAYOUT[0],
+            {
+                id: 'custom',
+                type: 'favoriteCollection',
+                name: 'Custom',
+                sourceGroupKeys: []
+            },
+            DEFAULT_SIDEBAR_TAB_LAYOUT[2]
+        ];
+        expect(normalizeSidebarTabLayout(saved).map((item) => item.id)).toEqual(
+            ['friends', 'tracked-nonfriends', 'custom', 'groups']
+        );
+    });
+    it('preserves tracked tab visibility, chosen icon and reordered position through saving', () => {
+        const layout = normalizeSidebarTabLayout([]).map((item) =>
+            item.id === 'tracked-nonfriends'
+                ? { ...item, visible: false, icon: 'lucide:Heart' }
+                : item
+        );
+        const reordered = moveSidebarTab(layout, 1, 2);
+        const restored = normalizeSidebarTabLayout(
+            serializeSidebarTabLayout(reordered)
+        );
+        expect(restored).toEqual(reordered);
+        expect(getVisibleSidebarTabs(restored).map((item) => item.id)).toEqual([
+            'friends',
+            'groups'
+        ]);
+        expect(
+            restored.filter((item) => item.id === 'tracked-nonfriends')
+        ).toHaveLength(1);
+    });
     it('restores a pinned world tab exactly as it was saved', () => {
         const layout: SidebarTabLayout = [
             {
@@ -42,7 +91,7 @@ describe('saved sidebar layout with world tabs', () => {
 
         expect(
             normalizeSidebarTabLayout(serializeSidebarTabLayout(layout))
-        ).toEqual(layout);
+        ).toEqual(normalizeSidebarTabLayout(layout));
     });
 
     it('ignores a custom icon saved on a world tab because the world cover is its icon', () => {

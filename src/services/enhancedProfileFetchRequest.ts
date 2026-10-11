@@ -21,12 +21,15 @@ export type RawEnhancedProfile = {
     [key: string]: unknown;
 };
 type Profile = RawEnhancedProfile;
+const PROFILE_REQUEST_INTERVAL_MS = 300;
+let nextProfileRequestAt = 0;
+let profileRequestsPausedUntil = 0;
 const inflight = new Map<
     string,
     { promise: Promise<Profile>; signal?: AbortSignal }
 >();
 
-function waitBetweenEndpoints(signal?: AbortSignal): Promise<void> {
+function wait(milliseconds: number, signal?: AbortSignal): Promise<void> {
     signal?.throwIfAborted();
     return new Promise((resolve, reject) => {
         const onAbort = () => {
@@ -37,9 +40,30 @@ function waitBetweenEndpoints(signal?: AbortSignal): Promise<void> {
         const timer = setTimeout(() => {
             signal?.removeEventListener('abort', onAbort);
             resolve();
-        }, 350);
+        }, milliseconds);
         signal?.addEventListener('abort', onAbort, { once: true });
     });
+}
+
+async function waitForProfileRequestSlot(signal?: AbortSignal): Promise<void> {
+    const requestAt = Math.max(
+        Date.now(),
+        nextProfileRequestAt,
+        profileRequestsPausedUntil
+    );
+    nextProfileRequestAt = requestAt + PROFILE_REQUEST_INTERVAL_MS;
+    await wait(Math.max(0, requestAt - Date.now()), signal);
+    if (Date.now() < profileRequestsPausedUntil) {
+        return waitForProfileRequestSlot(signal);
+    }
+    signal?.throwIfAborted();
+}
+
+export function pauseEnhancedProfileRequests(milliseconds: number): void {
+    profileRequestsPausedUntil = Math.max(
+        profileRequestsPausedUntil,
+        Date.now() + milliseconds
+    );
 }
 
 /** No completed-result cache: every trigger forces a fresh request. Preserve
@@ -75,6 +99,7 @@ export const fetchRawProfile = (
     const existing = inflight.get(key);
     if (existing && !existing.signal?.aborted) return existing.promise;
     const promise = (async () => {
+        await waitForProfileRequestSlot(input.signal);
         const response = await commands.appVrchatUserGet({
             userId: input.userId || '',
             force: true,
@@ -87,7 +112,7 @@ export const fetchRawProfile = (
         ).json;
         if (!isRecord(json)) throw new Error('Invalid user profile response.');
         ensureScope();
-        await waitBetweenEndpoints(input.signal);
+        await waitForProfileRequestSlot(input.signal);
         ensureScope();
         // /profile is the canonical public Bio source. Call the native command
         // directly to force a request instead of the appearance-query cache.
@@ -137,7 +162,15 @@ export const fetchRawProfile = (
             $jiraiBioUpdated: publicProfile.$jiraiBioUpdated === true,
             $jiraiStatusUpdated: json.$jiraiStatusUpdated === true
         };
-    })();
+    })().catch((error: unknown) => {
+        if (
+            isRecord(error) &&
+            (error.status === 429 || error.statusCode === 429)
+        ) {
+            pauseEnhancedProfileRequests(profileRetryAfterMs(error));
+        }
+        throw error;
+    });
     inflight.set(key, { promise, signal: input.signal });
     void promise
         .finally(() => {

@@ -321,31 +321,38 @@ describe('profileFetchExecutor', () => {
         expect(reconcile).not.toHaveBeenCalled();
     });
 
-    it.each([401])('stops immediately on HTTP %i', async (status) => {
-        const getUserProfile = vi
-            .fn()
-            .mockRejectedValue(
-                createRequestError('upstream failure', status, 'users/usr_a')
-            );
-        const reconcile = vi.fn();
-        const wait = vi.fn().mockResolvedValue(undefined);
-        const run = createProfileFetchExecutor({
-            getFriends: () => ({
-                usr_a: { id: 'usr_a' },
-                usr_b: { id: 'usr_b' }
-            }),
-            isAccountCurrent: () => true,
-            loadTracked: vi.fn().mockResolvedValue(undefined),
-            getTracked: () => ({ currentUserId: 'usr_owner', entries: [] }),
-            getUserProfile,
-            reconcile,
-            wait
-        });
-        await expect(run(context())).rejects.toMatchObject({ status });
-        expect(getUserProfile).toHaveBeenCalledOnce();
-        expect(reconcile).not.toHaveBeenCalled();
-        expect(wait).not.toHaveBeenCalled();
-    });
+    it.each([401])(
+        'stops scheduling after HTTP %i while already-started requests settle',
+        async (status) => {
+            const getUserProfile = vi
+                .fn()
+                .mockRejectedValue(
+                    createRequestError(
+                        'upstream failure',
+                        status,
+                        'users/usr_a'
+                    )
+                );
+            const reconcile = vi.fn();
+            const wait = vi.fn().mockResolvedValue(undefined);
+            const run = createProfileFetchExecutor({
+                getFriends: () => ({
+                    usr_a: { id: 'usr_a' },
+                    usr_b: { id: 'usr_b' }
+                }),
+                isAccountCurrent: () => true,
+                loadTracked: vi.fn().mockResolvedValue(undefined),
+                getTracked: () => ({ currentUserId: 'usr_owner', entries: [] }),
+                getUserProfile,
+                reconcile,
+                wait
+            });
+            await expect(run(context())).rejects.toMatchObject({ status });
+            expect(getUserProfile).toHaveBeenCalledTimes(2);
+            expect(reconcile).not.toHaveBeenCalled();
+            expect(wait).not.toHaveBeenCalled();
+        }
+    );
 
     it('pauses and retries a typed platform rate-limit error within the bounded budget', async () => {
         const getUserProfile = vi.fn().mockRejectedValue(
@@ -399,15 +406,21 @@ describe('profileFetchExecutor', () => {
         });
     });
     it('continues to the next user after bounded server failures', async () => {
-        const getUserProfile = vi
-            .fn()
-            .mockRejectedValueOnce(createRequestError('server', 500, 'users/a'))
-            .mockRejectedValueOnce(createRequestError('server', 500, 'users/a'))
-            .mockResolvedValue({
-                bio: '',
-                status: 'active',
-                statusDescription: ''
-            });
+        const attempts = new Map<string, number>();
+        const getUserProfile = vi.fn(
+            async ({ userId }: { userId?: string }) => {
+                const targetId = userId || '';
+                const count = (attempts.get(targetId) || 0) + 1;
+                attempts.set(targetId, count);
+                if (targetId === 'usr_a')
+                    throw createRequestError('server', 500, 'users/usr_a');
+                return {
+                    bio: '',
+                    status: 'active',
+                    statusDescription: ''
+                };
+            }
+        );
         const run = createProfileFetchExecutor({
             getFriends: () => ({
                 usr_a: { id: 'usr_a' },
@@ -428,7 +441,7 @@ describe('profileFetchExecutor', () => {
         expect(getUserProfile).toHaveBeenCalledTimes(3);
     });
 
-    it('skips an unavailable profile with short sequential pacing', async () => {
+    it('continues fetching other targets without serial per-target delays', async () => {
         const events: string[] = [];
         const getUserProfile = vi
             .fn()
@@ -462,7 +475,7 @@ describe('profileFetchExecutor', () => {
             wait
         });
         const outcome = await run(context());
-        expect(events).toEqual(['request:usr_a', 'wait:350', 'request:usr_b']);
+        expect(events).toEqual(['request:usr_a', 'request:usr_b']);
         expect(outcome).toMatchObject({ result: { failed: 1 } });
     });
 });

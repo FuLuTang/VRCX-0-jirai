@@ -3,7 +3,6 @@ import {
     PlusIcon,
     SearchIcon,
     SlidersHorizontalIcon,
-    UserSearchIcon,
     XIcon
 } from 'lucide-react';
 import { forwardRef, useEffect, useState, type CSSProperties } from 'react';
@@ -131,7 +130,6 @@ export const SidePanel = forwardRef<HTMLElement, SidePanelProps>(
         const [friendRefreshCooldownUntil, setFriendRefreshCooldownUntil] =
             useState(0);
         const [customTabsDialogOpen, setCustomTabsDialogOpen] = useState(false);
-        const [customTabsAutoAdd, setCustomTabsAutoAdd] = useState(false);
         const [filter, setFilter] = useState({ tab: activeTab, query: '' });
         const filterQuery = filter.tab === activeTab ? filter.query : '';
 
@@ -344,13 +342,7 @@ export const SidePanel = forwardRef<HTMLElement, SidePanelProps>(
                 if (item.id !== tabId) {
                     return item;
                 }
-                if (item.type === 'system' && item.systemTab === 'groups') {
-                    return { ...item, visible: Boolean(visible) };
-                }
-                if (item.type !== 'system') {
-                    return { ...item, visible: Boolean(visible) };
-                }
-                return item;
+                return { ...item, visible: Boolean(visible) };
             });
             saveCustomTabs(nextLayout);
         }
@@ -478,33 +470,6 @@ export const SidePanel = forwardRef<HTMLElement, SidePanelProps>(
                             variant="underline"
                             className="w-full flex-col gap-0.5 p-0 [&>[data-slot=tab-indicator]]:hidden"
                         >
-                            <Tooltip>
-                                <TooltipTrigger
-                                    render={
-                                        <TabsTrigger
-                                            value="tracked-nonfriends"
-                                            data-active={
-                                                activeTab ===
-                                                'tracked-nonfriends'
-                                                    ? ''
-                                                    : undefined
-                                            }
-                                            className="data-active:bg-secondary h-auto w-full flex-col justify-center gap-0.5 px-0 py-1.5 sm:h-auto"
-                                        />
-                                    }
-                                >
-                                    <UserSearchIcon
-                                        className="size-4.5"
-                                        data-icon="icon"
-                                    />
-                                    <span className="sr-only">
-                                        {t('tracked_nonfriends.title')}
-                                    </span>
-                                </TooltipTrigger>
-                                <TooltipContent side="left">
-                                    {t('tracked_nonfriends.title')}
-                                </TooltipContent>
-                            </Tooltip>
                             {tabItems.map((item) => {
                                 const Icon =
                                     item.layoutItem.type === 'worldRooms'
@@ -517,7 +482,7 @@ export const SidePanel = forwardRef<HTMLElement, SidePanelProps>(
                                           );
                                 const canHideTab =
                                     item.layoutItem.type !== 'system' ||
-                                    item.layoutItem.systemTab === 'groups';
+                                    item.layoutItem.systemTab !== 'friends';
                                 const hideLabel =
                                     item.layoutItem.type === 'system' &&
                                     item.layoutItem.systemTab === 'groups'

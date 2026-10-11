@@ -6,12 +6,18 @@ import { commands } from '@/platform/tauri/bindings';
 
 import { fetchRawProfile, profileRetryAfterMs } from './profileFetchRequest';
 
+let fakeNow = Date.parse('2100-01-01T00:00:00Z');
+
 afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
 });
 beforeEach(() => {
     vi.useFakeTimers();
+    // The request limiter intentionally persists between calls, so keep fake
+    // time monotonic and beyond any pause reserved by the previous test.
+    fakeNow += 60 * 60_000;
+    vi.setSystemTime(fakeNow);
     vi.mocked(commands.appVrchatUserGet).mockReset();
     vi.mocked(commands.appVrchatUserProfileGet)
         .mockReset()
@@ -64,6 +70,7 @@ describe('raw enhanced profile requests', () => {
             );
         const first = fetchRawProfile({ userId: 'usr_merge' });
         expect(fetchRawProfile({ userId: 'usr_merge' })).toBe(first);
+        await vi.advanceTimersByTimeAsync(1);
         finish({ status: 200, data: '{"id":"usr_merge","bio":""}' });
         vi.mocked(commands.appVrchatUserProfileGet).mockResolvedValueOnce({
             status: 200,
@@ -126,10 +133,38 @@ describe('raw enhanced profile requests', () => {
                 return { status: 200, data: '{"id":"usr_cancel"}' };
             }
         );
-        await expect(
-            fetchRawProfile({ userId: 'usr_cancel', signal: controller.signal })
-        ).rejects.toMatchObject({ name: 'AbortError' });
+        const pending = fetchRawProfile({
+            userId: 'usr_cancel',
+            signal: controller.signal
+        });
+        await vi.advanceTimersByTimeAsync(1);
+        await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
         expect(commands.appVrchatUserProfileGet).not.toHaveBeenCalled();
+    });
+    it('starts requests 300ms apart without waiting for earlier responses', async () => {
+        const startedAt: number[] = [];
+        const pendingResponses: Array<
+            (response: { status: number; data: string }) => void
+        > = [];
+        vi.mocked(commands.appVrchatUserGet).mockImplementation(
+            () =>
+                new Promise((resolve) => {
+                    startedAt.push(Date.now());
+                    pendingResponses.push(resolve);
+                })
+        );
+        const first = fetchRawProfile({ userId: 'usr_a' });
+        const second = fetchRawProfile({ userId: 'usr_b' });
+        await vi.advanceTimersByTimeAsync(1);
+        expect(commands.appVrchatUserGet).toHaveBeenCalledTimes(1);
+        await vi.advanceTimersByTimeAsync(299);
+        expect(commands.appVrchatUserGet).toHaveBeenCalledTimes(2);
+        expect(startedAt[1] - startedAt[0]).toBe(300);
+
+        pendingResponses[0]({ status: 200, data: '{"id":"usr_a"}' });
+        pendingResponses[1]({ status: 200, data: '{"id":"usr_b"}' });
+        await vi.runAllTimersAsync();
+        await Promise.all([first, second]);
     });
     it('reads Retry-After seconds and HTTP dates, falls back to five minutes', () => {
         vi.spyOn(Date, 'now').mockReturnValue(

@@ -189,14 +189,13 @@ export async function loadUserDialogTabData({
 }): Promise<{
     rows: EntityRecord[];
     favoriteWorldGroups: EntityRecord[];
-    mutualGraphUpdated?: boolean;
 }> {
     if (!isUserDialogDataTab(tab)) {
         return { rows: [], favoriteWorldGroups: [] };
     }
 
     if (tab === 'mutual') {
-        const { rows, persisted, observedAt } =
+        const { rows, observedAt } =
             await repositories.userProfileRepository.getAllMutualFriends({
                 userId,
                 endpoint
@@ -206,8 +205,7 @@ export async function loadUserDialogTabData({
                 ...row,
                 $mutualObservedAt: observedAt
             })),
-            favoriteWorldGroups: [],
-            mutualGraphUpdated: persisted
+            favoriteWorldGroups: []
         };
     }
 

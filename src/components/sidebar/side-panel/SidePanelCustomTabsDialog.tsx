@@ -115,6 +115,8 @@ function getTabLabel(item: SidebarTabLayoutItem, t: (key: string) => string) {
     if (item.type !== 'system') {
         return item.name;
     }
+    if (item.systemTab === 'tracked-nonfriends')
+        return t('tracked_nonfriends.title');
     return item.systemTab === 'groups'
         ? t('side_panel.groups')
         : t('side_panel.friends');

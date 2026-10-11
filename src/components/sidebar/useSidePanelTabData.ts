@@ -11,6 +11,7 @@ import { useFavoriteStore } from '@/state/favoriteStore';
 import { useFriendRosterStore } from '@/state/friendRosterStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
 import { useSidebarTabStore } from '@/state/sidebarTabStore';
+import { useTrackedNonfriendsStore } from '@/state/trackedNonfriendsStore';
 
 import type {
     SidePanelPreferences,
@@ -51,6 +52,14 @@ export function useSidePanelTabData({
         (state) => state.auth.currentUserEndpoint
     );
     const currentUserId = useRuntimeStore((state) => state.auth.currentUserId);
+    const trackedAccountId = useTrackedNonfriendsStore(
+        (state) => state.currentUserId
+    );
+    const trackedEntries = useTrackedNonfriendsStore((state) => state.entries);
+    const trackedCount =
+        trackedAccountId === currentUserId && currentUserId
+            ? trackedEntries.length
+            : 0;
     const groupInstances =
         groupInstancesState.userId === currentUserId &&
         groupInstancesState.endpoint === currentEndpoint
@@ -144,6 +153,18 @@ export function useSidePanelTabData({
                         layoutItem: item
                     };
                 }
+                if (item.systemTab === 'tracked-nonfriends') {
+                    const label = t('tracked_nonfriends.title');
+                    const countLabel = String(trackedCount);
+                    return {
+                        value: item.id,
+                        label,
+                        railCountLabel: countLabel,
+                        title: `${label} ${countLabel}`,
+                        icon: item.icon,
+                        layoutItem: item
+                    };
+                }
                 const label = t('side_panel.friends');
                 const countLabel = `${onlineIds.length}/${totalFriendCount}`;
                 const title = `${label} ${countLabel}`;
@@ -162,6 +183,7 @@ export function useSidePanelTabData({
             onlineIds.length,
             t,
             totalFriendCount,
+            trackedCount,
             visibleTabLayout
         ]
     );
@@ -171,7 +193,6 @@ export function useSidePanelTabData({
 
     useEffect(() => {
         if (
-            activeTab !== 'tracked-nonfriends' &&
             tabItems.length &&
             !tabItems.some((item) => item.value === activeTab)
         ) {

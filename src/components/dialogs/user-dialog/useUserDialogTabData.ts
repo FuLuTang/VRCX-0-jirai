@@ -19,7 +19,6 @@ import userProfileRepository from '@/repositories/userProfileRepository';
 import vrchatFavoriteRepository from '@/repositories/vrchatFavoriteRepository';
 import worldProfileRepository from '@/repositories/worldProfileRepository';
 import { onPreferenceChanged } from '@/shared/events/preferenceEvents';
-import { useMutualGraphRevisionStore } from '@/state/mutualGraphRevisionStore';
 import { useVrchatConfigStore } from '@/state/vrchatConfigStore';
 
 import {
@@ -422,24 +421,17 @@ export function useUserDialogTabData({
         setRemoteStatus((current) => ({ ...current, [tab]: 'running' }));
         setRemoteErrors((current) => ({ ...current, [tab]: '' }));
         try {
-            const { rows, favoriteWorldGroups, mutualGraphUpdated } =
-                await loadUserDialogTabData({
-                    tab,
-                    userId: profileUserId,
-                    endpoint: currentEndpoint,
-                    currentUserId: currentUserId || '',
-                    currentAvatarId,
-                    previousAvatarSwapTime,
-                    worldSort,
-                    worldOrder,
-                    repositories: userDialogTabServiceRepositories
-                });
-
-            if (mutualGraphUpdated) {
-                useMutualGraphRevisionStore
-                    .getState()
-                    .bumpRevision(currentUserId || '');
-            }
+            const { rows, favoriteWorldGroups } = await loadUserDialogTabData({
+                tab,
+                userId: profileUserId,
+                endpoint: currentEndpoint,
+                currentUserId: currentUserId || '',
+                currentAvatarId,
+                previousAvatarSwapTime,
+                worldSort,
+                worldOrder,
+                repositories: userDialogTabServiceRepositories
+            });
 
             if (
                 tabRequestIdsRef.current[tab] !== requestId ||

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { openUserDialog } from '@/services/dialogService';
+import { useModalStore } from '@/state/modalStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
 import { useTrackedNonfriendsStore } from '@/state/trackedNonfriendsStore';
 import { Button } from '@/ui/shadcn/button';
@@ -14,6 +15,7 @@ export function TrackedNonfriendsSidebar({
     filterQuery?: string;
 }) {
     const { t } = useTranslation();
+    const confirm = useModalStore((state) => state.confirm);
     const accountId = useRuntimeStore(
         (state) => state.auth.currentUserId || ''
     );
@@ -56,6 +58,19 @@ export function TrackedNonfriendsSidebar({
         }
         if (await add(accountId, normalizedUserId)) {
             setUserId('');
+        }
+    }
+
+    async function removeEntry(targetUserId: string) {
+        const result = await confirm({
+            title: t('tracked_nonfriends.confirm_remove.title'),
+            description: t('tracked_nonfriends.confirm_remove.description'),
+            confirmText: t('common.actions.delete'),
+            cancelText: t('common.actions.cancel'),
+            destructive: true
+        });
+        if (result.ok) {
+            await remove(accountId, targetUserId);
         }
     }
 
@@ -109,7 +124,7 @@ export function TrackedNonfriendsSidebar({
                 {visibleEntries.map((entry) => (
                     <div
                         key={entry.userId}
-                        className="hover:bg-accent flex items-center gap-2 rounded px-2 py-1.5"
+                        className="group hover:bg-accent flex items-center gap-2 rounded px-2 py-1.5"
                     >
                         <button
                             type="button"
@@ -127,8 +142,9 @@ export function TrackedNonfriendsSidebar({
                         <Button
                             size="icon-xs"
                             variant="ghost"
+                            className="opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
                             aria-label={t('tracked_nonfriends.remove_user')}
-                            onClick={() => void remove(accountId, entry.userId)}
+                            onClick={() => void removeEntry(entry.userId)}
                         >
                             <Trash2Icon />
                         </Button>

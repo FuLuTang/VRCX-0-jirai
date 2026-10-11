@@ -984,7 +984,7 @@
                 "display_icon_text": "Icon + Text",
                 "display_icon_only": "Icon Only",
                 "tab_layout": "Tabs",
-                "layout_hint": "Drag to reorder. Friends and Groups are built in — add favorite groups as your own tabs.",
+                "layout_hint": "Drag to reorder. Friends, Tracked users and Groups are built in — add favorite groups as your own tabs.",
                 "system_badge": "Built-in",
                 "world_badge": "World",
                 "always_visible": "Always visible",
@@ -1050,6 +1050,10 @@
         "filter": "Filter tracked users",
         "add_user": "Track user",
         "remove_user": "Stop tracking user",
+        "confirm_remove": {
+            "title": "Stop tracking this user?",
+            "description": "Profile data will no longer be collected for this non-friend."
+        },
         "empty": "No tracked users",
         "load_error": "Could not load tracked users",
         "mutation_error": "Could not update tracked users"
