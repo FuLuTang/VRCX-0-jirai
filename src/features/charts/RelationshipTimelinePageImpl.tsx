@@ -200,6 +200,8 @@ export function RelationshipTimelinePage() {
     const [settledScale, setSettledScale] = useState(53);
     const [showOthers, setShowOthers] = useState(false);
     const [friendsOnly, setFriendsOnly] = useState(false);
+    const [settledShowOthers, setSettledShowOthers] = useState(false);
+    const [settledFriendsOnly, setSettledFriendsOnly] = useState(false);
     const chartElementRef = useRef<HTMLDivElement | null>(null);
     const chartRef = useRef<EChartsType | null>(null);
     const zoomRef = useRef<{ start: number; end: number } | null>(null);
@@ -210,10 +212,12 @@ export function RelationshipTimelinePage() {
         const timeout = window.setTimeout(() => {
             setSettledTopCount(topCount);
             setSettledScale(scale);
+            setSettledShowOthers(showOthers);
+            setSettledFriendsOnly(friendsOnly);
         }, 1000);
 
         return () => window.clearTimeout(timeout);
-    }, [scale, topCount]);
+    }, [friendsOnly, scale, showOthers, topCount]);
 
     useEffect(() => {
         let active = true;
@@ -256,7 +260,7 @@ export function RelationshipTimelinePage() {
             (session) => session.userId !== currentUserId
         );
         let dailyValues = buildRelationshipDailyValues(sessions);
-        if (friendsOnly) {
+        if (settledFriendsOnly) {
             dailyValues = dailyValues.filter((value) =>
                 Object.prototype.hasOwnProperty.call(friendsById, value.userId)
             );
@@ -265,7 +269,7 @@ export function RelationshipTimelinePage() {
             dailyValues,
             settledBucketDays,
             settledTopCount,
-            showOthers,
+            settledShowOthers,
             (userId, fallback) =>
                 String(
                     friendsById[userId]?.displayName ||
@@ -277,11 +281,11 @@ export function RelationshipTimelinePage() {
     }, [
         currentUserId,
         friendsById,
-        friendsOnly,
         rows,
         settledBucketDays,
-        settledTopCount,
-        showOthers
+        settledFriendsOnly,
+        settledShowOthers,
+        settledTopCount
     ]);
 
     useEffect(() => {

@@ -122,13 +122,15 @@ UTC 分桶堆叠占比图、缩放、数字时长、日期提示与亮暗主题�
 
 ## 行为差异与待验收，不预设必须重写
 
-### 关系时间轴滑条与查询 — 待实测
+### 关系时间轴参数防抖与查询 — 已核对，待实测
 
-旧版曾因滑条参数一变就立刻查询数据库而卡顿。当前 [关系时间轴](../src/features/charts/RelationshipTimelinePageImpl.tsx)只在页面加载／手动刷新时执行 `queryRelationshipTimelineHistory`；拖动“用户数量”和“天数／单位”会即时更新滑条数值，但用尾随 1 秒计时器推迟图表重算，连续拖动会重置计时器。因此**当前滑条不会逐格重新 query**。先在正在运行的构建上记录查询次数和拖动帧率：若仍卡，定位是首次全量读库、前端会话重算还是 ECharts 绘制；不要仅为复刻旧调用顺序而重新引入逐格查询。仅当全量历史本身过大时，才考虑把日期／筛选下推 Rust 查询，并对查询做尾随 1 秒 debounce、取消过期结果。
+用户明确希望参数停止变化约 1 秒后再刷新，以免拖动时卡顿。当前 [关系时间轴](../src/features/charts/RelationshipTimelinePageImpl.tsx)在页面加载／账号切换／手动刷新时读取一次完整的 owner-scoped GPS／Offline 历史；Top users、Days per unit、Show others 和 Friends only 现在共用一个尾随 1 秒计时器，变化会重置计时，停下后才重算图表。底部 ECharts dataZoom 只调可视范围，保持即时缩放，不触发数据库查询。这样消除了逐格查询，而不是在停下后重复读取同一份全历史。
 
-验收：连续拖动期间不因每格变化访问数据库；停下约 1 秒后图表更新为最终参数；大数据库下滑条仍可操作；刷新后缩放范围与结果正确。
+代码考古未能在当前可见的旧 `VRCX-0-jirai` Git 历史或 `VRCX-jirai` 中确认“这些滑条每动一次都查数据库”：`VRCX-jirai/src/views/Charts/components/RelationshipTimeline.vue` 的数据查询只发生在 `loadData()`（挂载／刷新），参数变化调用的是 500ms `debouncedRebuildChart()`；当前 React 迁移版加载后端历史也不接收这些参数。若要求严格执行“停 1 秒后发 SQL”，需要有旧实现的提交／文件，或先定义该 SQL 应按什么参数缩小数据范围；否则重复读取相同数据会重新引入原有卡顿。
 
-参考：`VRCX-jirai/src/views/Charts/components/RelationshipTimeline.vue::buildChartData/loadData`（旧图表更新）、`VRCX-0-jirai/src/features/charts/RelationshipTimelinePageImpl.tsx`（现有尾随计时器）、`VRCX-0-jirai/src/repositories/feedRepository.ts::queryRelationshipTimelineHistory`（实际查询入口）。
+验收：拖动／切换多个参数时计时器会重置，最后一次变化后约 1 秒才重算；期间数据库查询数不增加；ECharts 底部缩放仍即时；真实大数据库下图表和缩放保持可用。
+
+参考：`VRCX-jirai/src/views/Charts/components/RelationshipTimeline.vue::debouncedRebuildChart/loadData`；`VRCX-0-jirai/src/features/charts/RelationshipTimelinePageImpl.tsx`（统一参数防抖与页面查询 effect）；`VRCX-0-jirai/src/repositories/feedRepository.ts::queryRelationshipTimelineHistory`（完整历史查询入口）。
 
 ### 启动／周期资料抓取与进度 — 已接入，待实测
 
