@@ -853,6 +853,11 @@
         "clear_selection": "Clear selection"
     },
     "privacy_lock": {
+        "startup_error": {
+            "title": "Couldn't verify the privacy lock",
+            "description": "The interface started, but the local backend failed to initialize or connect. It remains covered to protect your privacy. Retry or check the startup terminal for errors.",
+            "retry": "Retry connection"
+        },
         "locked_title": "Locked",
         "field": {
             "password": "Lock password",
@@ -4055,6 +4060,7 @@
                 "represented_group": "Represented Group",
                 "bio": "Bio",
                 "bio_history": "Bio History",
+                "bio_history_error": "Could not load Bio history.",
                 "status_distribution": "Status Distribution",
                 "refresh_status_distribution": "Refresh status distribution",
                 "status_distribution_hint": "Load observed status history to estimate time by status.",

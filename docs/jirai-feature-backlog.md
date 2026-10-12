@@ -2,11 +2,13 @@
 
 本文记录 `VRCX-0-jirai` 相对 `VRCX-jirai` 尚缺或有行为差异的功能，以及可从 `VRCX-Luo` 借鉴的独立体验。它是后续逐项实现、验收的工作清单，含建议顺序与依赖，不代表待补事项已经完成。每完成一项，应更新状态、对应提交和验证结果；以实际代码与测试为准，不直接复制旧版 Vue/Electron 实现。
 
-状态：`待实现`、`部分实现`、`待实测`、`可选`、`暂缓`、`已完成`。本次复核日期为 **2026-10-11**，代码基准是当前分支合入 `VRCX-0` v2.31.0（`upstream/master`：`620fb2b3a`）后的工作树。代码存在与实机验收通过分别记录；旧任务名里的“自动”也不等于已接入自动调度。更细的旧版功能对照见 [README.zh-CN.md](../README.zh-CN.md#vrcx-jirai-功能还原核对表)。
+状态：`待实现`、`部分实现`、`待实测`、`可选`、`暂缓`、`已完成`。本次复核日期为 **2026-10-12**，代码基准是当前分支合入 VRCX-0 v2.31.0（`620fb2b3a`）后的工作树。代码存在与实机验收通过分别记录；旧任务名里的“自动”也不等于已接入自动调度。更细的旧版功能对照见 [README.zh-CN.md](../README.zh-CN.md#vrcx-jirai-功能还原核对表)。
 
 本文件是后续功能状态的主清单；实施顺序见 [后续迁移计划](jirai-port/后续迁移计划.md)，实机操作见 [待手测清单](jirai-port/待手测清单.md)。`旧版功能清单.md`、`评审结论与迭代计划.md`、`总执行规划.md` 和原 `执行任务/` 保留来源与设计历史，其中旧分支名、环境限制、任务完成状态和排期不代表当前状态。
 
 此次 v2.31.0 合并验证：前端类型检查、3 个冲突相关测试文件共 27 项测试、格式检查与 Vite 生产构建通过；全量前端 lint 被既有的 `src/shared/utils/string.test.ts` 未使用导入告警阻断。Rust 测试和 Specta 绑定生成未能运行：Cargo 锁定的 `tokio 1.53.2` 未缓存，配置的 `127.0.0.1:7890` 代理不可用，离线索引只有 `1.53.1`。生成绑定无法执行的唯一新增枚举项已按 Rust 合同补入 TS 文件；待网络／缓存恢复后仍需重跑绑定生成与 Rust 验证。
+
+2026-10-12 后续接线验证：自身 Bio 历史、个人资料 Activity self 分支与推荐名字打开资料已实现；16 项定向前端测试、TypeScript 检查、persistence 477 项测试（1 项忽略）、application／game／activity／desktop-host 相关 Rust 测试 964 项，以及 Tauri devtools／SteamVR／OpenXR 特性组合的 `cargo check` 均通过。自身 Bio 查询仍待真实账号验收。`tauri:dev` 曾在 Vite 优化依赖后的页面刷新中触发 `softbuffer 0.4.8` Windows 位图断言，桌面运行时稳定性另列为未验收项。
 
 本次 `VRCX-0` v2.31.0 合并主要是兼容上游通知活动路由重构：关系建议进房提醒从旧 Overlay 候选接入 `ActivityEvent`／新 Router，并保留用户已选定的提醒默认值；同时合并 Bio 历史面板与上游简介编辑入口、上游截图／通知／资料等改动，以及已确认默认开启的开发者群自动加入设置。未合并 `badge-data` 分支。
 
@@ -28,10 +30,10 @@
 
 增强抓取、关系功能和灯色占比均已接入；本轮上游合并后前端构建通过，关系提醒已迁入 VRCX-0 新 Router。下一轮不重复重写这几项，先做自己的完整历史视图这一块明确的半成品；搜索按用户决定暂缓，多账号另行设计。各功能仍需按手测清单实机验收。
 
-| 顺序 | 具体交付                                  | 已有部分与待补差距                                                                                                                                                                  | 连带项／依赖                                                                                                                                  |
-| ---- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | 自己的完整历史视图（第 5 项，下一轮建议） | 自己的 Profile 变更已有持久化，活动页有自己的热力图；个人资料页尚未把位置、头像、灯色、Bio 与上下线历史接成可读的完整明细。先核清可用数据源与现有组件，再做最小的个人资料历史呈现。 | 明确区分 Profile 历史与游戏日志；查询必须限定当前账号，缺数据时显示未知／空态，不伪造连续在线记录。优先复用好友资料已有组件和查询，不新建表。 |
-| 2    | 已接入功能的真实使用验收                  | 增强抓取、关系建议／提醒、OLD 关系融合、灯色占比、双人关系与 Feed 拖放均有代码；尚有真实 VR／数据库验证项。                                                                         | 按 [待手测清单](jirai-port/待手测清单.md) 逐项记录通过／失败；发现缺陷再开小修，不把它们误记成从零移植。                                      |
+| 顺序 | 具体交付                                        | 已有部分与待补差距                                                                                                                | 连带项／依赖                                                                                             |
+| ---- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| 1    | 个人资料自身历史查询验收（第 5 项，代码已接入） | 自身 Bio 历史现读当前账号 `self_profile_log`，资料窗口 Activity 按目标玩家传 `isSelf`；好友 Feed Bio 与好友 Activity 保持原查询。 | 用真实账号验证账号切换、历史内容与空态；不扩成“完整历史”或新时间线。                                     |
+| 2    | 已接入功能的真实使用验收                        | 增强抓取、关系建议／提醒、OLD 关系融合、灯色占比、双人关系与 Feed 拖放均有代码；尚有真实 VR／数据库验证项。                       | 按 [待手测清单](jirai-port/待手测清单.md) 逐项记录通过／失败；发现缺陷再开小修，不把它们误记成从零移植。 |
 
 搜索相关按用户决定暂缓：保留第 4 项的来源与差异记录，不纳入近期实施顺序。
 
@@ -82,13 +84,13 @@ UTC 分桶堆叠占比图、缩放、数字时长、日期提示与亮暗主题�
 
 参考：`VRCX-jirai/src/stores/quickSearch.js::loadRecentItems/filterRecentByQuery/supplementWithBioSearch`、`VRCX-jirai/src/services/database/gameLog.js::getRecentlyMetUsers/getRecentlyJoinedLocations`、`VRCX-jirai/src/services/database/feed.js::searchBiosByContent`；当前接点 `VRCX-0-jirai/src/components/sidebar/quick-search/quickSearchHistory.ts`、`VRCX-0-jirai/src/components/sidebar/QuickSearchDialog.tsx`。拼音匹配另见 `VRCX-Luo/src/shared/utils/quickSearchUtils.js`。
 
-### 5. 自己的完整历史视图 — 部分实现
+### 5. 个人资料中的自身历史接线 — 已接入，待实测
 
-自己的资料变化与游戏活动已有持久化路径，现有活动页 `useActivityHeatmap` 明确使用 `isSelf: true` 查询；不能把这部分算成完全未实现。但玩家资料页的 `useUserActivityPanelController` 当前没有显式传 `isSelf`，不能仅凭后端存在该分支就宣布自己的资料页已正确接入，需核入口和数据来源。尚缺的是在个人资料页把位置、头像、灯色、Bio 与上下线历史的明细完整串起来。先核 `self_profile_log`、Feed 和游戏日志各自能读取哪些自己的记录，再复用资料组件展示；现有热力图不等于统一的资料变更时间线。
+自身 Bio 历史现在由窄的 Tauri 查询读取当前账号 `self_profile_log`；好友仍从 Feed 读 Bio。玩家资料窗口 Activity 按 `userId === currentUserId` 传 `isSelf`；独立活动热力图未改。后端查询校验调用方给出的 expected owner 必须等于当前认证 owner，并按该 owner 读表。没有扩成“完整历史”或时间线；位置／头像／灯色不在本项范围。
 
-验收：自己与好友页面的数据归属正确；跨天、重启、无游戏日志及历史空白状态可理解。
+前端定向测试覆盖自己的日志查询、好友 Feed 查询及身份不一致时不查询；Rust 查询有 owner 校验与 Bio 行筛选单测（待 Cargo 可用后执行）。真实账号仍需验收 Bio 内容、切账号／切玩家隔离、Activity 自我数据及空态。
 
-参考：`VRCX-jirai/src/components/dialogs/UserDialog/UserDialogActivityTab.vue`、`VRCX-jirai/src/components/dialogs/UserDialog/UserDialogStatusDistributionTab.vue`。当前写入 `VRCX-0-jirai/crates/application-realtime/src/realtime/current_user/self_profile.rs::append_self_profile_log_entries`；已有自己热力图 `VRCX-0-jirai/src/features/activity/useActivityHeatmap.ts`；activity 接点 `VRCX-0-jirai/src/services/userActivityViewService.ts::loadActivityView`、`VRCX-0-jirai/src/components/dialogs/user-dialog/useUserActivityPanelController.ts`，展示接点 `VRCX-0-jirai/src/components/dialogs/user-dialog/components/UserDialogTabsSection.tsx`。
+参考：`VRCX-jirai/src/components/dialogs/UserDialog/UserDialogActivityTab.vue`。当前自身写入 `VRCX-0-jirai/crates/application-realtime/src/realtime/current_user/self_profile.rs::append_self_profile_observations`；Bio UI 接点 `VRCX-0-jirai/src/components/dialogs/user-dialog/components/UserDialogInfoTab.tsx::UserDialogBioPanel`；Activity 查询接点 `VRCX-0-jirai/src/services/userActivityViewService.ts::loadActivityView`、`VRCX-0-jirai/src/components/dialogs/user-dialog/useUserActivityPanelController.ts`；已有 self 分支示例 `VRCX-0-jirai/src/features/activity/useActivityHeatmap.ts`。
 
 ### 6. 双人关系页的证据边界与人数 — 已接入，待实测
 
@@ -128,15 +130,13 @@ UTC 分桶堆叠占比图、缩放、数字时长、日期提示与亮暗主题�
 
 参考：`VRCX-jirai/src/views/Charts/components/RelationshipTimeline.vue::buildChartData/loadData`（旧图表更新）、`VRCX-0-jirai/src/features/charts/RelationshipTimelinePageImpl.tsx`（现有尾随计时器）、`VRCX-0-jirai/src/repositories/feedRepository.ts::queryRelationshipTimelineHistory`（实际查询入口）。
 
-### 启动／重连补全与资料抓取进度 — 部分实现、待实测
+### 启动／周期资料抓取与进度 — 已接入，待实测
 
-现有实时事件、小时级好友基线、默认关闭的渐进式 Bio 扫描，以及**手动同步工作流**是不同机制；不能把缓存 TTL 或 UI tick 算作后台全员扫描。完整好友基线到达后会自动补录当前确认在线且缺失的 Online 观测；手动工作流可重复补录并刷新资料。**登录／重连不自动触发全好友资料抓取**。旧执行任务 08 要求的自动触发仍未接通，不能因资料获取函数名含 automatic 就标为已完成。
+实时事件、好友小时基线、渐进 Bio 扫描与增强型信息抓取仍是不同机制。增强抓取由启动好友基线完成、每小时基线刷新完成和“立即刷新”触发同一执行器；重连不额外全扫。每轮合并好友与显式追踪非好友，一次资料结果供名字／Bio／灯色／状态比较共用，并与本地关系建议并行显示。Online 补线和启动计时恢复是独立功能，不属于增强抓取。
 
-当前渐进 Bio 扫描每 3 秒尝试一位过期好友，12 小时内检查过的对象跳过；空闲或限流时暂停 5 分钟。手动资料工作流也逐人抓取，但会保存 Bio 和四种主灯色／状态短语，不能简单并行叠加两套全员扫描。后续先统一目标、检查时间、请求节奏与进度，再接自动触发；仍须验证账号切换、成功／未变／失败／取消计数。启动／重连只可保存重新观察到的状态，不能恢复离线期间未知的每一次变化。
+资料请求至少间隔 300 毫秒启动，最多 3 名玩家并行；HTTP 429 暂停整个请求队列。浮窗分别显示好友与追踪非好友人数、两项任务进度、结果和周期信息。自动增强默认开启；关闭后保留 VRCX-0 原有渐进 Bio 扫描设置。代码已接入，真实 API 限流、账号切换和界面结果仍须按手测清单验收。
 
-进度 UI 也还未完全还原：当前 workflow 的汇总是完成／跳过／错误的**动作数**，不是已抓取的人数。`profileFetchExecutor` 虽返回目标数、Bio／Status 更新数、失败数和缺字段数，`SyncWorkflowRunner` 尚未将这些结果保存到快照，`SyncWorkflowDialog` 也未显示逐人进度和结果。下一轮应接上真实的逐人进度、成功／未变／失败与写入计数；不要把“动作完成”写成“所有人抓取成功”。此项与第 1、9 项一起收尾。参考 `VRCX-0-jirai/src/features/workflows/syncWorkflow.ts::SyncWorkflowRunner`、`VRCX-0-jirai/src/features/workflows/SyncWorkflowDialog.tsx`、`VRCX-jirai/src/views/Tools/dialogs/ProfileCompletionDialog.vue`、`VRCX-jirai/src/components/StatusBar.vue`。
-
-参考：`VRCX-jirai/src/coordinators/friendSyncCoordinator.js`（触发时机）、`VRCX-jirai/src/coordinators/infoFetchCoordinator.js::runSilentInfoFetch` 与 `VRCX-jirai/src/views/Tools/dialogs/ProfileCompletionDialog.vue`（抓取和进度）；当前调度 `VRCX-0-jirai/crates/composition/src/state/background_ticks/profile_bio.rs::run_background_profile_bio_scan`。
+参考：`VRCX-jirai/src/coordinators/friendSyncCoordinator.js`（触发时机）、`VRCX-jirai/src/coordinators/infoFetchCoordinator.js::runSilentInfoFetch` 与 `VRCX-jirai/src/views/Tools/dialogs/ProfileCompletionDialog.vue`（抓取和进度）；当前 `VRCX-0-jirai/src/services/enhancedInfoFetchService.ts`、`src/features/workflows/profileFetchExecutor.ts`、`src/components/layout/status-bar/EnhancedInfoFetchStatus.tsx`。
 
 ### 好友房间停留计时 — 待实测
 

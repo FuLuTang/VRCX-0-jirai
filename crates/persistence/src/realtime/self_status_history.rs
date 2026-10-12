@@ -58,16 +58,45 @@ pub fn self_status_history(db: &DatabaseService, owner: &OwnerId) -> Result<Vec<
     Ok(result)
 }
 
+/// Read only the authenticated owner's recorded Bio changes.
+pub fn self_bio_history(db: &DatabaseService, owner: &OwnerId) -> Result<Vec<FeedRowOutput>> {
+    let prefix = super::normalize_user_table_prefix(owner.as_str())?;
+    super::ensure_realtime_tables(db, &prefix)?;
+    db.execute(
+        &format!("SELECT id, created_at, value, previous_value FROM {prefix}_self_profile_log WHERE field = 'bio' ORDER BY created_at DESC, id DESC"),
+        &Default::default(),
+    )?
+    .into_iter()
+    .map(|row| {
+        Ok(FeedRowOutput {
+            row_id: Some(row_i64(&row, 0)),
+            created_at: Some(row_string(&row, 1)),
+            user_id: Some(owner.as_str().to_owned()),
+            r#type: Some("Bio".into()),
+            bio: Some(row_string(&row, 2)),
+            previous_bio: Some(row_string(&row, 3)),
+            ..Default::default()
+        })
+    })
+    .collect()
+}
+
 #[derive(Clone, Debug, serde::Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SelfStatusHistoryInput {
     pub expected_owner_user_id: String,
 }
 
-pub fn validate_self_status_owner(expected: &str, owner: &OwnerId) -> Result<()> {
+#[derive(Clone, Debug, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SelfBioHistoryInput {
+    pub expected_owner_user_id: String,
+}
+
+pub fn validate_self_profile_owner(expected: &str, owner: &OwnerId) -> Result<()> {
     if owner.as_str().is_empty() || expected.trim() != owner.as_str() {
         return Err(Error::Database(
-            "Self status history account changed.".into(),
+            "Self profile history account changed.".into(),
         ));
     }
     Ok(())
@@ -111,8 +140,35 @@ mod tests {
             result[2].created_at.as_deref(),
             Some("2026-01-01T00:01:30.000Z")
         );
-        assert!(validate_self_status_owner("usr_other", &owner).is_err());
-        assert!(validate_self_status_owner("", &OwnerId::new("")).is_err());
+        assert!(validate_self_profile_owner("usr_other", &owner).is_err());
+        assert!(validate_self_profile_owner("", &OwnerId::new("")).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn self_bio_history_reads_only_bio_rows_from_the_expected_owner() -> Result<()> {
+        let directory = std::env::temp_dir().join(format!(
+            "vrcx-self-bio-{}-{}",
+            std::process::id(),
+            chrono::Utc::now().timestamp_nanos_opt().unwrap()
+        ));
+        std::fs::create_dir_all(&directory).unwrap();
+        let db = DatabaseService::new(&directory.join("test.sqlite3"))?;
+        let owner = OwnerId::new("usr_self");
+        assert!(self_bio_history(&db, &owner)?.is_empty());
+        db.execute_non_query(
+            "INSERT INTO usrself_self_profile_log(created_at, field, value, previous_value) VALUES ('2026-01-02T00:00:00Z', 'bio', 'new bio', 'old bio'), ('2026-01-03T00:00:00Z', 'status', 'online', 'busy')",
+            &Default::default(),
+        )?;
+
+        let rows = self_bio_history(&db, &owner)?;
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].user_id.as_deref(), Some("usr_self"));
+        assert_eq!(rows[0].r#type.as_deref(), Some("Bio"));
+        assert_eq!(rows[0].bio.as_deref(), Some("new bio"));
+        assert_eq!(rows[0].previous_bio.as_deref(), Some("old bio"));
+        assert_eq!(rows[0].created_at.as_deref(), Some("2026-01-02T00:00:00Z"));
+        assert!(validate_self_profile_owner("usr_other", &owner).is_err());
         Ok(())
     }
 }

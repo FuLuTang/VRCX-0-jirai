@@ -275,6 +275,7 @@ export function UserDialogTabsSection({
     const bioSection: UserDialogBioSectionProps = {
         profile,
         bioLinks,
+        isCurrentUser,
         onEditBio: isCurrentUser ? onEditSelfProfileDetails : undefined
     };
     const profileLinksSection: UserDialogProfileLinksSectionProps = {

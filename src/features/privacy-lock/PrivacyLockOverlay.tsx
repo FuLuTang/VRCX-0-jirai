@@ -16,6 +16,7 @@ import {
 } from '@/services/privacyLockService';
 import { usePrivacyLockPhase } from '@/state/privacyLockPhase';
 import { useRuntimeStore } from '@/state/runtimeStore';
+import { useSessionStore } from '@/state/sessionStore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/ui/shadcn/avatar';
 import { Button } from '@/ui/shadcn/button';
 import { Field, FieldError, FieldLabel } from '@/ui/shadcn/field';
@@ -30,6 +31,14 @@ const LAYER_CLASS = 'vrcx-0-app-overlay fixed z-[10000]';
 export function PrivacyLockOverlay() {
     const phase = usePrivacyLockPhase();
     const covering = phase === 'pending' || phase === 'locked';
+    const backendSnapshotHydrated = useRuntimeStore(
+        (state) => state.shell.backendRuntimeSnapshotHydrated
+    );
+    const transportStatus = useSessionStore((state) => state.transportStatus);
+    const backendUnavailable =
+        phase === 'pending' &&
+        backendSnapshotHydrated &&
+        (transportStatus === 'disconnected' || transportStatus === 'error');
 
     return (
         <DialogPrimitive.Root
@@ -48,10 +57,40 @@ export function PrivacyLockOverlay() {
                         event.stopPropagation();
                     }}
                 >
-                    {phase === 'locked' ? <LockedPanel /> : <Spinner />}
+                    {phase === 'locked' ? (
+                        <LockedPanel />
+                    ) : backendUnavailable ? (
+                        <BackendUnavailablePanel />
+                    ) : (
+                        <Spinner />
+                    )}
                 </DialogPrimitive.Popup>
             </DialogPrimitive.Portal>
         </DialogPrimitive.Root>
+    );
+}
+
+function BackendUnavailablePanel() {
+    const { t } = useTranslation();
+
+    return (
+        <div className="bg-popover/80 text-popover-foreground ring-foreground/10 flex w-full max-w-sm flex-col items-center gap-3 rounded-2xl p-6 text-center shadow-lg ring-1">
+            <LockIcon className="text-muted-foreground size-6" />
+            <DialogPrimitive.Title className="text-base font-medium">
+                {t('privacy_lock.startup_error.title')}
+            </DialogPrimitive.Title>
+            <DialogPrimitive.Description className="text-muted-foreground text-sm">
+                {t('privacy_lock.startup_error.description')}
+            </DialogPrimitive.Description>
+            <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.reload()}
+            >
+                {t('privacy_lock.startup_error.retry')}
+            </Button>
+        </div>
     );
 }
 

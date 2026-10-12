@@ -554,9 +554,6 @@ const generatedCommands = {
     > {
         return await TAURI_INVOKE('app__overlay_activity_definitions_get');
     },
-    async appNotificationActivityFiltersGet(): Promise<NotificationActivityFilterProfiles> {
-        return await TAURI_INVOKE('app__notification_activity_filters_get');
-    },
     async appRelationshipRecommendationsSet(
         accountId: string,
         authScopeGeneration: number,
@@ -567,6 +564,9 @@ const generatedCommands = {
             authScopeGeneration,
             pairs
         });
+    },
+    async appNotificationActivityFiltersGet(): Promise<NotificationActivityFilterProfiles> {
+        return await TAURI_INVOKE('app__notification_activity_filters_get');
     },
     async appNotificationActivityFiltersSet(
         input: NotificationActivityFiltersSetInput
@@ -922,6 +922,11 @@ const generatedCommands = {
         input: SelfStatusHistoryInput
     ): Promise<FeedRowOutput[]> {
         return await TAURI_INVOKE('app__self_status_history_query', { input });
+    },
+    async appSelfBioHistoryQuery(
+        input: SelfBioHistoryInput
+    ): Promise<FeedRowOutput[]> {
+        return await TAURI_INVOKE('app__self_bio_history_query', { input });
     },
     async appFeedLatestQuery(
         query: FeedLatestQueryInput
@@ -6468,12 +6473,13 @@ export type ScreenshotSearchResult = {
     height: number | null;
     metadata: ScreenshotMetadata;
 };
-export type SelfStatusHistoryInput = { expectedOwnerUserId: string };
 export type ScreenshotTimeWindow = { fromMs: number; toMs: number };
 export type ScreenshotWindowImages = {
     total: number;
     images: ScreenshotLibraryImage[];
 };
+export type SelfBioHistoryInput = { expectedOwnerUserId: string };
+export type SelfStatusHistoryInput = { expectedOwnerUserId: string };
 export type SendResult = { sessionId: string; turnId: string };
 export type Session = {
     id: string;

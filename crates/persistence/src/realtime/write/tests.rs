@@ -11,7 +11,7 @@ use super::{
     insert_startup_online_backfill, normalize_user_table_prefix, profile_feed_reconcile,
     write_realtime_batch, AvatarTimeSpentUpsert, FriendLogDelete, FriendLogUpsert,
     NotificationExpiration, NotificationV2Update, ProfileFeedReconcileInput,
-    RealtimePersistenceBatch, SelfProfileField, SelfProfileLogEntry, SelfProfileObservation,
+    RealtimePersistenceBatch, SelfProfileField, SelfProfileObservation,
 };
 use crate::ownership::OwnerId;
 use vrcx_0_contracts::feed_live::FeedLiveEntry;

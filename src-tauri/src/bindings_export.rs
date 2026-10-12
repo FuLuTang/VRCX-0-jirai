@@ -304,6 +304,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             commands::local::feed::app__startup_online_backfill_insert,
             commands::local::feed::app__profile_feed_reconcile,
             commands::local::feed::app__self_status_history_query,
+            commands::local::feed::app__self_bio_history_query,
             commands::local::feed::app__feed_latest_query,
             commands::local::feed::app__feed_search_query,
             commands::local::feed::app__feed_rows_query,

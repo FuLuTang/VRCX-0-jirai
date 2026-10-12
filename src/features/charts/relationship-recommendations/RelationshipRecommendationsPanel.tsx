@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { openUserDialog } from '@/services/dialogService';
 import { useRuntimeStore } from '@/state/runtimeStore';
 import { Button } from '@/ui/shadcn/button';
 
@@ -85,15 +86,35 @@ export function RelationshipRecommendationsPanel() {
                 {rows.map((row) => (
                     <li key={row.key} className="rounded border p-2 text-xs">
                         <div className="flex items-center gap-2">
-                            <span className="flex-1">
-                                {row.nameA} ↔ {row.nameB}
+                            <span className="flex min-w-0 flex-1 items-center gap-1">
+                                <button
+                                    type="button"
+                                    className="hover:text-primary truncate underline underline-offset-2"
+                                    onClick={() =>
+                                        openUserDialog({ userId: row.userIdA })
+                                    }
+                                >
+                                    {row.nameA}
+                                </button>
+                                <span aria-hidden="true">↔</span>
+                                <button
+                                    type="button"
+                                    className="hover:text-primary truncate underline underline-offset-2"
+                                    onClick={() =>
+                                        openUserDialog({ userId: row.userIdB })
+                                    }
+                                >
+                                    {row.nameB}
+                                </button>
                             </span>
                             <span>{row.displayScore}</span>
                             {row.isAdded ? (
                                 <span>
                                     {t(
                                         'jirai.relationship_recommendations.confirmed',
-                                        { defaultValue: '已确认' }
+                                        {
+                                            defaultValue: '已确认'
+                                        }
                                     )}
                                 </span>
                             ) : (
@@ -113,7 +134,9 @@ export function RelationshipRecommendationsPanel() {
                                     >
                                         {t(
                                             'jirai.relationship_recommendations.confirm',
-                                            { defaultValue: '确认' }
+                                            {
+                                                defaultValue: '确认'
+                                            }
                                         )}
                                     </Button>
                                     <Button
@@ -131,7 +154,9 @@ export function RelationshipRecommendationsPanel() {
                                     >
                                         {t(
                                             'jirai.relationship_recommendations.ignore',
-                                            { defaultValue: '本次忽略' }
+                                            {
+                                                defaultValue: '本次忽略'
+                                            }
                                         )}
                                     </Button>
                                 </>
@@ -141,7 +166,9 @@ export function RelationshipRecommendationsPanel() {
                             <summary>
                                 {t(
                                     'jirai.relationship_recommendations.evidence',
-                                    { defaultValue: '证据与分数' }
+                                    {
+                                        defaultValue: '证据与分数'
+                                    }
                                 )}
                             </summary>
                             <p className="mt-1 whitespace-pre-wrap">

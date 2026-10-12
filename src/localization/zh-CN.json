@@ -867,6 +867,11 @@
         "clear_selection": "清除选择"
     },
     "privacy_lock": {
+        "startup_error": {
+            "title": "无法确认隐私锁状态",
+            "description": "应用界面已启动，但与本地后端的初始化或连接失败。为保护隐私，界面仍保持遮挡；请重试，或检查启动终端中的错误。",
+            "retry": "重新连接"
+        },
         "locked_title": "已锁定",
         "field": {
             "password": "锁定密码",
@@ -4041,6 +4046,7 @@
                 "represented_group": "展示群组",
                 "bio": "个人简介",
                 "bio_history": "个人简介历史",
+                "bio_history_error": "读取个人简介历史失败。",
                 "status_distribution": "状态分布",
                 "refresh_status_distribution": "刷新状态分布",
                 "status_distribution_hint": "加载已记录的状态历史，估算各状态持续时间。",

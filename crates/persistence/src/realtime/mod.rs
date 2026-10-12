@@ -7,7 +7,8 @@ mod write;
 pub use query::lookup_game_log_world_name;
 pub use schema::{ensure_realtime_tables, normalize_user_table_prefix};
 pub use self_status_history::{
-    self_status_history, validate_self_status_owner, SelfStatusHistoryInput,
+    self_bio_history, self_status_history, validate_self_profile_owner, SelfBioHistoryInput,
+    SelfStatusHistoryInput,
 };
 pub use types::{
     AvatarHistoryUpsert, AvatarTimeSpentUpsert, FriendLogDelete, FriendLogUpsert,

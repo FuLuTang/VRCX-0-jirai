@@ -7,7 +7,8 @@ use tauri::State;
 use vrcx_0_runtime_host_desktop::local_data::{
     FeedLatestQueryInput, FeedReadModelOutput, FeedRowOutput, FeedRowsQueryInput,
     FeedSearchQueryInput, ProfileFeedReconcileInput, ProfileFeedReconcileOutput,
-    SelfStatusHistoryInput, StartupOnlineBackfillInput, StartupOnlineBackfillOutput,
+    SelfBioHistoryInput, SelfStatusHistoryInput, StartupOnlineBackfillInput,
+    StartupOnlineBackfillOutput,
 };
 
 #[tauri::command(async)]
@@ -74,6 +75,19 @@ pub async fn app__self_status_history_query(
     tauri::async_runtime::spawn_blocking(move || local_data.self_status_history(input))
         .await
         .map_err(|error| AppError::Custom(format!("self status history query: {error}")))?
+        .map_err(AppError::from)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__self_bio_history_query(
+    state: State<'_, AppState>,
+    input: SelfBioHistoryInput,
+) -> Result<Vec<FeedRowOutput>, AppError> {
+    let local_data = state.runtime_host().local_data().clone();
+    tauri::async_runtime::spawn_blocking(move || local_data.self_bio_history(input))
+        .await
+        .map_err(|error| AppError::Custom(format!("self Bio history query: {error}")))?
         .map_err(AppError::from)
 }
 

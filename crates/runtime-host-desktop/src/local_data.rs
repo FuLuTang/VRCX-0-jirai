@@ -76,7 +76,8 @@ pub use vrcx_0_persistence::notifications::{
 };
 pub use vrcx_0_persistence::player_list::InstanceActivityRowOutput;
 pub use vrcx_0_persistence::realtime::{
-    ProfileFeedReconcileInput, ProfileFeedReconcileOutput, SelfStatusHistoryInput,
+    ProfileFeedReconcileInput, ProfileFeedReconcileOutput, SelfBioHistoryInput,
+    SelfStatusHistoryInput,
 };
 pub use vrcx_0_persistence::social_aggregates::{WorldFriendVisitRow, WorldFriendVisitsOutput};
 pub use vrcx_0_persistence::tracked_nonfriends::{
@@ -377,11 +378,23 @@ impl LocalDataRuntime {
         input: vrcx_0_persistence::realtime::SelfStatusHistoryInput,
     ) -> Result<Vec<FeedRowOutput>> {
         let owner = self.current_owner();
-        vrcx_0_persistence::realtime::validate_self_status_owner(
+        vrcx_0_persistence::realtime::validate_self_profile_owner(
             &input.expected_owner_user_id,
             &owner,
         )?;
         Ok(vrcx_0_persistence::realtime::self_status_history(
+            self.db.as_ref(),
+            &owner,
+        )?)
+    }
+
+    pub fn self_bio_history(&self, input: SelfBioHistoryInput) -> Result<Vec<FeedRowOutput>> {
+        let owner = self.current_owner();
+        vrcx_0_persistence::realtime::validate_self_profile_owner(
+            &input.expected_owner_user_id,
+            &owner,
+        )?;
+        Ok(vrcx_0_persistence::realtime::self_bio_history(
             self.db.as_ref(),
             &owner,
         )?)

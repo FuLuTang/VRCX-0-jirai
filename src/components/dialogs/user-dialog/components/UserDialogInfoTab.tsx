@@ -34,7 +34,7 @@ import type { EntityRecord } from '@/domain/entities/shared';
 import type { UserProfileEntity } from '@/domain/entities/user';
 import { formatDateTime } from '@/lib/dateTime';
 import { cn } from '@/lib/utils';
-import type { FeedRowOutput } from '@/platform/tauri/bindings';
+import { commands, type FeedRowOutput } from '@/platform/tauri/bindings';
 import feedRepository from '@/repositories/feedRepository';
 import {
     convertFileUrlToImageUrl,
@@ -128,6 +128,7 @@ export type UserDialogNotesSectionProps = {
 export type UserDialogBioSectionProps = {
     profile: UserProfileEntity;
     bioLinks: string[];
+    isCurrentUser: boolean;
     onEditBio?: () => void;
 };
 
@@ -637,6 +638,7 @@ function UserDialogProfileLinksPanel({
 export function UserDialogBioPanel({
     profile,
     bioLinks,
+    isCurrentUser,
     onEditBio
 }: UserDialogBioSectionProps) {
     const { i18n, t } = useTranslation();
@@ -646,22 +648,39 @@ export function UserDialogBioPanel({
     const [historyRows, setHistoryRows] = useState<FeedRowOutput[]>([]);
     const [selectedHistoryIndex, setSelectedHistoryIndex] = useState(0);
     const [historyLoading, setHistoryLoading] = useState(false);
+    const [historyError, setHistoryError] = useState(false);
     const [showHistoryTooltip, setShowHistoryTooltip] = useState(false);
 
     useEffect(() => {
-        if (!showHistory || !currentUserId || !profile.id) {
+        if (!showHistory) {
+            return;
+        }
+
+        if (!currentUserId || !profile.id) {
+            setHistoryRows([]);
+            setSelectedHistoryIndex(0);
+            setHistoryLoading(false);
             return;
         }
 
         let active = true;
         setHistoryLoading(true);
-        feedRepository
-            .queryFeed({
-                userId: currentUserId,
-                scopedUserIds: [profile.id],
-                filters: ['Bio'],
-                maxEntries: 50
-            })
+        setHistoryError(false);
+        setHistoryRows([]);
+        setSelectedHistoryIndex(0);
+        const historyQuery = isCurrentUser
+            ? currentUserId === profile.id
+                ? commands.appSelfBioHistoryQuery({
+                      expectedOwnerUserId: currentUserId
+                  })
+                : Promise.resolve([])
+            : feedRepository.queryFeed({
+                  userId: currentUserId,
+                  scopedUserIds: [profile.id],
+                  filters: ['Bio'],
+                  maxEntries: 50
+              });
+        historyQuery
             .then((rows) => {
                 if (!active) {
                     return;
@@ -681,6 +700,7 @@ export function UserDialogBioPanel({
             .catch(() => {
                 if (active) {
                     setHistoryRows([]);
+                    setHistoryError(true);
                 }
             })
             .finally(() => {
@@ -692,7 +712,7 @@ export function UserDialogBioPanel({
         return () => {
             active = false;
         };
-    }, [currentUserId, profile.id, showHistory]);
+    }, [currentUserId, isCurrentUser, profile.id, showHistory]);
 
     const historyGroups = useMemo(
         () => groupBioHistoryRows(historyRows),
@@ -890,6 +910,16 @@ export function UserDialogBioPanel({
                                         <Spinner className="size-3" />
                                         {t('browse_history.loading')}
                                     </div>
+                                ) : null}
+                                {historyError ? (
+                                    <p
+                                        role="alert"
+                                        className="text-destructive text-xs"
+                                    >
+                                        {t(
+                                            'dialog.user.info.bio_history_error'
+                                        )}
+                                    </p>
                                 ) : null}
                             </div>
                         ) : (
@@ -1128,6 +1158,7 @@ export function UserDialogInfoTab({
                     <UserDialogBioPanel
                         profile={profile}
                         bioLinks={bioLinks}
+                        isCurrentUser={bioSection.isCurrentUser}
                         onEditBio={onEditBio}
                     />
                 </div>
