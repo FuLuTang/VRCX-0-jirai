@@ -72,7 +72,7 @@ VRCX 的其他功能，VRCX-0 同样具备。
 
 2026-10-11 合并时的历史验证：前端类型检查、27 项冲突相关测试、格式检查和 Vite 生产前端构建通过；当时 Rust 测试及绑定生成受本机 Cargo 代理／缓存阻塞。2026-10-12 后续补充验证结果见下文。
 
-2026-10-12 后续验证：16 项定向前端测试、TypeScript 检查、persistence 477 项测试（1 项忽略）、application／game／activity／desktop-host 相关 Rust 测试共 964 项，以及 Tauri devtools／SteamVR／OpenXR 特性组合的 `cargo check` 均通过。真实账号、数据库迁移、界面／VR 与独立发布包验收仍待完成。另有一次 `tauri:dev` 在 Vite 优化依赖并刷新页面后触发 `softbuffer 0.4.8` Windows 位图断言，桌面运行时稳定性尚未验收。
+2026-10-12 后续验证：21 项定向前端测试、TypeScript 检查、persistence 477 项测试（1 项忽略）、application／game／activity／desktop-host 相关 Rust 测试共 964 项，以及 Tauri devtools／SteamVR／OpenXR 特性组合的 `cargo check` 均通过。真实账号、数据库迁移、界面／VR 与独立发布包验收仍待完成。另有一次 `tauri:dev` 在 Vite 优化依赖并刷新页面后触发 `softbuffer 0.4.8` Windows 位图断言；同样断言也见 [Tauri issue #11525](https://github.com/tauri-apps/tauri/issues/11525)，该 issue 仍待分诊，但这不足以证明触发原因相同。桌面运行时稳定性尚未验收。
 
 VRCX-0-jirai 正在逐步还原并重写旧版 VRCX-jirai 的部分功能。**还原工作尚未完成。**旧版 README 本身已说明 VRCX-jirai 停止维护；本清单反映当前代码，不代表功能已完全一致，也不承诺恢复旧版的每种行为。盘点范围还包括旧仓库中 FuLuTang 的功能提交（截至 `c8b8f744`），不只依据 README 的功能清单。
 
