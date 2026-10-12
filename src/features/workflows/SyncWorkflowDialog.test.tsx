@@ -59,7 +59,8 @@ vi.mock('@/services/enhancedInfoFetchService', () => ({
     runEnhancedInfoFetch: service.run,
     cancelEnhancedInfoFetch: service.cancel
 }));
-vi.mock('react-i18next', () => ({
+vi.mock('react-i18next', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('react-i18next')>()),
     useTranslation: () => ({
         t: (key: string, values?: Record<string, unknown>) =>
             values ? `${key} ${JSON.stringify(values)}` : key

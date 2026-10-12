@@ -1,5 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import {
+    cleanup,
+    fireEvent,
+    render,
+    screen,
+    waitFor
+} from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -14,7 +20,8 @@ const mocks = vi.hoisted(() => ({
         add: vi.fn(),
         remove: vi.fn()
     },
-    open: vi.fn()
+    open: vi.fn(),
+    confirm: vi.fn()
 }));
 vi.mock('@/state/runtimeStore', () => ({
     useRuntimeStore: (select: (state: unknown) => unknown) =>
@@ -25,6 +32,11 @@ vi.mock('@/state/trackedNonfriendsStore', () => ({
         select(mocks.tracked)
 }));
 vi.mock('@/services/dialogService', () => ({ openUserDialog: mocks.open }));
+vi.mock('@/state/modalStore', () => ({
+    useModalStore: <T,>(
+        selector: (state: { confirm: typeof mocks.confirm }) => T
+    ) => selector({ confirm: mocks.confirm })
+}));
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
         t: (key: string, values?: unknown) =>
@@ -67,14 +79,42 @@ describe('tracked nonfriends sidebar', () => {
             title: 'Test user'
         });
     });
-    it('removes only the selected entry without opening its profile', () => {
+    it('confirms before removing only the selected entry without opening its profile', async () => {
+        let resolveConfirmation!: (result: {
+            ok: boolean;
+            reason: string;
+        }) => void;
+        mocks.confirm.mockImplementation(
+            () =>
+                new Promise((resolve) => {
+                    resolveConfirmation = resolve;
+                })
+        );
         render(<TrackedNonfriendsSidebar />);
         fireEvent.click(
             screen.getByRole('button', {
                 name: 'tracked_nonfriends.remove_user'
             })
         );
-        expect(mocks.tracked.remove).toHaveBeenCalledWith('owner', 'usr_test');
+
+        expect(mocks.confirm).toHaveBeenCalledWith({
+            title: 'tracked_nonfriends.confirm_remove.title',
+            description: 'tracked_nonfriends.confirm_remove.description',
+            confirmText: 'common.actions.delete',
+            cancelText: 'common.actions.cancel',
+            destructive: true
+        });
+        expect(mocks.tracked.remove).not.toHaveBeenCalled();
+        expect(mocks.open).not.toHaveBeenCalled();
+
+        resolveConfirmation({ ok: true, reason: 'ok' });
+        await waitFor(() => {
+            expect(mocks.tracked.remove).toHaveBeenCalledTimes(1);
+            expect(mocks.tracked.remove).toHaveBeenCalledWith(
+                'owner',
+                'usr_test'
+            );
+        });
         expect(mocks.open).not.toHaveBeenCalled();
     });
     it('filters the list without changing the total count', () => {

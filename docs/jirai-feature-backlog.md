@@ -10,6 +10,8 @@
 
 2026-10-12 后续接线验证：自身 Bio 历史、个人资料 Activity self 分支与推荐名字打开资料已实现；16 项定向前端测试、TypeScript 检查、persistence 477 项测试（1 项忽略）、application／game／activity／desktop-host 相关 Rust 测试 964 项，以及 Tauri devtools／SteamVR／OpenXR 特性组合的 `cargo check` 均通过。自身 Bio 查询仍待真实账号验收。`tauri:dev` 曾在 Vite 优化依赖后的页面刷新中触发 `softbuffer 0.4.8` Windows 位图断言，桌面运行时稳定性另列为未验收项。
 
+2026-10-12 全量前端回归复核：初跑 `npm test` 发现两个测试适配问题，修正 i18n mock 的插件导出并让追踪非好友侧栏测试覆盖现有确认流程；没有改产品运行逻辑。复跑 **624 个测试文件、3517 项测试全部通过**，`npm run typecheck` 通过。桌面运行、真实账号、数据库导入与 VR 验收仍按下方清单待实测。
+
 本次 `VRCX-0` v2.31.0 合并主要是兼容上游通知活动路由重构：关系建议进房提醒从旧 Overlay 候选接入 `ActivityEvent`／新 Router，并保留用户已选定的提醒默认值；同时合并 Bio 历史面板与上游简介编辑入口、上游截图／通知／资料等改动，以及已确认默认开启的开发者群自动加入设置。未合并 `badge-data` 分支。
 
 ### 历史 subagent 结果与当前代码的对照
