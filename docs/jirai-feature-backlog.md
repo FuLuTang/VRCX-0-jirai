@@ -124,7 +124,7 @@ UTC 分桶堆叠占比图、缩放、数字时长、日期提示与亮暗主题�
 
 ### 关系时间轴参数防抖与查询 — 已核对，待实测
 
-用户明确希望参数停止变化约 1 秒后再刷新，以免拖动时卡顿。当前 [关系时间轴](../src/features/charts/RelationshipTimelinePageImpl.tsx)在页面加载／账号切换／手动刷新时读取一次完整的 owner-scoped GPS／Offline 历史；Top users、Days per unit、Show others 和 Friends only 现在共用一个尾随 1 秒计时器，变化会重置计时，停下后才重算图表。底部 ECharts dataZoom 只调可视范围，保持即时缩放，不触发数据库查询。这样消除了逐格查询，而不是在停下后重复读取同一份全历史。
+用户明确希望参数停止变化约 1 秒后再刷新，以免拖动时卡顿。当前 [关系时间轴](../src/features/charts/RelationshipTimelinePageImpl.tsx)在页面加载／账号切换／手动刷新时读取一次完整的 owner-scoped GPS／Offline 历史；Top users、Days per unit、Show others 和 Friends only 现在共用一个尾随 1 秒计时器，变化会重置计时，停下后才重算图表。底部 ECharts dataZoom 只调可视范围，保持即时缩放，不触发数据库查询。参数变化不会重复读取同一份全历史；本轮补齐的是筛选开关也要重置这个计时器。
 
 代码考古未能在当前可见的旧 `VRCX-0-jirai` Git 历史或 `VRCX-jirai` 中确认“这些滑条每动一次都查数据库”：`VRCX-jirai/src/views/Charts/components/RelationshipTimeline.vue` 的数据查询只发生在 `loadData()`（挂载／刷新），参数变化调用的是 500ms `debouncedRebuildChart()`；当前 React 迁移版加载后端历史也不接收这些参数。若要求严格执行“停 1 秒后发 SQL”，需要有旧实现的提交／文件，或先定义该 SQL 应按什么参数缩小数据范围；否则重复读取相同数据会重新引入原有卡顿。
 
