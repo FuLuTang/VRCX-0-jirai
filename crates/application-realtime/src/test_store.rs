@@ -164,6 +164,57 @@ impl TestRealtimeStore {
 }
 
 impl RealtimeStore for TestRealtimeStore {
+    fn friend_location_history(
+        &self,
+        owner: &OwnerId,
+        locations: &HashMap<String, String>,
+    ) -> Result<HashMap<String, (String, i64)>> {
+        let state = self.lock()?;
+        let mut restored = HashMap::new();
+        let Some(feeds) = state.feeds.get(owner.as_str()) else {
+            return Ok(restored);
+        };
+        for (user_id, location) in locations {
+            let time = |entry: &FeedLiveEntry| {
+                chrono::DateTime::parse_from_rfc3339(entry.created_at())
+                    .ok()
+                    .map(|value| value.timestamp_millis())
+            };
+            let rows = feeds
+                .iter()
+                .filter(|entry| entry.user_id() == user_id)
+                .collect::<Vec<_>>();
+            if rows
+                .iter()
+                .any(|entry| entry.entry_type() == "GPS" && time(entry).is_none())
+            {
+                continue;
+            }
+            let Some(gps) = rows
+                .iter()
+                .rev()
+                .filter(|entry| entry.entry_type() == "GPS")
+                .max_by_key(|entry| time(entry))
+            else {
+                continue;
+            };
+            let Some(since_ms) = time(gps) else { continue };
+            if gps.location() == location
+                && since_ms > 0
+                && since_ms < chrono::Utc::now().timestamp_millis()
+                && !rows.iter().any(|entry| {
+                    (entry.entry_type() == "Offline"
+                        || (entry.entry_type() == "Online"
+                            && !entry.location().is_empty()
+                            && entry.location() != location))
+                        && time(entry).is_none_or(|at| at >= since_ms)
+                })
+            {
+                restored.insert(user_id.clone(), (location.clone(), since_ms));
+            }
+        }
+        Ok(restored)
+    }
     fn game_log_join_count(
         &self,
         _owner: &OwnerId,

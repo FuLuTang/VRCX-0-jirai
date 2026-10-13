@@ -35,6 +35,17 @@ pub fn insert_startup_online_backfill(
     target_user_id: &str,
     display_name: &str,
 ) -> Result<bool, Error> {
+    insert_startup_online_backfill_with_entry(db, owner_user_id, target_user_id, display_name)
+        .map(|entry| entry.is_some())
+}
+
+/// Returns the exact committed observation for the host's live Feed projection.
+pub fn insert_startup_online_backfill_with_entry(
+    db: &DatabaseService,
+    owner_user_id: &OwnerId,
+    target_user_id: &str,
+    display_name: &str,
+) -> Result<Option<FeedLiveEntry>, Error> {
     let owner_user_id = OwnerId::new(normalize_user_id(owner_user_id.as_str()));
     if owner_user_id.is_empty() {
         return Err(Error::Database(
@@ -82,23 +93,25 @@ pub fn insert_startup_online_backfill(
             .and_then(Value::as_str)
             .unwrap_or("");
         if last_type == "Online" {
-            return Ok(false);
+            return Ok(None);
         }
 
         // Never accept a renderer timestamp: this is the native confirmation
         // time at the immediate persistence boundary.
-        let created_at = vrcx_0_core::time::now_iso();
-        tx.execute_non_query(
-            &format!(
-                "INSERT INTO {user_prefix}_feed_online_offline (created_at, user_id, display_name, type, location, world_name, time, group_name) VALUES (@created_at, @user_id, @display_name, 'Online', '', '', 0, '')"
-            ),
-            &ParamsBuilder::new()
-                .set("created_at", created_at)
-                .set("user_id", target_user_id)
-                .set("display_name", display_name.trim())
-                .build(),
-        )?;
-        Ok(true)
+        let entry = FeedLiveEntry::Online {
+            created_at: vrcx_0_core::time::now_iso(),
+            user_id: target_user_id,
+            display_name: display_name.trim().to_string(),
+            location: String::new(),
+            world_name: String::new(),
+            group_name: String::new(),
+            time: Some(0),
+            world_id: None,
+            display_location: None,
+            owner_user_id: owner_user_id.as_str().to_string(),
+        };
+        insert_feed_entry(tx, &user_prefix, &entry)?;
+        Ok(Some(entry))
     })
 }
 

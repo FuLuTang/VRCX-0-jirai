@@ -66,7 +66,6 @@ import { EntityDialogTabContent } from '../../EntityDialogScaffold';
 import { buildInlineBioDiff, groupBioHistoryRows } from '../bioHistory';
 import { formatStatsDuration } from '../userDialogRows';
 import { EntityList } from '../UserDialogViewParts';
-import { UserDialogStatusDistribution } from './UserDialogStatusDistribution';
 
 export { UserDialogStatusDistribution as UserDialogStatusDistributionPanel } from './UserDialogStatusDistribution';
 
@@ -1198,9 +1197,6 @@ export function UserDialogInfoTab({
                         userJoinCount={activitySummarySection.userJoinCount}
                     />
                 </div>
-            </div>
-            <div className="mt-4 min-w-0">
-                <UserDialogStatusDistribution profile={profile} />
             </div>
         </EntityDialogTabContent>
     );

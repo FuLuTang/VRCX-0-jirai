@@ -9,6 +9,11 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import {
+    PageScaffold,
+    PageTitle,
+    PageToolbar
+} from '@/components/layout/PageScaffold';
 import { echarts } from '@/lib/echarts';
 import feedRepository from '@/repositories/feedRepository';
 import { getResolvedThemeMode } from '@/services/themeService';
@@ -16,7 +21,9 @@ import { useFriendRosterStore } from '@/state/friendRosterStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
 import { useShellStore } from '@/state/shellStore';
 import { Button } from '@/ui/shadcn/button';
-import { Card } from '@/ui/shadcn/card';
+import { Checkbox } from '@/ui/shadcn/checkbox';
+import { Label } from '@/ui/shadcn/label';
+import { Slider } from '@/ui/shadcn/slider';
 import { Spinner } from '@/ui/shadcn/spinner';
 
 import {
@@ -63,6 +70,7 @@ function relationshipChartOption(
     t: (key: string, options?: { defaultValue?: string }) => string
 ) {
     return {
+        backgroundColor: 'transparent',
         animation: false,
         color: COLORS,
         tooltip: {
@@ -341,13 +349,13 @@ export function RelationshipTimelinePage() {
     }, [resolvedTheme, timeline, t]);
 
     return (
-        <div className="flex h-full min-h-0 flex-col gap-3 p-4">
-            <Card className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 p-4">
+        <PageScaffold id="chart" className="gap-3">
+            <PageToolbar className="flex-row flex-wrap items-center justify-between gap-x-6 gap-y-3">
                 <div className="flex min-w-0 items-center gap-2">
                     <TrendingUpIcon className="size-4 shrink-0" />
-                    <h1 className="text-base font-medium">
+                    <PageTitle>
                         {t('view.charts.relationship_timeline.header')}
-                    </h1>
+                    </PageTitle>
                     <span
                         title={t(
                             'view.charts.relationship_timeline.description',
@@ -361,56 +369,48 @@ export function RelationshipTimelinePage() {
                     </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-                    <label className="flex items-center gap-2">
-                        <span>
+                    <div className="flex items-center gap-2">
+                        <span id="relationship-timeline-top-users">
                             {t('view.charts.relationship_timeline.top_users', {
                                 defaultValue: 'Top users'
                             })}
                         </span>
-                        <input
-                            aria-label={t(
-                                'view.charts.relationship_timeline.top_users',
-                                { defaultValue: 'Top users' }
-                            )}
-                            className="accent-primary w-24"
-                            type="range"
+                        <Slider
+                            aria-labelledby="relationship-timeline-top-users"
+                            className="w-24"
                             min={1}
                             max={10}
                             step={1}
-                            value={topCount}
-                            onChange={(event) =>
-                                setTopCount(Number(event.target.value))
+                            value={[topCount]}
+                            onValueChange={(value) =>
+                                setTopCount(
+                                    Array.isArray(value) ? value[0] : value
+                                )
                             }
                         />
                         <span className="w-4 text-right tabular-nums">
                             {topCount}
                         </span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                        <input
-                            type="checkbox"
+                    </div>
+                    <Label>
+                        <Checkbox
                             checked={showOthers}
-                            onChange={(event) =>
-                                setShowOthers(event.target.checked)
-                            }
+                            onCheckedChange={setShowOthers}
                         />
                         {t('view.charts.relationship_timeline.show_others', {
                             defaultValue: 'Show others'
                         })}
-                    </label>
-                    <label className="flex items-center gap-2">
-                        <input
-                            type="checkbox"
+                    </Label>
+                    <Label>
+                        <Checkbox
                             checked={friendsOnly}
-                            onChange={(event) =>
-                                setFriendsOnly(event.target.checked)
-                            }
+                            onCheckedChange={setFriendsOnly}
                         />
                         {t(
                             'view.charts.relationship_timeline.current_friends_only',
                             { defaultValue: 'Current friends only' }
                         )}
-                    </label>
+                    </Label>
                     <Button
                         aria-label={t('common.actions.refresh')}
                         title={t('common.actions.refresh')}
@@ -427,7 +427,7 @@ export function RelationshipTimelinePage() {
                         />
                     </Button>
                 </div>
-            </Card>
+            </PageToolbar>
 
             <div className="relative min-h-0 flex-1">
                 <div
@@ -443,7 +443,7 @@ export function RelationshipTimelinePage() {
                     )}
                 />
                 {status === 'loading' ? (
-                    <div className="bg-background/70 absolute inset-0 flex items-center justify-center gap-2 text-sm backdrop-blur-[1px]">
+                    <div className="text-muted-foreground absolute inset-0 flex items-center justify-center gap-2 text-sm">
                         <Spinner className="size-4" />
                         {t('common.loading')}
                     </div>
@@ -469,20 +469,26 @@ export function RelationshipTimelinePage() {
                 ) : null}
             </div>
 
-            <div className="text-muted-foreground flex items-center justify-end gap-2 px-3 text-xs">
+            <div className="text-muted-foreground flex shrink-0 items-center justify-end gap-2 px-3 text-xs">
                 <ZoomOutIcon className="size-3.5" />
-                <input
-                    aria-label={t(
-                        'view.charts.relationship_timeline.granularity',
-                        { defaultValue: 'Days per unit' }
-                    )}
-                    className="accent-primary w-28"
-                    type="range"
+                <span
+                    id="relationship-timeline-granularity"
+                    className="sr-only"
+                >
+                    {t('view.charts.relationship_timeline.granularity', {
+                        defaultValue: 'Days per unit'
+                    })}
+                </span>
+                <Slider
+                    aria-labelledby="relationship-timeline-granularity"
+                    className="w-28"
                     min={0}
                     max={100}
                     step={1}
-                    value={scale}
-                    onChange={(event) => setScale(Number(event.target.value))}
+                    value={[scale]}
+                    onValueChange={(value) =>
+                        setScale(Array.isArray(value) ? value[0] : value)
+                    }
                 />
                 <ZoomInIcon className="size-3.5" />
                 <span className="min-w-20 text-right tabular-nums">
@@ -492,6 +498,6 @@ export function RelationshipTimelinePage() {
                     })}
                 </span>
             </div>
-        </div>
+        </PageScaffold>
     );
 }

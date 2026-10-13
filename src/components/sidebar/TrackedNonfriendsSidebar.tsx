@@ -1,7 +1,8 @@
 import { PlusIcon, Trash2Icon } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useKnownUserFacts } from '@/lib/useKnownUser';
 import { openUserDialog } from '@/services/dialogService';
 import { useModalStore } from '@/state/modalStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
@@ -29,6 +30,15 @@ export function TrackedNonfriendsSidebar({
     const reset = useTrackedNonfriendsStore((state) => state.reset);
     const add = useTrackedNonfriendsStore((state) => state.add);
     const remove = useTrackedNonfriendsStore((state) => state.remove);
+    const updateName = useTrackedNonfriendsStore((state) => state.updateName);
+    const trackedUserIds = useMemo(
+        () =>
+            currentUserId === accountId && accountId
+                ? entries.map((entry) => entry.userId)
+                : [],
+        [accountId, currentUserId, entries]
+    );
+    const knownUsers = useKnownUserFacts(trackedUserIds);
     const [userId, setUserId] = useState('');
 
     useEffect(() => {
@@ -39,16 +49,41 @@ export function TrackedNonfriendsSidebar({
         }
     }, [accountId, load, reset]);
 
+    useEffect(() => {
+        if (!accountId || currentUserId !== accountId) return;
+        for (const entry of entries) {
+            const name = knownUsers[entry.userId]?.displayName?.trim();
+            if (name && name !== entry.displayName) {
+                void updateName(accountId, entry.userId, name).catch(
+                    (error) => {
+                        console.warn(
+                            'Failed to persist tracked user name:',
+                            error
+                        );
+                    }
+                );
+            }
+        }
+    }, [accountId, currentUserId, entries, knownUsers, updateName]);
+
     const query = filterQuery.trim().toLowerCase();
     const visibleEntries =
         currentUserId === accountId && accountId
-            ? entries.filter((entry) =>
-                  !query
-                      ? true
-                      : `${entry.displayName} ${entry.userId}`
-                            .toLowerCase()
-                            .includes(query)
-              )
+            ? entries
+                  .map((entry) => ({
+                      ...entry,
+                      displayName:
+                          knownUsers[entry.userId]?.displayName?.trim() ||
+                          entry.displayName ||
+                          entry.userId
+                  }))
+                  .filter((entry) =>
+                      !query
+                          ? true
+                          : `${entry.displayName} ${entry.userId}`
+                                .toLowerCase()
+                                .includes(query)
+                  )
             : [];
 
     async function addEntry() {

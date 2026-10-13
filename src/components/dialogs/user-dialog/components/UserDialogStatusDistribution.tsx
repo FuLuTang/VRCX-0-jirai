@@ -1,5 +1,5 @@
 import { RefreshCwIcon, ZoomInIcon, ZoomOutIcon } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { echarts } from '@/lib/echarts';
@@ -55,9 +55,11 @@ const escapeHtml = (value: string) =>
     );
 
 export function UserDialogStatusDistribution({
-    profile
+    profile,
+    active = false
 }: {
     profile: UserDialogProfileRecord;
+    active?: boolean;
 }) {
     const { t } = useTranslation();
     const owner = useRuntimeStore((state) => state.auth.currentUserId);
@@ -82,7 +84,7 @@ export function UserDialogStatusDistribution({
         };
     }, [owner, profile.id]);
 
-    const load = async () => {
+    const load = useCallback(async () => {
         if (!owner || !profile.id) return;
         const id = ++request.current;
         setLoading(true);
@@ -105,7 +107,11 @@ export function UserDialogStatusDistribution({
                 setLoaded(true);
             }
         }
-    };
+    }, [owner, profile.id]);
+
+    useEffect(() => {
+        if (active && !loaded && !loading) void load();
+    }, [active, loaded, loading, load]);
     const buckets = useMemo(
         () =>
             buildStatusDistributionBuckets(

@@ -5,7 +5,8 @@ import {
     fireEvent,
     render,
     renderHook,
-    screen
+    screen,
+    waitFor
 } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -95,6 +96,25 @@ afterEach(() => {
 });
 
 describe('status distribution component', () => {
+    it('loads automatically when the Activity tab becomes active', async () => {
+        mocks.query.mockResolvedValue(history);
+        const { rerender } = render(
+            <UserDialogStatusDistribution
+                profile={{ id: 'usr_target' }}
+                active={false}
+            />
+        );
+        expect(mocks.query).not.toHaveBeenCalled();
+
+        rerender(
+            <UserDialogStatusDistribution
+                profile={{ id: 'usr_target' }}
+                active
+            />
+        );
+        await waitFor(() => expect(mocks.query).toHaveBeenCalledTimes(1));
+        await waitFor(() => expect(screen.getByRole('img')).toBeTruthy());
+    });
     it('resets the one-second debounce on every movement and cancels it on unmount', () => {
         vi.useFakeTimers();
         const { result, unmount } = renderHook(useStatusDistributionScale);

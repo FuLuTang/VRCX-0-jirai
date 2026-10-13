@@ -128,9 +128,6 @@ export const useTrackedNonfriendsStore = create<TrackedNonfriendsState>(
                 accountId,
                 { userId, displayName }
             );
-            if (updated) {
-                useMutualGraphRevisionStore.getState().bumpRevision(accountId);
-            }
             if (updated && sameAccount(get(), accountId)) {
                 set((state) => ({
                     ...state,

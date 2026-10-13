@@ -52,6 +52,7 @@ import {
 import type { useUserDialogTabData } from '../useUserDialogTabData';
 import { UserDialogMutualGraph } from './UserDialogMutualGraph';
 import { UserDialogSearchHeader } from './UserDialogSearchHeader';
+import { UserDialogStatusDistribution } from './UserDialogStatusDistribution';
 
 type UserTabData = ReturnType<typeof useUserDialogTabData>;
 type SupplementalData = ReturnType<typeof useUserDialogSupplementalData>;
@@ -615,6 +616,7 @@ export function UserDialogActivityTab({
             value="activity"
             className="flex flex-col gap-4"
         >
+            <UserDialogStatusDistribution profile={profile} active={active} />
             <UserActivityPanel profile={profile} active={active} />
         </EntityDialogTabContent>
     );

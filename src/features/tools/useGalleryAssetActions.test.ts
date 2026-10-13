@@ -200,19 +200,52 @@ describe('createGalleryAssetActions', () => {
         );
     });
 
-    it('reports VRC+ restrictions for a dropped print', () => {
-        const { actions, setCropRequest, toast } = createActions({
-            isVrcPlusSupporter: false
-        });
+    it.each<GalleryUploadTarget>(['gallery', 'icons'])(
+        'prepares a dropped %s image without VRC+',
+        (tab) => {
+            const { actions, setCropRequest, toast } = createActions({
+                isVrcPlusSupporter: false
+            });
+            const file = new File(['image'], 'drop.png', { type: 'image/png' });
 
-        actions.prepareUploadFile(
-            new File(['image'], 'print.png', { type: 'image/png' }),
-            'prints'
-        );
+            actions.prepareUploadFile(file, tab);
 
-        expect(setCropRequest).not.toHaveBeenCalled();
-        expect(toast.error).toHaveBeenCalledWith(
-            expect.objectContaining({ title: 'message.vrcplus.required' })
-        );
-    });
+            expect(setCropRequest).toHaveBeenCalledWith(
+                expect.objectContaining({ file, tab })
+            );
+            expect(toast.error).not.toHaveBeenCalled();
+        }
+    );
+
+    it.each<GalleryUploadTarget>(['prints', 'emojis', 'stickers'])(
+        'prepares a dropped %s with a VRC+ warning but blocks actual upload',
+        async (tab) => {
+            const { actions, setCropRequest, toast, uploadAssetImage } =
+                createActions({ isVrcPlusSupporter: false });
+            const file = new File(['image'], 'drop.png', { type: 'image/png' });
+
+            actions.prepareUploadFile(file, tab);
+
+            expect(setCropRequest).toHaveBeenCalledWith(
+                expect.objectContaining({ file, tab })
+            );
+            expect(toast.error).toHaveBeenCalledWith(
+                expect.objectContaining({ title: 'message.vrcplus.required' })
+            );
+            expect(uploadAssetImage).not.toHaveBeenCalled();
+
+            const prepared = createActions({
+                isVrcPlusSupporter: false,
+                cropRequest: setCropRequest.mock.calls[0][0]
+            });
+            await prepared.actions.confirmCroppedUpload(
+                new Blob(['image'], { type: 'image/png' })
+            );
+
+            expect(prepared.uploadAssetImage).not.toHaveBeenCalled();
+            expect(prepared.toast.error).toHaveBeenCalledWith(
+                expect.objectContaining({ title: 'message.vrcplus.required' })
+            );
+        }
+    );
 });

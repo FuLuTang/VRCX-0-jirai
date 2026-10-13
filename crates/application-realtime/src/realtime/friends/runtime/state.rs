@@ -65,6 +65,7 @@ pub(crate) struct FriendBaselineEffects {
     pub(crate) joining_feed_entries: Vec<FeedLiveEntry>,
     pub(crate) profile_refetch_user_ids: Vec<String>,
     pub(crate) location_time_snapshot: Option<Vec<FriendLocationTime>>,
+    pub(crate) location_history_candidates: HashMap<String, String>,
 }
 
 pub(crate) enum SyntheticFriendEvent {
@@ -163,6 +164,7 @@ impl RealtimeFriendsRuntime {
             .unwrap_or_default();
         let watermark = friend_rev_watermark.unwrap_or(0);
         let replaced = state.roster.take();
+        let had_roster = replaced.is_some();
         let previous_ids = replaced
             .as_ref()
             .map(|roster| roster.entries.keys().cloned().collect::<HashSet<_>>())
@@ -174,6 +176,9 @@ impl RealtimeFriendsRuntime {
                 &baseline.websocket,
             )
         });
+        if had_roster && existing.is_none() {
+            state.instance_dwell.clear();
+        }
         let new_generation = existing
             .as_ref()
             .is_none_or(|roster| roster.generation != generation);
@@ -186,6 +191,7 @@ impl RealtimeFriendsRuntime {
         let mut schedules = Vec::new();
         let mut profile_refetch_user_ids = Vec::new();
         let mut entries = HashMap::with_capacity(baseline.friends_by_id.len());
+        let mut location_history_candidates = HashMap::new();
         for (
             user_id,
             FriendBaselineEntry {
@@ -239,7 +245,15 @@ impl RealtimeFriendsRuntime {
                     }
                     step.next
                 }
-                None => Phase::initial(&evidence.claim, now_ms, false),
+                None => {
+                    let phase = Phase::initial(&evidence.claim, now_ms, false);
+                    if let vrcx_0_application_core::FriendPlace::Present { location, .. } =
+                        dwell_place(&phase)
+                    {
+                        location_history_candidates.insert(user_id.clone(), location);
+                    }
+                    phase
+                }
             };
             let shown = existing_entry
                 .filter(|_| !new_generation)
@@ -335,7 +349,51 @@ impl RealtimeFriendsRuntime {
                 .collect(),
             profile_refetch_user_ids,
             location_time_snapshot,
+            location_history_candidates,
         }
+    }
+
+    pub(crate) fn restore_location_history(
+        &self,
+        owner: &OwnerId,
+        generation: u64,
+        history: &HashMap<String, (String, i64)>,
+    ) -> Option<Vec<FriendLocationTime>> {
+        let mut state = self.lock_state();
+        let instance_dwell = Arc::clone(&state.instance_dwell);
+        let roster = state.roster.as_mut()?;
+        if roster.current_user_id != owner.as_str() || roster.generation != generation {
+            return None;
+        }
+        let mut confirmed = HashMap::new();
+        let mut baseline_since_by_user = HashMap::new();
+        for (user_id, (location, since_ms)) in history {
+            let Some(entry) = roster.entries.get_mut(user_id) else {
+                continue;
+            };
+            if let Phase::Online(online) = &mut entry.presence {
+                if *since_ms > 0
+                    && *since_ms < online.since_ms
+                    && matches!(&online.place, vrcx_0_core::presence::Place::Instance(tag) if tag == location)
+                {
+                    baseline_since_by_user.insert(user_id.clone(), online.since_ms);
+                    confirmed.insert(user_id.clone(), (location.clone(), *since_ms));
+                }
+            }
+        }
+        if confirmed.is_empty() {
+            return None;
+        }
+        let (accepted, snapshot) =
+            instance_dwell.restore_friend_times(&confirmed, &baseline_since_by_user);
+        for user_id in accepted {
+            if let Some(entry) = roster.entries.get_mut(&user_id) {
+                if let Phase::Online(online) = &mut entry.presence {
+                    online.since_ms = confirmed[&user_id].1;
+                }
+            }
+        }
+        Some(snapshot)
     }
 
     pub fn clear(&self) {
@@ -670,6 +728,128 @@ fn stamp_output_revs(state: &mut RealtimeFriendState, output: &mut RealtimeFrien
     }
     for patch in &mut output.projection.patches {
         patch.presence.rev = rev;
+    }
+}
+
+#[cfg(test)]
+mod location_history_tests {
+    use super::*;
+    use vrcx_0_application_core::{
+        FriendLocationTimeSource, InstanceRosterMember, InstanceRosterSnapshot,
+    };
+    use vrcx_0_core::friends::FriendBaselinePresence;
+
+    #[test]
+    fn location_history_completion_preserves_local_departure_during_query() {
+        let dwell = Arc::new(InstanceDwellRegistry::new());
+        let runtime = RealtimeFriendsRuntime::new(Arc::clone(&dwell));
+        runtime.set_baseline_with_effects(
+            FriendRosterBaseline {
+                current_user_id: "usr_self".into(),
+                friends_by_id: ["usr_leaving", "usr_unchanged"]
+                    .into_iter()
+                    .map(|id| {
+                        (
+                            id.to_string(),
+                            FriendBaselineEntry {
+                                record: FriendRecord {
+                                    id: id.into(),
+                                    ..Default::default()
+                                },
+                                presence: FriendBaselinePresence {
+                                    state: "online".into(),
+                                    location: "wrld_room:123".into(),
+                                    ..Default::default()
+                                },
+                            },
+                        )
+                    })
+                    .collect(),
+                ..Default::default()
+            },
+            1,
+            0,
+            None,
+            3000,
+        );
+        let history = ["usr_leaving", "usr_unchanged"]
+            .into_iter()
+            .map(|id| (id.to_string(), ("wrld_room:123".to_string(), 1000)))
+            .collect();
+
+        // Deterministically interleave the real observer between baseline
+        // confirmation and history-query completion, without threads or sleeps.
+        dwell.observe_roster(&InstanceRosterSnapshot {
+            location: "wrld_room:123".into(),
+            members: vec![InstanceRosterMember {
+                user_id: "usr_leaving".into(),
+                display_name: String::new(),
+                joined_at_ms: Some(2000),
+            }],
+            ..Default::default()
+        });
+        dwell.observe_roster(&InstanceRosterSnapshot {
+            location: "wrld_room:123".into(),
+            departed_user_ids: vec!["usr_leaving".into()],
+            ..Default::default()
+        });
+        let departure_since = dwell
+            .snapshot()
+            .into_iter()
+            .find(|entry| entry.user_id == "usr_leaving")
+            .unwrap()
+            .since_ms;
+        assert!(departure_since.unwrap() > 3000);
+        let snapshot = runtime
+            .restore_location_history(&OwnerId::new("usr_self"), 1, &history)
+            .unwrap();
+        assert_eq!(
+            snapshot
+                .iter()
+                .find(|entry| entry.user_id == "usr_leaving")
+                .unwrap()
+                .since_ms,
+            departure_since
+        );
+        assert_eq!(
+            snapshot
+                .iter()
+                .find(|entry| entry.user_id == "usr_unchanged")
+                .unwrap()
+                .since_ms,
+            Some(1000)
+        );
+        let phase_since = |id: &str| {
+            runtime.lock_state().roster.as_ref().unwrap().entries[id]
+                .presence
+                .online_state()
+                .unwrap()
+                .since_ms
+        };
+        assert_eq!(phase_since("usr_leaving"), 3000);
+        assert_eq!(phase_since("usr_unchanged"), 1000);
+
+        // New local arrival remains authoritative when the stale result repeats.
+        let arrival_since = departure_since.unwrap() + 1;
+        dwell.observe_roster(&InstanceRosterSnapshot {
+            location: "wrld_room:123".into(),
+            members: vec![InstanceRosterMember {
+                user_id: "usr_leaving".into(),
+                display_name: String::new(),
+                joined_at_ms: Some(arrival_since),
+            }],
+            ..Default::default()
+        });
+        let snapshot = runtime
+            .restore_location_history(&OwnerId::new("usr_self"), 1, &history)
+            .unwrap();
+        let leaving = snapshot
+            .iter()
+            .find(|entry| entry.user_id == "usr_leaving")
+            .unwrap();
+        assert_eq!(leaving.source, FriendLocationTimeSource::GameLog);
+        assert_eq!(leaving.since_ms, Some(arrival_since));
+        assert_eq!(phase_since("usr_leaving"), 3000);
     }
 }
 

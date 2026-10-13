@@ -4049,7 +4049,7 @@
                 "bio_history_error": "读取个人简介历史失败。",
                 "status_distribution": "状态分布",
                 "refresh_status_distribution": "刷新状态分布",
-                "status_distribution_hint": "加载已记录的状态历史，估算各状态持续时间。",
+                "status_distribution_hint": "打开活动记录时自动加载；也可点刷新按钮重新读取。",
                 "no_status_distribution": "没有已记录的状态历史。",
                 "status_distribution_error": "读取状态历史失败；已有结果可能不是最新的。",
                 "status_distribution_scope": "仅统计记录中可确认在线的时段；未观测时段不计入，较早记录可能受查询上限影响。",
@@ -6918,6 +6918,10 @@
         }
     },
     "jirai": {
+        "two_person_relationship": {
+            "select_player_a": "选择玩家 A / 输入 usr_ ID 后回车",
+            "select_player_b": "选择玩家 B / 输入 usr_ ID 后回车"
+        },
         "relationship_recommendations": {
             "title": "或许是好友",
             "local_only": "仅根据本地记录计算，不抓取完整关系网。分数是推测证据，并非好友确认。",

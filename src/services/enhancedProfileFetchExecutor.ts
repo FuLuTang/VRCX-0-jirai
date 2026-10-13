@@ -11,8 +11,6 @@ import {
     type RawEnhancedProfile
 } from './enhancedProfileFetchRequest';
 
-// Pace individual requests globally while a small worker pool overlaps responses.
-const MAX_CONCURRENT_TARGETS = 3;
 const RETRY_INTERVAL_MS = 3_000;
 
 function requestStatus(error: unknown): number | null {
@@ -143,12 +141,12 @@ export function createProfileFetchExecutor(
             string,
             { userId: string; displayName: string }
         >();
+        const retryPauses = new Map<string, number>();
         const publish = (
-            currentTarget: { userId: string; displayName: string } | null = [
-                ...activeTargets.values()
-            ][0] ?? null,
-            pauseReason: string | null = null,
-            nextRunAt: string | null = null
+            currentTarget: {
+                userId: string;
+                displayName: string;
+            } | null = activeTargets.values().next().value ?? null
         ) =>
             context.onProfileProgress?.({
                 currentTarget,
@@ -160,18 +158,18 @@ export function createProfileFetchExecutor(
                 incomplete,
                 bioUpdated,
                 statusUpdated,
-                pauseReason,
-                nextRunAt
+                pauseReason: retryPauses.size ? 'HTTP 429' : null,
+                nextRunAt: retryPauses.size
+                    ? new Date(Math.max(...retryPauses.values())).toISOString()
+                    : null
             });
         publish(null);
-        const targetEntries = [...targets];
-        let nextIndex = 0;
         let fatalError: unknown;
         let fatalOutcome: EnhancedProfileFetchOutcome | null = null;
         const runTarget = async (
-            index: number
+            userId: string,
+            target: { displayName: string; isFriend: boolean }
         ): Promise<EnhancedProfileFetchOutcome | undefined> => {
-            const [userId, target] = targetEntries[index];
             abortIfNeeded(context.signal);
             if (!dependencies.isAccountCurrent(accountId))
                 return {
@@ -186,6 +184,7 @@ export function createProfileFetchExecutor(
             for (let attempt = 0; attempt < 2; attempt += 1) {
                 if (profile) break;
                 abortIfNeeded(context.signal);
+                if (fatalError) throw fatalError;
                 if (!dependencies.isAccountCurrent(accountId))
                     return {
                         status: 'skipped',
@@ -203,6 +202,14 @@ export function createProfileFetchExecutor(
                     break;
                 } catch (error) {
                     abortIfNeeded(context.signal);
+                    if (fatalError) throw fatalError;
+                    if (!dependencies.isAccountCurrent(accountId))
+                        return {
+                            status: 'skipped',
+                            skipReason: context.translate(
+                                'workflow.skip.profile_fetch_no_account'
+                            )
+                        };
                     if (
                         isRecord(error) &&
                         error.$jiraiStatusUpdated === true &&
@@ -212,15 +219,19 @@ export function createProfileFetchExecutor(
                         statusReceiptCounted = true;
                     }
                     if (requestStatus(error) === 429) {
+                        if (attempt) {
+                            failed += 1;
+                            break;
+                        }
                         const delay = profileRetryAfterMs(error);
-                        publish(
-                            { userId, displayName: target.displayName },
-                            'HTTP 429',
-                            new Date(Date.now() + delay).toISOString()
-                        );
-                        await dependencies.wait(delay, context.signal);
+                        retryPauses.set(userId, Date.now() + delay);
                         publish({ userId, displayName: target.displayName });
-                        if (attempt) failed += 1;
+                        try {
+                            await dependencies.wait(delay, context.signal);
+                        } finally {
+                            retryPauses.delete(userId);
+                            publish();
+                        }
                         continue;
                     }
                     if (shouldStopSweep(error)) throw error;
@@ -237,17 +248,18 @@ export function createProfileFetchExecutor(
                 }
             }
             abortIfNeeded(context.signal);
+            if (fatalError) throw fatalError;
+            if (!dependencies.isAccountCurrent(accountId))
+                return {
+                    status: 'skipped',
+                    skipReason: context.translate(
+                        'workflow.skip.profile_fetch_no_account'
+                    )
+                };
             if (profile) {
                 // A failed public-Bio request can follow an already committed
                 // status update. Keep its receipt across retries for this user.
                 if (statusReceiptCounted) profile.$jiraiStatusUpdated = true;
-                if (!dependencies.isAccountCurrent(accountId))
-                    return {
-                        status: 'skipped',
-                        skipReason: context.translate(
-                            'workflow.skip.profile_fetch_no_account'
-                        )
-                    };
                 const hasBio = typeof profile.bio === 'string';
                 const hasStatus =
                     typeof profile.status === 'string' &&
@@ -329,14 +341,8 @@ export function createProfileFetchExecutor(
             processed += 1;
             publish({ userId, displayName: target.displayName });
         };
-        const worker = async () => {
-            while (
-                nextIndex < targetEntries.length &&
-                !fatalError &&
-                !fatalOutcome
-            ) {
-                const index = nextIndex++;
-                const [userId, target] = targetEntries[index];
+        await Promise.all(
+            [...targets].map(async ([userId, target]) => {
                 const activeTarget = {
                     userId,
                     displayName: target.displayName
@@ -344,7 +350,7 @@ export function createProfileFetchExecutor(
                 activeTargets.set(userId, activeTarget);
                 publish();
                 try {
-                    const outcome = await runTarget(index);
+                    const outcome = await runTarget(userId, target);
                     if (outcome) fatalOutcome = outcome;
                 } catch (error) {
                     fatalError ??= error;
@@ -352,18 +358,7 @@ export function createProfileFetchExecutor(
                     activeTargets.delete(userId);
                     publish();
                 }
-            }
-        };
-        await Promise.all(
-            Array.from(
-                {
-                    length: Math.min(
-                        MAX_CONCURRENT_TARGETS,
-                        targetEntries.length
-                    )
-                },
-                () => worker()
-            )
+            })
         );
         if (fatalError) throw fatalError;
         if (fatalOutcome) return fatalOutcome;

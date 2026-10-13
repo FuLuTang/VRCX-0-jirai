@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import {
+    act,
     cleanup,
     fireEvent,
     render,
@@ -18,14 +19,20 @@ const mocks = vi.hoisted(() => ({
         load: vi.fn(),
         reset: vi.fn(),
         add: vi.fn(),
-        remove: vi.fn()
+        remove: vi.fn(),
+        updateName: vi.fn()
     },
     open: vi.fn(),
     confirm: vi.fn()
 }));
 vi.mock('@/state/runtimeStore', () => ({
     useRuntimeStore: (select: (state: unknown) => unknown) =>
-        select({ auth: { currentUserId: mocks.accountId } })
+        select({
+            auth: {
+                currentUserId: mocks.accountId,
+                currentUserEndpoint: 'test'
+            }
+        })
 }));
 vi.mock('@/state/trackedNonfriendsStore', () => ({
     useTrackedNonfriendsStore: (select: (state: unknown) => unknown) =>
@@ -58,6 +65,9 @@ vi.mock('@/ui/shadcn/input', () => ({
         <input {...props} />
     )
 }));
+import { useFriendRosterStore } from '@/state/friendRosterStore';
+import { useUserFactsStore } from '@/state/userFactsStore';
+
 import { TrackedNonfriendsSidebar } from './TrackedNonfriendsSidebar';
 
 beforeEach(() => {
@@ -66,9 +76,54 @@ beforeEach(() => {
     mocks.tracked.currentUserId = 'owner';
     mocks.tracked.loadStatus = 'ready';
     mocks.tracked.error = null;
+    mocks.tracked.updateName.mockResolvedValue(true);
+    useUserFactsStore.getState().resetUserFacts();
+    useFriendRosterStore.getState().resetRoster();
 });
 afterEach(cleanup);
 describe('tracked nonfriends sidebar', () => {
+    it('uses fresh profile names for display, filtering and dialog titles without adding friends', () => {
+        const { rerender } = render(
+            <TrackedNonfriendsSidebar filterQuery="new name" />
+        );
+        expect(screen.queryByRole('button', { name: 'Test user' })).toBeNull();
+        act(() => {
+            useUserFactsStore.getState().replaceUserFacts([
+                {
+                    id: 'usr_test',
+                    endpoint: 'test',
+                    displayName: 'New name',
+                    isFriend: false
+                }
+            ]);
+        });
+        fireEvent.click(screen.getByRole('button', { name: 'New name' }));
+        expect(mocks.open).toHaveBeenCalledWith({
+            userId: 'usr_test',
+            title: 'New name'
+        });
+        expect(mocks.tracked.updateName).toHaveBeenCalledWith(
+            'owner',
+            'usr_test',
+            'New name'
+        );
+        expect(useFriendRosterStore.getState().friendsById).toEqual({});
+        rerender(<TrackedNonfriendsSidebar filterQuery="Test user" />);
+        expect(screen.queryByRole('button', { name: 'New name' })).toBeNull();
+    });
+    it('ignores other endpoints and empty names, keeping the tracked name as fallback', () => {
+        useUserFactsStore.getState().replaceUserFacts([
+            {
+                id: 'usr_test',
+                endpoint: 'other',
+                displayName: 'Wrong endpoint'
+            },
+            { id: 'usr_test', endpoint: 'test', displayName: ' ' }
+        ]);
+        render(<TrackedNonfriendsSidebar />);
+        expect(screen.getByRole('button', { name: 'Test user' })).toBeTruthy();
+        expect(mocks.tracked.updateName).not.toHaveBeenCalled();
+    });
     it('loads the account list, displays its count and opens the selected profile', () => {
         render(<TrackedNonfriendsSidebar />);
         expect(mocks.tracked.load).toHaveBeenCalledWith('owner');
@@ -124,9 +179,15 @@ describe('tracked nonfriends sidebar', () => {
     });
     it('does not expose entries or counts from another account', () => {
         mocks.tracked.currentUserId = 'other';
+        useUserFactsStore
+            .getState()
+            .replaceUserFacts([
+                { id: 'usr_test', endpoint: 'test', displayName: 'New name' }
+            ]);
         render(<TrackedNonfriendsSidebar />);
         expect(screen.queryByRole('button', { name: 'Test user' })).toBeNull();
         expect(screen.getByRole('status').textContent).toContain('"count":0');
+        expect(mocks.tracked.updateName).not.toHaveBeenCalled();
     });
     it('resets the list when logged out', () => {
         mocks.accountId = '';

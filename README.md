@@ -94,6 +94,8 @@ does not promise complete parity with VRCX-jirai.
 
 For remaining work, source references, and in-app validation steps, see [docs/jirai-feature-backlog.md](docs/jirai-feature-backlog.md).
 
+**2026-10-13 repair progress:** artificial capture pacing/concurrency limits have been removed; tracked names now use current user facts; two-person selection includes tracked players and direct IDs; timeline controls use the shared UI; status distribution moved into Activity; desktop image-drop configuration and preparation without VRC+ have been corrected. Startup Online backfill and remote-friend dwell restoration now have native persistence/runtime fixes and passing focused Rust tests. Own-profile Bio responses now feed the existing self-history store without creating Friend Feed rows; actual-account verification remains. The own-status observation path and manual UI checks remain open. Mutual-friend CURRENT/OLD semantics and recommendation popup policy await discussion; relationship Overlay acceptance is deferred. See [the acceptance report and repair queue](docs/jirai-port/2026-10-13-实机验收与修复队列.md); historical “integrated” labels below do not mean manual acceptance passed.
+
 Reviewed on 2026-10-12 against the current VRCX-0-jirai code and FuLuTang's old VRCX-jirai commits. Enhanced profile capture, relationship recommendations/room-entry reminders, status distribution, tracked non-friend Feed persistence, two-person/timeline work, self-Bio history, and recommendation-name links are integrated in the current worktree. Search improvements remain deferred by user choice. See [the implementation order](docs/jirai-port/后续迁移计划.md) and [in-app validation checklist](docs/jirai-port/待手测清单.md).
 
 Note: **Auto-join developer group** defaults to on. When My Groups loads after preferences are ready, an account that has not joined the VRCX-jirai group will attempt to join; disable it in Advanced Settings if unwanted.
@@ -182,12 +184,20 @@ Requirements: Node.js ≥ 24.10, npm ≥ 11.5, and a stable Rust toolchain via r
 On Windows, also install **Visual Studio Build Tools** with the **Desktop development with C++** workload. From regular PowerShell, load the Visual Studio development environment first:
 
 ```powershell
-$vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-$vsPath = & $vswhere -latest -products Microsoft.VisualStudio.Product.BuildTools -version '[17.0,18.0)' -property installationPath
-& "$vsPath\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64
+$jiraiVsPath = 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools'
+if (!(Test-Path "$jiraiVsPath\Common7\Tools\Launch-VsDevShell.ps1")) {
+    throw 'Set jiraiVsPath to your Visual Studio installation or use Developer PowerShell.'
+}
+& "$jiraiVsPath\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64
+where.exe link.exe
+where.exe lld-link.exe
+where.exe cmake
+if (!(Get-Command lld-link.exe -ErrorAction SilentlyContinue)) {
+    throw 'lld-link.exe is unavailable in this terminal; check the VS development environment.'
+}
 ```
 
-Then run `npm run tauri:dev`.
+Then run `npm run tauri:dev` from the repository root in the same terminal. Repeat the environment setup in every new PowerShell session; it is not a permanent PATH change.
 
 ```bash
 git clone https://github.com/Map1en/VRCX-0

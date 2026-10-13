@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::sync::{Arc, Mutex};
 
@@ -289,6 +289,33 @@ impl InstanceDwellRegistry {
         (next != previous).then_some(next)
     }
 
+    /// Restore confirmed remote arrivals without replacing local game-log evidence.
+    pub fn restore_friend_times(
+        &self,
+        history: &HashMap<String, (String, i64)>,
+        baseline_since_by_user: &HashMap<String, i64>,
+    ) -> (HashSet<String>, Vec<FriendLocationTime>) {
+        let mut state = self.state.lock().unwrap_or_else(|error| error.into_inner());
+        let mut accepted = HashSet::new();
+        for (user_id, (location, since_ms)) in history {
+            let Some(entry) = state.friends.get_mut(user_id) else {
+                continue;
+            };
+            if entry.phase == FriendLocationPhase::Present
+                && entry.location == *location
+                && *since_ms > 0
+                && entry.since_ms == baseline_since_by_user.get(user_id).copied()
+                && entry.since_ms.is_some_and(|current| *since_ms < current)
+            {
+                entry.since_ms = Some(*since_ms);
+                accepted.insert(user_id.clone());
+            }
+        }
+        // Return the current projection even when newer local evidence rejected
+        // every candidate; the caller's pre-query snapshot is then stale.
+        (accepted, snapshot_locked(&state))
+    }
+
     pub fn observe_roster(&self, snapshot: &InstanceRosterSnapshot) {
         let changed = {
             let mut state = self.state.lock().unwrap_or_else(|error| error.into_inner());
@@ -363,6 +390,56 @@ mod tests {
     use vrcx_0_core::friends::{
         FriendBaselineEntry, FriendBaselinePresence, FriendRecord, StateBucket,
     };
+
+    #[test]
+    fn restored_remote_arrival_survives_baselines_and_preserves_local_roster() {
+        let registry = InstanceDwellRegistry::new();
+        let places = HashMap::from([(
+            "usr_friend".to_string(),
+            FriendPlace::Present {
+                location: "wrld_room:123".into(),
+                since_ms: 3000,
+            },
+        )]);
+        registry.sync_friends(&places);
+        let history = HashMap::from([(
+            "usr_friend".to_string(),
+            ("wrld_room:123".to_string(), 1000),
+        )]);
+        let baseline_since = HashMap::from([("usr_friend".to_string(), 3000)]);
+        assert_eq!(
+            registry.restore_friend_times(&history, &baseline_since).1[0].since_ms,
+            Some(1000)
+        );
+        assert!(registry
+            .restore_friend_times(&history, &baseline_since)
+            .0
+            .is_empty());
+        registry.sync_friends(&places);
+        assert_eq!(registry.snapshot()[0].since_ms, Some(1000));
+        registry.observe_roster(&roster("wrld_local:456", &[("usr_friend", 2000)]));
+        registry.restore_friend_times(&history, &baseline_since);
+        assert_eq!(
+            registry.snapshot()[0].source,
+            FriendLocationTimeSource::GameLog
+        );
+        assert_eq!(registry.snapshot()[0].since_ms, Some(2000));
+        registry.observe_friend(
+            "usr_friend",
+            &FriendPlace::Elsewhere {
+                location: "offline".into(),
+            },
+        );
+        assert!(registry
+            .restore_friend_times(&history, &baseline_since)
+            .0
+            .is_empty());
+        registry.clear();
+        assert!(registry
+            .restore_friend_times(&history, &baseline_since)
+            .0
+            .is_empty());
+    }
 
     fn roster(location: &str, members: &[(&str, i64)]) -> InstanceRosterSnapshot {
         InstanceRosterSnapshot {

@@ -54,8 +54,29 @@ impl RealtimeHostRuntime {
             presence_feed_entries,
             joining_feed_entries,
             profile_refetch_user_ids,
-            location_time_snapshot,
+            mut location_time_snapshot,
+            location_history_candidates,
         } = effects;
+        if !location_history_candidates.is_empty() {
+            match self
+                .deps
+                .store
+                .friend_location_history(owner_user_id, &location_history_candidates)
+            {
+                Ok(history) => {
+                    if let Some(restored) = self.friends.restore_location_history(
+                        owner_user_id,
+                        result.generation,
+                        &history,
+                    ) {
+                        location_time_snapshot = Some(restored);
+                    }
+                }
+                Err(error) => {
+                    tracing::warn!(%error, "Friend location history unavailable; keeping baseline confirmation time")
+                }
+            }
+        }
         if let Some(snapshot) = snapshot {
             add_roster_delta(&mut projection, snapshot, &delta);
         }

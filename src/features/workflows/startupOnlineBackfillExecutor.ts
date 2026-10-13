@@ -1,3 +1,4 @@
+import { presenceOf } from '@/domain/friends/presence';
 import type { FriendRosterState } from '@/domain/friends/types';
 import startupOnlineBackfillRepository, {
     type StartupOnlineBackfillInsert,
@@ -22,6 +23,7 @@ export type StartupOnlineBackfillResult = {
     skippedOffline: number;
     skippedUnavailableState: number;
     skippedDuplicate: number;
+    failed: number;
 };
 
 type StartupOnlineBackfillDependencies = {
@@ -94,7 +96,8 @@ export function createStartupOnlineBackfillExecutor(
             alreadyOnline: 0,
             skippedOffline: 0,
             skippedUnavailableState: 0,
-            skippedDuplicate: 0
+            skippedDuplicate: 0,
+            failed: 0
         };
         const processedTargetUserIds = new Set<string>();
 
@@ -104,15 +107,12 @@ export function createStartupOnlineBackfillExecutor(
                 return unavailableRosterOutcome(context);
             }
             const targetUserId = normalized(friend?.id || friendKey);
-            const state = normalized(friend?.state).toLowerCase();
-            if (
-                !targetUserId ||
-                !['online', 'active', 'offline'].includes(state)
-            ) {
+            const presence = presenceOf(friend);
+            if (!targetUserId || !presence) {
                 result.skippedUnavailableState += 1;
                 continue;
             }
-            if (state !== 'online') {
+            if (presence.kind !== 'online') {
                 result.skippedOffline += 1;
                 continue;
             }
@@ -128,12 +128,26 @@ export function createStartupOnlineBackfillExecutor(
                 targetUserId,
                 displayName: normalized(friend.displayName) || targetUserId
             };
-            const output = await dependencies.insertObservedOnline(insertInput);
-            throwIfAborted(context.signal);
-            if (output.inserted) {
-                result.inserted += 1;
-            } else {
-                result.alreadyOnline += 1;
+            try {
+                const output =
+                    await dependencies.insertObservedOnline(insertInput);
+                throwIfAborted(context.signal);
+                if (output.inserted) {
+                    result.inserted += 1;
+                } else {
+                    result.alreadyOnline += 1;
+                }
+            } catch (error) {
+                throwIfAborted(context.signal);
+                if (!dependencies.isAccountCurrent(ownerUserId)) {
+                    return unavailableRosterOutcome(context);
+                }
+                result.failed += 1;
+                console.warn(
+                    'Startup online backfill target failed:',
+                    targetUserId,
+                    error
+                );
             }
         }
 

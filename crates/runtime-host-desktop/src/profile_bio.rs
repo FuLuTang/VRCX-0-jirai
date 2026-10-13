@@ -2,10 +2,13 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::sync::{Arc, Mutex};
 
+use vrcx_0_application::social::observe_profile_response;
 use vrcx_0_application_core::vrchat_api::VrchatApiResponse;
 use vrcx_0_application_core::{RuntimeAuthScope, RuntimeAuthScopeSnapshot};
 use vrcx_0_application_realtime::RealtimeHostRuntime;
+use vrcx_0_core::time::now_iso;
 use vrcx_0_core::OwnerId;
+use vrcx_0_outbound_adapters::LocalProfileBioStore;
 use vrcx_0_persistence::DatabaseService;
 
 #[derive(Clone)]
@@ -62,11 +65,22 @@ impl ProfileBioObserver {
         let Some(user_id) = json
             .get("id")
             .and_then(serde_json::Value::as_str)
-            .filter(|id| id.starts_with("usr_") && *id != expected.current_user_id)
+            .filter(|id| id.starts_with("usr_"))
         else {
             return None;
         };
         let owner = OwnerId::new(&expected.current_user_id);
+        if user_id == expected.current_user_id {
+            if bio {
+                let store = LocalProfileBioStore::new(Arc::clone(&self.db));
+                if let Err(error) =
+                    observe_profile_response(&store, &self.realtime, &owner, response, &now_iso())
+                {
+                    tracing::warn!(error = %error, "failed to observe a profile bio");
+                }
+            }
+            return None;
+        }
         let status = if !bio {
             json.get("status").and_then(serde_json::Value::as_str)
         } else {
@@ -221,6 +235,117 @@ fn copy_request_error(
 mod tests {
     use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[cfg(feature = "test-utils")]
+    mod self_profile {
+        use super::*;
+        use serde_json::json;
+        use vrcx_0_application_realtime::test_support::{
+            feed_lookup_input, runtime_with_active_session, TestDir,
+        };
+        use vrcx_0_application_realtime::RealtimeStore;
+        use vrcx_0_persistence::feed::{feed_rows_query, FeedFilter, FeedRowsQueryInput};
+
+        fn fixture(name: &str) -> (TestDir, ProfileBioObserver) {
+            let (dir, runtime, session) = runtime_with_active_session(name).unwrap();
+            let db = Arc::new(DatabaseService::new(&runtime.store().database_path()).unwrap());
+            let auth_scope = RuntimeAuthScope::new();
+            auth_scope.set(&session.user_id, &session.endpoint);
+            let observer = ProfileBioObserver::new(db, Arc::clone(runtime.runtime()), auth_scope);
+            (dir, observer)
+        }
+
+        fn response(status: i32, body: serde_json::Value) -> VrchatApiResponse {
+            VrchatApiResponse {
+                status,
+                data: body.to_string(),
+                retry_after: None,
+            }
+        }
+
+        #[test]
+        fn own_profile_bio_uses_native_history_without_friend_feed_or_status() {
+            let (_dir, observer) = fixture("desktop-self-profile-bio");
+            let expected = observer.scope();
+            for bio in ["first", "first", "second", ""] {
+                assert!(observer
+                    .observe(
+                        &response(
+                            200,
+                            json!({
+                                "id": expected.current_user_id,
+                                "bio": bio,
+                                "status": "busy"
+                            })
+                        ),
+                        &expected,
+                        true,
+                    )
+                    .is_none());
+            }
+            let owner = OwnerId::new(&expected.current_user_id);
+            let rows =
+                vrcx_0_persistence::realtime::self_bio_history(&observer.db, &owner).unwrap();
+            assert_eq!(rows.len(), 3);
+            assert_eq!(rows[0].bio.as_deref(), Some(""));
+            assert_eq!(rows[0].previous_bio.as_deref(), Some("second"));
+            assert_eq!(rows[1].bio.as_deref(), Some("second"));
+            assert_eq!(rows[1].previous_bio.as_deref(), Some("first"));
+            assert!(feed_rows_query(
+                &observer.db,
+                FeedRowsQueryInput {
+                    filters: vec![FeedFilter::Bio, FeedFilter::Status],
+                    ..feed_lookup_input(owner.as_str().into())
+                },
+            )
+            .unwrap()
+            .is_empty());
+            assert!(
+                vrcx_0_persistence::realtime::self_status_history(&observer.db, &owner)
+                    .unwrap()
+                    .is_empty()
+            );
+        }
+
+        #[test]
+        fn own_profile_bio_rejects_stale_scope_http_and_missing_fields() {
+            let (_dir, observer) = fixture("desktop-self-profile-bio-guards");
+            let expected = observer.scope();
+            let valid = response(200, json!({ "id": expected.current_user_id, "bio": "bio" }));
+            observer.observe(&valid, &expected, false);
+            for body in [
+                json!({ "id": expected.current_user_id }),
+                json!({ "id": expected.current_user_id, "bio": null }),
+                json!({ "id": expected.current_user_id, "bio": 42 }),
+                json!({ "bio": "bio" }),
+            ] {
+                observer.observe(&response(200, body), &expected, true);
+            }
+            observer.observe(
+                &response(401, json!({ "id": expected.current_user_id, "bio": "bio" })),
+                &expected,
+                true,
+            );
+            let mut stale = expected.clone();
+            stale.generation += 1;
+            observer.observe(&valid, &stale, true);
+            observer.auth_scope.set("usr_other", &expected.endpoint);
+            observer.observe(&valid, &expected, true);
+            assert!(vrcx_0_persistence::realtime::self_bio_history(
+                &observer.db,
+                &OwnerId::new(&expected.current_user_id),
+            )
+            .unwrap()
+            .is_empty());
+            assert!(vrcx_0_persistence::realtime::self_bio_history(
+                &observer.db,
+                &OwnerId::new("usr_other"),
+            )
+            .unwrap()
+            .is_empty());
+        }
+    }
+
     fn scope(generation: u64) -> RuntimeAuthScopeSnapshot {
         RuntimeAuthScopeSnapshot {
             current_user_id: "usr_owner".into(),

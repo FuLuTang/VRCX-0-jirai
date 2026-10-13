@@ -4063,7 +4063,7 @@
                 "bio_history_error": "Could not load Bio history.",
                 "status_distribution": "Status Distribution",
                 "refresh_status_distribution": "Refresh status distribution",
-                "status_distribution_hint": "Load observed status history to estimate time by status.",
+                "status_distribution_hint": "Loads when Activity opens. Use refresh to reload.",
                 "no_status_distribution": "No observed status history.",
                 "status_distribution_error": "Could not load status history; existing results may be outdated.",
                 "status_distribution_scope": "Only confirmed online intervals in recorded data are counted. Unobserved time is excluded, and older records may be limited by the query cap.",
@@ -6932,6 +6932,10 @@
         }
     },
     "jirai": {
+        "two_person_relationship": {
+            "select_player_a": "Select player A / enter a usr_ ID and press Enter",
+            "select_player_b": "Select player B / enter a usr_ ID and press Enter"
+        },
         "relationship_recommendations": {
             "title": "Perhaps friends",
             "local_only": "Calculated from local records only, without fetching the entire relationship graph. Scores are circumstantial evidence, not confirmed friendships.",

@@ -164,7 +164,7 @@ describe('tracked nonfriends store ownership', () => {
         expect(list).toHaveBeenCalledTimes(2);
     });
 
-    it('refreshes graph labels only after a name update is persisted', async () => {
+    it('updates persisted names without changing graph revision', async () => {
         list.mockResolvedValue([trackedEntry('usr_target')]);
         updateName.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
         const store = useTrackedNonfriendsStore.getState();
@@ -173,13 +173,20 @@ describe('tracked nonfriends store ownership', () => {
         expect(
             await store.updateName('usr_owner', 'usr_target', 'New name')
         ).toBe(true);
-        expect(useMutualGraphRevisionStore.getState().revision).toBe(1);
+        expect(updateName).toHaveBeenCalledWith('usr_owner', {
+            userId: 'usr_target',
+            displayName: 'New name'
+        });
+        expect(useMutualGraphRevisionStore.getState().revision).toBe(0);
         expect(
             useTrackedNonfriendsStore.getState().entries[0].displayName
         ).toBe('New name');
         expect(
             await store.updateName('usr_owner', 'usr_target', 'Ignored')
         ).toBe(false);
-        expect(useMutualGraphRevisionStore.getState().revision).toBe(1);
+        expect(useMutualGraphRevisionStore.getState().revision).toBe(0);
+        expect(
+            useTrackedNonfriendsStore.getState().entries[0].displayName
+        ).toBe('New name');
     });
 });

@@ -43,7 +43,7 @@ describe('profileFetchExecutor', () => {
             result: { statusUpdated: 1, unchanged: 0, failed: 0, succeeded: 1 }
         });
     });
-    it('publishes real progress and pauses the queue on 429 before bounded retry', async () => {
+    it('publishes real progress and honors Retry-After before bounded retry', async () => {
         const getUserProfile = vi
             .fn()
             .mockRejectedValueOnce(
@@ -58,7 +58,13 @@ describe('profileFetchExecutor', () => {
                 statusDescription: ''
             })
             .mockResolvedValueOnce({ status: 'active' });
-        const wait = vi.fn().mockResolvedValue(undefined);
+        let finishPause!: () => void;
+        const wait = vi.fn().mockImplementation(
+            () =>
+                new Promise<void>((resolve) => {
+                    finishPause = resolve;
+                })
+        );
         const onProfileProgress = vi.fn();
         const run = createProfileFetchExecutor({
             getFriends: () => ({
@@ -74,7 +80,15 @@ describe('profileFetchExecutor', () => {
                 .fn()
                 .mockResolvedValue({ bioUpdated: false, statusUpdated: false })
         });
-        const outcome = await run({ ...context(), onProfileProgress });
+        const task = run({ ...context(), onProfileProgress });
+        await vi.waitFor(() =>
+            expect(onProfileProgress.mock.lastCall?.[0]).toMatchObject({
+                processed: 1,
+                pauseReason: 'HTTP 429'
+            })
+        );
+        finishPause();
+        const outcome = await task;
         expect(wait).toHaveBeenCalledWith(7000, expect.any(AbortSignal));
         expect(onProfileProgress).toHaveBeenCalledWith(
             expect.objectContaining({ pauseReason: 'HTTP 429', processed: 0 })
@@ -361,6 +375,7 @@ describe('profileFetchExecutor', () => {
                 statusCode: 429
             })
         );
+        const wait = vi.fn().mockResolvedValue(undefined);
         const run = createProfileFetchExecutor({
             getFriends: () => ({
                 usr_a: { id: 'usr_a' },
@@ -371,12 +386,13 @@ describe('profileFetchExecutor', () => {
             getTracked: () => ({ currentUserId: 'usr_owner', entries: [] }),
             getUserProfile,
             reconcile: vi.fn(),
-            wait: vi.fn().mockResolvedValue(undefined)
+            wait
         });
         await expect(run(context())).resolves.toMatchObject({
             result: { failed: 2, processed: 2 }
         });
         expect(getUserProfile).toHaveBeenCalledTimes(4);
+        expect(wait).toHaveBeenCalledTimes(2);
     });
     it('counts Bio and status already committed by native observers without double counting', async () => {
         const run = createProfileFetchExecutor({
@@ -441,12 +457,17 @@ describe('profileFetchExecutor', () => {
         expect(getUserProfile).toHaveBeenCalledTimes(3);
     });
 
-    it('continues fetching other targets without serial per-target delays', async () => {
+    it('starts every target before any response, with no worker limit or serial delays', async () => {
         const events: string[] = [];
+        let finish!: () => void;
+        const pending = new Promise<void>((resolve) => {
+            finish = resolve;
+        });
         const getUserProfile = vi
             .fn()
             .mockImplementation(async ({ userId }: { userId: string }) => {
                 events.push(`request:${userId}`);
+                await pending;
                 if (userId === 'usr_a')
                     throw createRequestError('not found', 404, 'users/usr_a');
                 return {
@@ -463,7 +484,10 @@ describe('profileFetchExecutor', () => {
         const run = createProfileFetchExecutor({
             getFriends: () => ({
                 usr_a: { id: 'usr_a' },
-                usr_b: { id: 'usr_b' }
+                usr_b: { id: 'usr_b' },
+                usr_c: { id: 'usr_c' },
+                usr_d: { id: 'usr_d' },
+                usr_e: { id: 'usr_e' }
             }),
             isAccountCurrent: () => true,
             loadTracked: vi.fn().mockResolvedValue(undefined),
@@ -474,8 +498,29 @@ describe('profileFetchExecutor', () => {
                 .mockResolvedValue({ bioUpdated: false, statusUpdated: false }),
             wait
         });
-        const outcome = await run(context());
-        expect(events).toEqual(['request:usr_a', 'request:usr_b']);
-        expect(outcome).toMatchObject({ result: { failed: 1 } });
+        const onProfileProgress = vi.fn();
+        const task = run({ ...context(), onProfileProgress });
+        await Promise.resolve();
+        expect(events).toEqual([
+            'request:usr_a',
+            'request:usr_b',
+            'request:usr_c',
+            'request:usr_d',
+            'request:usr_e'
+        ]);
+        expect(onProfileProgress.mock.lastCall?.[0]).toMatchObject({
+            processed: 0,
+            total: 5
+        });
+        finish();
+        expect(await task).toMatchObject({
+            result: { failed: 1, succeeded: 4, processed: 5 }
+        });
+        expect(onProfileProgress.mock.lastCall?.[0]).toMatchObject({
+            currentTarget: null,
+            processed: 5,
+            failed: 1,
+            succeeded: 4
+        });
     });
 });

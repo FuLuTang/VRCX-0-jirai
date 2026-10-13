@@ -335,7 +335,10 @@ impl LocalDataRuntime {
                         .presence_by_id
                         .get(target_user_id)
                         .is_some_and(|presence| {
-                            presence.view.section() == vrcx_0_core::friends::StateBucket::Online
+                            matches!(
+                                presence.view,
+                                vrcx_0_core::presence::PresenceView::Online { .. }
+                            )
                         })
             });
         if current_owner.is_empty() || !is_online_friend {
@@ -344,12 +347,15 @@ impl LocalDataRuntime {
             ));
         }
 
-        let inserted = vrcx_0_persistence::realtime::insert_startup_online_backfill(
+        let entry = vrcx_0_persistence::realtime::insert_startup_online_backfill_with_entry(
             self.db.as_ref(),
             &current_owner,
             target_user_id,
             &input.display_name,
         )?;
+        let inserted = entry.is_some();
+        self.realtime
+            .emit_persisted_profile_entries(&current_owner, entry.into_iter().collect());
         Ok(StartupOnlineBackfillOutput { inserted })
     }
 

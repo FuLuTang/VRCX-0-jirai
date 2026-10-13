@@ -388,13 +388,20 @@ describe('UserDialogBioPanel', () => {
         expect(onEditBio).toHaveBeenCalledOnce();
     });
 
-    it('loads self Bio history through the current-owner log query', async () => {
+    it('loads self Bio history and selects real change groups through the current-owner log query', async () => {
         mocks.querySelfBioHistory.mockResolvedValue([
             {
                 type: 'Bio',
                 userId: 'usr_owner',
                 bio: 'current',
                 previousBio: 'previous',
+                created_at: '2026-01-03T00:00:00Z'
+            },
+            {
+                type: 'Bio',
+                userId: 'usr_owner',
+                bio: 'previous',
+                previousBio: 'original',
                 created_at: '2026-01-01T00:00:00Z'
             }
         ]);
@@ -410,6 +417,11 @@ describe('UserDialogBioPanel', () => {
             expectedOwnerUserId: 'usr_owner'
         });
         expect(mocks.queryFeedUserHistory).not.toHaveBeenCalled();
+        const slider = screen.getByRole('slider', {
+            name: 'dialog.user.info.bio_history'
+        });
+        fireEvent.change(slider, { target: { value: '0' } });
+        expect(screen.getByText('original')).toBeTruthy();
     });
 
     it('keeps friend Bio history in the observing account Feed', async () => {

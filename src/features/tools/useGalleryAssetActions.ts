@@ -226,10 +226,6 @@ export function createGalleryAssetActions({
     }
     function prepareUploadFile(file: File, target?: GalleryUploadTarget) {
         const tab = target || uploadTargetRef.current || activeTab;
-        if (tab !== 'gallery' && tab !== 'icons' && !isVrcPlusSupporter) {
-            toast.add({ type: 'error', title: t('message.vrcplus.required') });
-            return;
-        }
         if (!validateImageFile(file, t)) {
             return;
         }
@@ -238,6 +234,10 @@ export function createGalleryAssetActions({
             : uploadAuthTargetRef.current || getAuthTarget();
         if (!isRuntimeAuthTarget(authTarget)) {
             return;
+        }
+        // Local preparation is available without VRC+; confirmation still checks upload permission.
+        if (tab !== 'gallery' && tab !== 'icons' && !isVrcPlusSupporter) {
+            toast.add({ type: 'error', title: t('message.vrcplus.required') });
         }
         const settings =
             tab === 'emojis'

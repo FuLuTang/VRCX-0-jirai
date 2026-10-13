@@ -832,6 +832,123 @@ fn pending_baseline_start_emits_initial_location_time_snapshot() -> Result<()> {
 }
 
 #[test]
+fn startup_baseline_restores_remote_arrival_and_repeated_baselines_keep_it() -> Result<()> {
+    let (_dir, runtime, session) = runtime_with_active_session("startup-remote-arrival")?;
+    let owner = OwnerId::new(&session.user_id);
+    let gps = FeedLiveEntry::Gps {
+        created_at: "2026-01-01T00:00:00Z".into(),
+        user_id: "usr_friend".into(),
+        display_name: "Friend".into(),
+        location: "wrld_old:123".into(),
+        previous_location: String::new(),
+        world_name: String::new(),
+        group_name: String::new(),
+        time: 0,
+        world_id: None,
+        display_location: None,
+        owner_user_id: owner.as_str().into(),
+    };
+    write_realtime_batch(
+        runtime.store(),
+        &owner,
+        &vrcx_0_contracts::realtime::RealtimePersistenceBatch {
+            feed_entries: vec![gps],
+            ..Default::default()
+        },
+    )?;
+    runtime.prepare_pending_friend_baseline(&session, online_friend_roster())?;
+    runtime.set_task_executor_for_test(DiscardTaskExecutor);
+    runtime.take_events_for_test();
+    let transport = runtime.runtime().start_from_friend_baseline(
+        session.user_id.clone(),
+        session.endpoint.clone(),
+        session.websocket.clone(),
+        2,
+        json!({"id": session.user_id}),
+    )?;
+    let restored = runtime.runtime().deps.instance_dwell.snapshot();
+    assert_eq!(restored[0].since_ms, Some(1_767_225_600_000));
+    let stale_history =
+        HashMap::from([("usr_friend".to_string(), ("wrld_old:123".to_string(), 1000))]);
+    assert!(runtime
+        .runtime()
+        .friends
+        .restore_location_history(
+            &OwnerId::new("usr_other"),
+            transport.generation,
+            &stale_history
+        )
+        .is_none());
+    assert!(runtime
+        .runtime()
+        .friends
+        .restore_location_history(&owner, transport.generation + 1, &stale_history)
+        .is_none());
+    assert_eq!(runtime.runtime().deps.instance_dwell.snapshot(), restored);
+    assert_eq!(
+        restored[0].source,
+        vrcx_0_application_core::FriendLocationTimeSource::Realtime
+    );
+    assert!(runtime
+        .take_events_for_test()
+        .iter()
+        .any(|event| event.name == "realtimeFriendProjection"
+            && event.payload["locationTimeSnapshot"] == serde_json::to_value(&restored).unwrap()));
+    seed_online_friend(&runtime, &session, transport.generation)?;
+    assert_eq!(runtime.runtime().deps.instance_dwell.snapshot(), restored);
+    // A later live move must not inherit the older room's history, even if a
+    // subsequent periodic baseline brings the friend back to the old room.
+    let mut moved = online_friend_roster();
+    moved.get_mut("usr_friend").unwrap().presence.location = "wrld_other:456".into();
+    runtime
+        .runtime()
+        .sync_friend_snapshot(session.clone(), Some(transport.generation), moved)?;
+    seed_online_friend(&runtime, &session, transport.generation)?;
+    assert_ne!(
+        runtime.runtime().deps.instance_dwell.snapshot()[0].since_ms,
+        restored[0].since_ms
+    );
+    Ok(())
+}
+
+#[test]
+fn startup_online_backfill_publishes_only_the_committed_owner_entry() -> Result<()> {
+    let (_dir, runtime, session) = runtime_with_active_session("startup-online-publication")?;
+    let owner = OwnerId::new(&session.user_id);
+    let entry = FeedLiveEntry::Online {
+        created_at: "2026-01-01T00:00:00Z".into(),
+        user_id: "usr_friend".into(),
+        display_name: "Friend".into(),
+        location: String::new(),
+        world_name: String::new(),
+        group_name: String::new(),
+        time: Some(0),
+        world_id: None,
+        display_location: None,
+        owner_user_id: owner.as_str().into(),
+    };
+    runtime.take_events_for_test();
+    runtime
+        .runtime()
+        .emit_persisted_profile_entries(&OwnerId::new("usr_other"), vec![entry.clone()]);
+    assert!(runtime.take_events_for_test().is_empty());
+    runtime
+        .runtime()
+        .emit_persisted_profile_entries(&owner, vec![entry.clone()]);
+    let events = runtime.take_events_for_test();
+    let projection = events
+        .iter()
+        .find(|event| event.name == "realtimeFeedProjection")
+        .unwrap();
+    assert_eq!(projection.payload["upserts"][0]["entry"], entry.to_json());
+    runtime
+        .runtime()
+        .emit_persisted_profile_entries(&owner, Vec::new());
+    assert!(runtime.take_events_for_test().is_empty());
+    Ok(())
+}
+
+#[test]
 fn game_start_in_another_instance_republishes_remote_friend_timers() -> Result<()> {
     let (_dir, runtime, active_session) =
         runtime_with_active_session("game-start-remote-friend-timers")?;
