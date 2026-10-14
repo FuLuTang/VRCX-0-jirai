@@ -7,13 +7,6 @@ import type { FeedRowOutput } from '@/platform/tauri/bindings';
 import { useResolvedThemeMode } from '@/services/themeService';
 import { useRuntimeStore } from '@/state/runtimeStore';
 import { Button } from '@/ui/shadcn/button';
-import {
-    Card,
-    CardAction,
-    CardContent,
-    CardHeader,
-    CardTitle
-} from '@/ui/shadcn/card';
 import { Spinner } from '@/ui/shadcn/spinner';
 
 import type { UserDialogProfileRecord } from '../userDialogProfileTypes';
@@ -241,34 +234,31 @@ export function UserDialogStatusDistribution({
     }, [buckets, dark, namesKey, error]);
 
     return (
-        <Card className="min-w-0">
-            <CardHeader>
-                <CardTitle>
+        <section className="flex min-w-0 flex-col gap-3">
+            <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-medium">
                     {t('dialog.user.info.status_distribution')}
-                </CardTitle>
-                <CardAction>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-xs"
-                        disabled={!owner || !profile.id || loading}
-                        aria-label={t(
-                            'dialog.user.info.refresh_status_distribution'
-                        )}
-                        title={t(
-                            'dialog.user.info.refresh_status_distribution'
-                        )}
-                        onClick={() => void load()}
-                    >
-                        {loading ? (
-                            <Spinner className="size-3" />
-                        ) : (
-                            <RefreshCwIcon />
-                        )}
-                    </Button>
-                </CardAction>
-            </CardHeader>
-            <CardContent className="min-w-0 space-y-3">
+                </h3>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="rounded-full"
+                    disabled={!owner || !profile.id || loading}
+                    aria-label={t(
+                        'dialog.user.info.refresh_status_distribution'
+                    )}
+                    title={t('dialog.user.info.refresh_status_distribution')}
+                    onClick={() => void load()}
+                >
+                    {loading ? (
+                        <Spinner className="size-3" />
+                    ) : (
+                        <RefreshCwIcon />
+                    )}
+                </Button>
+            </div>
+            <div className="flex min-w-0 flex-col gap-3">
                 {!loaded && !loading ? (
                     <p className="text-muted-foreground text-xs">
                         {t('dialog.user.info.status_distribution_hint')}
@@ -379,7 +369,7 @@ export function UserDialogStatusDistribution({
                         </dl>
                     </>
                 ) : null}
-            </CardContent>
-        </Card>
+            </div>
+        </section>
     );
 }

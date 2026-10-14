@@ -368,31 +368,33 @@ export function RelationshipTimelinePage() {
                         <InfoIcon className="text-muted-foreground size-3.5" />
                     </span>
                 </div>
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-                    <div className="flex items-center gap-2">
+                <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-x-5 gap-y-2 text-sm">
+                    <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
                         <span id="relationship-timeline-top-users">
                             {t('view.charts.relationship_timeline.top_users', {
                                 defaultValue: 'Top users'
                             })}
                         </span>
-                        <Slider
-                            aria-labelledby="relationship-timeline-top-users"
-                            className="w-24"
-                            min={1}
-                            max={10}
-                            step={1}
-                            value={[topCount]}
-                            onValueChange={(value) =>
-                                setTopCount(
-                                    Array.isArray(value) ? value[0] : value
-                                )
-                            }
-                        />
+                        <div className="w-24 shrink-0">
+                            <Slider
+                                aria-labelledby="relationship-timeline-top-users"
+                                className="w-full"
+                                min={1}
+                                max={10}
+                                step={1}
+                                value={[topCount]}
+                                onValueChange={(value) =>
+                                    setTopCount(
+                                        Array.isArray(value) ? value[0] : value
+                                    )
+                                }
+                            />
+                        </div>
                         <span className="w-4 text-right tabular-nums">
                             {topCount}
                         </span>
                     </div>
-                    <Label>
+                    <Label className="shrink-0 whitespace-nowrap">
                         <Checkbox
                             checked={showOthers}
                             onCheckedChange={setShowOthers}
@@ -401,7 +403,7 @@ export function RelationshipTimelinePage() {
                             defaultValue: 'Show others'
                         })}
                     </Label>
-                    <Label>
+                    <Label className="shrink-0 whitespace-nowrap">
                         <Checkbox
                             checked={friendsOnly}
                             onCheckedChange={setFriendsOnly}
@@ -417,6 +419,7 @@ export function RelationshipTimelinePage() {
                         type="button"
                         size="icon"
                         variant="outline"
+                        className="shrink-0"
                         disabled={status === 'loading' || !currentUserId}
                         onClick={() =>
                             setRefreshVersion((version) => version + 1)
