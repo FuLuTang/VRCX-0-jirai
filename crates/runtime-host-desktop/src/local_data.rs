@@ -270,15 +270,17 @@ impl LocalDataRuntime {
     ) -> Result<StartupOnlineBackfillOutput> {
         let current_owner = self.current_owner();
         let target_user_id = input.target_user_id.trim();
-        let realtime_friend = self
+        let is_current_online_friend = self
             .realtime
             .friend_snapshot()
             .filter(|snapshot| snapshot.current_user_id == current_owner.as_str())
-            .and_then(|snapshot| snapshot.friends_by_id.get(target_user_id).cloned());
-        if current_owner.is_empty()
-            || !realtime_friend
-                .is_some_and(|friend| friend.state.as_str().eq_ignore_ascii_case("online"))
-        {
+            .is_some_and(|snapshot| {
+                snapshot.friends_by_id.contains_key(target_user_id)
+                    && snapshot.presence_by_id.get(target_user_id).is_some_and(|presence| {
+                        presence.view.section() == vrcx_0_core::friends::StateBucket::Online
+                    })
+            });
+        if current_owner.is_empty() || !is_current_online_friend {
             return Err(vrcx_0_application_core::Error::PersistenceInvalidData(
                 "Startup online backfill target is not a current online friend.".into(),
             ));
