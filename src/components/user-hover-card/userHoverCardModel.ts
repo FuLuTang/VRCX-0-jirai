@@ -7,13 +7,13 @@ import {
     presenceDotClassName,
     presenceLocationTag,
     presenceOf,
+    presenceOnlineForMs,
     presenceSection,
     presenceTravelingTag
 } from '@/domain/friends/presence';
 import type {
     FriendProfileFields,
-    FriendRecordInput,
-    FriendRosterBucket
+    FriendRecordInput
 } from '@/domain/friends/types';
 import { userImage } from '@/services/entityMediaService';
 import { timestampMsFromValue } from '@/shared/utils/dateTime';
@@ -72,21 +72,6 @@ function resolveTrust(identity: HoverCardRecord) {
         $isProbableTroll: identity?.$isProbableTroll ?? trust.isProbableTroll
     };
     return { trustSource, trustKey: resolveTrustColorKey(trustSource) };
-}
-
-function estimatedOnlineMs(
-    state: FriendRosterBucket | null,
-    lastLogin: unknown,
-    nowMs: number
-) {
-    if (state !== 'online') {
-        return 0;
-    }
-    const lastLoginMs = timestampMsFromValue(lastLogin);
-    if (!lastLoginMs || lastLoginMs > nowMs) {
-        return 0;
-    }
-    return nowMs - lastLoginMs;
 }
 
 export function normalizeInstanceCounts(json: unknown) {
@@ -169,8 +154,7 @@ export function buildUserHoverCardModel({
             identity?.displayName ||
             identity?.username ||
             seedFields?.displayName ||
-            normalizeId(identity?.id) ||
-            'Unknown',
+            '',
         avatarUrl: userImage(identity, 128),
         avatarPreviewUrl: userImage(identity, 512),
         userColour: identity?.$userColour || '',
@@ -195,7 +179,7 @@ export function buildUserHoverCardModel({
                 identity?.nameplateEffect || seedFields?.nameplateEffect || ''
             ).trim()
         },
-        onlineForMs: estimatedOnlineMs(state, identity?.last_login, nowMs),
+        onlineForMs: presenceOnlineForMs(presence, nowMs),
         lastOnlineAgoMs:
             variant === 'offline'
                 ? (() => {

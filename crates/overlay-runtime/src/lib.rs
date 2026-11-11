@@ -1,5 +1,6 @@
 mod avatar_cache;
 mod config;
+pub mod desktop_widget;
 mod eligibility;
 mod localization;
 mod manager;
@@ -9,6 +10,7 @@ mod service;
 mod services;
 pub mod surfaces;
 mod test_preview;
+mod tracker_watch;
 
 pub use eligibility::{VrOverlayEligibility, WristOverlayStartMode};
 pub use manager::VrOverlayManager;

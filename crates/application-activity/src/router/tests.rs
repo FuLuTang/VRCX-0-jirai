@@ -230,6 +230,35 @@ fn group_event_notifications_use_the_vrchat_title_when_it_is_given() {
 }
 
 #[test]
+fn group_change_renders_its_message_key_and_keeps_legacy_text() {
+    let mut keyed = ActivityEvent::new(ActivityKind::GroupChange, "groupChange:1", "2026-10-30");
+    keyed.actor = ActivityActor::new(String::new(), "Club".to_string());
+    keyed.facts.message_key = "notifications.group_member_roles".into();
+    keyed.facts.message_params = [("roles".to_string(), "Staff".to_string())].into();
+    let content = super::content::build_activity_content(&keyed);
+    assert_eq!(content.title, ActivityText::literal("Club"));
+    assert_eq!(
+        content.body.as_message().map(OverlayMessage::key),
+        Some(OverlayMessageKey::NotificationsGroupMemberRoles)
+    );
+    assert_eq!(
+        content
+            .body
+            .as_message()
+            .and_then(|message| message.params().get("roles"))
+            .map(String::as_str),
+        Some("Staff")
+    );
+
+    let mut legacy = ActivityEvent::new(ActivityKind::GroupChange, "groupChange:2", "2026-10-30");
+    legacy.facts.message = "Role Staff added".into();
+    assert_eq!(
+        super::content::build_activity_content(&legacy).body,
+        ActivityText::literal("Role Staff added")
+    );
+}
+
+#[test]
 fn unnamed_direct_actor_uses_the_user_id_as_title() {
     let (runtime, sink) = webhook_only_invite_runtime();
     let mut invite = recent_event(ActivityKind::Invite, "usr_sender");
@@ -341,6 +370,28 @@ fn queue_ready_names_the_ready_instance() {
     assert_eq!(
         entries[0].content.summary,
         "Instance Queue Ready Instance ready to join Queue World public"
+    );
+}
+
+#[test]
+fn instance_closed_names_the_closed_instance() {
+    let runtime = ActivityRouter::new();
+    let mut closed = ActivityEvent::new(
+        ActivityKind::InstanceClosed,
+        "instance-closed:wrld_1:123:2026-05-31T00:03:10.000Z",
+        "2026-05-31T00:03:10.000Z",
+    );
+    closed.facts.location = "wrld_1:123".into();
+    closed.facts.world_name = "Closed World".into();
+    closed.facts.message = "Instance Closed".into();
+
+    runtime.ingest(closed);
+
+    let entries = runtime.snapshot().entries;
+    assert_eq!(entries.len(), 1);
+    assert_eq!(
+        entries[0].content.summary,
+        "Instance Closed Instance closed: Closed World public"
     );
 }
 
@@ -571,6 +622,38 @@ fn moves_to_private_worlds_stay_off_notification_channels_when_hidden() {
 }
 
 #[test]
+fn video_errors_stay_off_notification_channels_when_hidden() {
+    let runtime = ActivityRouter::with_filters(ActivityFilters::from_json(json!({
+        "version": 1,
+        "wrist": { "types": { "Event": { "scope": "on" } } },
+        "desktop": { "types": { "Event": { "scope": "on" } } }
+    })));
+    let sink = TestOverlayActivitySink::default();
+    runtime.set_sink(sink.clone());
+    runtime.arm_delivery();
+    runtime.set_hide_video_errors(true);
+    let game_event = |source_id: &str, message: &str| {
+        let mut event = recent_event(ActivityKind::Event, "");
+        event.source_id = source_id.to_string();
+        event.facts.message = message.to_string();
+        event
+    };
+
+    runtime.ingest(game_event("video-error", "VideoError: Video not found"));
+
+    assert_eq!(runtime.snapshot().entries.len(), 1);
+    assert!(sink.take_deliveries().is_empty());
+
+    runtime.ingest(game_event(
+        "shader",
+        "Shader Keyword Limit has been reached",
+    ));
+    let deliveries = sink.take_deliveries();
+    assert_eq!(deliveries.len(), 1);
+    assert!(deliveries[0].desktop);
+}
+
+#[test]
 fn current_instance_gps_is_hidden_only_on_surfaces_that_delivered_joined() {
     let runtime =
         ActivityRouter::with_filters(current_instance_gps_filters("friends", "off", "off"));
@@ -718,7 +801,7 @@ fn location_hidden_users_skip_gps_on_every_surface_but_keep_other_activity() {
     runtime.set_sink(sink.clone());
     runtime.arm_delivery();
     runtime.set_friend_user_ids(["usr_hidden", "usr_other"]);
-    runtime.set_location_hidden_user_ids(HashSet::from(["usr_hidden".to_string()]));
+    runtime.set_feed_hidden_users(HashSet::from(["usr_hidden".to_string()]), false);
 
     assert!(runtime
         .ingest(recent_event(ActivityKind::Gps, "usr_hidden"))
@@ -747,6 +830,66 @@ fn location_hidden_users_skip_gps_on_every_surface_but_keep_other_activity() {
         vec![
             ("Status".to_string(), "usr_hidden".to_string()),
             ("GPS".to_string(), "usr_other".to_string()),
+        ]
+    );
+}
+
+#[test]
+fn hide_all_feed_activity_skips_every_feed_kind_but_keeps_other_activity() {
+    let rule = json!({ "scope": "friends", "favoriteGroupKeys": "all" });
+    let surface = json!({ "types": {
+        "GPS": rule,
+        "Online": rule,
+        "Offline": rule,
+        "Status": rule,
+        "AvatarChange": rule,
+        "Bio": rule,
+        "boop": rule
+    } });
+    let runtime = ActivityRouter::with_filters(ActivityFilters::from_json(json!({
+        "version": 1,
+        "wrist": surface,
+        "desktop": surface
+    })));
+    let sink = TestOverlayActivitySink::default();
+    runtime.set_sink(sink.clone());
+    runtime.arm_delivery();
+    runtime.set_friend_user_ids(["usr_hidden", "usr_other"]);
+    runtime.set_feed_hidden_users(HashSet::from(["usr_hidden".to_string()]), true);
+
+    for kind in [
+        ActivityKind::Gps,
+        ActivityKind::Online,
+        ActivityKind::Offline,
+        ActivityKind::Status,
+        ActivityKind::AvatarChange,
+        ActivityKind::Bio,
+    ] {
+        assert!(runtime.ingest(recent_event(kind, "usr_hidden")).is_none());
+    }
+    assert!(sink.take_deliveries().is_empty());
+
+    assert!(runtime
+        .ingest(recent_event(ActivityKind::Boop, "usr_hidden"))
+        .is_some());
+    assert!(runtime
+        .ingest(recent_event(ActivityKind::Online, "usr_other"))
+        .is_some());
+    let delivered = sink
+        .take_deliveries()
+        .into_iter()
+        .map(|delivery| {
+            (
+                delivery.entry.kind.key().to_string(),
+                delivery.entry.actor_user_id,
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        delivered,
+        vec![
+            ("boop".to_string(), "usr_hidden".to_string()),
+            ("Online".to_string(), "usr_other".to_string()),
         ]
     );
 }

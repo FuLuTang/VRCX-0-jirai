@@ -25,6 +25,10 @@ pub struct TelemetryContext {
     pub session_ended: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vrchat_seen: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signed_in: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub basic: Option<bool>,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
@@ -33,6 +37,22 @@ pub enum TelemetryVrcxOrigin {
     Migrated,
     VrcxDetected,
     Fresh,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TelemetryOfflineRecord {
+    On,
+    Off,
+}
+
+impl TelemetryOfflineRecord {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::On => "on",
+            Self::Off => "off",
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -48,6 +68,7 @@ pub struct TelemetryConfigSnapshot {
     pub friend_log_rows_bucket: String,
     pub friend_count_bucket: String,
     pub vrcx_origin: TelemetryVrcxOrigin,
+    pub offline_record: TelemetryOfflineRecord,
 }
 
 #[derive(Clone, Debug, Serialize)]

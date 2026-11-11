@@ -43,6 +43,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/ui/shadcn/popover';
 import { ScrollArea } from '@/ui/shadcn/scroll-area';
 import { Switch } from '@/ui/shadcn/switch';
 
+import { SETTINGS_DEFAULT_VALUES } from '../../settingsFieldState';
 import { useSettingsPageSection } from '../../SettingsPageStateContext';
 import { SettingsCard } from '../SettingsCard';
 import { Field } from '../SettingsField';
@@ -65,6 +66,7 @@ export function SettingsSocialTab() {
             profileBioScanEnabled: state.profileBioScanEnabled,
             feedHiddenUsersHideNotifications:
                 state.feedHiddenUsersHideNotifications,
+            feedHiddenUsersHideAll: state.feedHiddenUsersHideAll,
             hidePrivateFromFeed: state.hidePrivateFromFeed
         }))
     );
@@ -77,6 +79,7 @@ export function SettingsSocialTab() {
         feedHiddenUsers = [],
         onAddFeedHiddenUser,
         onAutoDeclineFriendRequestsChange,
+        onFeedHiddenUsersHideAllChange,
         onFeedHiddenUsersHideNotificationsChange,
         onHidePrivateFromFeedChange,
         onHideUnfriendsChange,
@@ -151,6 +154,12 @@ export function SettingsSocialTab() {
                 title={t('view.settings.social.interaction.header')}
             >
                 <Field
+                    settingId="social.interaction.recent-action-cooldown"
+                    onReset={() =>
+                        onRecentActionCooldownEnabledChange(
+                            SETTINGS_DEFAULT_VALUES.recentActionCooldownEnabled
+                        )
+                    }
                     label={t(
                         'view.settings.appearance.user_dialog.recent_action_cooldown'
                     )}
@@ -193,6 +202,12 @@ export function SettingsSocialTab() {
                     </div>
                 </Field>
                 <Field
+                    settingId="social.interaction.auto-decline-friend-requests"
+                    onReset={() =>
+                        onAutoDeclineFriendRequestsChange(
+                            SETTINGS_DEFAULT_VALUES.autoDeclineFriendRequests
+                        )
+                    }
                     label={t(
                         'view.settings.social.interaction.auto_decline_friend_requests'
                     )}
@@ -211,6 +226,12 @@ export function SettingsSocialTab() {
                 title={t('view.settings.appearance.friend_log.header')}
             >
                 <Field
+                    settingId="social.friend-log.hide-unfriends"
+                    onReset={() =>
+                        onHideUnfriendsChange(
+                            SETTINGS_DEFAULT_VALUES.hideUnfriends
+                        )
+                    }
                     label={t(
                         'view.settings.appearance.friend_log.hide_unfriends'
                     )}
@@ -226,6 +247,12 @@ export function SettingsSocialTab() {
                 title={t('view.settings.social.friend_bios.header')}
             >
                 <Field
+                    settingId="social.friend-bios.keep-up-to-date"
+                    onReset={() =>
+                        onProfileBioScanEnabledChange(
+                            SETTINGS_DEFAULT_VALUES.profileBioScanEnabled
+                        )
+                    }
                     label={t(
                         'view.settings.social.friend_bios.keep_up_to_date'
                     )}
@@ -244,6 +271,7 @@ export function SettingsSocialTab() {
                 title={t('view.settings.social.hidden_feed.header')}
             >
                 <Field
+                    settingId="social.hidden-feed.users"
                     label={t('view.settings.social.hidden_feed.add')}
                     description={t(
                         'view.settings.social.hidden_feed.description'
@@ -378,6 +406,29 @@ export function SettingsSocialTab() {
                     </div>
                 </Field>
                 <Field
+                    settingId="social.hidden-feed.hide-all"
+                    onReset={() =>
+                        onFeedHiddenUsersHideAllChange(
+                            SETTINGS_DEFAULT_VALUES.feedHiddenUsersHideAll
+                        )
+                    }
+                    label={t('view.settings.social.hidden_feed.hide_all')}
+                    description={t(
+                        'view.settings.social.hidden_feed.hide_all_description'
+                    )}
+                >
+                    <Switch
+                        checked={prefs.feedHiddenUsersHideAll}
+                        onCheckedChange={onFeedHiddenUsersHideAllChange}
+                    />
+                </Field>
+                <Field
+                    settingId="social.hidden-feed.hide-notifications"
+                    onReset={() =>
+                        onFeedHiddenUsersHideNotificationsChange(
+                            SETTINGS_DEFAULT_VALUES.feedHiddenUsersHideNotifications
+                        )
+                    }
                     label={t(
                         'view.settings.social.hidden_feed.hide_notifications'
                     )}
@@ -393,6 +444,12 @@ export function SettingsSocialTab() {
                     />
                 </Field>
                 <Field
+                    settingId="social.hidden-feed.hide-private-location-changes"
+                    onReset={() =>
+                        onHidePrivateFromFeedChange(
+                            SETTINGS_DEFAULT_VALUES.hidePrivateFromFeed
+                        )
+                    }
                     label={t(
                         'view.settings.social.hidden_feed.hide_private_location_changes'
                     )}
@@ -411,6 +468,7 @@ export function SettingsSocialTab() {
                 title={t('view.settings.social.favorites.header')}
             >
                 <Field
+                    settingId="social.favorites.local-friend-groups"
                     label={t('view.settings.general.favorites.header')}
                     description={t(
                         'view.settings.general.favorites.header_tooltip'

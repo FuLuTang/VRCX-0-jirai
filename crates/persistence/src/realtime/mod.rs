@@ -10,7 +10,8 @@ pub use types::{
     NotificationExpiration, NotificationV2Update, RealtimePersistenceBatch, RealtimeWriteCounts,
     SelfProfileField, SelfProfileObservation,
 };
+pub(crate) use write::write_friend_log_current;
 pub use write::{
-    insert_startup_online_backfill, profile_feed_reconcile, write_realtime_batch,
-    ProfileFeedReconcileInput, ProfileFeedReconcileOutput,
+    insert_backfilled_feed, insert_startup_online_backfill, profile_feed_reconcile,
+    write_realtime_batch, BackfillWrites, ProfileFeedReconcileInput, ProfileFeedReconcileOutput,
 };

@@ -1,4 +1,3 @@
-import type { ChangeEvent } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -8,12 +7,14 @@ import vrchatMediaRepository, {
     type MediaFileRecord
 } from '@/repositories/vrchatMediaRepository';
 import { refreshCurrentUser } from '@/services/backgroundMaintenanceSessionService';
+import { refreshInventoryBundles } from '@/services/inventoryBundleService';
 import { toast } from '@/services/toastService';
 import { VRCHAT_API_DEFAULT_PAGE_SIZE } from '@/shared/constants/pagination';
 import {
     readFileAsBase64,
     withUploadTimeout
 } from '@/shared/utils/imageUpload';
+import { useInventoryBundleStore } from '@/state/inventoryBundleStore';
 import { useModalStore } from '@/state/modalStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
 
@@ -26,13 +27,13 @@ import {
     parseEmojiUploadSettings,
     readGridDensityPreference,
     scopeKey,
-    validateImageFile,
     writeGridDensityPreference,
     type InventoryCategory,
     type InventoryTabDefinition,
     type InventoryUploadTarget,
     type EmojiUploadSettings
 } from './inventoryHelpers';
+import { useImageUploadIntake } from './useImageUploadIntake';
 
 type InventoryAuthTarget = {
     endpoint: string;
@@ -126,12 +127,16 @@ export function useInventoryPageState() {
     useEffect(() => {
         translateRef.current = t;
     }, [t]);
-    const uploadInputRef = useRef<HTMLInputElement | null>(null);
-    const uploadTargetRef = useRef<InventoryUploadTarget | null>(null);
     const currentUserId = useRuntimeStore((state) => state.auth.currentUserId);
     const currentEndpoint = useRuntimeStore(
         (state) => state.auth.currentUserEndpoint
     );
+    const bundleIds = useInventoryBundleStore((state) => state.bundleIds);
+    useEffect(() => {
+        if (bundleIds.length > 0) {
+            useInventoryBundleStore.getState().markSeen();
+        }
+    }, [bundleIds]);
     const currentUserWebsocket = useRuntimeStore(
         (state) => state.auth.currentUserWebsocket
     );
@@ -187,6 +192,26 @@ export function useInventoryPageState() {
 
     const activeSubTab = activeSubTabs[activeCategory];
     const activeScopeKey = scopeKey(activeCategory, activeSubTab);
+    const activeUploadTarget =
+        CATEGORY_DEFINITIONS[activeCategory].tabs.find(
+            (entry) => entry.key === activeSubTab
+        )?.uploadTarget ?? null;
+    const {
+        beginUpload,
+        clipboardPasting,
+        fileDropActive,
+        pasteClipboardUpload,
+        pasteScopeRef,
+        uploadInputRef,
+        uploadSelectedFile
+    } = useImageUploadIntake<InventoryUploadTarget, InventoryAuthTarget>({
+        enabled: Boolean(currentUserId) && !cropRequest && !uploadingTarget,
+        activeTarget: activeUploadTarget,
+        canUploadTo: () => isVrcPlusSupporter,
+        getAuthTarget: getInventoryAuthTarget,
+        isCurrentAuthTarget: isCurrentInventoryAuthTarget,
+        openCropRequest
+    });
 
     function changeGridDensity(nextValue: GalleryGridDensity) {
         setGridDensity(nextValue);
@@ -271,15 +296,6 @@ export function useInventoryPageState() {
         refreshScope
     ]);
 
-    function beginUpload(target: InventoryUploadTarget) {
-        if (!isVrcPlusSupporter) {
-            toast.add({ type: 'error', title: t('message.vrcplus.required') });
-            return;
-        }
-        uploadTargetRef.current = target;
-        uploadInputRef.current?.click();
-    }
-
     function uploadAsset(
         target: InventoryUploadTarget,
         base64Body: string,
@@ -297,24 +313,11 @@ export function useInventoryPageState() {
         throw new Error(`Unsupported inventory upload target: ${target}`);
     }
 
-    async function uploadSelectedFile(event: ChangeEvent<HTMLInputElement>) {
-        const file = event.target.files?.[0] || null;
-        event.target.value = '';
-        if (!file) {
-            return;
-        }
-        if (!isVrcPlusSupporter) {
-            toast.add({ type: 'error', title: t('message.vrcplus.required') });
-            return;
-        }
-        if (!validateImageFile(file, t)) {
-            return;
-        }
-        const target = uploadTargetRef.current;
-        if (!target) {
-            return;
-        }
-        const authTarget = getInventoryAuthTarget();
+    function openCropRequest(
+        file: File,
+        target: InventoryUploadTarget,
+        authTarget: InventoryAuthTarget
+    ) {
         const settings =
             target === 'emojis'
                 ? parseEmojiUploadSettings(file.name, {
@@ -400,7 +403,6 @@ export function useInventoryPageState() {
             }
         } finally {
             setUploadingTarget('');
-            uploadTargetRef.current = null;
             setCropRequest(null);
         }
     }
@@ -514,6 +516,7 @@ export function useInventoryPageState() {
                     type: 'success',
                     title: t('view.tools.label.inventory_bundle_consumed')
                 });
+                refreshInventoryBundles(currentUserId).catch(() => {});
                 await refreshScope(activeCategory, activeSubTab);
             }
         } catch (error) {
@@ -658,7 +661,6 @@ export function useInventoryPageState() {
     }
 
     function closeCropRequest() {
-        uploadTargetRef.current = null;
         setCropRequest(null);
     }
 
@@ -680,11 +682,15 @@ export function useInventoryPageState() {
         emojiAnimLoopPingPong,
         emojiAnimType,
         emojiAnimationStyle,
+        clipboardPasting,
+        fileDropActive,
+        pasteScopeRef,
         gridDensity,
         gridDensityConfig,
         isVrcPlusSupporter,
         mutatingKey,
         openImagePreview,
+        pasteClipboardUpload,
         profileDecorationMutationPending,
         redeemReward,
         refreshScope,

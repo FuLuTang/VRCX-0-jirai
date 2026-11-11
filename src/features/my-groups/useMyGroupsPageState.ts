@@ -322,6 +322,7 @@ export function useMyGroupsPageState() {
         load,
         moveGroup,
         normalizedOrder,
+        openSections,
         orderCapable,
         orderEditable,
         orderSaving,

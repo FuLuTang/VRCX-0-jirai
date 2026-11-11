@@ -148,6 +148,15 @@ export function AppMenuBar({ showHelp = true }: { showHelp?: boolean }) {
                             </MenuItem>
                             <MenuItem
                                 onClick={() =>
+                                    runAfterRestoringNormalWindow(() =>
+                                        navigate('/themes')
+                                    )
+                                }
+                            >
+                                {t('app.routes.themes')}
+                            </MenuItem>
+                            <MenuItem
+                                onClick={() =>
                                     setSystemHostOpen('updaterOpen', true)
                                 }
                             >
@@ -255,11 +264,6 @@ export function AppMenuBar({ showHelp = true }: { showHelp?: boolean }) {
                                     onClick={() => openLink(links.discord)}
                                 >
                                     Discord
-                                </MenuItem>
-                                <MenuItem
-                                    onClick={() => openLink(links.qqGroup)}
-                                >
-                                    {t('nav_menu.qq_group')}
                                 </MenuItem>
                             </MenubarGroup>
                             <MenubarSeparator />

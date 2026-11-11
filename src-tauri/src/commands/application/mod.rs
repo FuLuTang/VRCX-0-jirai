@@ -1,10 +1,13 @@
 pub mod assistant;
 pub mod background_image;
 pub mod background_mode;
+pub mod chatbox;
 pub mod community_theme;
 pub mod deep_link;
 pub mod desktop_notification;
+pub mod desktop_widget;
 pub mod favorite_transfer;
+pub mod feed_logger;
 pub mod friend_log;
 pub mod frontend_batch;
 pub mod group_calendar;

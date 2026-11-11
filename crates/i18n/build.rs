@@ -107,6 +107,8 @@ fn generate() -> Result<(), String> {
         ("overlay", "OverlayMessageKey"),
         ("discordPresence", "DiscordPresenceKey"),
         ("shell", "ShellKey"),
+        ("desktopWidget", "DesktopWidgetKey"),
+        ("chatbox", "ChatboxKey"),
     ] {
         let domain = manifest
             .domains
@@ -206,7 +208,12 @@ fn generate() -> Result<(), String> {
     let unexpected_domains = manifest
         .domains
         .keys()
-        .filter(|name| !matches!(name.as_str(), "overlay" | "discordPresence" | "shell"))
+        .filter(|name| {
+            !matches!(
+                name.as_str(),
+                "overlay" | "discordPresence" | "shell" | "desktopWidget" | "chatbox"
+            )
+        })
         .cloned()
         .collect::<Vec<_>>();
     if !unexpected_domains.is_empty() {

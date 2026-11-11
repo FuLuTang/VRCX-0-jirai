@@ -9,9 +9,10 @@ use crate::realtime::ensure_realtime_tables;
 use crate::Error;
 
 const GLOBAL_STORE_SCHEMA_KEY: &str = "global-store";
+const FAVORITE_UNIQUE_INDEX_SCHEMA_KEY: &str = "global-store:favorite-unique-indexes";
 
 pub(crate) fn ensure_global_store_tables(db: &DatabaseService) -> Result<(), Error> {
-    db.ensure_schema_until_stable(GLOBAL_STORE_SCHEMA_KEY, || {
+    db.ensure_schema_once(GLOBAL_STORE_SCHEMA_KEY, || {
         ensure_owner_table(db)?;
         for sql in [
             "CREATE TABLE IF NOT EXISTS cache_avatar (id TEXT PRIMARY KEY, added_at TEXT, author_id TEXT, author_name TEXT, created_at TEXT, description TEXT, image_url TEXT, name TEXT, release_status TEXT, thumbnail_image_url TEXT, updated_at TEXT, version INTEGER)",
@@ -27,6 +28,7 @@ pub(crate) fn ensure_global_store_tables(db: &DatabaseService) -> Result<(), Err
             "CREATE TABLE IF NOT EXISTS world_memos (world_id TEXT PRIMARY KEY, edited_at TEXT, memo TEXT)",
             "CREATE TABLE IF NOT EXISTS avatar_memos (avatar_id TEXT PRIMARY KEY, edited_at TEXT, memo TEXT)",
             "CREATE TABLE IF NOT EXISTS avatar_tags (avatar_id TEXT NOT NULL, tag TEXT NOT NULL, color TEXT, PRIMARY KEY (avatar_id, tag))",
+            "CREATE TABLE IF NOT EXISTS favorite_screenshot (id INTEGER PRIMARY KEY AUTOINCREMENT, path TEXT NOT NULL UNIQUE, size_bytes INTEGER NOT NULL, sha256 TEXT NOT NULL, created_at TEXT NOT NULL)",
         ] {
             db.execute_non_query(sql, &Default::default())?;
         }
@@ -39,6 +41,13 @@ pub(crate) fn ensure_global_store_tables(db: &DatabaseService) -> Result<(), Err
         for table in ["favorite_world", "favorite_avatar", "favorite_friend"] {
             add_column_if_missing(db, table, "sort_order", "INTEGER")?;
         }
+        db.execute_non_query(
+            "DROP INDEX IF EXISTS favorite_friend_user_id_group_idx",
+            &Default::default(),
+        )?;
+        Ok(())
+    })?;
+    db.ensure_schema_until_stable(FAVORITE_UNIQUE_INDEX_SCHEMA_KEY, || {
         ensure_favorite_unique_indexes(db)
     })
 }
@@ -66,10 +75,6 @@ fn ensure_favorite_unique_indexes(db: &DatabaseService) -> Result<bool, Error> {
         "favorite_friend",
         "owner_id, user_id, group_name",
         "favorite_friend_owner_user_id_group",
-    )?;
-    db.execute_non_query(
-        "DROP INDEX IF EXISTS favorite_friend_user_id_group_idx",
-        &Default::default(),
     )?;
     Ok(stable)
 }
@@ -193,6 +198,12 @@ pub(crate) fn ensure_assistant_tables(db: &DatabaseService) -> Result<(), Error>
             "assistant_session",
             "playbook_mode",
             "TEXT NOT NULL DEFAULT 'auto'",
+        )?;
+        add_column_if_missing(
+            db,
+            "assistant_session",
+            "pinned",
+            "INTEGER NOT NULL DEFAULT 0",
         )?;
         Ok(())
     })
@@ -336,14 +347,36 @@ pub(crate) fn table_column_names(
     table_name: &str,
 ) -> Result<HashSet<String>, Error> {
     let table_name = safe_identifier(table_name, "Table name")?;
-    let rows = db.execute(
+    Ok(column_names_from_rows(db.execute(
         &format!("PRAGMA table_info({table_name})"),
         &Default::default(),
-    )?;
-    Ok(rows
-        .into_iter()
+    )?))
+}
+
+fn column_names_from_rows(rows: Vec<Vec<Value>>) -> HashSet<String> {
+    rows.into_iter()
         .filter_map(|row| row.get(1).and_then(Value::as_str).map(str::to_string))
-        .collect())
+        .collect()
+}
+
+fn alter_column_if(
+    db: &DatabaseService,
+    table_name: &str,
+    column_name: &str,
+    should_alter: impl FnOnce(bool) -> bool,
+    alter_sql: String,
+) -> Result<bool, Error> {
+    db.write_transaction(|tx| {
+        let columns = column_names_from_rows(tx.execute(
+            &format!("PRAGMA table_info({table_name})"),
+            &Default::default(),
+        )?);
+        if !should_alter(columns.contains(column_name)) {
+            return Ok(false);
+        }
+        tx.execute_non_query(&alter_sql, &Default::default())?;
+        Ok(true)
+    })
 }
 
 pub(crate) fn add_column_if_missing(
@@ -354,14 +387,13 @@ pub(crate) fn add_column_if_missing(
 ) -> Result<bool, Error> {
     let table_name = safe_identifier(table_name, "Table name")?;
     let column_name = safe_identifier(column_name, "Column name")?;
-    if table_column_names(db, &table_name)?.contains(&column_name) {
-        return Ok(false);
-    }
-    db.execute_non_query(
-        &format!("ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition}"),
-        &Default::default(),
-    )?;
-    Ok(true)
+    alter_column_if(
+        db,
+        &table_name,
+        &column_name,
+        |exists| !exists,
+        format!("ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition}"),
+    )
 }
 
 pub(crate) fn drop_column_if_exists(
@@ -371,14 +403,13 @@ pub(crate) fn drop_column_if_exists(
 ) -> Result<bool, Error> {
     let table_name = safe_identifier(table_name, "Table name")?;
     let column_name = safe_identifier(column_name, "Column name")?;
-    if !table_column_names(db, &table_name)?.contains(&column_name) {
-        return Ok(false);
-    }
-    db.execute_non_query(
-        &format!("ALTER TABLE {table_name} DROP COLUMN {column_name}"),
-        &Default::default(),
-    )?;
-    Ok(true)
+    alter_column_if(
+        db,
+        &table_name,
+        &column_name,
+        |exists| exists,
+        format!("ALTER TABLE {table_name} DROP COLUMN {column_name}"),
+    )
 }
 
 pub(crate) fn add_v17_global_indexes(db: &DatabaseService) -> Result<(), Error> {
@@ -586,6 +617,38 @@ mod schema_version_tests {
         assert!(!table_column_names(&db, "sample_table")
             .unwrap()
             .contains("display_name"));
+    }
+
+    #[test]
+    fn concurrent_column_adds_on_the_same_table_all_succeed() {
+        let db = test_db("schema-concurrent-column-add");
+        db.execute_non_query(
+            "CREATE TABLE sample_table (id TEXT PRIMARY KEY)",
+            &Default::default(),
+        )
+        .unwrap();
+
+        let barrier = std::sync::Barrier::new(8);
+        let added = std::thread::scope(|scope| {
+            let handles: Vec<_> = (0..8)
+                .map(|_| {
+                    scope.spawn(|| {
+                        barrier.wait();
+                        add_column_if_missing(&db, "sample_table", "sort_order", "INTEGER")
+                    })
+                })
+                .collect();
+            handles
+                .into_iter()
+                .map(|handle| handle.join().unwrap().unwrap())
+                .filter(|added| *added)
+                .count()
+        });
+
+        assert_eq!(added, 1);
+        assert!(table_column_names(&db, "sample_table")
+            .unwrap()
+            .contains("sort_order"));
     }
 
     #[test]

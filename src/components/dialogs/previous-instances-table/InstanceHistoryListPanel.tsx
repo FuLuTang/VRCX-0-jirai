@@ -8,13 +8,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { InstanceActionBar } from '@/components/instances/InstanceActionBar';
-import { normalizeLocationText } from '@/components/location/locationModel';
 import { StaticLocation } from '@/components/location/StaticLocation';
-import { LocationWorld } from '@/components/LocationWorld';
-import {
-    formatCompactDateTime,
-    formatDateFilterOrFallback
-} from '@/lib/dateTime';
+import { formatDateFilterOrFallback, formatDateTime } from '@/lib/dateTime';
 import { cn } from '@/lib/utils';
 import gameLogRepository from '@/repositories/gameLogRepository';
 import { copyTextToClipboard } from '@/services/clipboardService';
@@ -36,13 +31,14 @@ import {
     type PreviousInstanceRow,
     rowDuration,
     rowLocation,
-    rowLocationObject,
     rowMatchesSearch,
     sortPreviousInstanceRows
 } from './previousInstancesRows';
 import {
     DialogEmptyState,
-    PreviousInstanceDetailsPanel
+    InstanceCreatorCell,
+    PreviousInstanceDetailsPanel,
+    PreviousInstanceWorldLocation
 } from './PreviousInstancesViewParts';
 
 export type InstanceHistoryListVariant = 'user' | 'world';
@@ -65,26 +61,10 @@ function InstanceHistoryRowLocation({
         return '-';
     }
     if (variant === 'world') {
-        const locationObject = rowLocationObject(row);
         return (
-            <LocationWorld
-                locationObject={locationObject}
-                grouphint={row?.groupName}
+            <PreviousInstanceWorldLocation
+                row={row}
                 currentUserId={currentUserId}
-                worldDialogShortName={normalizeLocationText(
-                    locationObject.shortName
-                )}
-                instanceOwner={
-                    locationObject.ownerUserId || locationObject.userId || ''
-                }
-                instanceOwnerName={normalizeLocationText(
-                    locationObject.ownerDisplayName ||
-                        row?.ownerDisplayName ||
-                        row?.ownerName
-                )}
-                interactive={false}
-                hint={row?.worldName || ''}
-                className="max-w-full"
             />
         );
     }
@@ -126,14 +106,25 @@ function InstanceHistoryListRow<TRow extends PreviousInstanceRow>({
                 className="focus-visible:ring-ring/50 absolute inset-0 rounded-md transition-colors duration-[120ms] outline-none hover:bg-(--state-hover-surface) focus-visible:ring-2 motion-reduce:transition-none"
             />
             <span
-                className="text-muted-foreground pointer-events-none relative w-28 shrink-0 tabular-nums"
+                className="text-muted-foreground pointer-events-none relative w-36 shrink-0 tabular-nums"
                 title={formatDateFilterOrFallback(createdAt, 'long')}
             >
-                {formatCompactDateTime(createdAt) || '-'}
+                {formatDateTime(createdAt, {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                }) || '-'}
             </span>
             <div className="pointer-events-none relative min-w-0 flex-1">
                 <InstanceHistoryRowLocation row={row} variant={variant} />
             </div>
+            {variant === 'user' ? (
+                <div className="pointer-events-none relative flex w-32 min-w-0 shrink-0 *:pointer-events-auto">
+                    <InstanceCreatorCell row={row} />
+                </div>
+            ) : null}
             <span className="pointer-events-none relative w-14 shrink-0 text-right tabular-nums">
                 {rowDuration(row)}
             </span>

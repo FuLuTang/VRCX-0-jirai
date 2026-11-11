@@ -8,7 +8,9 @@ import type {
     BackendRuntimeSnapshot,
     CapabilityStatus,
     DatabaseUpgradeStage,
+    DesktopWidgetSnapshot,
     FriendProfileBulkLoadStatus,
+    GameIsolationSnapshot,
     HostCapabilities,
     MutualGraphFetchStatus,
     NotificationDoNotDisturbSnapshot,
@@ -37,6 +39,12 @@ type TransportState = {
     websocketDomain: string;
     lastConnectedAt: string | null;
     lastDisconnectedAt: string | null;
+    interrupted: boolean;
+    retryWaiting: boolean;
+    retryAt: string | null;
+    retryAttempt: number;
+    lastError: string | null;
+    outageStartedAt: string | null;
 };
 
 export type MutualGraphState = Omit<
@@ -81,8 +89,9 @@ export type NowPlayingState = {
     displayName: string | null;
     thumbnailUrl: string | null;
     length: number | null;
-    position: number;
+    position: number | null;
     startedAt: string | null;
+    paused: boolean | null;
     updatedAt: string | null;
 };
 
@@ -221,7 +230,9 @@ type RuntimeStore = {
     runtimeEvents: Record<string, RuntimeEventState>;
     backendRuntime: BackendRuntimeSnapshot | null;
     notificationDoNotDisturb: NotificationDoNotDisturbSnapshot;
+    gameIsolation: GameIsolationSnapshot;
     privacyLock: PrivacyLockSnapshot;
+    desktopWidget: DesktopWidgetSnapshot;
     authenticatedSession: AuthenticatedSessionProjection;
     shell: {
         backendRuntimeSnapshotHydrated: boolean;
@@ -245,7 +256,9 @@ type RuntimeStore = {
     setNotificationDoNotDisturb(
         snapshot: NotificationDoNotDisturbSnapshot
     ): void;
+    setGameIsolation(snapshot: GameIsolationSnapshot): void;
     setPrivacyLock(snapshot: PrivacyLockSnapshot): void;
+    setDesktopWidget(snapshot: DesktopWidgetSnapshot): void;
     setAuthenticatedSessionProjection(
         projection: AuthenticatedSessionProjection
     ): boolean;
@@ -361,7 +374,13 @@ function createTransportState(): TransportState {
         websocketConnected: false,
         websocketDomain: '',
         lastConnectedAt: null,
-        lastDisconnectedAt: null
+        lastDisconnectedAt: null,
+        interrupted: false,
+        retryWaiting: false,
+        retryAt: null,
+        retryAttempt: 0,
+        lastError: null,
+        outageStartedAt: null
     };
 }
 
@@ -413,6 +432,7 @@ function createNowPlayingState(): RuntimeStore['nowPlaying'] {
         length: 0,
         position: 0,
         startedAt: null,
+        paused: false,
         updatedAt: null
     };
 }
@@ -490,7 +510,9 @@ type RuntimeStoreState = Omit<
     | 'setGameState'
     | 'setBackendRuntimeSnapshot'
     | 'setNotificationDoNotDisturb'
+    | 'setGameIsolation'
     | 'setPrivacyLock'
+    | 'setDesktopWidget'
     | 'setAuthenticatedSessionProjection'
     | 'setShellState'
     | 'setNowPlayingState'
@@ -598,8 +620,11 @@ const initialState: RuntimeStoreState = {
         exportFriendsListOpen: false,
         exportAvatarsListOpen: false,
         editInviteMessagesOpen: false,
+        moderationReportsOpen: false,
+        purchaseHistoryOpen: false,
         llmEndpointsOpen: false,
         profileBackupOpen: false,
+        offlineRecordOpen: false,
         syncWorkflowOpen: false
     },
     changelogTargetVersion: '',
@@ -626,11 +651,22 @@ const initialState: RuntimeStoreState = {
         mode: 'off',
         endsAt: null
     },
+    gameIsolation: {
+        revision: 0,
+        enabled: false,
+        localGameAccount: null
+    },
     privacyLock: {
         revision: 0,
         userId: '',
         locked: false,
         hasPassword: false
+    },
+    desktopWidget: {
+        supported: false,
+        enabled: false,
+        pinned: true,
+        clickThrough: false
     },
     authenticatedSession: {
         revision: 0,
@@ -783,11 +819,20 @@ export const useRuntimeStore = create<RuntimeStore>((set, get) => ({
         }
         set({ notificationDoNotDisturb: snapshot });
     },
+    setGameIsolation(snapshot: GameIsolationSnapshot) {
+        if (snapshot.revision < get().gameIsolation.revision) {
+            return;
+        }
+        set({ gameIsolation: snapshot });
+    },
     setPrivacyLock(snapshot: PrivacyLockSnapshot) {
         if (snapshot.revision < get().privacyLock.revision) {
             return;
         }
         set({ privacyLock: snapshot });
+    },
+    setDesktopWidget(snapshot: DesktopWidgetSnapshot) {
+        set({ desktopWidget: snapshot });
     },
     setAuthenticatedSessionProjection(projection) {
         if (projection.revision < get().authenticatedSession.revision) {

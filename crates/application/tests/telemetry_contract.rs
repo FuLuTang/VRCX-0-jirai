@@ -2,7 +2,8 @@ use serde_json::{json, Value};
 
 use vrcx_0_application::telemetry::{build_error_detail, sanitize_error_summary};
 use vrcx_0_contracts::telemetry::{
-    TelemetryConfigSnapshot, TelemetryContext, TelemetryRuntimeMode, TelemetryVrcxOrigin,
+    TelemetryConfigSnapshot, TelemetryContext, TelemetryOfflineRecord, TelemetryRuntimeMode,
+    TelemetryVrcxOrigin,
 };
 
 const SYNTHETIC_PROVIDER_ORG_ID: &str = "org_TESTPROVIDER123456789";
@@ -24,6 +25,7 @@ fn config_snapshot_matches_worker_contract_fields() {
         friend_log_rows_bucket: "lt10k".into(),
         friend_count_bucket: "100_500".into(),
         vrcx_origin: TelemetryVrcxOrigin::VrcxDetected,
+        offline_record: TelemetryOfflineRecord::On,
     };
 
     let value = serde_json::to_value(&snapshot).unwrap();
@@ -43,6 +45,7 @@ fn config_snapshot_matches_worker_contract_fields() {
         "friendCountBucket",
         "friendLogRowsBucket",
         "gamelogRowsBucket",
+        "offlineRecord",
         "themeMode",
         "vrcxOrigin",
     ];
@@ -50,6 +53,7 @@ fn config_snapshot_matches_worker_contract_fields() {
     sorted.sort_unstable();
     assert_eq!(sorted, expected);
     assert_eq!(value.get("vrcxOrigin"), Some(&json!("vrcx_detected")));
+    assert_eq!(value.get("offlineRecord"), Some(&json!("on")));
 }
 
 #[test]
@@ -67,6 +71,8 @@ fn context_omits_session_ended_unless_true() {
         local_hour: 17,
         session_ended: None,
         vrchat_seen: None,
+        signed_in: None,
+        basic: None,
     };
 
     let value = serde_json::to_value(&context).unwrap();
@@ -74,6 +80,8 @@ fn context_omits_session_ended_unless_true() {
     assert_eq!(value.get("installId"), Some(&json!("install")));
     assert_eq!(value.get("mode"), Some(&json!("foreground")));
     assert!(value.get("sessionEnded").is_none());
+    assert!(value.get("signedIn").is_none());
+    assert!(value.get("basic").is_none());
 
     let ended = TelemetryContext {
         session_ended: Some(true),

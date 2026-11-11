@@ -36,6 +36,7 @@ pub struct NotificationActivityFilterProfiles {
     pub desktop: ActivityFilterProfile,
     pub webhook: ActivityFilterProfile,
     pub tts: ActivityFilterProfile,
+    pub widget: ActivityFilterProfile,
 }
 
 impl From<&ActivityFilters> for NotificationActivityFilterProfiles {
@@ -47,41 +48,21 @@ impl From<&ActivityFilters> for NotificationActivityFilterProfiles {
             desktop: ActivityFilterProfile::from_surface(&filters.desktop),
             webhook: ActivityFilterProfile::from_surface(&filters.webhook),
             tts: ActivityFilterProfile::from_surface(&filters.tts),
+            widget: ActivityFilterProfile::from_surface(&filters.widget),
         }
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub enum NotificationActivityFilterSurface {
-    Wrist,
-    Vr,
-    Hmd,
-    Desktop,
-    Webhook,
-    Tts,
-}
-
-impl NotificationActivityFilterSurface {
-    fn surface(self) -> NotificationSurface {
-        match self {
-            Self::Wrist => NotificationSurface::Wrist,
-            Self::Vr => NotificationSurface::ExternalOverlay,
-            Self::Hmd => NotificationSurface::Hmd,
-            Self::Desktop => NotificationSurface::Desktop,
-            Self::Webhook => NotificationSurface::Webhook,
-            Self::Tts => NotificationSurface::Tts,
-        }
-    }
-
+impl NotificationSurface {
     fn config_key(self) -> &'static str {
         match self {
-            Self::Wrist => WRIST_FILTERS_CONFIG_KEY,
-            Self::Vr => "vrNotificationActivityFilters",
-            Self::Hmd => HMD_FILTERS_CONFIG_KEY,
+            Self::Wrist => "overlayActivityFilters",
+            Self::ExternalOverlay => "vrNotificationActivityFilters",
+            Self::Hmd => "hmdNotificationActivityFilters",
             Self::Desktop => "desktopNotificationActivityFilters",
             Self::Webhook => "webhookActivityFilters",
-            Self::Tts => TTS_FILTERS_CONFIG_KEY,
+            Self::Tts => "ttsNotificationActivityFilters",
+            Self::DesktopWidget => "desktopWidgetActivityFilters",
         }
     }
 }
@@ -89,13 +70,9 @@ impl NotificationActivityFilterSurface {
 #[derive(Clone, Debug, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct NotificationActivityFiltersSetInput {
-    pub surface: NotificationActivityFilterSurface,
+    pub surface: NotificationSurface,
     pub filters: ActivityFilterProfile,
 }
-
-const WRIST_FILTERS_CONFIG_KEY: &str = "overlayActivityFilters";
-const HMD_FILTERS_CONFIG_KEY: &str = "hmdNotificationActivityFilters";
-const TTS_FILTERS_CONFIG_KEY: &str = "ttsNotificationActivityFilters";
 
 pub fn save_notification_activity_filters(
     config: &dyn NotificationConfig,
@@ -103,11 +80,11 @@ pub fn save_notification_activity_filters(
 ) -> Result<ActivityFilterProfile> {
     let normalized = ActivitySurfaceFilters::from_saved_types_json(
         &serde_json::to_value(&input.filters)?,
-        input.surface.surface(),
+        input.surface,
     );
     let profile = ActivityFilterProfile::from_surface(&normalized);
     let stored = match input.surface {
-        NotificationActivityFilterSurface::Wrist => {
+        NotificationSurface::Wrist => {
             json!({ "version": 1, "wrist": { "types": &profile.types } })
         }
         _ => serde_json::to_value(&profile)?,
@@ -123,14 +100,7 @@ pub fn rename_local_favorite_group_in_activity_filters(
 ) -> Result<()> {
     let old_key = format!("local:{group_name}");
     let new_key = format!("local:{new_group_name}");
-    for surface in [
-        NotificationActivityFilterSurface::Wrist,
-        NotificationActivityFilterSurface::Vr,
-        NotificationActivityFilterSurface::Hmd,
-        NotificationActivityFilterSurface::Desktop,
-        NotificationActivityFilterSurface::Webhook,
-        NotificationActivityFilterSurface::Tts,
-    ] {
+    for surface in NotificationSurface::ALL {
         let Some(raw) = config.get_raw(surface.config_key())? else {
             continue;
         };
@@ -162,7 +132,7 @@ fn rename_string_values(value: &mut Value, old: &str, new: &str) -> bool {
 
 pub fn load_overlay_activity_filters(config: &dyn NotificationConfig) -> ActivityFilters {
     let mut alert_rules_saved = false;
-    let mut filters = match config.get_raw(WRIST_FILTERS_CONFIG_KEY) {
+    let mut filters = match config.get_raw(NotificationSurface::Wrist.config_key()) {
         Ok(Some(raw)) => match serde_json::from_str::<Value>(&raw) {
             Ok(value) if ActivityFilters::has_persisted_rules(&value) => {
                 let legacy_hmd = value.get("hmd").is_some();
@@ -170,12 +140,12 @@ pub fn load_overlay_activity_filters(config: &dyn NotificationConfig) -> Activit
                 let filters = ActivityFilters::from_json(value);
                 if legacy_hmd
                     && config
-                        .get_raw(HMD_FILTERS_CONFIG_KEY)
+                        .get_raw(NotificationSurface::Hmd.config_key())
                         .ok()
                         .flatten()
                         .is_none()
                 {
-                    persist_surface(config, HMD_FILTERS_CONFIG_KEY, &filters.hmd);
+                    persist_surface(config, NotificationSurface::Hmd, &filters.hmd);
                 }
                 filters
             }
@@ -191,60 +161,62 @@ pub fn load_overlay_activity_filters(config: &dyn NotificationConfig) -> Activit
             ActivityFilters::default()
         }
     };
-    if let Some(desktop) = load_types_key_surface(
-        config,
-        "desktopNotificationActivityFilters",
-        NotificationSurface::Desktop,
-    ) {
+    if let Some(desktop) = load_types_key_surface(config, NotificationSurface::Desktop) {
         filters.desktop = desktop;
         alert_rules_saved = true;
     }
-    if let Some(vr) = load_types_key_surface(
-        config,
-        "vrNotificationActivityFilters",
-        NotificationSurface::ExternalOverlay,
-    ) {
+    if let Some(vr) = load_types_key_surface(config, NotificationSurface::ExternalOverlay) {
         filters.vr = vr;
         alert_rules_saved = true;
     }
-    if let Some(hmd) =
-        load_types_key_surface(config, HMD_FILTERS_CONFIG_KEY, NotificationSurface::Hmd)
-    {
+    if let Some(hmd) = load_types_key_surface(config, NotificationSurface::Hmd) {
         filters.hmd = hmd;
     }
-    if let Some(webhook) = load_types_key_surface(
-        config,
-        "webhookActivityFilters",
-        NotificationSurface::Webhook,
-    ) {
+    if let Some(webhook) = load_types_key_surface(config, NotificationSurface::Webhook) {
         filters.webhook = webhook;
     }
-    if let Some(tts) =
-        load_types_key_surface(config, TTS_FILTERS_CONFIG_KEY, NotificationSurface::Tts)
-    {
+    if let Some(widget) = load_types_key_surface(config, NotificationSurface::DesktopWidget) {
+        filters.widget = widget;
+    }
+    if let Some(tts) = load_types_key_surface(config, NotificationSurface::Tts) {
         filters.tts = tts;
     } else {
         if alert_rules_saved {
             filters.tts = tts_rules_from_alert_rules(&filters);
         }
-        persist_surface(config, TTS_FILTERS_CONFIG_KEY, &filters.tts);
+        persist_surface(config, NotificationSurface::Tts, &filters.tts);
     }
     filters
 }
 
-pub fn apply_location_notification_rules(
+pub fn reload_activity_router(activity_router: &ActivityRouter, config: &dyn NotificationConfig) {
+    activity_router.set_filters(load_overlay_activity_filters(config));
+    apply_location_notification_rules(activity_router, config);
+}
+
+fn apply_location_notification_rules(
     activity_router: &ActivityRouter,
     config: &dyn NotificationConfig,
 ) {
-    activity_router.set_location_hidden_user_ids(load_location_hidden_user_ids(config));
+    activity_router.set_feed_hidden_users(
+        load_feed_hidden_notification_user_ids(config),
+        config
+            .get_bool("feedHiddenUsersHideAll", false)
+            .unwrap_or(false),
+    );
     activity_router.set_hide_private_location_changes(
         config
             .get_bool("hidePrivateFromFeed", false)
             .unwrap_or(false),
     );
+    activity_router.set_hide_video_errors(
+        config
+            .get_bool("hideVideoErrorNotifications", false)
+            .unwrap_or(false),
+    );
 }
 
-fn load_location_hidden_user_ids(config: &dyn NotificationConfig) -> HashSet<String> {
+fn load_feed_hidden_notification_user_ids(config: &dyn NotificationConfig) -> HashSet<String> {
     if !config
         .get_bool("feedHiddenUsersHideNotifications", true)
         .unwrap_or(true)
@@ -295,8 +267,13 @@ fn tts_rules_from_alert_rules(filters: &ActivityFilters) -> ActivitySurfaceFilte
     seeded
 }
 
-fn persist_surface(config: &dyn NotificationConfig, key: &str, surface: &ActivitySurfaceFilters) {
-    let profile = ActivityFilterProfile::from_surface(surface);
+fn persist_surface(
+    config: &dyn NotificationConfig,
+    surface: NotificationSurface,
+    filters: &ActivitySurfaceFilters,
+) {
+    let key = surface.config_key();
+    let profile = ActivityFilterProfile::from_surface(filters);
     let result = serde_json::to_value(&profile)
         .map_err(vrcx_0_application_core::Error::from)
         .and_then(|value| config.set_json(key, &value));
@@ -307,10 +284,9 @@ fn persist_surface(config: &dyn NotificationConfig, key: &str, surface: &Activit
 
 fn load_types_key_surface(
     config: &dyn NotificationConfig,
-    key: &str,
     surface: NotificationSurface,
 ) -> Option<ActivitySurfaceFilters> {
-    let raw = config.get_raw(key).ok().flatten()?;
+    let raw = config.get_raw(surface.config_key()).ok().flatten()?;
     let value = serde_json::from_str::<Value>(&raw).ok()?;
     value
         .get("types")

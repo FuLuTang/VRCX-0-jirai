@@ -108,9 +108,114 @@ pub fn instance_close_input(
     ))
 }
 
+pub fn instance_calendar_link_input(
+    endpoint: String,
+    location: String,
+    calendar_entry_id: Option<String>,
+) -> Result<(String, HttpApiRequestInput), HttpApiError> {
+    instance_field_put_input(
+        endpoint,
+        location,
+        "VrchatInstanceCalendarLink requires location.",
+        "calendarEntryId",
+        calendar_entry_id,
+    )
+}
+
+pub fn instance_display_name_input(
+    endpoint: String,
+    location: String,
+    display_name: Option<String>,
+) -> Result<(String, HttpApiRequestInput), HttpApiError> {
+    instance_field_put_input(
+        endpoint,
+        location,
+        "VrchatInstanceDisplayName requires location.",
+        "displayName",
+        display_name,
+    )
+}
+
+fn instance_field_put_input(
+    endpoint: String,
+    location: String,
+    location_message: &str,
+    field: &str,
+    value: Option<String>,
+) -> Result<(String, HttpApiRequestInput), HttpApiError> {
+    let location = require_text(location, location_message)?;
+    let value = value
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    Ok((
+        location.clone(),
+        api_input(
+            endpoint,
+            "PUT",
+            format!("instances/{location}"),
+            json!({ field: value }),
+        ),
+    ))
+}
+
+pub fn instance_count_get_input(endpoint: String) -> HttpApiRequestInput {
+    get_input(endpoint, "instances/count", HashMap::new())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn display_name_sets_or_clears_the_instance_name() {
+        let (_, rename) = instance_display_name_input(
+            "endpoint".into(),
+            "wrld_1:123".into(),
+            Some(" Movie night ".into()),
+        )
+        .unwrap();
+        assert_eq!(rename.method.as_deref(), Some("PUT"));
+        assert_eq!(rename.path.as_deref(), Some("instances/wrld_1:123"));
+        assert_eq!(
+            rename.body.as_json(),
+            Some(&json!({ "displayName": "Movie night" }))
+        );
+
+        let (_, clear) =
+            instance_display_name_input("endpoint".into(), "wrld_1:123".into(), Some(" ".into()))
+                .unwrap();
+        assert_eq!(clear.body.as_json(), Some(&json!({ "displayName": null })));
+
+        let count = instance_count_get_input("endpoint".into());
+        assert_eq!(count.method.as_deref(), Some("GET"));
+        assert_eq!(count.path.as_deref(), Some("instances/count"));
+    }
+
+    #[test]
+    fn calendar_link_sets_or_clears_the_instance_calendar_entry() {
+        let (_, link) = instance_calendar_link_input(
+            "endpoint".into(),
+            "wrld_1:123~group(grp_1)".into(),
+            Some(" gcal_1 ".into()),
+        )
+        .unwrap();
+        assert_eq!(link.method.as_deref(), Some("PUT"));
+        assert_eq!(
+            link.path.as_deref(),
+            Some("instances/wrld_1:123~group(grp_1)")
+        );
+        assert_eq!(
+            link.body.as_json(),
+            Some(&json!({ "calendarEntryId": "gcal_1" }))
+        );
+
+        let (_, unlink) =
+            instance_calendar_link_input("endpoint".into(), "wrld_1:123".into(), None).unwrap();
+        assert_eq!(
+            unlink.body.as_json(),
+            Some(&json!({ "calendarEntryId": null }))
+        );
+    }
 
     fn public_instance() -> InstanceCreateRequest {
         InstanceCreateRequest {

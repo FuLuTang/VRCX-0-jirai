@@ -2,18 +2,15 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { AppToastOptions } from '@/services/toastService';
 
-import type { GalleryUploadTarget } from './galleryConstants';
+import {
+    canUploadGalleryTarget,
+    type GalleryUploadTarget
+} from './galleryConstants';
 import type { GalleryAssetActionDeps } from './galleryTypes';
 import { createGalleryAssetActions } from './useGalleryAssetActions';
 
 function createActions(overrides: Partial<GalleryAssetActionDeps> = {}) {
     const uploadAssetImage = vi.fn().mockResolvedValue({ json: null });
-    const uploadInputRef = {
-        current: {
-            click: vi.fn()
-        }
-    };
-    const setCropRequest = vi.fn();
     const toast = {
         error: vi.fn(),
         success: vi.fn(),
@@ -31,7 +28,7 @@ function createActions(overrides: Partial<GalleryAssetActionDeps> = {}) {
     };
     const actions = createGalleryAssetActions({
         FILE_TABS: {},
-        UPLOAD_ASPECT_RATIOS: {},
+        UPLOAD_ASPECT_RATIOS: { prints: 16 / 9 },
         activeTab: 'prints',
         confirm: vi.fn(),
         cropRequest: {
@@ -70,7 +67,7 @@ function createActions(overrides: Partial<GalleryAssetActionDeps> = {}) {
         parseEmojiUploadSettings: vi.fn(),
         readFileAsBase64: vi.fn().mockResolvedValue('base64-body'),
         setAssets: vi.fn(),
-        setCropRequest,
+        setCropRequest: vi.fn(),
         setEmojiAnimFps: vi.fn(),
         setEmojiAnimFrameCount: vi.fn(),
         setEmojiAnimLoopPingPong: vi.fn(),
@@ -81,24 +78,14 @@ function createActions(overrides: Partial<GalleryAssetActionDeps> = {}) {
         setUploadingTab: vi.fn(),
         t: (key: string) => key,
         toast,
-        uploadAuthTargetRef: {
-            current: null
-        },
-        uploadInputRef,
-        uploadTargetRef: {
-            current: null
-        },
-        validateImageFile: vi.fn().mockReturnValue(true),
         withUploadTimeout: <T>(promise: Promise<T>) => promise,
         ...overrides
     });
 
     return {
         actions,
-        setCropRequest,
         toast,
-        uploadAssetImage,
-        uploadInputRef
+        uploadAssetImage
     };
 }
 
@@ -138,34 +125,41 @@ describe('createGalleryAssetActions', () => {
         });
     });
 
-    it('allows profile media uploads without VRC+', () => {
-        const { actions, toast, uploadInputRef } = createActions({
-            isVrcPlusSupporter: false
-        });
+    it('opens the crop dialog with the tab aspect ratio and captured account', () => {
+        const setCropRequest = vi.fn();
+        const { actions } = createActions({ setCropRequest });
+        const file = new File(['image'], 'print.png', { type: 'image/png' });
+        const authTarget = {
+            userId: 'usr_self',
+            endpoint: 'https://api.vrchat.cloud'
+        };
 
-        actions.beginUpload('gallery');
-        actions.beginUpload('icons');
+        actions.openCropRequest(file, 'prints', authTarget);
 
-        expect(uploadInputRef.current.click).toHaveBeenCalledTimes(2);
-        expect(toast.error).not.toHaveBeenCalled();
+        expect(setCropRequest).toHaveBeenCalledWith(
+            expect.objectContaining({
+                tab: 'prints',
+                file,
+                authTarget,
+                aspectRatio: 16 / 9
+            })
+        );
     });
+});
+
+describe('canUploadGalleryTarget', () => {
+    it.each<GalleryUploadTarget>(['gallery', 'icons'])(
+        'allows %s uploads without VRC+',
+        (tab) => {
+            expect(canUploadGalleryTarget(tab, false)).toBe(true);
+        }
+    );
 
     it.each<GalleryUploadTarget>(['prints', 'emojis', 'stickers'])(
         'keeps %s uploads restricted to VRC+ users',
         (tab) => {
-            const { actions, toast, uploadInputRef } = createActions({
-                isVrcPlusSupporter: false
-            });
-
-            actions.beginUpload(tab);
-
-            expect(uploadInputRef.current.click).not.toHaveBeenCalled();
-            expect(toast.error).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    type: 'error',
-                    title: 'message.vrcplus.required'
-                })
-            );
+            expect(canUploadGalleryTarget(tab, false)).toBe(false);
+            expect(canUploadGalleryTarget(tab, true)).toBe(true);
         }
     );
 });

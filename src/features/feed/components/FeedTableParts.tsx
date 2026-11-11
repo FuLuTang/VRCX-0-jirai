@@ -11,6 +11,10 @@ import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DataTableSortButton } from '@/components/data-table/DataTableSortButton';
+import {
+    LogFilterMenuItems,
+    type LogFilterCommands
+} from '@/components/data-table/LogFilterContextMenu';
 import { FeedDetailCell } from '@/components/feed/FeedDetailCell';
 import {
     canRequestInviteFromFeedFriend,
@@ -26,7 +30,6 @@ import type {
 } from '@/components/feed/feedTypes';
 import { LaunchModeContextMenuGroup } from '@/components/launch/LaunchModeContextMenuGroup';
 import { resolveFriendPresenceLocation } from '@/domain/friends/presence';
-import { formatDateFilter, formatDateTime } from '@/lib/dateTime';
 import { useKnownUserFact } from '@/lib/useKnownUser';
 import { cn } from '@/lib/utils';
 import userProfileRepository from '@/repositories/userProfileRepository';
@@ -39,6 +42,7 @@ import {
 import { userImage } from '@/services/entityMediaService';
 import { parseLocation } from '@/shared/utils/location';
 import { useFriendRosterStore } from '@/state/friendRosterStore';
+import { usePreferencesStore } from '@/state/preferencesStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/ui/shadcn/avatar';
 import { Button } from '@/ui/shadcn/button';
@@ -53,34 +57,6 @@ import {
 
 import { FeedExpandedRow } from './FeedExpandedRow';
 
-function formatTimestampParts(value: string | null | undefined) {
-    if (!value) {
-        return { date: '-', time: '' };
-    }
-
-    const date = formatDateTime(value, { month: 'short', day: 'numeric' });
-    if (date === '-') {
-        return { date: '-', time: '' };
-    }
-
-    const time = formatDateTime(value, {
-        hour: 'numeric',
-        minute: '2-digit'
-    })
-        .replace(' AM', 'am')
-        .replace(' PM', 'pm');
-
-    return { date, time };
-}
-
-function formatTimestampLong(value: string | null | undefined) {
-    if (!value) {
-        return '-';
-    }
-
-    return formatDateFilter(value, 'long');
-}
-
 async function copyFeedText(text: string, successMessage: string) {
     const value = text.trim();
     if (!value) {
@@ -94,6 +70,7 @@ function FeedUserLink({
     avatarSize = 28,
     cachedDisplayName = '',
     className = '',
+    filterCommands,
     row,
     showAvatar = false
 }: {
@@ -101,6 +78,7 @@ function FeedUserLink({
     avatarSize?: number;
     cachedDisplayName?: string;
     className?: string;
+    filterCommands?: LogFilterCommands;
     row: FeedRow;
     showAvatar?: boolean;
 }) {
@@ -149,6 +127,9 @@ function FeedUserLink({
         actions.canUseFeedFriendLocation(location)
     );
     const isHiddenFromFeed = actions.isFeedUserHidden(userId);
+    const hideAllFromFeed = usePreferencesStore(
+        (state) => state.feedHiddenUsersHideAll
+    );
 
     useEffect(() => {
         if (!userId || displayName !== UNKNOWN_FEED_USER_DISPLAY_NAME) {
@@ -342,9 +323,13 @@ function FeedUserLink({
                                     <EyeOffIcon />
                                 )}
                                 {t(
-                                    isHiddenFromFeed
-                                        ? 'view.feed.context.unhide_user'
-                                        : 'view.feed.context.hide_user'
+                                    hideAllFromFeed
+                                        ? isHiddenFromFeed
+                                            ? 'view.feed.context.unhide_user_all'
+                                            : 'view.feed.context.hide_user_all'
+                                        : isHiddenFromFeed
+                                          ? 'view.feed.context.unhide_user'
+                                          : 'view.feed.context.hide_user'
                                 )}
                             </ContextMenuItem>
                         </ContextMenuGroup>
@@ -367,6 +352,10 @@ function FeedUserLink({
                         {t('dialog.user.info.copy_display_name')}
                     </ContextMenuItem>
                 </ContextMenuGroup>
+                <LogFilterMenuItems
+                    commands={filterCommands}
+                    target={{ userId, userName: userLabel }}
+                />
             </ContextMenuContent>
         </ContextMenu>
     );
@@ -449,7 +438,5 @@ export {
     FeedExpandedRow,
     FeedUserAvatarButton,
     FeedUserLink,
-    DataTableSortButton as SortButton,
-    formatTimestampLong,
-    formatTimestampParts
+    DataTableSortButton as SortButton
 };

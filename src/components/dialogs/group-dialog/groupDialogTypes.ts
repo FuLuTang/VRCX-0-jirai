@@ -82,6 +82,7 @@ export type GroupDialogControls = {
         SetStateAction<GroupPreviousInstanceRow[]>
     >;
     onRefresh: () => void;
+    onReloadProfile: () => void;
     onJoin: () => void;
     onLeave: () => void;
     onDelete: () => void;
@@ -98,6 +99,7 @@ export type GroupDialogTabModel = {
     activeTab: string;
     announcement?: GroupAnnouncementRecord;
     bannerUrl: string;
+    canManageCalendar: boolean;
     canManagePosts: boolean;
     currentUserId: string | null;
     filteredPosts: GroupPostRecord[];
@@ -123,8 +125,13 @@ export type GroupDialogTabModel = {
 export type GroupDialogTabCommands = {
     onChangeTab: (tab: string) => void;
     onCopyGroupUrl: () => void;
+    onCreateEvent: () => void;
+    onDeleteEvent: (event: GroupCalendarEventRecord) => void;
     onDeletePost: (post: GroupPostRecord) => void;
+    onEditEvent: (event: GroupCalendarEventRecord) => void;
     onEditPost: (post: GroupPostRecord) => void;
+    onGalleriesChanged: () => void;
+    onPhotosChanged: () => void;
     onExportMembers: (scope: 'loaded' | 'all') => void;
     onLoadMoreMembers: () => void;
     onOpenLink: (url: string) => void;

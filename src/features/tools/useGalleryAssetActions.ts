@@ -1,12 +1,12 @@
-import type { ChangeEvent } from 'react';
-
-import type {
-    GalleryAssets,
-    GalleryAssetTab,
-    GalleryUploadTarget
+import {
+    canUploadGalleryTarget,
+    type GalleryAssets,
+    type GalleryAssetTab,
+    type GalleryUploadTarget
 } from './galleryConstants';
 import type {
     GalleryAssetActionDeps,
+    GalleryAuthTarget,
     GalleryUploadOptions
 } from './galleryTypes';
 import { buildPrintUploadParams } from './galleryUploadParams';
@@ -46,10 +46,6 @@ export function createGalleryAssetActions({
     setUploadingTab,
     t,
     toast,
-    uploadAuthTargetRef,
-    uploadInputRef,
-    uploadTargetRef,
-    validateImageFile,
     withUploadTimeout
 }: GalleryAssetActionDeps) {
     function getAuthTarget() {
@@ -186,15 +182,6 @@ export function createGalleryAssetActions({
             refreshPrints()
         ]);
     }
-    function beginUpload(tab: GalleryUploadTarget) {
-        if (tab !== 'gallery' && tab !== 'icons' && !isVrcPlusSupporter) {
-            toast.add({ type: 'error', title: t('message.vrcplus.required') });
-            return;
-        }
-        uploadTargetRef.current = tab;
-        uploadAuthTargetRef.current = getAuthTarget();
-        uploadInputRef.current?.click();
-    }
     function uploadAsset(
         tab: GalleryUploadTarget,
         base64Body: string,
@@ -224,19 +211,11 @@ export function createGalleryAssetActions({
         }
         throw new Error(`Unsupported upload target: ${tab}`);
     }
-    function prepareUploadFile(file: File, target?: GalleryUploadTarget) {
-        const tab = target || uploadTargetRef.current || activeTab;
-        if (tab !== 'gallery' && tab !== 'icons' && !isVrcPlusSupporter) {
-            toast.add({ type: 'error', title: t('message.vrcplus.required') });
-            return;
-        }
-        if (!validateImageFile(file, t)) {
-            return;
-        }
-        const authTarget = uploadAuthTargetRef.current || getAuthTarget();
-        if (!isRuntimeAuthTarget(authTarget)) {
-            return;
-        }
+    function openCropRequest(
+        file: File,
+        tab: GalleryUploadTarget,
+        authTarget: GalleryAuthTarget
+    ) {
         const settings =
             tab === 'emojis'
                 ? parseEmojiUploadSettings(file.name, {
@@ -268,13 +247,6 @@ export function createGalleryAssetActions({
             aspectRatio: UPLOAD_ASPECT_RATIOS[tab] || 1
         });
     }
-    function uploadSelectedFile(event: ChangeEvent<HTMLInputElement>) {
-        const file = event.target.files?.[0] || null;
-        event.target.value = '';
-        if (file) {
-            prepareUploadFile(file);
-        }
-    }
     async function confirmCroppedUpload(
         blob: Blob,
         uploadOptions: GalleryUploadOptions = {}
@@ -284,7 +256,7 @@ export function createGalleryAssetActions({
             return;
         }
         const { tab, settings, authTarget } = request;
-        if (tab !== 'gallery' && tab !== 'icons' && !isVrcPlusSupporter) {
+        if (!canUploadGalleryTarget(tab, isVrcPlusSupporter)) {
             toast.add({ type: 'error', title: t('message.vrcplus.required') });
             return;
         }
@@ -345,7 +317,6 @@ export function createGalleryAssetActions({
             }
         } finally {
             setUploadingTab('');
-            uploadAuthTargetRef.current = null;
             setCropRequest(null);
         }
     }
@@ -410,9 +381,7 @@ export function createGalleryAssetActions({
         refreshInventory,
         refreshTab,
         refreshAll,
-        beginUpload,
-        prepareUploadFile,
-        uploadSelectedFile,
+        openCropRequest,
         confirmCroppedUpload,
         deleteFileAsset
     };

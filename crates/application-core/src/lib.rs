@@ -66,9 +66,10 @@ pub use event_bus::{
 pub use events::{
     FeedLiveEntry, FriendProfileBulkLoadStatus, FriendProfileLoadStatusPayload, FriendProjection,
     FriendProjectionPatch, PrintAutoCleanupEvent, RealtimeCurrentUserProjection,
-    RealtimeEntryCorrection, RealtimeEntryCorrectionFields, RealtimeEntryCorrectionStream,
-    RealtimeInstanceClosedProjection, RealtimeInstanceQueueKind, RealtimeInstanceQueueProjection,
-    RealtimeNotificationProjection, RealtimeNotificationUpsert, RealtimeUserProjection,
+    RealtimeEconomyBalancePayload, RealtimeEntryCorrection, RealtimeEntryCorrectionFields,
+    RealtimeEntryCorrectionStream, RealtimeInstanceClosedProjection, RealtimeInstanceQueueKind,
+    RealtimeInstanceQueueProjection, RealtimeNotificationProjection, RealtimeNotificationUpsert,
+    RealtimeUserProjection,
 };
 pub use favorite_kind::{FavoriteChangeScope, FavoriteEntityKind, VrchatFavoriteType};
 pub use file_cache::{FileCache, FileCachePort};
@@ -79,15 +80,14 @@ pub use instance_dwell::{
 pub use interruptible_sleep::sleep_interruptibly;
 pub use ports::{
     ActivityIngress, BackgroundCapabilitySession, BackgroundCapabilitySessionIdentity,
-    CurrentUserSnapshot, GameProcessEvent, GameProcessEventSink, HostRealtimeSessionContext,
-    HostSessionGameProcessStatus, HostSessionProjection, HostSessionRuntime, InstanceRosterMember,
-    InstanceRosterObserver, InstanceRosterSnapshot, LocalGameContextSnapshot,
-    LocalGameContextSource, NoopPrintCleanupInputSink, NoopUpdaterPort, PrintCleanupInputSink,
-    PrintCleanupTrigger, RealtimeNotificationProjectionObserver,
-    RealtimeNotificationProjectionObserverRegistry, SessionHostRuntime,
-    UnavailableLocalGameContextSource, UpdaterCheckRequest, UpdaterDownloadOutcome,
-    UpdaterDownloadProgress, UpdaterInstallHandle, UpdaterMetadata, UpdaterPort,
-    UpdaterProgressCallback,
+    CurrentUserSnapshot, GameProcessEvent, GameProcessEventSink, HostSessionGameProcessStatus,
+    HostSessionProjection, HostSessionRuntime, InstanceRosterMember, InstanceRosterObserver,
+    InstanceRosterSnapshot, LocalGameContextSnapshot, LocalGameContextSource,
+    NoopPrintCleanupInputSink, NoopUpdaterPort, PrintCleanupInputSink, PrintCleanupTrigger,
+    RealtimeNotificationProjectionObserver, RealtimeNotificationProjectionObserverRegistry,
+    SessionHostRuntime, UnavailableLocalGameContextSource, UpdaterCheckRequest,
+    UpdaterDownloadOutcome, UpdaterDownloadProgress, UpdaterInstallHandle, UpdaterMetadata,
+    UpdaterPort, UpdaterProgressCallback,
 };
 pub use proxy::{
     load_proxy_url, test_proxy_connectivity, ProxyConnectivityPort, ProxySettingsTestResult,
@@ -108,7 +108,8 @@ pub use task_supervisor::{
 };
 pub use vrcx_0_contracts::{runtime_event_payload, RuntimeEventPayload};
 pub use vrcx_0_contracts::{
-    RealtimeAuthTokenFetch, RealtimeConnectionOptions, WebExecuteRequest, WebUploadMode,
+    RealtimeAuthTokenFetch, RealtimeConnectionOptions, WebExecuteRequest, WebMultipartPart,
+    WebUploadMode,
 };
 pub use vrcx_0_core::FavoriteGroupVisibility;
 pub use web_client::{WebClient, WebClientPort};

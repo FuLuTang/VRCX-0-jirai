@@ -5,7 +5,8 @@ import {
     cleanup,
     fireEvent,
     render,
-    screen
+    screen,
+    within
 } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -84,9 +85,11 @@ function createHeaderModel(effect?: InventoryItemRecord): UserHeaderModel {
             hideAvatar: false,
             showAvatar: false
         },
+        bannerColor: '',
         bannerFallbackUrl: '',
         canInviteFromCurrentLocation: false,
         currentAvatarTarget: '',
+        currentUserAccountStanding: '',
         currentUserBoopingEnabled: false,
         detail: '',
         extendedModerationState: {
@@ -106,6 +109,7 @@ function createHeaderModel(effect?: InventoryItemRecord): UserHeaderModel {
             block: false,
             mute: false
         },
+        noteSummary: '',
         platform: {
             icon: null,
             label: 'PC'
@@ -138,9 +142,7 @@ function createHeaderCommands(): UserHeaderCommands {
         onCopyUserId: noop,
         onCopyUserUrl: noop,
         onEditMemo: noop,
-        onEditSelfProfileDetails: noop,
-        onEditSelfProfileMedia: noop,
-        onEditSelfProfileDecorations: noop,
+        onEditSelfProfile: noop,
         onEditSelfStatus: noop,
         onExtendedModeration: noop,
         onFriendRequest: noop,
@@ -158,7 +160,8 @@ function createHeaderCommands(): UserHeaderCommands {
         onOpenUserIcon: noop,
         onOpenUserUrl: noop,
         onRefresh: noop,
-        onReportHacking: noop,
+        onReportUser: noop,
+        onShowAccountStanding: noop,
         onShowAvatarAuthor: noop,
         onShowInstanceHistory: noop,
         onToggleBadgeShowcased: noop,
@@ -294,6 +297,29 @@ describe('UserDialogHeaderSection nameplate', () => {
     });
 });
 
+describe('UserDialogHeaderSection age verification', () => {
+    it.each([
+        ['18+', true],
+        ['verified', false]
+    ])(
+        'shows the 18+ label only for adult verification (%s)',
+        (ageVerificationStatus, showsAdultLabel) => {
+            const headerModel = createHeaderModel();
+            headerModel.profile.ageVerified = true;
+            headerModel.profile.ageVerificationStatus = ageVerificationStatus;
+
+            render(
+                <UserDialogHeaderSection
+                    headerModel={headerModel}
+                    headerCommands={createHeaderCommands()}
+                />
+            );
+
+            expect(Boolean(screen.queryByText('18+'))).toBe(showsAdultLabel);
+        }
+    );
+});
+
 describe('UserDialogHeaderSection appearance visibility', () => {
     it('hides the profile background without changing the card structure', () => {
         const headerModel = createHeaderModel();
@@ -419,7 +445,7 @@ describe('UserDialogHeaderSection friend actions', () => {
         );
 
         fireEvent.click(
-            screen.getByRole('button', { name: 'Open entity actions' })
+            screen.getByRole('button', { name: 'common.actions.more_actions' })
         );
 
         const label = await screen.findByText(
@@ -443,7 +469,7 @@ describe('UserDialogHeaderSection friend actions', () => {
         );
 
         fireEvent.click(
-            screen.getByRole('button', { name: 'Open entity actions' })
+            screen.getByRole('button', { name: 'common.actions.more_actions' })
         );
 
         expect(
@@ -467,7 +493,7 @@ describe('UserDialogHeaderSection friend actions', () => {
         );
 
         fireEvent.click(
-            screen.getByRole('button', { name: 'Open entity actions' })
+            screen.getByRole('button', { name: 'common.actions.more_actions' })
         );
 
         const label = await screen.findByText('dialog.user.actions.unfriend');
@@ -476,6 +502,176 @@ describe('UserDialogHeaderSection friend actions', () => {
                 .closest('[data-slot="dropdown-menu-item"]')
                 ?.getAttribute('data-variant')
         ).toBe('destructive');
+    });
+});
+
+describe('UserDialogHeaderSection incoming friend request', () => {
+    it('accepts and declines from the header banner', () => {
+        const headerModel = createHeaderModel();
+        headerModel.isCurrentUser = false;
+        headerModel.friendRequestState.incoming = true;
+        const headerCommands = createHeaderCommands();
+        headerCommands.onFriendRequest = vi.fn();
+
+        render(
+            <UserDialogHeaderSection
+                headerModel={headerModel}
+                headerCommands={headerCommands}
+            />
+        );
+
+        const banner = screen.getByRole('group', {
+            name: 'dialog.user.friend_request.incoming_banner'
+        });
+        fireEvent.click(
+            within(banner).getByRole('button', {
+                name: 'common.actions.accept'
+            })
+        );
+        fireEvent.click(
+            within(banner).getByRole('button', {
+                name: 'common.actions.decline'
+            })
+        );
+
+        expect(headerCommands.onFriendRequest).toHaveBeenNthCalledWith(
+            1,
+            'accept'
+        );
+        expect(headerCommands.onFriendRequest).toHaveBeenNthCalledWith(
+            2,
+            'decline'
+        );
+    });
+
+    it('disables the banner actions while another action runs', () => {
+        const headerModel = createHeaderModel();
+        headerModel.isCurrentUser = false;
+        headerModel.friendRequestState.incoming = true;
+        headerModel.actionStatus = 'friend-request:accept';
+
+        render(
+            <UserDialogHeaderSection
+                headerModel={headerModel}
+                headerCommands={createHeaderCommands()}
+            />
+        );
+
+        const banner = screen.getByRole('group', {
+            name: 'dialog.user.friend_request.incoming_banner'
+        });
+        expect(
+            within(banner)
+                .getByRole('button', { name: 'common.actions.accept' })
+                .hasAttribute('disabled')
+        ).toBe(true);
+    });
+});
+
+describe('UserDialogHeaderSection relationship', () => {
+    it('labels moderation states with text next to the header', () => {
+        const headerModel = createHeaderModel();
+        headerModel.isCurrentUser = false;
+        headerModel.isFriend = true;
+        headerModel.moderationState.mute = true;
+        headerModel.extendedModerationState.muteChat = true;
+
+        render(
+            <UserDialogHeaderSection
+                headerModel={headerModel}
+                headerCommands={createHeaderCommands()}
+            />
+        );
+
+        expect(
+            screen.getByText('dialog.user.relationship.friend')
+        ).toBeTruthy();
+        expect(screen.getByText('dialog.user.label.muted')).toBeTruthy();
+        expect(
+            screen.getByText('dialog.user.relationship.chatbox_muted')
+        ).toBeTruthy();
+    });
+
+    it('opens the note editor from the note summary', () => {
+        const headerModel = createHeaderModel();
+        headerModel.noteSummary = 'Met at the meetup';
+        const headerCommands = createHeaderCommands();
+        headerCommands.onEditMemo = vi.fn();
+
+        render(
+            <UserDialogHeaderSection
+                headerModel={headerModel}
+                headerCommands={headerCommands}
+            />
+        );
+
+        fireEvent.click(screen.getByText('Met at the meetup'));
+
+        expect(headerCommands.onEditMemo).toHaveBeenCalledOnce();
+    });
+});
+
+describe('UserDialogHeaderSection account standing', () => {
+    function actionMenuIndicator() {
+        return screen
+            .getByRole('button', { name: 'common.actions.more_actions' })
+            .querySelector('span.bg-primary');
+    }
+
+    it('opens account standing from the own action menu', async () => {
+        const headerCommands = createHeaderCommands();
+        headerCommands.onShowAccountStanding = vi.fn();
+
+        render(
+            <UserDialogHeaderSection
+                headerModel={createHeaderModel()}
+                headerCommands={headerCommands}
+            />
+        );
+
+        fireEvent.click(
+            screen.getByRole('button', { name: 'common.actions.more_actions' })
+        );
+        fireEvent.click(
+            await screen.findByText('dialog.user.actions.account_standing')
+        );
+
+        expect(headerCommands.onShowAccountStanding).toHaveBeenCalledOnce();
+    });
+
+    it('marks the action menu only when the own standing is not good', () => {
+        const headerModel = createHeaderModel();
+        headerModel.currentUserAccountStanding = 'good';
+        const { rerender } = render(
+            <UserDialogHeaderSection
+                headerModel={headerModel}
+                headerCommands={createHeaderCommands()}
+            />
+        );
+        expect(actionMenuIndicator()).toBeNull();
+
+        rerender(
+            <UserDialogHeaderSection
+                headerModel={{
+                    ...headerModel,
+                    currentUserAccountStanding: 'restricted'
+                }}
+                headerCommands={createHeaderCommands()}
+            />
+        );
+        expect(actionMenuIndicator()).not.toBeNull();
+
+        rerender(
+            <UserDialogHeaderSection
+                headerModel={{
+                    ...headerModel,
+                    currentUserAccountStanding: 'restricted',
+                    isCurrentUser: false
+                }}
+                headerCommands={createHeaderCommands()}
+            />
+        );
+        expect(actionMenuIndicator()).toBeNull();
     });
 });
 

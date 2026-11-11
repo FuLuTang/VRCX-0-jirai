@@ -5,9 +5,11 @@ import { useNavigate } from 'react-router';
 import { buildFavoriteIdSet } from '@/domain/favorites/favoriteIdSet';
 import { localGameLocation } from '@/domain/friends/presence';
 import { resolveObservedPlayerUserIds } from '@/domain/friends/sameInstanceFriends';
+import { useDelayedFlag } from '@/lib/useDelayedFlag';
 import { recordKnownUser } from '@/services/domainIngestionService';
 import { userImage } from '@/services/entityMediaService';
 import { subscribeRecentActions } from '@/services/recentActionService';
+import { recordToolOpen } from '@/services/telemetry/telemetryToolUsage';
 import { dialogTargetKey } from '@/services/userDialogSessionCacheService';
 import { isRecord } from '@/shared/utils/record';
 import { useDialogStore } from '@/state/dialogStore';
@@ -47,28 +49,6 @@ import type {
 import { UserDialogTabbedView } from './UserDialogTabbedView';
 
 const userDialogSkeletonDelayMs = 160;
-
-function useDelayedUserDialogSkeleton(loading: boolean, identity: string) {
-    const [visible, setVisible] = useState(false);
-
-    useEffect(() => {
-        if (!loading) {
-            setVisible(false);
-            return undefined;
-        }
-
-        setVisible(false);
-        const timer = setTimeout(() => {
-            setVisible(true);
-        }, userDialogSkeletonDelayMs);
-
-        return () => {
-            clearTimeout(timer);
-        };
-    }, [identity, loading]);
-
-    return visible;
-}
 
 export function UserDialogContent({
     userId,
@@ -131,6 +111,8 @@ export function UserDialogContent({
     const actionStatusRef = useRef('idle');
     const [actionStatus, setActionStatus] = useState('idle');
     const [groupInviteOpen, setGroupInviteOpen] = useState(false);
+    const [reportOpen, setReportOpen] = useState(false);
+    const [accountStandingOpen, setAccountStandingOpen] = useState(false);
     const [groupQuickModerationOpen, setGroupQuickModerationOpen] =
         useState(false);
     const [recentActionVersion, setRecentActionVersion] = useState(0);
@@ -156,13 +138,16 @@ export function UserDialogContent({
     });
     const targetIdentity = `${currentEndpoint || ''}:${normalizedUserId || ''}:${openNonce}`;
     const profileIsLoading = loadStatus === 'running' && !profile;
-    const showProfileSkeleton = useDelayedUserDialogSkeleton(
+    const showProfileSkeleton = useDelayedFlag(
         profileIsLoading,
+        userDialogSkeletonDelayMs,
         targetIdentity
     );
     useEffect(() => {
         setGroupInviteOpen(false);
         setGroupQuickModerationOpen(false);
+        setReportOpen(false);
+        setAccountStandingOpen(false);
     }, [targetIdentity]);
 
     const currentGameLocation = normalizeUserId(gameState?.currentLocation);
@@ -297,7 +282,7 @@ export function UserDialogContent({
 
     const {
         socialStatusDialog,
-        profileDetailsDialog,
+        profileDetails,
         actions: selfActions
     } = useUserDialogSelfActions({
         profile,
@@ -414,6 +399,10 @@ export function UserDialogContent({
                     ),
                     currentUserBoopingEnabled:
                         currentUserSnapshot?.isBoopingEnabled !== false,
+                    currentUserAccountStanding:
+                        typeof currentUserSnapshot?.accountStanding === 'string'
+                            ? currentUserSnapshot.accountStanding
+                            : '',
                     userStats,
                     loadPreviousInstances,
                     previousInstances,
@@ -436,7 +425,10 @@ export function UserDialogContent({
                 }}
                 profileControls={{
                     onRefresh: refreshProfile,
-                    onEditMemo: editMemo
+                    onEditMemo: editMemo,
+                    onShowAccountStanding: () => {
+                        setAccountStandingOpen(true);
+                    }
                 }}
                 friendControls={{
                     onFriendRequest: (action: string) => {
@@ -474,8 +466,8 @@ export function UserDialogContent({
                     onAvatarOverride: (type: AvatarOverrideType) => {
                         userActions.setAvatarOverrideModeration(type);
                     },
-                    onReportHacking: () => {
-                        userActions.reportHacking();
+                    onReportUser: () => {
+                        setReportOpen(true);
                     },
                     onInviteToGroup: () => {
                         setGroupInviteOpen(true);
@@ -485,12 +477,16 @@ export function UserDialogContent({
                     }
                 }}
                 selfControls={selfActions}
+                selfProfileDetails={profileDetails}
             />
             <UserDialogContentDialogs
+                accountStandingDialog={{
+                    open: accountStandingOpen,
+                    onOpenChange: setAccountStandingOpen
+                }}
                 actionStatus={actionStatus}
                 noteMemoDialog={memoDialog}
                 socialStatusDialog={socialStatusDialog}
-                profileDetailsDialog={profileDetailsDialog}
                 boopDialog={{
                     request: boopDialogRequest,
                     isLocalUserVrcPlusSupporter,
@@ -505,6 +501,12 @@ export function UserDialogContent({
                     allowImageUpload: isLocalUserVrcPlusSupporter,
                     targetLabel: profile?.displayName || profile?.id,
                     onUse: selectInviteMessage
+                }}
+                reportDialog={{
+                    open: reportOpen,
+                    targetUserId: normalizedUserId,
+                    targetLabel: profile?.displayName || profile?.id,
+                    onOpenChange: setReportOpen
                 }}
                 groupInviteDialog={{
                     open: groupInviteOpen,
@@ -523,6 +525,7 @@ export function UserDialogContent({
                     targetImageUrl: imageUrl,
                     onOpenChange: setGroupQuickModerationOpen,
                     onDetailedManagement: (groupId: string) => {
+                        recordToolOpen('group-moderation');
                         closeDialog();
                         navigate(`/tools/group-moderation/${groupId}`);
                     }

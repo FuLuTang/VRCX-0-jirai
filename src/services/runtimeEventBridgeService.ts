@@ -3,6 +3,8 @@ import type {
     AncillaryRuntimeSnapshot,
     BackendRuntimeCombinedSnapshot
 } from '@/platform/tauri/bindings';
+import vrchatEconomyRepository from '@/repositories/vrchatEconomyRepository';
+import { useChatboxStore } from '@/state/chatboxStore';
 import { useDataDirMigrationStore } from '@/state/dataDirMigrationStore';
 import { useProfileBackupStore } from '@/state/profileBackupStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
@@ -35,6 +37,7 @@ import {
     hydrateFavoriteImportRuntimeStatus
 } from './favoriteImportService';
 import { applyFriendProfileLoadStatusPayload } from './friendProfileLoadService';
+import { applyGameIsolationSnapshot } from './gameIsolationService';
 import { handleGroupBanImportStatusEvent } from './groupBanImportService';
 import { isHostCapabilityAvailable } from './hostCapabilityService';
 import {
@@ -42,6 +45,10 @@ import {
     hydrateIntegrationApiStatus
 } from './integrationApiService';
 import { handleMutualGraphFetchStatusEvent } from './mutualGraphFetchService';
+import {
+    handleFeedLoggerHealthEvent,
+    handleFeedLoggerSyncEvent
+} from './offlineRecordService';
 import { handleRealtimeEntryCorrection } from './realtimePresenceService';
 import { runForegroundUpdateRegistryBackupMaintenance } from './registryBackupMaintenanceService';
 import {
@@ -116,6 +123,14 @@ function handleRuntimeEvent(event: RuntimeEvent): void {
         return;
     }
 
+    if (event.name === 'realtimeEconomyBalance') {
+        vrchatEconomyRepository.setBalance(
+            event.payload.userId,
+            event.payload.walletBalance
+        );
+        return;
+    }
+
     if (event.name === 'printsAutoCleanup') {
         runtimeStore.recordRuntimeEvent(event.name, event.payload);
         handlePrintCleanupEvent(event.payload);
@@ -173,8 +188,28 @@ function handleRuntimeEvent(event: RuntimeEvent): void {
         return;
     }
 
+    if (event.name === 'gameIsolationState') {
+        applyGameIsolationSnapshot(event.payload);
+        return;
+    }
+
+    if (event.name === 'chatboxState') {
+        useChatboxStore.getState().setStatus(event.payload);
+        return;
+    }
+
+    if (event.name === 'chatboxConfig') {
+        useChatboxStore.getState().setSavedConfig(event.payload);
+        return;
+    }
+
     if (event.name === 'privacyLockState') {
         runtimeStore.setPrivacyLock(event.payload);
+        return;
+    }
+
+    if (event.name === 'desktopWidgetState') {
+        runtimeStore.setDesktopWidget(event.payload);
         return;
     }
 
@@ -291,6 +326,16 @@ function handleRuntimeEvent(event: RuntimeEvent): void {
 
     if (event.name === 'integrationApiStartFailed') {
         handleIntegrationApiStartFailed(event.payload);
+        return;
+    }
+
+    if (event.name === 'feedLoggerHealth') {
+        handleFeedLoggerHealthEvent(event.payload);
+        return;
+    }
+
+    if (event.name === 'feedLoggerSync') {
+        handleFeedLoggerSyncEvent(event.payload);
         return;
     }
 
@@ -426,10 +471,18 @@ async function hydrateAncillaryRuntimeState(): Promise<void> {
                     snapshot.notificationDoNotDisturbState
                 );
         }),
+        hydrateRuntimeState('Failed to hydrate game isolation state:', () => {
+            applyGameIsolationSnapshot(snapshot.gameIsolationState);
+        }),
         hydrateRuntimeState('Failed to hydrate privacy lock state:', () => {
             useRuntimeStore
                 .getState()
                 .setPrivacyLock(snapshot.privacyLockState);
+        }),
+        hydrateRuntimeState('Failed to hydrate activity window state:', () => {
+            useRuntimeStore
+                .getState()
+                .setDesktopWidget(snapshot.desktopWidgetState);
         }),
         hydrateRuntimeState(
             'Failed to hydrate app update download status:',
@@ -458,7 +511,11 @@ export async function bindRuntimeEvents(): Promise<() => void> {
         'backgroundImageState',
         'communityThemeState',
         'notificationDoNotDisturbState',
+        'gameIsolationState',
+        'chatboxState',
+        'chatboxConfig',
         'privacyLockState',
+        'desktopWidgetState',
         'gameLogProjection',
         'gameLogPersistenceFallback',
         'gameLogSideEffect',
@@ -489,9 +546,12 @@ export async function bindRuntimeEvents(): Promise<() => void> {
         'realtimeCurrentUserProjection',
         'realtimeInstanceClosedProjection',
         'realtimeInstanceQueueProjection',
+        'realtimeEconomyBalance',
         'realtimeProjectionSync',
         'updateIsGameRunning',
         'integrationApiStartFailed',
+        'feedLoggerHealth',
+        'feedLoggerSync',
         'browserFocus'
     ];
 
@@ -531,6 +591,12 @@ export async function bindRuntimeEvents(): Promise<() => void> {
             hydrateIntegrationApiStatus(
                 await commands.appIntegrationApiStatus()
             );
+        }
+    );
+    void hydrateRuntimeState(
+        'Failed to hydrate offline record status:',
+        async () => {
+            handleFeedLoggerHealthEvent(await commands.appFeedLoggerStatus());
         }
     );
     let combinedSnapshot: BackendRuntimeCombinedSnapshot | null = null;

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { UserIcon, UsersRoundIcon } from 'lucide-react';
+import { ExternalLinkIcon, UserIcon, UsersRoundIcon } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -10,10 +10,11 @@ import { RegionCodeBadge } from '@/components/location/RegionCodeBadge';
 import { useInstancePopulation } from '@/components/location/useInstancePopulation';
 import { FadeInImage } from '@/components/media/FadeInImage';
 import { normalizeSidebarFilterQuery } from '@/components/sidebar/friends-sidebar/friendsSidebarModel';
+import { handleSidebarRowArrowNavigation } from '@/components/sidebar/sidebarRowArrowNavigation';
 import { useVirtualSidebarRows } from '@/components/sidebar/useVirtualSidebarRows';
 import type { FriendRecord } from '@/domain/friends/types';
 import { groupProfileQueryOptions } from '@/lib/groupProfileQuery';
-import { openGroupDialog } from '@/services/dialogService';
+import { openGroupDialog, openWorldDialog } from '@/services/dialogService';
 import {
     convertFileUrlToImageUrl,
     userImage
@@ -113,6 +114,7 @@ function RoomFriends({ friends }: { friends: FriendRecord[] }) {
 
 function WorldRoomItem({
     room,
+    worldName,
     worldCapacity,
     worldSettled,
     refreshKey,
@@ -120,6 +122,7 @@ function WorldRoomItem({
     friendsMap
 }: {
     room: WorldRoomRow;
+    worldName: string;
     worldCapacity: number | null;
     worldSettled: boolean;
     refreshKey: number;
@@ -140,6 +143,12 @@ function WorldRoomItem({
     const groupName = group?.name || '';
     const groupIconUrl = convertFileUrlToImageUrl(group?.iconUrl, 128);
     const showGroupName = Boolean(groupId && groupName);
+    const groupIconFallback = (
+        <UsersRoundIcon
+            aria-hidden="true"
+            className="text-muted-foreground size-4"
+        />
+    );
     const userCount = room.occupants ?? population?.nUsers ?? null;
     const capacity =
         room.occupants === null
@@ -154,6 +163,10 @@ function WorldRoomItem({
         currentUserId: currentUserId || '',
         friends: friendsMap
     });
+
+    function openWorld() {
+        openWorldDialog({ worldId: room.location, title: worldName });
+    }
 
     async function sendSelfInvite() {
         if (!canUseInstanceAction) {
@@ -184,7 +197,20 @@ function WorldRoomItem({
                 render={
                     <div
                         ref={ref}
-                        className="flex w-full min-w-0 items-center gap-2 rounded-lg p-1.5 hover:bg-(--state-hover-surface)"
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`${showGroupName ? groupName : accessTypeLabel} #${parsedLocation.instanceName}`}
+                        className="flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-lg p-1.5 hover:bg-(--state-hover-surface)"
+                        onClick={openWorld}
+                        onKeyDown={(event) => {
+                            if (
+                                event.target === event.currentTarget &&
+                                (event.key === 'Enter' || event.key === ' ')
+                            ) {
+                                event.preventDefault();
+                                openWorld();
+                            }
+                        }}
                     />
                 }
             >
@@ -196,12 +222,10 @@ function WorldRoomItem({
                                 alt=""
                                 loading="lazy"
                                 className="size-full object-cover"
+                                fallback={groupIconFallback}
                             />
                         ) : (
-                            <UsersRoundIcon
-                                aria-hidden="true"
-                                className="text-muted-foreground size-4"
-                            />
+                            groupIconFallback
                         )}
                     </span>
                 ) : (
@@ -216,12 +240,13 @@ function WorldRoomItem({
                             <button
                                 type="button"
                                 className="hover:text-foreground min-w-0 cursor-pointer truncate text-left font-medium"
-                                onClick={() =>
+                                onClick={(event) => {
+                                    event.stopPropagation();
                                     openGroupDialog({
                                         groupId,
                                         title: groupName
-                                    })
-                                }
+                                    });
+                                }}
                             >
                                 {groupName}
                             </button>
@@ -257,6 +282,13 @@ function WorldRoomItem({
                 </div>
             </ContextMenuTrigger>
             <ContextMenuContent className="w-max max-w-[calc(100vw-1rem)] min-w-52">
+                <ContextMenuGroup>
+                    <ContextMenuItem onClick={openWorld}>
+                        <ExternalLinkIcon />
+                        {t('common.actions.view_details')}
+                    </ContextMenuItem>
+                </ContextMenuGroup>
+                <ContextMenuSeparator />
                 <LaunchModeContextMenuGroup
                     disabled={!canUseInstanceAction}
                     instanceClosed={false}
@@ -369,6 +401,7 @@ export function WorldRoomsSidebar({
                 return (
                     <WorldRoomItem
                         room={row.room}
+                        worldName={world?.name || ''}
                         worldCapacity={world?.capacity || null}
                         worldSettled={!worldQuery.isPending}
                         refreshKey={worldQuery.dataUpdatedAt}
@@ -382,7 +415,9 @@ export function WorldRoomsSidebar({
     return (
         <div
             ref={viewportRef}
+            role="presentation"
             className="relative h-full overflow-auto overflow-x-hidden"
+            onKeyDown={handleSidebarRowArrowNavigation}
         >
             <div className="px-1.5 pt-1 pb-2.5">
                 <div
@@ -393,6 +428,7 @@ export function WorldRoomsSidebar({
                         <div
                             key={item.key}
                             ref={getRowRef(item.key)}
+                            data-sidebar-row=""
                             className="absolute top-0 left-0 w-full"
                             style={{ transform: `translateY(${item.start}px)` }}
                         >

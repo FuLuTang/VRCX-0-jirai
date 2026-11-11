@@ -11,6 +11,7 @@ members = [
     "crates/local-server",
     "crates/host-desktop",
     "crates/media",
+    "crates/osc",
     "crates/runtime-event",
     "crates/contracts",
     "crates/application-core",
@@ -23,6 +24,8 @@ members = [
     "crates/runtime-host-desktop",
     "crates/overlay-runtime",
     "crates/headless",
+    "crates/logger-protocol",
+    "crates/logger",
     "crates/mcp",
     "crates/integration-api",
     "crates/assistant"
@@ -39,6 +42,7 @@ default-members = [
     "crates/local-server",
     "crates/host-desktop",
     "crates/media",
+    "crates/osc",
     "crates/runtime-event",
     "crates/contracts",
     "crates/application-core",
@@ -51,6 +55,8 @@ default-members = [
     "crates/runtime-host-desktop",
     "crates/overlay-runtime",
     "crates/headless",
+    "crates/logger-protocol",
+    "crates/logger",
     "crates/mcp",
     "crates/integration-api",
     "crates/assistant"
@@ -76,7 +82,7 @@ proptest = "1"
 reqwest = "0.13"
 regex = "1"
 fs4 = "1.1"
-rusqlite = "0.40"
+rusqlite = "0.41"
 serde = "1"
 serde_json = "1"
 semver = "1"
@@ -101,7 +107,7 @@ tracing = "0.1"
 url = "2"
 uuid = { version = "1", features = ["v4"] }
 walkdir = "2"
-zip = { version = "8", default-features = false }
+zip = { version = "9", default-features = false }
 zstd = { version = "0.14", features = ["zstdmt"] }
 
 [profile.dev]

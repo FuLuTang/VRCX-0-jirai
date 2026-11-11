@@ -8,10 +8,10 @@ use crate::game_log::{GameLogLocationEntry, GameLogLocationTimeUpdate};
 use crate::realtime::ensure_realtime_tables;
 
 use super::{
-    insert_startup_online_backfill, normalize_user_table_prefix, profile_feed_reconcile,
-    write_realtime_batch, AvatarTimeSpentUpsert, FriendLogDelete, FriendLogUpsert,
-    NotificationExpiration, NotificationV2Update, ProfileFeedReconcileInput,
-    RealtimePersistenceBatch, SelfProfileField, SelfProfileObservation,
+    insert_backfilled_feed, insert_startup_online_backfill, normalize_user_table_prefix,
+    profile_feed_reconcile, write_realtime_batch, AvatarTimeSpentUpsert, BackfillWrites,
+    FriendLogDelete, FriendLogUpsert, NotificationExpiration, NotificationV2Update,
+    ProfileFeedReconcileInput, RealtimePersistenceBatch, SelfProfileField, SelfProfileObservation,
 };
 use crate::ownership::OwnerId;
 use vrcx_0_contracts::feed_live::FeedLiveEntry;
@@ -1163,6 +1163,155 @@ fn checkpointed_avatar_wear_extends_one_log_row_and_adds_only_the_new_time(
         &Default::default(),
     )?;
     assert_eq!(history[0][0], json!(90_000));
+    Ok(())
+}
+
+#[test]
+fn backfill_skips_entries_that_have_no_feed_row_instead_of_failing_the_sync(
+) -> Result<(), crate::Error> {
+    let dir = TestDir::new("realtime-feed-backfill-entry-kinds");
+    let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3"))?;
+
+    let inserted = insert_backfilled_feed(
+        &db,
+        &OwnerId::new("usr_self"),
+        &[
+            online_entry("2026-05-15T00:00:00Z", "wrld_1:1", "World"),
+            untabled_entry("2026-05-15T00:01:00Z"),
+            relationship_entry("2026-05-15T00:02:00Z", true),
+            trust_level_entry("2026-05-15T00:03:00Z", 7),
+        ],
+        &[],
+        &mut BackfillWrites::default(),
+    )?;
+
+    assert_eq!(inserted, 1);
+    Ok(())
+}
+
+#[test]
+fn backfill_only_treats_rows_from_before_the_current_sync_as_duplicates() -> Result<(), crate::Error>
+{
+    let dir = TestDir::new("realtime-feed-backfill-same-sync");
+    let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3"))?;
+    let owner = OwnerId::new("usr_self");
+    let mut this_sync = BackfillWrites::default();
+
+    let first_segment = insert_backfilled_feed(
+        &db,
+        &owner,
+        &[online_entry("2026-05-15T00:00:00Z", "wrld_1:1", "World")],
+        &[],
+        &mut this_sync,
+    )?;
+    let next_segment = insert_backfilled_feed(
+        &db,
+        &owner,
+        &[online_entry("2026-05-15T00:01:00Z", "wrld_1:1", "World")],
+        &[],
+        &mut this_sync,
+    )?;
+    let next_sync = insert_backfilled_feed(
+        &db,
+        &owner,
+        &[online_entry("2026-05-15T00:01:00Z", "wrld_1:1", "World")],
+        &[],
+        &mut BackfillWrites::default(),
+    )?;
+
+    assert_eq!((first_segment, next_segment, next_sync), (1, 1, 0));
+    Ok(())
+}
+
+#[test]
+fn backfill_matches_duplicates_across_time_formats_only_inside_the_window(
+) -> Result<(), crate::Error> {
+    let dir = TestDir::new("realtime-feed-backfill-window");
+    let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3"))?;
+    let owner = OwnerId::new("usr_self");
+
+    let recorded = insert_backfilled_feed(
+        &db,
+        &owner,
+        &[online_entry("2026-05-15T00:00:00Z", "wrld_1:1", "World")],
+        &[],
+        &mut BackfillWrites::default(),
+    )?;
+    let within_window = insert_backfilled_feed(
+        &db,
+        &owner,
+        &[online_entry(
+            "2026-05-15T00:02:00.000Z",
+            "wrld_1:1",
+            "World",
+        )],
+        &[],
+        &mut BackfillWrites::default(),
+    )?;
+    let outside_window = insert_backfilled_feed(
+        &db,
+        &owner,
+        &[online_entry(
+            "2026-05-15T00:02:01.000Z",
+            "wrld_1:1",
+            "World",
+        )],
+        &[],
+        &mut BackfillWrites::default(),
+    )?;
+
+    assert_eq!((recorded, within_window, outside_window), (1, 0, 1));
+    Ok(())
+}
+
+#[test]
+fn backfill_duplicate_lookup_reads_a_created_at_range_through_an_index() -> Result<(), crate::Error>
+{
+    let dir = TestDir::new("realtime-feed-backfill-plan");
+    let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3"))?;
+    ensure_realtime_tables(&db, "usrself")?;
+
+    for (table, same_change) in [
+        (
+            "feed_status",
+            "status = @status AND status_description = @status_description",
+        ),
+        (
+            "feed_avatar",
+            "current_avatar_image_url = @current_avatar_image_url",
+        ),
+    ] {
+        let plan = db.execute(
+            &format!(
+                "EXPLAIN QUERY PLAN {}",
+                super::backfill_nearby_ids_sql("usrself", table, same_change, true)
+            ),
+            &ParamsBuilder::new()
+                .set("user_id", "usr_friend")
+                .set("status", "active")
+                .set("status_description", "")
+                .set("current_avatar_image_url", "")
+                .set("created_at", "2026-05-15T00:00:00.000Z")
+                .set("window", 120)
+                .set("created_from", "2026-05-14T23:57:59.000Z")
+                .set("created_to", "2026-05-15T00:02:01.000Z")
+                .build(),
+        )?;
+        let details = plan
+            .iter()
+            .map(|row| {
+                row.last()
+                    .and_then(|value| value.as_str())
+                    .unwrap_or_default()
+            })
+            .collect::<Vec<_>>();
+        assert!(
+            details.iter().any(|detail| detail.contains("USING INDEX")),
+            "{table}: {details:?}"
+        );
+    }
+    Ok(())
+}
     Ok(())
 }
 

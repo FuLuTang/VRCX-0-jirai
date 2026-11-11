@@ -11,6 +11,12 @@ import {
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('@/components/economy/useEconomyBalance', () => ({
+    useEconomyBalance: () => ({ data: 2450, refetch: vi.fn() })
+}));
+
+import { useAssistantChatStore } from '@/state/assistantChatStore';
+
 import {
     UserDialogActivitySummaryPanel,
     UserDialogBioPanel,
@@ -246,8 +252,10 @@ describe('UserDialogActivitySummaryPanel', () => {
             'dialog.user.info.activity_summary',
             'dialog.user.info.last_activity',
             'dialog.user.info.play_time',
+            'dialog.user.info.vrc_credits',
             'dialog.user.info.date_joined'
         ]);
+        expect(screen.getByText(`${(2450).toLocaleString()}V`)).toBeTruthy();
     });
 
     it('opens Feed from last activity only for friends', () => {
@@ -293,6 +301,34 @@ describe('UserDialogActivitySummaryPanel', () => {
         );
         expect(onOpenFeed).toHaveBeenCalledOnce();
     });
+
+    it('starts an assistant chat about the person', () => {
+        render(
+            <UserDialogActivitySummaryPanel
+                friendedAt={undefined}
+                isCurrentUser={false}
+                isFriend
+                lastSeen={undefined}
+                presenceActivityAt={undefined}
+                profile={{ id: 'usr_test', displayName: 'Mika' }}
+                userTimeSpent={0}
+                userJoinCount={0}
+            />
+        );
+
+        fireEvent.click(
+            screen.getByRole('button', {
+                name: 'assistant.title'
+            })
+        );
+        expect(useAssistantChatStore.getState()).toMatchObject({
+            open: true,
+            assistantDraft: {
+                topic: 'profile',
+                target: { kind: 'user', id: 'usr_test', name: 'Mika' }
+            }
+        });
+    });
 });
 
 describe('UserDialogBioPanel', () => {
@@ -306,7 +342,7 @@ describe('UserDialogBioPanel', () => {
         );
         expect(
             screen.queryByRole('button', {
-                name: 'dialog.user.actions.edit_profile_details'
+                name: 'dialog.user.actions.edit_profile'
             })
         ).toBeNull();
 
@@ -319,7 +355,7 @@ describe('UserDialogBioPanel', () => {
         );
         fireEvent.click(
             screen.getByRole('button', {
-                name: 'dialog.user.actions.edit_profile_details'
+                name: 'dialog.user.actions.edit_profile'
             })
         );
         expect(onEditBio).toHaveBeenCalledOnce();

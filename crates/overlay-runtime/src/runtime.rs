@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::VecDeque;
+use std::collections::{BTreeSet, VecDeque};
 use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
     Arc, Condvar, Mutex, Weak,
@@ -9,6 +9,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use chrono::{DateTime, Local, Timelike};
 use serde::Serialize;
+use vrcx_0_application_activity::notification::unresolved_group_id;
 use vrcx_0_application_activity::{ActivityDelivery, ActivitySink, ActivitySnapshot};
 use vrcx_0_application_core::{GameProcessEvent, GameProcessEventSink, TaskSupervisor};
 use vrcx_0_core::text::first_non_empty_owned;
@@ -29,9 +30,10 @@ use super::{
     localization::OverlayLocale,
     manager::VrOverlayManager,
     service::{HostVrOverlayService, OverlayBackendPreference},
-    surfaces::hmd_toast::{refresh_cached_world_name, HmdToastState},
+    surfaces::hmd_toast::{refresh_cached_location_names, HmdToastState},
     surfaces::wrist::compact_duration,
     test_preview::test_wrist_frame_input,
+    tracker_watch::{TrackerDisconnect, TrackerWatch},
     WristOverlayFrameInput, WristOverlayRenderOptions, WristOverlaySizePreset, WristRuntimeFooter,
     WristRuntimeNowPlaying,
 };
@@ -134,6 +136,7 @@ pub(crate) struct HmdNotificationConfig {
     pub(crate) position: HmdNotificationPosition,
     pub(crate) style: HmdNotificationStyle,
     pub(crate) avatars: bool,
+    pub(crate) tracker_disconnect: bool,
 }
 
 impl Default for HmdNotificationConfig {
@@ -146,6 +149,7 @@ impl Default for HmdNotificationConfig {
             position: HmdNotificationPosition::Bottom,
             style: HmdNotificationStyle::Standard,
             avatars: true,
+            tracker_disconnect: true,
         }
     }
 }
@@ -286,6 +290,7 @@ pub struct VrOverlayRuntime {
     hmd_friend_membership_provider: Mutex<Option<HmdFriendMembershipProvider>>,
     refresh_wake: Arc<RefreshWake>,
     devices: Mutex<Vec<VrDeviceSnapshot>>,
+    tracker_watch: Mutex<TrackerWatch>,
     pub(crate) hmd_toasts: Mutex<VecDeque<HmdToastState>>,
     pub(crate) avatar_bitmap_cache: Arc<AvatarBitmapCache>,
     pub(crate) manager: Mutex<VrOverlayManager<HostVrOverlayService>>,
@@ -310,8 +315,9 @@ impl VrOverlayActivitySink {
 }
 
 impl ActivitySink for VrOverlayActivitySink {
-    fn emit_overlay_activity_snapshot(&self, _snapshot: ActivitySnapshot) {
+    fn emit_overlay_activity_snapshot(&self, snapshot: ActivitySnapshot) {
         if let Some(runtime) = self.runtime.upgrade() {
+            runtime.prefetch_wrist_group_names(&snapshot);
             runtime.reconcile_current();
         }
     }
@@ -324,6 +330,39 @@ impl ActivitySink for VrOverlayActivitySink {
 }
 
 impl VrOverlayRuntime {
+    fn prefetch_wrist_group_names(self: &Arc<Self>, snapshot: &ActivitySnapshot) {
+        let Some(services) = self.services.clone() else {
+            return;
+        };
+        let group_ids = snapshot
+            .entries
+            .iter()
+            .filter_map(|entry| unresolved_group_id(&entry.content))
+            .filter(|group_id| services.cached_notification_group_name(group_id).is_none())
+            .collect::<BTreeSet<_>>();
+        if group_ids.is_empty() {
+            return;
+        }
+        let endpoint = services.auth_scope().snapshot().endpoint;
+        if endpoint.trim().is_empty() {
+            return;
+        }
+        let runtime = Arc::downgrade(self);
+        let tasks = services.tasks().clone();
+        tasks.spawn(async move {
+            let mut resolved = false;
+            for group_id in group_ids {
+                resolved |= services
+                    .notification_group_name(&endpoint, &group_id)
+                    .await
+                    .is_some();
+            }
+            if let Some(runtime) = runtime.upgrade().filter(|_| resolved) {
+                runtime.reconcile_current();
+            }
+        });
+    }
+
     pub fn new<S>(services: Arc<S>) -> Self
     where
         S: VrOverlayRuntimeServices + 'static,
@@ -393,6 +432,7 @@ impl VrOverlayRuntime {
             hmd_friend_membership_provider: Mutex::new(None),
             refresh_wake: Arc::new(RefreshWake::new()),
             devices: Mutex::new(Vec::new()),
+            tracker_watch: Mutex::new(TrackerWatch::default()),
             hmd_toasts: Mutex::new(VecDeque::new()),
             avatar_bitmap_cache: Arc::new(AvatarBitmapCache::new()),
             frame_producer_factory,
@@ -640,6 +680,7 @@ impl VrOverlayRuntime {
         } else {
             None
         };
+        let mut tracker_disconnect = None;
         if let Ok(mut manager) = self.manager.lock() {
             let mut config = self.current_runtime_config();
             if let Some(next_config) = changed_config {
@@ -674,15 +715,19 @@ impl VrOverlayRuntime {
             };
             manager.reconcile(eligibility);
             if eligibility.can_run() && manager.is_running() {
+                let defer_render = self.should_defer_slint_render_to_refresh_thread();
+                if !defer_render {
+                    tracker_disconnect = self.refresh_devices_if_needed(
+                        &mut manager,
+                        refresh_devices,
+                        active_surfaces.wrist && config.render.show_devices,
+                        active_surfaces.hmd && config.hmd.tracker_disconnect,
+                    );
+                }
                 if active_surfaces.wrist {
-                    if self.should_defer_slint_render_to_refresh_thread() {
+                    if defer_render {
                         self.defer_refresh_to_refresh_thread(refresh_devices);
                     } else {
-                        self.refresh_devices_if_needed(
-                            &mut manager,
-                            refresh_devices,
-                            config.render.show_devices,
-                        );
                         self.push_wrist_frame(&mut manager, config);
                     }
                 } else {
@@ -698,9 +743,13 @@ impl VrOverlayRuntime {
                     self.clear_hmd_toasts();
                 }
             } else {
+                self.reset_tracker_watch();
                 self.release_frame_producer();
             }
             self.refresh_manager_mirror(&manager);
+        }
+        if let Some(disconnect) = tracker_disconnect {
+            self.deliver_tracker_disconnect_toast(disconnect);
         }
     }
 
@@ -793,30 +842,69 @@ impl VrOverlayRuntime {
         manager: &mut VrOverlayManager<HostVrOverlayService>,
         refresh_devices: bool,
         show_devices: bool,
-    ) {
+        watch_trackers: bool,
+    ) -> Option<TrackerDisconnect> {
+        if !self.prepare_device_refresh(refresh_devices, show_devices, watch_trackers) {
+            return None;
+        }
+        match manager.snapshot_devices() {
+            Ok(next_devices) => {
+                self.apply_device_snapshot(next_devices, show_devices, watch_trackers)
+            }
+            Err(error) => {
+                tracing::warn!(error = %error, "failed to snapshot VR overlay devices");
+                None
+            }
+        }
+    }
+
+    fn prepare_device_refresh(
+        &self,
+        refresh_devices: bool,
+        show_devices: bool,
+        watch_trackers: bool,
+    ) -> bool {
         if !show_devices {
             if let Ok(mut devices) = self.devices.lock() {
                 devices.clear();
             }
-            return;
+        }
+        if !watch_trackers {
+            self.reset_tracker_watch();
         }
         let devices_empty = self
             .devices
             .lock()
             .map(|devices| devices.is_empty())
             .unwrap_or(true);
-        if !refresh_devices && !devices_empty {
-            return;
+        (refresh_devices && (show_devices || watch_trackers)) || (show_devices && devices_empty)
+    }
+
+    fn apply_device_snapshot(
+        &self,
+        next_devices: Vec<VrDeviceSnapshot>,
+        show_devices: bool,
+        watch_trackers: bool,
+    ) -> Option<TrackerDisconnect> {
+        let disconnect = if watch_trackers {
+            self.tracker_watch
+                .lock()
+                .ok()
+                .and_then(|mut watch| watch.observe(&next_devices))
+        } else {
+            None
+        };
+        if show_devices {
+            if let Ok(mut devices) = self.devices.lock() {
+                *devices = next_devices;
+            }
         }
-        match manager.snapshot_devices() {
-            Ok(next_devices) => {
-                if let Ok(mut devices) = self.devices.lock() {
-                    *devices = next_devices;
-                }
-            }
-            Err(error) => {
-                tracing::warn!(error = %error, "failed to snapshot VR overlay devices");
-            }
+        disconnect
+    }
+
+    fn reset_tracker_watch(&self) {
+        if let Ok(mut watch) = self.tracker_watch.lock() {
+            watch.reset();
         }
     }
 
@@ -1149,7 +1237,7 @@ pub(super) fn build_wrist_frame_input(
     let captured_at_ms = now_ms();
     let mut activity = services.activity_router().snapshot();
     for entry in &mut activity.entries {
-        refresh_cached_world_name(services.world_cache(), entry);
+        refresh_cached_location_names(services, entry);
     }
     WristOverlayFrameInput {
         activity,
@@ -1168,6 +1256,10 @@ pub(super) fn build_wrist_frame_input(
                 &game_log.started_at,
                 captured_at_ms,
             ),
+            online_duration: services
+                .game_started_at()
+                .map(|started_at| elapsed_minutes_text(&started_at, captured_at_ms))
+                .unwrap_or_default(),
             local_time: local_time_text(config.dt_hour12),
         },
         options: config.render,
@@ -1202,10 +1294,14 @@ fn format_local_time(hour: u32, minute: u32, hour12: bool) -> String {
 }
 
 fn instance_duration_text(location: &str, started_at: &str, now_ms: i64) -> String {
-    if !is_real_instance_location(location) {
+    if !is_world_instance_location(location) {
         return String::new();
     }
-    let Some(started_at_ms) = DateTime::parse_from_rfc3339(started_at)
+    elapsed_minutes_text(started_at, now_ms)
+}
+
+fn elapsed_minutes_text(started_at: &str, now_ms: i64) -> String {
+    let Some(started_at_ms) = DateTime::parse_from_rfc3339(started_at.trim())
         .ok()
         .map(|value| value.timestamp_millis())
     else {
@@ -1214,10 +1310,11 @@ fn instance_duration_text(location: &str, started_at: &str, now_ms: i64) -> Stri
     if now_ms < started_at_ms {
         return String::new();
     }
-    compact_duration(now_ms - started_at_ms)
+    let minute_start_ms = now_ms - now_ms.rem_euclid(60_000);
+    compact_duration((minute_start_ms - started_at_ms).max(0))
 }
 
-fn is_real_instance_location(location: &str) -> bool {
+fn is_world_instance_location(location: &str) -> bool {
     let location = location.trim().to_ascii_lowercase();
     location.starts_with("wrld_") && location.contains(':')
 }
@@ -1226,3 +1323,7 @@ fn is_real_instance_location(location: &str) -> bool {
 mod activity_sink_tests;
 #[cfg(test)]
 mod config_reload_tests;
+#[cfg(test)]
+mod device_refresh_tests;
+#[cfg(test)]
+mod footer_tests;

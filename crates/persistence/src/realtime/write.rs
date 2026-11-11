@@ -1,14 +1,20 @@
+use std::collections::HashSet;
+
 use serde_json::Value;
 
-use crate::activity::activity_iso_from_ms;
-use crate::common::{row_string, ParamsBuilder};
+use crate::activity::{activity_iso_from_ms, parse_activity_time_ms};
+use crate::common::{insert_or_ignore_sql, row_i64, row_string, ParamsBuilder};
 use crate::database::{DatabaseService, DatabaseWriteTransaction};
 use crate::game_log::{ensure_game_log_tables, GameLogLocationEntry, GameLogLocationTimeUpdate};
 use crate::ownership::{owner_id_get_or_insert, OwnerId, OwnerRowId};
 use crate::Error;
 use vrcx_0_contracts::feed_live::FeedLiveEntry;
 use vrcx_0_contracts::friend_log::FriendLogCurrentOutput;
-use vrcx_0_core::friend_log::{plan_friend_log_upsert, FriendLogCurrent, FriendLogUpsertInput};
+use vrcx_0_contracts::notifications::AppNotification;
+use vrcx_0_contracts::profile_bio::RecordedProfileBio;
+use vrcx_0_core::friend_log::{
+    plan_friend_log_upsert, FriendLogCurrent, FriendLogUpsertInput, FriendLogUpsertPlan,
+};
 
 use super::schema::{ensure_realtime_tables, normalize_user_table_prefix};
 use super::types::*;
@@ -220,6 +226,9 @@ pub fn write_realtime_batch(
         for id in &batch.notification_seen {
             counts.add_realtime_rows(mark_notification_seen(tx, &user_prefix, id)?);
         }
+        for notification in &batch.app_notification_upserts {
+            counts.add_realtime_rows(insert_app_notification(tx, &user_prefix, notification)?);
+        }
         for entry in &batch.avatar_history_upserts {
             counts.add_realtime_rows(upsert_avatar_history(tx, &user_prefix, entry)?);
         }
@@ -313,14 +322,20 @@ fn has_matching_friend_log_upsert(
         })
 }
 
-fn upsert_friend_log_current(
+pub(crate) struct WrittenFriendLogCurrent {
+    pub(crate) plan: FriendLogUpsertPlan,
+    pub(crate) inserted: bool,
+    pub(crate) affected: u64,
+}
+
+pub(crate) fn write_friend_log_current(
     tx: &mut DatabaseWriteTransaction<'_>,
     user_prefix: &str,
-    entry: &FriendLogUpsert,
-) -> Result<u64, Error> {
-    let target_user_id = normalize_user_id(&entry.target_user_id);
+    entry: FriendLogUpsertInput<'_>,
+) -> Result<Option<WrittenFriendLogCurrent>, Error> {
+    let target_user_id = normalize_user_id(entry.target_user_id);
     if target_user_id.is_empty() {
-        return Ok(0);
+        return Ok(None);
     }
     let existing_rows = tx.execute(
         &format!(
@@ -332,13 +347,7 @@ fn upsert_friend_log_current(
         .first()
         .map(|row| existing_friend_log_row(row));
     let Some(plan) = plan_friend_log_upsert(
-        FriendLogUpsertInput {
-            target_user_id: &entry.target_user_id,
-            display_name: &entry.display_name,
-            trust_level: &entry.trust_level,
-            friend_number: entry.friend_number,
-            force_history: entry.force_history,
-        },
+        entry,
         existing.as_ref().map(|existing| FriendLogCurrent {
             display_name: &existing.display_name,
             trust_level: &existing.trust_level,
@@ -347,7 +356,7 @@ fn upsert_friend_log_current(
         || next_friend_number(tx, user_prefix),
     )?
     else {
-        return Ok(0);
+        return Ok(None);
     };
     let params = ParamsBuilder::new()
         .set("user_id", plan.user_id.clone())
@@ -361,8 +370,9 @@ fn upsert_friend_log_current(
         ),
         &params,
     )?;
+    let inserted = insert_count > 0;
     let mut affected = affected_count(insert_count);
-    if insert_count <= 0 {
+    if !inserted {
         affected = affected.saturating_add(affected_count(tx.execute_non_query(
             &format!(
                 "UPDATE {user_prefix}_friend_log_current SET display_name = @display_name, trust_level = @trust_level, friend_number = CASE WHEN @friend_number > 0 THEN @friend_number ELSE friend_number END WHERE user_id = @user_id"
@@ -370,6 +380,34 @@ fn upsert_friend_log_current(
             &params,
         )?));
     }
+    Ok(Some(WrittenFriendLogCurrent {
+        plan,
+        inserted,
+        affected,
+    }))
+}
+
+fn upsert_friend_log_current(
+    tx: &mut DatabaseWriteTransaction<'_>,
+    user_prefix: &str,
+    entry: &FriendLogUpsert,
+) -> Result<u64, Error> {
+    let Some(WrittenFriendLogCurrent {
+        plan, mut affected, ..
+    }) = write_friend_log_current(
+        tx,
+        user_prefix,
+        FriendLogUpsertInput {
+            target_user_id: &entry.target_user_id,
+            display_name: &entry.display_name,
+            trust_level: &entry.trust_level,
+            friend_number: entry.friend_number,
+            force_history: entry.force_history,
+        },
+    )?
+    else {
+        return Ok(0);
+    };
     for history in &plan.history {
         affected = affected.saturating_add(add_friend_log_history(
             tx,
@@ -455,6 +493,179 @@ fn add_friend_log_history(
             .build(),
     )
     .map(affected_count)
+}
+
+const BACKFILL_DUPLICATE_WINDOW_SECS: i64 = 120;
+
+#[derive(Debug, Default)]
+pub struct BackfillWrites {
+    rows: HashSet<(&'static str, i64)>,
+}
+
+pub fn insert_backfilled_feed(
+    db: &DatabaseService,
+    owner_user_id: &OwnerId,
+    entries: &[FeedLiveEntry],
+    profile_bios: &[RecordedProfileBio],
+    written: &mut BackfillWrites,
+) -> Result<u64, Error> {
+    let owner_user_id = normalize_user_id(owner_user_id.as_str());
+    if owner_user_id.is_empty() {
+        return Err(Error::Database(
+            "Feed backfill requires a current user id.".into(),
+        ));
+    }
+    let user_prefix =
+        crate::profile_bio::ensure_profile_bio_table(db, &OwnerId::new(owner_user_id))?;
+    ensure_realtime_tables(db, &user_prefix)?;
+    let (inserted, rows) = db.write_transaction(|tx| {
+        let mut new_entries = Vec::with_capacity(entries.len());
+        for entry in entries {
+            if let Some(table) = backfilled_entry_table_if_new(tx, &user_prefix, entry, written)? {
+                new_entries.push((table, entry));
+            }
+        }
+        let mut inserted = 0;
+        let mut rows = Vec::with_capacity(new_entries.len());
+        for (table, entry) in new_entries {
+            inserted += insert_feed_entry(tx, &user_prefix, entry)?;
+            let row_id = tx.execute("SELECT last_insert_rowid()", &Default::default())?;
+            rows.push((table, row_id.first().map_or(0, |row| row_i64(row, 0))));
+        }
+        for profile_bio in profile_bios {
+            if let Some(entry) = apply_backfilled_profile_bio(tx, &user_prefix, profile_bio)? {
+                inserted += insert_feed_entry(tx, &user_prefix, &entry)?;
+            }
+        }
+        Ok((inserted, rows))
+    })?;
+    written.rows.extend(rows);
+    Ok(inserted)
+}
+
+fn apply_backfilled_profile_bio(
+    tx: &mut DatabaseWriteTransaction<'_>,
+    user_prefix: &str,
+    profile_bio: &RecordedProfileBio,
+) -> Result<Option<FeedLiveEntry>, Error> {
+    let observation = &profile_bio.observation;
+    let last_seen = tx
+        .execute(
+            &format!("SELECT bio, checked_at FROM {user_prefix}_profile_bio WHERE user_id = @user_id LIMIT 1"),
+            &ParamsBuilder::new()
+                .set("user_id", observation.user_id.clone())
+                .build(),
+        )?
+        .first()
+        .map(|row| (row_string(row, 0), row_string(row, 1)));
+    if last_seen
+        .as_ref()
+        .is_some_and(|(_, checked_at)| *checked_at >= profile_bio.observed_at)
+    {
+        return Ok(None);
+    }
+    tx.execute_non_query(
+        &format!(
+            "INSERT INTO {user_prefix}_profile_bio (user_id, bio, bio_links, checked_at) VALUES (@user_id, @bio, @bio_links, @checked_at) \
+             ON CONFLICT(user_id) DO UPDATE SET bio = excluded.bio, bio_links = excluded.bio_links, checked_at = excluded.checked_at"
+        ),
+        &ParamsBuilder::new()
+            .set("user_id", observation.user_id.clone())
+            .set("bio", observation.bio.clone())
+            .set(
+                "bio_links",
+                crate::profile_bio::encode_bio_links(&observation.bio_links),
+            )
+            .set("checked_at", profile_bio.observed_at.clone())
+            .build(),
+    )?;
+    Ok(last_seen
+        .filter(|(previous_bio, _)| *previous_bio != observation.bio)
+        .map(|(previous_bio, _)| FeedLiveEntry::Bio {
+            created_at: profile_bio.observed_at.clone(),
+            user_id: observation.user_id.clone(),
+            display_name: observation.display_name.clone(),
+            bio: observation.bio.clone(),
+            previous_bio,
+            owner_user_id: String::new(),
+        }))
+}
+
+fn backfilled_entry_table_if_new(
+    tx: &mut DatabaseWriteTransaction<'_>,
+    user_prefix: &str,
+    entry: &FeedLiveEntry,
+    written: &BackfillWrites,
+) -> Result<Option<&'static str>, Error> {
+    let (table, same_change, params) = match entry {
+        FeedLiveEntry::Gps { location, .. } => (
+            "feed_gps",
+            "location = @location",
+            ParamsBuilder::new().set("location", location.clone()),
+        ),
+        FeedLiveEntry::Online { .. } | FeedLiveEntry::Offline { .. } => (
+            "feed_online_offline",
+            "type = @type",
+            ParamsBuilder::new().set("type", entry.entry_type()),
+        ),
+        FeedLiveEntry::Status {
+            status,
+            status_description,
+            ..
+        } => (
+            "feed_status",
+            "status = @status AND status_description = @status_description",
+            ParamsBuilder::new()
+                .set("status", status.clone())
+                .set("status_description", status_description.clone()),
+        ),
+        FeedLiveEntry::Avatar {
+            current_avatar_image_url,
+            ..
+        } => (
+            "feed_avatar",
+            "current_avatar_image_url = @current_avatar_image_url",
+            ParamsBuilder::new().set("current_avatar_image_url", current_avatar_image_url.clone()),
+        ),
+        _ => return Ok(None),
+    };
+    let mut params = params
+        .set("user_id", entry.user_id())
+        .set("created_at", entry.created_at())
+        .set("window", BACKFILL_DUPLICATE_WINDOW_SECS);
+    let created_ms = parse_activity_time_ms(entry.created_at());
+    if let Some(created_ms) = created_ms {
+        let margin_ms = (BACKFILL_DUPLICATE_WINDOW_SECS + 1) * 1000;
+        params = params
+            .set("created_from", activity_iso_from_ms(created_ms - margin_ms))
+            .set("created_to", activity_iso_from_ms(created_ms + margin_ms));
+    }
+    let nearby = tx.execute(
+        &backfill_nearby_ids_sql(user_prefix, table, same_change, created_ms.is_some()),
+        &params.build(),
+    )?;
+    let recorded_elsewhere = nearby
+        .iter()
+        .any(|row| !written.rows.contains(&(table, row_i64(row, 0))));
+    Ok((!recorded_elsewhere).then_some(table))
+}
+
+fn backfill_nearby_ids_sql(
+    user_prefix: &str,
+    table: &str,
+    same_change: &str,
+    indexed: bool,
+) -> String {
+    let indexed_range = if indexed {
+        "AND created_at BETWEEN @created_from AND @created_to"
+    } else {
+        ""
+    };
+    format!(
+        "SELECT id FROM {user_prefix}_{table} WHERE user_id = @user_id AND {same_change}
+         {indexed_range}
+         AND ABS(julianday(created_at) - julianday(@created_at)) * 86400 <= @window"
+    )
 }
 
 fn insert_feed_entry(
@@ -588,6 +799,41 @@ fn insert_feed_entry(
             )));
         }
     };
+    Ok(affected_count(affected))
+}
+
+fn insert_app_notification(
+    tx: &mut DatabaseWriteTransaction<'_>,
+    user_prefix: &str,
+    notification: &AppNotification,
+) -> Result<u64, Error> {
+    if notification.id.is_empty()
+        || notification.created_at.is_empty()
+        || notification.r#type.is_empty()
+        || notification.message_key.is_empty()
+    {
+        return Err(Error::InvalidData(
+            "App notification requires id, createdAt, type, and messageKey.".into(),
+        ));
+    }
+    let message_params = serde_json::to_string(&notification.message_params)
+        .map_err(|error| Error::InvalidData(error.to_string()))?;
+    let affected = tx.execute_non_query(
+        &insert_or_ignore_sql(
+            &format!("{user_prefix}_app_notification_log"),
+            crate::notifications::APP_NOTIFICATION_COLUMNS,
+        ),
+        &ParamsBuilder::new()
+            .set("id", notification.id.clone())
+            .set("created_at", notification.created_at.clone())
+            .set("type", notification.r#type.clone())
+            .set("subject_id", notification.subject_id.clone())
+            .set("subject_name", notification.subject_name.clone())
+            .set("image_url", notification.image_url.clone())
+            .set("message_key", notification.message_key.clone())
+            .set("message_params", message_params)
+            .build(),
+    )?;
     Ok(affected_count(affected))
 }
 

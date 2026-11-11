@@ -79,6 +79,13 @@ fn named_struct_body<'a>(source: &'a str, declaration: &str) -> &'a str {
     panic!("find closing brace for struct declaration: {declaration}");
 }
 
+fn contains_identifier(source: &str, identifier: &str) -> bool {
+    source.match_indices(identifier).any(|(index, _)| {
+        !source[index + identifier.len()..]
+            .starts_with(|character: char| character == '_' || character.is_alphanumeric())
+    })
+}
+
 #[test]
 fn vrchat_commands_do_not_access_transport_implementation_directly() {
     for path in rust_sources_below("src-tauri/src/commands/vrchat") {
@@ -175,7 +182,8 @@ fn desktop_composition_does_not_expose_concrete_service_bundles() {
     for path in rust_sources_below("src-tauri/src") {
         let source = std::fs::read_to_string(&path).expect("read Tauri source");
         assert!(
-            !source.contains("runtime_host().desktop") && !source.contains("runtime_host().game"),
+            !contains_identifier(&source, "runtime_host().desktop")
+                && !contains_identifier(&source, "runtime_host().game"),
             "Tauri code reaches into a concrete desktop service bundle: {}",
             path.display()
         );
@@ -205,7 +213,8 @@ fn desktop_execution_modules_do_not_receive_the_complete_runtime_context() {
         let source = std::fs::read_to_string(&path).expect("read desktop runtime source");
         assert!(
             !source.contains("RuntimeHostContext")
-                && !source.contains("RuntimeHostDesktopAssemblyDeps"),
+                && !source.contains("RuntimeHostDesktopAssemblyDeps")
+                && !source.contains("vrcx_0_composition::RuntimeHostState"),
             "desktop execution module receives the complete runtime context: {}",
             path.display()
         );
@@ -491,6 +500,30 @@ fn runtime_event_contract_stays_narrow_for_integration_api() {
             "integration-api depends on {forbidden}; keep its contract surface narrow"
         );
     }
+}
+
+#[test]
+fn feed_logger_stays_free_of_the_desktop_stack() {
+    let logger = normal_dependency_names("vrcx-0-logger");
+    for forbidden in [
+        "vrcx-0-host-desktop",
+        "vrcx-0-runtime-host-desktop",
+        "vrcx-0-overlay-runtime",
+        "vrcx-0-vr-overlay",
+    ] {
+        assert!(
+            !logger.contains(forbidden),
+            "feed logger depends on {forbidden}; it must build as a headless Linux binary"
+        );
+    }
+
+    let protocol = normal_dependency_names("vrcx-0-logger-protocol");
+    assert!(
+        protocol
+            .iter()
+            .all(|dependency| !dependency.starts_with("vrcx-0-")),
+        "logger protocol is shared with the desktop app and must not depend on workspace crates"
+    );
 }
 
 #[test]

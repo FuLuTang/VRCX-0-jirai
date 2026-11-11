@@ -14,8 +14,8 @@ use vrcx_0_application_core::{
 };
 use vrcx_0_contracts::telemetry::{
     AssistantHealthPayload, ClientErrorPayload, ConfigSnapshotPayload, PageHealthPayload,
-    TelemetryConfigSnapshot, TelemetryContext, TelemetryRuntimeMode, TelemetryVrcxOrigin,
-    ToolUsagePayload,
+    TelemetryConfigSnapshot, TelemetryContext, TelemetryOfflineRecord, TelemetryRuntimeMode,
+    TelemetryVrcxOrigin, ToolUsagePayload,
 };
 
 use super::accumulator::{TelemetryAccumulator, MAX_DETAILS_PER_PAYLOAD};
@@ -27,11 +27,15 @@ const TELEMETRY_BASIC_INFO_REPORTED_VERSION_CONFIG_KEY: &str = "telemetryBasicIn
 const TELEMETRY_CONFIG_REPORTED_VERSION_CONFIG_KEY: &str = "telemetryConfigReportedVersion";
 const TELEMETRY_ACCOUNT_CONFIG_REPORTED_VERSION_CONFIG_KEY: &str =
     "telemetryAccountConfigReportedVersion";
+const TELEMETRY_OFFLINE_RECORD_REPORTED_CONFIG_KEY: &str = "telemetryOfflineRecordReported";
+const OFFLINE_RECORD_SETTINGS_CONFIG_KEY: &str = "feedLogger";
 const LEGACY_VRCX_MARKER_CONFIG_KEYS: [&str; 2] = ["VRCX_lastVRCXVersion", "VRCX_id"];
 const ACCOUNT_SNAPSHOT_FRIEND_GRACE: Duration = Duration::from_secs(5 * 60);
 const TELEMETRY_CLIENT_ERROR_CURSOR_CONFIG_KEY: &str = "telemetryClientErrorCursor";
 const ANONYMOUS_USAGE_TELEMETRY_CONFIG_KEY: &str = "anonymousUsageTelemetry";
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(30 * 60);
+const EARLY_HEARTBEAT_INTERVALS: [Duration; 2] =
+    [Duration::from_secs(60), Duration::from_secs(4 * 60)];
 const LOOP_SLEEP: Duration = Duration::from_secs(1);
 const SHUTDOWN_FLUSH_TIMEOUT: Duration = Duration::from_secs(1);
 const SEND_RETRY_BACKOFF: Duration = Duration::from_secs(60);
@@ -131,9 +135,12 @@ struct TelemetryState {
     config_snapshot_attempted_at: Option<Instant>,
     account_config_snapshot_sent: bool,
     account_config_snapshot_attempted_at: Option<Instant>,
+    offline_record_checked_at: Option<Instant>,
     signed_in_at: Option<Instant>,
     last_heartbeat_at: Option<Instant>,
+    heartbeats_scheduled: usize,
     vrchat_seen: bool,
+    signed_in_seen: bool,
     pending_error_cursor: Option<String>,
     acc: TelemetryAccumulator,
 }
@@ -267,7 +274,8 @@ impl TelemetryRuntime {
         self.ensure_session_start(&session).await;
         self.send_config_snapshot_once(&session).await;
         self.send_account_config_snapshot_once(&session).await;
-        self.observe_vrchat();
+        self.send_offline_record_change(&session).await;
+        self.observe_activity();
         self.send_heartbeat_if_due(&session).await;
     }
 
@@ -280,7 +288,7 @@ impl TelemetryRuntime {
         };
         let _flush_guard = self.inner.flush_lock.lock().await;
         self.drain_rust_errors();
-        self.observe_vrchat();
+        self.observe_activity();
         let context = self.heartbeat_context(&session, Some(true));
         self.post_debug(
             "/api/v1/telemetry/session/heartbeat",
@@ -344,7 +352,10 @@ impl TelemetryRuntime {
             return;
         }
         let context = if usage_enabled {
-            self.context(session, None)
+            TelemetryContext {
+                signed_in: Some(self.inner.auth_scope.snapshot().active),
+                ..self.context(session, None)
+            }
         } else {
             self.basic_context(session)
         };
@@ -389,12 +400,8 @@ impl TelemetryRuntime {
             return;
         }
         let scale = self.inner.environment.database_scale();
-        let payload = ConfigSnapshotPayload {
-            context: self.context(session, None),
-            config: self.config_snapshot(scale),
-        };
         if self
-            .post_debug("/api/v1/telemetry/config", &payload, "config snapshot")
+            .post_config_snapshot(session, scale, "config snapshot")
             .await
         {
             self.mark_config_snapshot_sent();
@@ -443,21 +450,66 @@ impl TelemetryRuntime {
         if !account_snapshot_ready(scale.friend_count, now.duration_since(signed_in_at)) {
             return;
         }
-        let payload = ConfigSnapshotPayload {
-            context: self.context(session, None),
-            config: self.config_snapshot(scale),
-        };
         if self
-            .post_debug(
-                "/api/v1/telemetry/config",
-                &payload,
-                "account config snapshot",
-            )
+            .post_config_snapshot(session, scale, "account config snapshot")
             .await
         {
             self.mark_account_config_snapshot_sent();
             self.persist_reported_version(TELEMETRY_ACCOUNT_CONFIG_REPORTED_VERSION_CONFIG_KEY);
         }
+    }
+
+    async fn send_offline_record_change(&self, session: &TelemetrySession) {
+        if !self.config_snapshot_sent() {
+            return;
+        }
+        let now = Instant::now();
+        {
+            let Ok(mut state) = self.inner.state.lock() else {
+                return;
+            };
+            if !attempt_due(state.offline_record_checked_at, now) {
+                return;
+            }
+            state.offline_record_checked_at = Some(now);
+        }
+        if !self.usage_enabled() {
+            return;
+        }
+        let reported = self.config_string(
+            TELEMETRY_OFFLINE_RECORD_REPORTED_CONFIG_KEY,
+            TelemetryOfflineRecord::Off.as_str(),
+        );
+        if reported == self.offline_record().as_str() {
+            return;
+        }
+        let scale = self.inner.environment.database_scale();
+        self.post_config_snapshot(session, scale, "offline record config snapshot")
+            .await;
+    }
+
+    async fn post_config_snapshot(
+        &self,
+        session: &TelemetrySession,
+        scale: TelemetryDatabaseScale,
+        label: &str,
+    ) -> bool {
+        let payload = ConfigSnapshotPayload {
+            context: self.context(session, None),
+            config: self.config_snapshot(scale),
+        };
+        let sent = self
+            .post_debug("/api/v1/telemetry/config", &payload, label)
+            .await;
+        if sent {
+            if let Err(error) = self.inner.environment.set_string(
+                TELEMETRY_OFFLINE_RECORD_REPORTED_CONFIG_KEY,
+                payload.config.offline_record.as_str(),
+            ) {
+                tracing::debug!("failed to mark telemetry offline record: {error}");
+            }
+        }
+        sent
     }
 
     fn persist_reported_version(&self, key: &str) {
@@ -480,10 +532,15 @@ impl TelemetryRuntime {
                 state.last_heartbeat_at = Some(now);
                 return;
             }
-            if !is_heartbeat_due(state.last_heartbeat_at, now) {
+            if !is_heartbeat_due(
+                state.last_heartbeat_at,
+                now,
+                heartbeat_interval(state.heartbeats_scheduled),
+            ) {
                 return;
             }
             state.last_heartbeat_at = Some(now);
+            state.heartbeats_scheduled = state.heartbeats_scheduled.saturating_add(1);
         }
         if !self.usage_enabled() {
             return;
@@ -504,23 +561,18 @@ impl TelemetryRuntime {
         {
             if let Ok(mut state) = self.inner.state.lock() {
                 state.vrchat_seen = false;
+                state.signed_in_seen = false;
             }
         }
         self.flush_collectors_locked(session).await;
     }
 
-    fn observe_vrchat(&self) {
-        let seen = self
-            .inner
-            .state
-            .lock()
-            .map(|state| state.vrchat_seen)
-            .unwrap_or(true);
-        if seen || !self.inner.session.snapshot().is_game_running {
-            return;
-        }
+    fn observe_activity(&self) {
+        let game_running = self.inner.session.snapshot().is_game_running;
+        let signed_in = self.inner.auth_scope.snapshot().active;
         if let Ok(mut state) = self.inner.state.lock() {
-            state.vrchat_seen = true;
+            state.vrchat_seen |= game_running;
+            state.signed_in_seen |= signed_in;
         }
     }
 
@@ -657,6 +709,8 @@ impl TelemetryRuntime {
             local_hour: now.hour(),
             session_ended,
             vrchat_seen: None,
+            signed_in: None,
+            basic: None,
         }
     }
 
@@ -665,14 +719,15 @@ impl TelemetryRuntime {
         session: &TelemetrySession,
         session_ended: Option<bool>,
     ) -> TelemetryContext {
-        let vrchat_seen = self
+        let (vrchat_seen, signed_in) = self
             .inner
             .state
             .lock()
-            .map(|state| state.vrchat_seen)
-            .unwrap_or(false);
+            .map(|state| (state.vrchat_seen, state.signed_in_seen))
+            .unwrap_or((false, false));
         TelemetryContext {
             vrchat_seen: Some(vrchat_seen),
+            signed_in: Some(signed_in),
             ..self.context(session, session_ended)
         }
     }
@@ -680,6 +735,7 @@ impl TelemetryRuntime {
     fn basic_context(&self, session: &TelemetrySession) -> TelemetryContext {
         TelemetryContext {
             mode: TelemetryRuntimeMode::Foreground,
+            basic: Some(true),
             ..self.context(session, None)
         }
     }
@@ -702,6 +758,19 @@ impl TelemetryRuntime {
             friend_log_rows_bucket: row_bucket(scale.friend_log_rows),
             friend_count_bucket: friend_count_bucket(scale.friend_count),
             vrcx_origin: self.vrcx_origin(),
+            offline_record: self.offline_record(),
+        }
+    }
+
+    fn offline_record(&self) -> TelemetryOfflineRecord {
+        if self
+            .config_string(OFFLINE_RECORD_SETTINGS_CONFIG_KEY, "")
+            .trim()
+            .is_empty()
+        {
+            TelemetryOfflineRecord::Off
+        } else {
+            TelemetryOfflineRecord::On
         }
     }
 
@@ -907,8 +976,15 @@ fn runtime_mode(mode: BackendRuntimeMode) -> TelemetryRuntimeMode {
     }
 }
 
-fn is_heartbeat_due(last: Option<Instant>, now: Instant) -> bool {
-    last.is_some_and(|last| now.duration_since(last) >= HEARTBEAT_INTERVAL)
+fn heartbeat_interval(heartbeats_scheduled: usize) -> Duration {
+    EARLY_HEARTBEAT_INTERVALS
+        .get(heartbeats_scheduled)
+        .copied()
+        .unwrap_or(HEARTBEAT_INTERVAL)
+}
+
+fn is_heartbeat_due(last: Option<Instant>, now: Instant, interval: Duration) -> bool {
+    last.is_some_and(|last| now.duration_since(last) >= interval)
 }
 
 fn attempt_due(last_attempt: Option<Instant>, now: Instant) -> bool {

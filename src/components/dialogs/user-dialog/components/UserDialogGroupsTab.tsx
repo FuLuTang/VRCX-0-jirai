@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
+import { recordToolOpen } from '@/services/telemetry/telemetryToolUsage';
 import { useDialogStore } from '@/state/dialogStore';
 import { Button } from '@/ui/shadcn/button';
 import {
@@ -123,6 +124,7 @@ export function UserDialogGroupsTab({
                         size="sm"
                         variant="outline"
                         onClick={() => {
+                            recordToolOpen('my-groups');
                             closeDialog();
                             navigate('/tools/my-groups');
                         }}
@@ -131,7 +133,8 @@ export function UserDialogGroupsTab({
                     </Button>
                 ) : null}
             </UserDialogSearchHeader>
-            {remoteStatus.groups === 'running' || remoteErrors.groups ? (
+            {(remoteStatus.groups === 'running' && !profileGroups.length) ||
+            remoteErrors.groups ? (
                 <EntityList
                     rows={filteredProfileGroups}
                     kind="group"

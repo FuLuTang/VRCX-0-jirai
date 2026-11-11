@@ -10,6 +10,7 @@ import {
 import { Spinner } from '@/ui/shadcn/spinner';
 
 import { FeedColumnsMode } from './columns/FeedColumnsMode';
+import { FeedFirstRunTip } from './components/FeedFirstRunTip';
 import {
     FeedImageDropOverlay,
     type FeedImageDropTarget
@@ -97,6 +98,7 @@ export function FeedPage({ embedded = false }: FeedPageProps = {}) {
                 embedded={embedded}
                 className={embedded ? '' : 'feed'}
             >
+                {embedded ? null : <FeedFirstRunTip />}
                 {effectiveViewMode === 'columns' ? (
                     <PageBody className="gap-2">
                         <FeedColumnsMode
@@ -139,16 +141,18 @@ function FeedTableMode({
         loadOlder,
         loadStatus,
         loadingOlder,
+        newSinceLeftCount,
         normalQueryKey,
         previousInstancesDialog,
         resolvePageSize,
         rows,
         reloadLatest,
+        rowFilterCommands,
         searchMode,
         setViewingLatest,
         table,
         tableModel
-    } = useFeedPageController({ routeScopedUserIds });
+    } = useFeedPageController({ routeScopedUserIds, setRouteScopedUserIds });
     const {
         activeFilters,
         clearSearch,
@@ -221,6 +225,41 @@ function FeedTableMode({
         ]
     );
 
+    const emptyFilterModel = useMemo(
+        () => ({
+            hasActiveFilters: Boolean(
+                filters.deferredSearchQuery.trim() ||
+                scopedUserIds.length ||
+                dateFrom ||
+                dateTo ||
+                activeFilters.length ||
+                favoritesOnly
+            ),
+            onClearFilters: () => {
+                setFeedFilters([]);
+                clearSearch();
+                setDateRange('', '');
+                setFavoritesOnly(false);
+                setUserScope([]);
+                setRouteScopedUserIds([]);
+            }
+        }),
+        [
+            activeFilters.length,
+            clearSearch,
+            dateFrom,
+            dateTo,
+            favoritesOnly,
+            filters.deferredSearchQuery,
+            scopedUserIds.length,
+            setDateRange,
+            setFavoritesOnly,
+            setFeedFilters,
+            setRouteScopedUserIds,
+            setUserScope
+        ]
+    );
+
     return (
         <>
             <FeedToolbar
@@ -232,6 +271,8 @@ function FeedTableMode({
             <PageBody>
                 {searchMode ? (
                     <FeedTableShell
+                        emptyFilterModel={emptyFilterModel}
+                        filterCommands={rowFilterCommands}
                         favoritesOnly={filters.favoritesOnly}
                         isFavoritesLoaded={isFavoritesLoaded}
                         loadStatus={loadStatus}
@@ -252,6 +293,8 @@ function FeedTableMode({
                 ) : (
                     <FeedVirtualListShell
                         actions={friendActions}
+                        emptyFilterModel={emptyFilterModel}
+                        filterCommands={rowFilterCommands}
                         favoritesOnly={filters.favoritesOnly}
                         friendLogNamesById={friendLogNamesById}
                         hasMore={hasMore}
@@ -262,6 +305,7 @@ function FeedTableMode({
                         loadingPreviousInstancesKey={
                             previousInstancesDialog.loadingKey
                         }
+                        newCount={newSinceLeftCount}
                         onLoadOlder={loadOlder}
                         onReloadLatest={reloadLatest}
                         onOpenPreviousInstances={

@@ -1,5 +1,6 @@
 import { CalendarDaysIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Location } from '@/components/Location';
 import type { NotificationRow } from '@/repositories/notificationPersistenceRepository';
@@ -11,6 +12,8 @@ import {
     NotificationIconDisc,
     NotificationPersonAvatar
 } from '../components/NotificationRowParts';
+import { NotificationText } from '../components/NotificationText';
+import { getNotificationBodyText } from '../notificationViewModel';
 import {
     getFriendMessage,
     getHoverTitle,
@@ -67,11 +70,17 @@ function NotificationHoverHeader({
         <div className="mb-2 flex min-w-0 items-center gap-2">
             {avatar}
             <p className="min-w-0 truncate text-sm font-medium">
-                {title}
-                <span className="text-muted-foreground font-normal">
-                    {' · '}
-                    {typeLabel}
-                </span>
+                {title ? (
+                    <>
+                        {title}
+                        <span className="text-muted-foreground font-normal">
+                            {' · '}
+                            {typeLabel}
+                        </span>
+                    </>
+                ) : (
+                    typeLabel
+                )}
             </p>
         </div>
     );
@@ -79,6 +88,7 @@ function NotificationHoverHeader({
 
 export function NotificationHoverContent({
     notification,
+    translatable,
     senderName,
     typeLabel,
     message,
@@ -89,14 +99,15 @@ export function NotificationHoverContent({
     actorImageUrl: string;
     message: string;
     notification: NotificationRow;
+    translatable: boolean;
     senderName: string;
     typeLabel: string;
 }) {
+    const { t } = useTranslation();
     const groupNotification = isGroupNotification(notification);
     const friendNotification = isFriendNotification(notification);
     const hoverTitle = getHoverTitle(notification);
     const friendMessage = getFriendMessage(notification);
-    const fallbackTitle = senderName || 'Notification';
 
     return (
         <HoverCardContent
@@ -113,20 +124,33 @@ export function NotificationHoverContent({
                                 imageUrl={actorImageUrl}
                             />
                         }
-                        title={fallbackTitle}
+                        title={senderName}
                         typeLabel={typeLabel}
                     />
-                    {hoverTitle ? (
-                        <p className="mb-1 text-sm font-medium">{hoverTitle}</p>
-                    ) : null}
-                    {notification?.message ? (
-                        <p className="text-muted-foreground text-xs leading-relaxed break-words whitespace-pre-line">
-                            <NotificationMessage
-                                notification={notification}
-                                message={notification.message}
-                            />
-                        </p>
-                    ) : null}
+                    <NotificationText
+                        notificationId={notification.id}
+                        translatable={translatable}
+                        headline={hoverTitle}
+                        message={getNotificationBodyText(notification, t)}
+                    >
+                        {({ headline, message }) => (
+                            <>
+                                {headline ? (
+                                    <p className="mb-1 text-sm font-medium break-words whitespace-pre-wrap">
+                                        {headline}
+                                    </p>
+                                ) : null}
+                                {message ? (
+                                    <p className="text-muted-foreground text-xs leading-relaxed break-words whitespace-pre-wrap">
+                                        <NotificationMessage
+                                            notification={notification}
+                                            message={message}
+                                        />
+                                    </p>
+                                ) : null}
+                            </>
+                        )}
+                    </NotificationText>
                 </>
             ) : friendNotification ? (
                 <>
@@ -155,9 +179,16 @@ export function NotificationHoverContent({
                         avatar={
                             <NotificationIconDisc notification={notification} />
                         }
-                        title={fallbackTitle}
+                        title={senderName}
                         typeLabel={typeLabel}
                     />
+                    {notification.type === 'instance.closed' ? (
+                        <div className="mb-1 text-xs">
+                            <NotificationLocationLine
+                                notification={notification}
+                            />
+                        </div>
+                    ) : null}
                     {notification?.title ? (
                         <p className="mb-1 text-sm font-medium">
                             {notification.title}

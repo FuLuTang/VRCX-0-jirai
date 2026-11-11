@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router';
 
+import { isRuntimeAuthTarget } from './galleryAuthTarget';
 import {
+    canUploadGalleryTarget,
     EMPTY_ASSETS,
     sanitizeGalleryTab,
     TAB_ORDER,
-    type GalleryTab,
     type GalleryUploadTarget
 } from './galleryConstants';
 import {
@@ -16,38 +17,15 @@ import {
 import type {
     GalleryAuthTarget,
     GalleryControllerDeps,
-    GalleryCropRequest,
-    GalleryPendingUpload
+    GalleryCropRequest
 } from './galleryTypes';
+import { useFeedImageDropIntake } from './useFeedImageDropIntake';
 import { useGalleryActions } from './useGalleryActions';
 import { useGalleryBulkActions } from './useGalleryBulkActions';
 import { useGalleryRuntimeState } from './useGalleryRuntimeState';
+import { useImageUploadIntake } from './useImageUploadIntake';
 
 const GALLERY_GRID_DENSITY_STORAGE_KEY = 'VRCX_0_GalleryGridDensity';
-
-function readFeedImageDrop(state: unknown): GalleryPendingUpload | null {
-    if (!state || typeof state !== 'object') {
-        return null;
-    }
-    const drop = (state as { feedImageDrop?: unknown }).feedImageDrop;
-    if (!drop || typeof drop !== 'object') {
-        return null;
-    }
-    const { file, target } = drop as Partial<GalleryPendingUpload>;
-    if (
-        !file ||
-        !['gallery', 'icons', 'emojis', 'stickers', 'prints'].includes(
-            target || ''
-        )
-    ) {
-        return null;
-    }
-    return { file, target: target as GalleryUploadTarget };
-}
-
-function isGalleryTab(target: GalleryUploadTarget): target is GalleryTab {
-    return target === 'gallery' || target === 'icons' || target === 'prints';
-}
 
 function readGalleryGridDensityPreference() {
     return sanitizeGalleryGridDensity(
@@ -60,13 +38,8 @@ function writeGalleryGridDensityPreference(value: GalleryGridDensity) {
 }
 
 export function useGalleryPageController() {
-    const location = useLocation();
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
-    const uploadInputRef = useRef<HTMLInputElement | null>(null);
-    const uploadTargetRef = useRef<GalleryUploadTarget>('gallery');
-    const processedFeedDropFileRef = useRef<File | null>(null);
-    const uploadAuthTargetRef = useRef<GalleryAuthTarget | null>(null);
     const {
         currentEndpoint,
         currentUserId,
@@ -114,9 +87,8 @@ export function useGalleryPageController() {
     const {
         refreshTab,
         refreshAll: refreshAllAssets,
-        beginUpload,
-        prepareUploadFile,
-        uploadSelectedFile,
+        getAuthTarget,
+        openCropRequest,
         confirmCroppedUpload,
         deleteFileAsset,
         deletePrint,
@@ -145,54 +117,37 @@ export function useGalleryPageController() {
         setEmojiAnimationStyle,
         setLoadingByTab,
         setMutatingKey,
-        setUploadingTab,
-        uploadAuthTargetRef,
-        uploadInputRef,
-        uploadTargetRef
+        setUploadingTab
     } satisfies GalleryControllerDeps);
     const { bulkRunning, deleteSelection, setFavoriteSelection } =
         useGalleryBulkActions({ setAssets });
-    const setActiveTab = useCallback(
-        (nextValue: string) => {
-            const nextTab = sanitizeGalleryTab(nextValue);
-            setActiveTabState(nextTab);
-            setSearchParams(
-                (currentParams) => {
-                    const nextParams = new URLSearchParams(currentParams);
-                    if (nextTab === TAB_ORDER[0]) {
-                        nextParams.delete('tab');
-                    } else {
-                        nextParams.set('tab', nextTab);
-                    }
-                    return nextParams;
-                },
-                { replace: true }
-            );
-        },
-        [setSearchParams]
-    );
-    const pendingFeedDrop = useMemo(
-        () => readFeedImageDrop(location.state),
-        [location.state]
-    );
+    const {
+        beginUpload,
+        clipboardPasting,
+        fileDropActive,
+        pasteClipboardUpload,
+        pasteScopeRef,
+        uploadInputRef,
+        uploadSelectedFile
+    } = useImageUploadIntake<GalleryUploadTarget, GalleryAuthTarget>({
+        enabled: Boolean(currentUserId) && !cropRequest && !uploadingTab,
+        activeTarget: activeTab,
+        canUploadTo: (tab) => canUploadGalleryTarget(tab, isVrcPlusSupporter),
+        getAuthTarget,
+        isCurrentAuthTarget: isRuntimeAuthTarget,
+        openCropRequest
+    });
+    useFeedImageDropIntake({
+        enabled: Boolean(currentUserId) && !cropRequest && !uploadingTab,
+        isVrcPlusSupporter,
+        getAuthTarget,
+        isCurrentAuthTarget: isRuntimeAuthTarget,
+        openCropRequest
+    });
     const refreshAllRef = useRef(refreshAllAssets);
     useEffect(() => {
         refreshAllRef.current = refreshAllAssets;
     }, [refreshAllAssets]);
-
-    useEffect(() => {
-        if (
-            !pendingFeedDrop ||
-            processedFeedDropFileRef.current === pendingFeedDrop.file
-        ) {
-            return;
-        }
-        processedFeedDropFileRef.current = pendingFeedDrop.file;
-        if (isGalleryTab(pendingFeedDrop.target)) {
-            setActiveTab(pendingFeedDrop.target);
-        }
-        prepareUploadFile(pendingFeedDrop.file, pendingFeedDrop.target);
-    }, [pendingFeedDrop, prepareUploadFile, setActiveTab]);
 
     useEffect(() => {
         setAssets(EMPTY_ASSETS);
@@ -214,6 +169,22 @@ export function useGalleryPageController() {
         setGridDensity(nextValue);
         writeGalleryGridDensityPreference(nextValue);
     }
+    function setActiveTab(nextValue: string) {
+        const nextTab = sanitizeGalleryTab(nextValue);
+        setActiveTabState(nextTab);
+        setSearchParams(
+            (currentParams) => {
+                const nextParams = new URLSearchParams(currentParams);
+                if (nextTab === TAB_ORDER[0]) {
+                    nextParams.delete('tab');
+                } else {
+                    nextParams.set('tab', nextTab);
+                }
+                return nextParams;
+            },
+            { replace: true }
+        );
+    }
     return {
         bulkRunning,
         deleteSelection,
@@ -221,6 +192,8 @@ export function useGalleryPageController() {
         uploadInputRef,
         uploadingTab,
         uploadSelectedFile,
+        fileDropActive,
+        pasteScopeRef,
         gridDensity,
         changeGridDensity,
         navigate,
@@ -230,6 +203,7 @@ export function useGalleryPageController() {
         },
         setActiveTab,
         beginUpload,
+        pasteClipboardUpload,
         setProfileField,
         consumeInventoryBundle,
         deleteFileAsset,
@@ -243,6 +217,7 @@ export function useGalleryPageController() {
         refreshTab,
         activeTab,
         assets,
+        clipboardPasting,
         currentUserId,
         emojiAnimFps,
         emojiAnimFrameCount,
@@ -261,7 +236,6 @@ export function useGalleryPageController() {
         cropRequest,
         setCropRequest,
         confirmCroppedUpload,
-        openImagePreview,
-        uploadAuthTargetRef
+        openImagePreview
     };
 }

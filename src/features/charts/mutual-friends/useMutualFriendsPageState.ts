@@ -303,12 +303,6 @@ export function useMutualFriendsPageState() {
         }
     }
 
-    function handleResetLayoutAndHidden() {
-        resetLayoutSettings();
-        setExcludedFriendIds([]);
-        clearFilters();
-    }
-
     async function handleAddManualRelation(userIdA: string, userIdB: string) {
         if (!currentUserId) {
             return;
@@ -343,7 +337,7 @@ export function useMutualFriendsPageState() {
             openNode,
             refreshPage: () => setReloadToken((value) => value + 1),
             refreshSelectedNode: handleRefreshSelectedNode,
-            resetLayoutAndHidden: handleResetLayoutAndHidden,
+            resetLayoutSettings,
             clearSelection: () => handleSelectNode(''),
             setMinDegree,
             setSearchQuery,

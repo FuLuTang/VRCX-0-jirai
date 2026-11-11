@@ -2,11 +2,15 @@ import { RefreshCwIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { commands } from '@/platform/tauri/bindings';
+import { unwrapVrchatResponse } from '@/repositories/vrchatRequest';
+import { isRecord } from '@/shared/utils/record';
 import { Button } from '@/ui/shadcn/button';
 import { Spinner } from '@/ui/shadcn/spinner';
 import { Switch } from '@/ui/shadcn/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/shadcn/tooltip';
 
+import { SETTINGS_DEFAULT_VALUES } from '../../settingsFieldState';
 import { DeepLinkRegistrationField } from '../DeepLinkRegistrationField';
 import { SettingsCard } from '../SettingsCard';
 import { Field, JsonTreeView, SettingsSectionHeading } from '../SettingsField';
@@ -48,7 +52,29 @@ export function AdvancedTroubleshootingGroup({
     const [pendingAction, setPendingAction] = useState<DiagnosticAction | null>(
         null
     );
+    const [activeInstanceCount, setActiveInstanceCount] = useState<
+        number | null
+    >(null);
     const hasConfig = Object.keys(configTreeData).length > 0;
+
+    async function refreshOnlineStats() {
+        await Promise.all([
+            onRefreshOnlineVisits(),
+            commands
+                .appVrchatInstanceCountGet()
+                .then((response) => {
+                    const json = unwrapVrchatResponse<unknown>(
+                        response,
+                        'instances/count'
+                    ).json;
+                    const count = isRecord(json) ? Number(json.instances) : NaN;
+                    setActiveInstanceCount(
+                        Number.isFinite(count) ? count : null
+                    );
+                })
+                .catch(() => setActiveInstanceCount(null))
+        ]);
+    }
     const hasTableSizes = Object.keys(sqliteTableSizes).length > 0;
 
     async function runAction(
@@ -112,6 +138,12 @@ export function AdvancedTroubleshootingGroup({
                 title={t('view.settings.general.logging.header')}
             />
             <Field
+                settingId="advanced.troubleshooting.udon-exception-logging"
+                onReset={() =>
+                    onUdonExceptionLoggingChange(
+                        SETTINGS_DEFAULT_VALUES.udonExceptionLogging
+                    )
+                }
                 label={t(
                     'view.settings.advanced.advanced.cache_debug.udon_exception_logging'
                 )}
@@ -121,7 +153,15 @@ export function AdvancedTroubleshootingGroup({
                     onCheckedChange={onUdonExceptionLoggingChange}
                 />
             </Field>
-            <Field label={t('view.settings.general.logging.resource_load')}>
+            <Field
+                settingId="advanced.troubleshooting.resource-load-logging"
+                onReset={() =>
+                    onLogResourceLoadChange(
+                        SETTINGS_DEFAULT_VALUES.logResourceLoad
+                    )
+                }
+                label={t('view.settings.general.logging.resource_load')}
+            >
                 <Switch
                     checked={prefs.logResourceLoad}
                     onCheckedChange={onLogResourceLoadChange}
@@ -134,6 +174,7 @@ export function AdvancedTroubleshootingGroup({
             />
             <DeepLinkRegistrationField />
             <Field
+                settingId="advanced.troubleshooting.database-usage"
                 label={t(
                     'view.settings.advanced.advanced_ui.troubleshooting.database_usage'
                 )}
@@ -162,6 +203,7 @@ export function AdvancedTroubleshootingGroup({
                 </div>
             ) : null}
             <Field
+                settingId="advanced.troubleshooting.online-users"
                 label={t(
                     'view.settings.advanced.advanced_ui.troubleshooting.online_users'
                 )}
@@ -174,9 +216,16 @@ export function AdvancedTroubleshootingGroup({
                             })}
                         </span>
                     ) : null}
+                    {activeInstanceCount !== null ? (
+                        <span className="text-muted-foreground text-sm">
+                            {t('view.profile.game_info.instances_active', {
+                                count: activeInstanceCount
+                            })}
+                        </span>
+                    ) : null}
                     {renderRefreshButton(
                         'online',
-                        onRefreshOnlineVisits,
+                        refreshOnlineStats,
                         t(
                             'view.settings.advanced.advanced_ui.troubleshooting.refresh_online_users'
                         )
@@ -184,6 +233,7 @@ export function AdvancedTroubleshootingGroup({
                 </div>
             </Field>
             <Field
+                settingId="advanced.troubleshooting.vrchat-config"
                 label={t(
                     'view.settings.advanced.advanced_ui.troubleshooting.vrchat_config'
                 )}

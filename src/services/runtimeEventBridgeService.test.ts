@@ -31,6 +31,7 @@ const mocks = vi.hoisted(() => ({
     handleBrowserFocus: vi.fn<() => Promise<void>>(),
     getBackendRuntimeCombinedSnapshot: vi.fn(),
     getAncillaryRuntimeSnapshot: vi.fn(),
+    feedLoggerStatus: vi.fn(),
     runtimeGroupInstancesRefresh: vi.fn<() => Promise<null>>(),
     bindDeepLinkEvents: vi.fn<() => Promise<() => void>>(),
     drainPendingDeepLinks: vi.fn<() => Promise<void>>(),
@@ -48,6 +49,7 @@ vi.mock('@/platform/tauri/bindings', () => ({
         appBackendRuntimeCombinedSnapshotGet:
             mocks.getBackendRuntimeCombinedSnapshot,
         appAncillaryRuntimeSnapshotGet: mocks.getAncillaryRuntimeSnapshot,
+        appFeedLoggerStatus: mocks.feedLoggerStatus,
         appRuntimeGroupInstancesRefresh: mocks.runtimeGroupInstancesRefresh
     }
 }));
@@ -128,9 +130,12 @@ vi.mock('./authSessionRecoveryService', () => ({
     handleRuntimeAuthFailure: mocks.handleRuntimeAuthFailure
 }));
 
+import { getCachedQueryData, queryKeys } from '@/lib/entityQueryCache';
 import { toast } from '@/services/toastService';
+import { DEFAULT_VRCHAT_API_ENDPOINT } from '@/shared/vrchatEndpoint';
 import { useDataDirMigrationStore } from '@/state/dataDirMigrationStore';
 import { useFriendRosterStore } from '@/state/friendRosterStore';
+import { useOfflineRecordStore } from '@/state/offlineRecordStore';
 import { useProfileBackupStore } from '@/state/profileBackupStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
 import { useSessionStore } from '@/state/sessionStore';
@@ -214,6 +219,11 @@ function createAuthenticatedRuntimePhaseSnapshot(
             retryDelaySeconds: null,
             detail: 'Realtime ready.',
             lastError: null
+        },
+        realtimeHealth: {
+            interrupted: false,
+            disconnectedAt: null,
+            retryAt: null
         },
         friendBaselineRevision: 1,
         friendBaseline: null,
@@ -304,6 +314,8 @@ function createAncillaryRuntimeSnapshot(
             length: 0,
             position: 0,
             startedAt: null,
+            paused: false,
+            titled: false,
             created_at: null,
             type: null,
             videoUrl: null,
@@ -465,6 +477,20 @@ describe('runtimeEventBridgeService', () => {
         mocks.applyAuthenticatedSessionProjection.mockResolvedValue(false);
         mocks.initializeBackgroundImage.mockResolvedValue(undefined);
         mocks.initializeCommunityThemes.mockResolvedValue(undefined);
+        mocks.feedLoggerStatus.mockResolvedValue({ state: 'notConfigured' });
+    });
+
+    it('shows the recorder status as soon as the window opens, for example after background mode', async () => {
+        useOfflineRecordStore.setState({ health: null });
+        mocks.feedLoggerStatus.mockResolvedValue({ state: 'unauthorized' });
+
+        await bindRuntimeEvents();
+
+        await vi.waitFor(() =>
+            expect(useOfflineRecordStore.getState().health).toEqual({
+                state: 'unauthorized'
+            })
+        );
     });
 
     it('hydrates the backend session before deferred appearance projections', async () => {
@@ -488,6 +514,24 @@ describe('runtimeEventBridgeService', () => {
             finishAppearanceHydration();
             await binding;
         }
+    });
+
+    it('caches the live VRChat Credits balance from the economy event', async () => {
+        const { handlers } = await bindCapturedRuntimeEvents();
+
+        handlers.get('realtimeEconomyBalance')?.({
+            userId: 'usr_owner',
+            walletBalance: 2450
+        });
+
+        expect(
+            getCachedQueryData(
+                queryKeys.economyBalance(
+                    'usr_owner',
+                    DEFAULT_VRCHAT_API_ENDPOINT
+                )
+            )
+        ).toBe(2450);
     });
 
     it('records the browser focus time and refreshes VRChat status on focus', async () => {
@@ -867,6 +911,51 @@ describe('runtimeEventBridgeService', () => {
             name: 'Current Track',
             position: 42
         });
+    });
+
+    it('shows whether the desktop overlay is on as soon as the app starts', async () => {
+        mocks.getAncillaryRuntimeSnapshot.mockResolvedValue(
+            createAncillaryRuntimeSnapshot({
+                desktopWidgetState: {
+                    supported: true,
+                    enabled: true,
+                    pinned: true,
+                    clickThrough: false
+                }
+            })
+        );
+
+        await bindRuntimeEvents();
+
+        expect(useRuntimeStore.getState().desktopWidget).toEqual({
+            supported: true,
+            enabled: true,
+            pinned: true,
+            clickThrough: false
+        });
+    });
+
+    it('follows desktop overlay changes made from the tray or the window itself', async () => {
+        let widgetState: (payload: unknown) => void = () => {
+            throw new Error('Activity window state was not subscribed.');
+        };
+        mocks.subscribe.mockImplementation(async (name, handler) => {
+            if (name === 'desktopWidgetState') {
+                widgetState = handler;
+            }
+            return () => {};
+        });
+        await bindRuntimeEvents();
+
+        widgetState({
+            supported: true,
+            enabled: false,
+            pinned: true,
+            clickThrough: false
+        });
+
+        expect(useRuntimeStore.getState().desktopWidget.enabled).toBe(false);
+        expect(useRuntimeStore.getState().desktopWidget.supported).toBe(true);
     });
 
     it('does not overwrite a now-playing event received during hydration', async () => {

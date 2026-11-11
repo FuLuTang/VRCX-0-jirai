@@ -34,6 +34,24 @@ describe('AssistantMessage', () => {
         expect(html).toContain('Who was online last night?');
     });
 
+    it('shows a mentioned friend by name without the id link', () => {
+        const html = renderToStaticMarkup(
+            <AssistantMessage
+                thinkingLabel="Thinking…"
+                message={{
+                    id: 'user_2',
+                    role: 'user',
+                    text: 'When is [@Alice](vrcx-0://user/open?id=usr_a) online?',
+                    streaming: false,
+                    toolCalls: []
+                }}
+            />
+        );
+
+        expect(html).toContain('@Alice</button>');
+        expect(html).not.toContain('vrcx-0://');
+    });
+
     it('renders a completed assistant response as Markdown', () => {
         const html = renderToStaticMarkup(
             <AssistantMessage
@@ -48,7 +66,20 @@ describe('AssistantMessage', () => {
         expect(html).toContain('>Three friends</strong>');
     });
 
-    it('shows pending tool calls as status markers before assistant text', () => {
+    it('renders a streaming assistant response as Markdown', () => {
+        const html = renderToStaticMarkup(
+            <AssistantMessage
+                thinkingLabel="Thinking…"
+                message={assistantMessage({
+                    text: '**Three friends** were onl'
+                })}
+            />
+        );
+
+        expect(html).toContain('>Three friends</strong>');
+    });
+
+    it('shows a running tool trace before assistant text while a tool is pending', () => {
         const html = renderToStaticMarkup(
             <AssistantMessage
                 thinkingLabel="Thinking…"
@@ -61,7 +92,8 @@ describe('AssistantMessage', () => {
                             args: '{}',
                             status: 'pending',
                             summary: '',
-                            entities: []
+                            entities: [],
+                            charts: []
                         }
                     ]
                 })}
@@ -69,10 +101,38 @@ describe('AssistantMessage', () => {
         );
 
         expect(html).toContain('role="status"');
-        expect(html).toContain('Get friend profile');
-        expect(html.indexOf('Get friend profile')).toBeLessThan(
+        expect(html).toContain('data-status="running"');
+        expect(html.indexOf('assistant.trace.working')).toBeGreaterThan(-1);
+        expect(html.indexOf('assistant.trace.working')).toBeLessThan(
             html.indexOf('Reading local social data')
         );
+    });
+
+    it('collapses finished tool calls into a settled trace', () => {
+        const html = renderToStaticMarkup(
+            <AssistantMessage
+                thinkingLabel="Thinking…"
+                message={assistantMessage({
+                    text: 'Three friends were online.',
+                    streaming: false,
+                    toolCalls: [
+                        {
+                            id: 'tool_1',
+                            name: 'get_friend_profile',
+                            args: '{}',
+                            status: 'done',
+                            summary: 'Found 3 friends.',
+                            entities: [],
+                            charts: []
+                        }
+                    ]
+                })}
+            />
+        );
+
+        expect(html).toContain('assistant.trace.done');
+        expect(html).not.toContain('role="status"');
+        expect(html).not.toContain('data-status="running"');
     });
 
     it('shows the thinking marker while a whitespace-only response is streaming', () => {

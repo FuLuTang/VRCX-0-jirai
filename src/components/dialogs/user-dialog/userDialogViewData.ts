@@ -1,4 +1,4 @@
-import { presenceOf, presenceSection } from '@/domain/friends/presence';
+import { presenceOf, presenceOnlineForMs } from '@/domain/friends/presence';
 import { normalizeUserRelationshipHistory } from '@/services/userDialogSessionCacheService';
 
 import {
@@ -89,25 +89,11 @@ function validTimestampMs(value: unknown) {
     return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 
-function isCurrentlyOnline(profile: DialogRecord) {
-    const presence = presenceOf(profile);
-    return presence ? presenceSection(presence) === 'online' : false;
-}
-
 function estimatedOnlineDuration(profile: DialogRecord, nowMs?: number) {
-    if (!isCurrentlyOnline(profile)) {
+    if (typeof nowMs !== 'number' || !Number.isFinite(nowMs)) {
         return 0;
     }
-    const lastLoginMs = validTimestampMs(profile?.last_login);
-    if (
-        !lastLoginMs ||
-        typeof nowMs !== 'number' ||
-        !Number.isFinite(nowMs) ||
-        lastLoginMs > nowMs
-    ) {
-        return 0;
-    }
-    return nowMs - lastLoginMs;
+    return presenceOnlineForMs(presenceOf(profile), nowMs);
 }
 
 function resolveFriendedAt(profile: DialogRecord) {
@@ -199,6 +185,7 @@ export function buildUserDialogListViewData({
     profile,
     remoteData,
     remoteStatus,
+    loadedTabs,
     friendsById,
     search,
     mutualSort,
@@ -213,6 +200,7 @@ export function buildUserDialogListViewData({
     profile: DialogRecord;
     remoteData: DialogRecord;
     remoteStatus: UserDialogRemoteStatus;
+    loadedTabs: Partial<Record<keyof UserDialogRemoteStatus, boolean>>;
     friendsById?: Record<string, DialogRecord> | null;
     search: Record<string, string>;
     mutualSort: UserDialogMutualFriendSort;
@@ -228,7 +216,7 @@ export function buildUserDialogListViewData({
         .map((groupId) => groupId.trim())
         .filter(Boolean);
     const profileGroups = normalizeUserGroupMembershipRows(
-        remoteStatus.groups === 'ready'
+        remoteStatus.groups === 'ready' || loadedTabs.groups
             ? remoteData.groups
             : firstArray(
                   profile.groups,
@@ -238,24 +226,25 @@ export function buildUserDialogListViewData({
     );
     const mutualFriends = hydrateMutualFriendRows(
         rows(
-            remoteStatus.mutual === 'ready'
+            remoteStatus.mutual === 'ready' || loadedTabs.mutual
                 ? remoteData.mutual
                 : firstArray(profile.mutualFriends, profile.$mutualFriends)
         ),
         friendsById
     );
     const profileWorlds = rows(
-        remoteStatus.worlds === 'ready'
+        remoteStatus.worlds === 'ready' || loadedTabs.worlds
             ? remoteData.worlds
             : firstArray(profile.worlds, profile.$worlds, profile.recentWorlds)
     );
     const favoriteWorlds = rows(
-        remoteStatus['favorite-worlds'] === 'ready'
+        remoteStatus['favorite-worlds'] === 'ready' ||
+            loadedTabs['favorite-worlds']
             ? remoteData.favoriteWorlds
             : firstArray(profile.favoriteWorlds, profile.$favoriteWorlds)
     );
     const profileAvatars = rows(
-        remoteStatus.avatars === 'ready'
+        remoteStatus.avatars === 'ready' || loadedTabs.avatars
             ? remoteData.avatars
             : firstArray(profile.avatars, profile.$avatars)
     );
@@ -285,7 +274,8 @@ export function buildUserDialogListViewData({
     );
     const filteredProfileAvatars = filterRows(profileAvatars, search.avatars);
     const visibleProfileAvatars = sortAvatarRows(
-        effectiveAvatarReleaseStatus === 'all'
+        effectiveAvatarReleaseStatus === 'all' ||
+            effectiveAvatarReleaseStatus === 'licensed'
             ? filteredProfileAvatars
             : filteredProfileAvatars.filter(
                   (avatar) =>

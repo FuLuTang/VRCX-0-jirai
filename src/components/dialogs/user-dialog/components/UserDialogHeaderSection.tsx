@@ -6,6 +6,8 @@ import {
     GemIcon,
     GlobeIcon,
     PencilIcon,
+    StickyNoteIcon,
+    UserPlusIcon,
     UserRoundIcon
 } from 'lucide-react';
 import {
@@ -55,6 +57,7 @@ import {
 } from '../userDialogRows';
 import { PreviousDisplayNamesBadge } from '../UserDialogViewParts';
 import { languageDisplayName } from '../userProfileFields';
+import { deriveUserRelationshipBadges } from '../userRelationshipBadges';
 import type {
     AvatarOverrideState,
     ExtendedModerationState,
@@ -185,9 +188,11 @@ export interface UserHeaderModel {
     actionStatus: string;
     appearanceVisibility: UserDialogProfileAppearanceVisibility;
     avatarOverrideState: AvatarOverrideState;
+    bannerColor: string;
     bannerFallbackUrl: string;
     canInviteFromCurrentLocation: boolean;
     currentAvatarTarget: string;
+    currentUserAccountStanding: string;
     currentUserBoopingEnabled: boolean;
     detail: string;
     extendedModerationState: ExtendedModerationState;
@@ -200,6 +205,7 @@ export interface UserHeaderModel {
     isFriend: boolean;
     loadStatus: string;
     moderationState: ModerationState;
+    noteSummary: string;
     platform: ReturnType<typeof resolvePlatformMeta>;
     PlatformIcon: ComponentType | null;
     previousDisplayNames: ReturnType<typeof normalizePreviousDisplayNames>;
@@ -224,9 +230,7 @@ export interface UserHeaderCommands {
     onCopyUsername?: () => void;
     onCopyUserUrl: () => void;
     onEditMemo: () => void;
-    onEditSelfProfileDetails: () => void;
-    onEditSelfProfileMedia: () => void;
-    onEditSelfProfileDecorations: () => void;
+    onEditSelfProfile: () => void;
     onEditSelfStatus: () => void;
     onExtendedModeration: (
         type: ExtendedModerationType,
@@ -247,7 +251,8 @@ export interface UserHeaderCommands {
     onOpenUserIcon: () => void;
     onOpenUserUrl: () => void;
     onRefresh: () => void;
-    onReportHacking: () => void;
+    onReportUser: () => void;
+    onShowAccountStanding: () => void;
     onShowAvatarAuthor: () => void;
     onShowInstanceHistory: () => void;
     onToggleBadgeShowcased: (
@@ -510,9 +515,11 @@ export function UserDialogHeaderSection({
         actionStatus = 'idle',
         appearanceVisibility,
         avatarOverrideState,
+        bannerColor,
         bannerFallbackUrl,
         canInviteFromCurrentLocation,
         currentAvatarTarget,
+        currentUserAccountStanding,
         currentUserBoopingEnabled,
         detail,
         extendedModerationState,
@@ -525,6 +532,7 @@ export function UserDialogHeaderSection({
         isFriend,
         loadStatus,
         moderationState,
+        noteSummary,
         platform,
         PlatformIcon,
         previousDisplayNames,
@@ -548,9 +556,7 @@ export function UserDialogHeaderSection({
         onCopyUsername,
         onCopyUserUrl,
         onEditMemo,
-        onEditSelfProfileDetails,
-        onEditSelfProfileMedia,
-        onEditSelfProfileDecorations,
+        onEditSelfProfile,
         onEditSelfStatus,
         onExtendedModeration,
         onFriendRequest,
@@ -568,7 +574,8 @@ export function UserDialogHeaderSection({
         onOpenUserIcon,
         onOpenUserUrl,
         onRefresh,
-        onReportHacking,
+        onReportUser,
+        onShowAccountStanding,
         onShowAvatarAuthor,
         onShowInstanceHistory,
         onToggleBadgeShowcased,
@@ -584,6 +591,7 @@ export function UserDialogHeaderSection({
         avatarOverrideState,
         canInviteFromCurrentLocation,
         currentAvatarTarget,
+        currentUserAccountStanding,
         currentUserBoopingEnabled,
         extendedModerationState,
         fallbackAvatarTarget,
@@ -599,9 +607,7 @@ export function UserDialogHeaderSection({
         onAvatarOverride,
         onBoop,
         onEditMemo,
-        onEditSelfProfileDetails,
-        onEditSelfProfileMedia,
-        onEditSelfProfileDecorations,
+        onEditSelfProfile,
         onEditSelfStatus,
         onExtendedModeration,
         onFriendRequest,
@@ -614,7 +620,8 @@ export function UserDialogHeaderSection({
         onModeration,
         onOpenFallbackAvatar,
         onRefresh,
-        onReportHacking,
+        onReportUser,
+        onShowAccountStanding,
         onShowAvatarAuthor,
         onShowInstanceHistory,
         onUnfriend
@@ -672,6 +679,26 @@ export function UserDialogHeaderSection({
     const copyableDisplayName = String(
         profile.displayName || profile.username || ''
     ).trim();
+    const showIncomingRequestBanner =
+        !isCurrentUser && !isFriend && friendRequestState.incoming;
+    const relationshipBadges = isCurrentUser
+        ? []
+        : deriveUserRelationshipBadges({
+              isFriend,
+              friendRequestState,
+              moderationState,
+              avatarOverrideState,
+              extendedModerationState
+          }).filter(
+              (badge) =>
+                  !showIncomingRequestBanner || badge !== 'request-received'
+          );
+    const hasHeaderMedia = Boolean(
+        bannerColor || imageUrl || bannerFallbackUrl || profileIconUrl
+    );
+    const collapseHeaderMedia =
+        !hasHeaderMedia && (loadStatus === 'ready' || loadStatus === 'error');
+    const fallbackInitial = Array.from(copyableDisplayName)[0] ?? '';
     return (
         <EntityOverviewCard
             style={profileBackgroundStyle}
@@ -683,8 +710,11 @@ export function UserDialogHeaderSection({
                 <UserDialogHeaderMedia
                     key={profile.id}
                     bannerAlt={profile.displayName || profile.id || 'User'}
+                    bannerColor={bannerColor}
                     bannerFallbackUrl={bannerFallbackUrl}
                     bannerUrl={imageUrl}
+                    collapsed={collapseHeaderMedia}
+                    fallbackInitial={fallbackInitial.toUpperCase()}
                     iconFrame={
                         appearanceVisibility.avatarFrame
                             ? profileAppearance.iconFrame
@@ -800,9 +830,48 @@ export function UserDialogHeaderSection({
                         />
                     </div>
                 </div>
+                {showIncomingRequestBanner ? (
+                    <div
+                        role="group"
+                        aria-label={t(
+                            'dialog.user.friend_request.incoming_banner'
+                        )}
+                        className="border-stroke-subtle bg-muted/40 flex min-w-0 flex-col gap-2 rounded-md border p-2.5"
+                    >
+                        <div className="flex min-w-0 items-center gap-2 text-sm">
+                            <HeaderRowIcon icon={<UserPlusIcon />} />
+                            <span className="min-w-0">
+                                {t(
+                                    'dialog.user.friend_request.incoming_banner'
+                                )}
+                            </span>
+                        </div>
+                        <div className="flex min-w-0 gap-2">
+                            <Button
+                                type="button"
+                                size="sm"
+                                className="min-w-0 flex-1"
+                                disabled={actionStatus !== 'idle'}
+                                onClick={() => onFriendRequest('accept')}
+                            >
+                                {t('common.actions.accept')}
+                            </Button>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="min-w-0 flex-1"
+                                disabled={actionStatus !== 'idle'}
+                                onClick={() => onFriendRequest('decline')}
+                            >
+                                {t('common.actions.decline')}
+                            </Button>
+                        </div>
+                    </div>
+                ) : null}
                 <UserDialogHeaderFlags
                     profile={profile}
-                    moderationState={moderationState}
+                    relationshipBadges={relationshipBadges}
                 />
                 <div className="text-muted-foreground flex min-w-0 flex-col gap-1.5 text-xs">
                     {estimatedOnlineForText ? (
@@ -883,6 +952,21 @@ export function UserDialogHeaderSection({
                                 );
                             })}
                         </HeaderMetaRow>
+                    ) : null}
+                    {noteSummary ? (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            title={noteSummary}
+                            aria-label={t('dialog.user.actions.edit_note_memo')}
+                            className="text-muted-foreground hover:text-foreground h-auto w-full min-w-0 justify-start gap-2 p-0 text-left text-xs font-normal hover:bg-transparent dark:hover:bg-transparent"
+                            onClick={onEditMemo}
+                        >
+                            <HeaderRowIcon icon={<StickyNoteIcon />} />
+                            <span className="min-w-0 flex-1 truncate">
+                                {noteSummary}
+                            </span>
+                        </Button>
                     ) : null}
                 </div>
             </div>

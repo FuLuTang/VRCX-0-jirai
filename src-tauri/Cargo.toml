@@ -1,6 +1,6 @@
 [package]
 name = "vrcx-0"
-version = "2.31.0"
+version = "2.33.0"
 edition = "2021"
 license.workspace = true
 description = "VRCX-0 desktop shell"
@@ -28,7 +28,8 @@ tokio = { workspace = true, features = [
     "time",
     "net",
     "io-util",
-    "fs"
+    "fs",
+    "signal"
 ] }
 rustls = { version = "0.23", default-features = false, features = [
     "aws_lc_rs",
@@ -42,7 +43,7 @@ tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 tauri-plugin-autostart = "2"
 tauri-plugin-window-state = "2"
 percent-encoding = { workspace = true }
-tauri-plugin-updater = "2"
+tauri-plugin-updater = { version = "2", default-features = false, features = ["rustls-tls", "system-proxy"] }
 sha2.workspace = true
 vrcx-0-core = { path = "../crates/core" }
 vrcx-0-platform = { path = "../crates/platform" }
@@ -53,6 +54,7 @@ vrcx-0-contracts = { path = "../crates/contracts" }
 vrcx-0-application-activity = { path = "../crates/application-activity" }
 vrcx-0-application-core = { path = "../crates/application-core" }
 vrcx-0-application-realtime = { path = "../crates/application-realtime" }
+vrcx-0-logger-protocol = { path = "../crates/logger-protocol", features = ["specta"] }
 vrcx-0-application-game = { path = "../crates/application-game" }
 vrcx-0-mcp = { path = "../crates/mcp" }
 vrcx-0-integration-api = { path = "../crates/integration-api" }
@@ -77,7 +79,12 @@ windows-sys = { version = "0.61", features = [
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libloading = "0.9"
+rust-ini = "=0.21.1"
 webkit2gtk-nvidia-quirk = "2"
+webkit2gtk = { version = "2", features = ["v2_34"] }
+
+[target.'cfg(all(target_os = "linux", target_env = "gnu"))'.dependencies]
+libc = "0.2"
 
 [features]
 default = ["steamvr-overlay", "openxr-overlay"]

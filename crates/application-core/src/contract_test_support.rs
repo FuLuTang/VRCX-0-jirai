@@ -84,6 +84,7 @@ impl WebClientPort for NoopWebClientPort {
         }
     }
     fn clear_cookies(&self) {}
+    fn clear_cookies_everywhere(&self) {}
     fn clear_auth_cookies(&self) {}
     fn cookie_diagnostics(&self) -> serde_json::Value {
         serde_json::Value::Null
@@ -165,6 +166,9 @@ impl WebClientPort for MemoryCookieWebClientPort {
     }
     fn clear_cookies(&self) {
         self.cookies.lock().expect("memory cookie lock").clear();
+    }
+    fn clear_cookies_everywhere(&self) {
+        self.clear_cookies();
     }
     fn clear_auth_cookies(&self) {
         self.clear_cookies();
@@ -528,7 +532,6 @@ pub struct NoopAvatarCachePort;
 
 #[async_trait::async_trait]
 impl crate::AvatarCachePort for NoopAvatarCachePort {
-    fn clear_working(&self) {}
     fn invalidate(&self, _user_id: &str, _endpoint: &str, _avatar_id: &str) {}
     fn get_summary(
         &self,

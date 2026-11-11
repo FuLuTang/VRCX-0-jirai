@@ -1,5 +1,6 @@
 import type { TranslationProvider } from '@/platform/tauri/bindings';
 import { AVATAR_AUTO_CLEANUP_OPTIONS } from '@/shared/constants/settings';
+import { SETTINGS_TABS } from '@/shared/constants/settingsManifest';
 
 export const notificationLayoutOptions = [
     [
@@ -7,6 +8,17 @@ export const notificationLayoutOptions = [
         'view.settings.notifications.notifications.layout_notification_center'
     ],
     ['table', 'view.settings.notifications.notifications.layout_table']
+] as const;
+
+export const desktopWidgetOrderOptions = [
+    [
+        'top',
+        'view.settings.notifications.notifications.desktop_widget.order_newest_top'
+    ],
+    [
+        'bottom',
+        'view.settings.notifications.notifications.desktop_widget.order_newest_bottom'
+    ]
 ] as const;
 
 export const desktopToastOptions = [
@@ -133,18 +145,7 @@ export const translationProviderOptions = [
     labelKey?: string;
 }>;
 
-export const settingsTabs = [
-    ['system', 'view.settings.category.system'],
-    ['interface', 'view.settings.category.interface'],
-    ['social', 'view.settings.category.social'],
-    ['notifications', 'view.settings.category.notifications'],
-    ['vr', 'view.settings.category.vr'],
-    ['media', 'view.settings.category.media'],
-    ['ai', 'view.settings.category.ai'],
-    ['integrations', 'view.settings.category.integrations'],
-    ['advanced', 'view.settings.category.advanced'],
-    ['feedback', 'view.settings.category.feedback']
-];
+export const settingsTabs = SETTINGS_TABS;
 
 export function resolveActiveSettingsTab(
     requestedTab: string,

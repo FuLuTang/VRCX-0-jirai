@@ -88,11 +88,20 @@ vi.mock('@/ui/shadcn/slider', () => ({
 vi.mock('../SettingsField', () => ({
     Field: ({
         children,
-        label
+        label,
+        disabled = false
     }: {
         children?: ReactNode;
         label?: ReactNode;
-    }) => <section data-field-label={String(label)}>{children}</section>
+        disabled?: boolean;
+    }) => (
+        <section
+            data-field-label={String(label)}
+            data-field-disabled={disabled ? 'true' : 'false'}
+        >
+            {children}
+        </section>
+    )
 }));
 
 vi.mock('../SettingsViewParts', () => ({
@@ -118,6 +127,7 @@ function createProps(overrides: Partial<TabProps> = {}): TabProps {
         ],
         notificationLayoutOptions: [['table', 'layout.table']],
         showTaskbarIconDot: false,
+        showDesktopWidget: false,
         onNotificationLayoutChange: vi.fn(),
         onNotificationIconDotChange: vi.fn(),
         onTaskbarIconDotChange: vi.fn(),
@@ -131,12 +141,16 @@ function createProps(overrides: Partial<TabProps> = {}): TabProps {
         onNotificationTtsModeChange: vi.fn(),
         onNotificationDoNotDisturbEndOnGameStartChange: vi.fn(),
         onBusyStatusDoNotDisturbChange: vi.fn(),
+        onHideVideoErrorNotificationsChange: vi.fn(),
         onNotificationTtsNameModeChange: vi.fn(),
         onNotificationTtsTestChange: vi.fn(),
         onNotificationTtsTestVisibleChange: vi.fn(),
         onNotificationTtsVoiceChange: vi.fn(),
         onNotificationTtsVolumeChange: vi.fn(),
         onOpenDesktopNotificationFiltersDialog: vi.fn(),
+        onDesktopWidgetOpacityChange: vi.fn(),
+        onDesktopWidgetOrderChange: vi.fn(),
+        onOpenDesktopWidgetFiltersDialog: vi.fn(),
         onOpenTtsNotificationFiltersDialog: vi.fn(),
         onSendTestNotification: vi.fn(),
         onSpeakNotificationTts: vi.fn(),
@@ -151,11 +165,14 @@ function createProps(overrides: Partial<TabProps> = {}): TabProps {
             desktopNotificationAvatars: true,
             notificationDoNotDisturbEndOnGameStart: true,
             busyStatusDoNotDisturb: true,
+            hideVideoErrorNotifications: false,
             notificationTTS: 'Never',
             notificationTTSNameMode: 'username',
             notificationTTSNickName: false,
             notificationTTSVoiceNative: '',
-            notificationTTSVolume: 100
+            notificationTTSVolume: 100,
+            desktopWidgetOpacity: 55,
+            desktopWidgetNewestOnTop: true
         },
         ttsVoices: [{ id: 'voice-1', name: 'Test Voice', language: 'en-US' }],
         ...overrides
@@ -165,7 +182,9 @@ function createProps(overrides: Partial<TabProps> = {}): TabProps {
 function selectDisabled(id: string) {
     const trigger = document.getElementById(id);
     expect(trigger).not.toBeNull();
-    return trigger?.parentElement?.getAttribute('data-select-disabled');
+    return trigger
+        ?.closest('[data-field-label]')
+        ?.getAttribute('data-field-disabled');
 }
 
 function ttsPreviewSwitch() {
@@ -181,6 +200,12 @@ const previewPlaceholder =
     'view.settings.notifications.notifications.text_to_speech.tts_test_placeholder';
 const playLabel =
     'view.settings.notifications.notifications.text_to_speech.play';
+const activityWindowHeader =
+    'view.settings.notifications.notifications.desktop_widget.header';
+const activityWindowUsageHint =
+    'view.settings.notifications.notifications.desktop_widget.usage_hint';
+const activityWindowFiltersLabel =
+    'view.settings.notifications.notifications.desktop_widget.activity_filters';
 
 describe('SettingsNotificationsTab', () => {
     afterEach(cleanup);
@@ -261,6 +286,85 @@ describe('SettingsNotificationsTab', () => {
 
         fireEvent.mouseUp(slider, { target: { value: '42' } });
         expect(props.onNotificationTtsVolumeChange).toHaveBeenCalledWith(42);
+    });
+
+    it('offers desktop overlay settings only where the platform supports the window', () => {
+        const props = createProps();
+        const view = render(<SettingsNotificationsTab {...props} />);
+
+        expect(screen.queryByText(activityWindowHeader)).toBeNull();
+        expect(
+            document.getElementById('settings-desktop-widget-opacity')
+        ).toBeNull();
+
+        view.rerender(
+            <SettingsNotificationsTab {...props} showDesktopWidget />
+        );
+
+        expect(screen.getByText(activityWindowHeader)).toBeTruthy();
+        expect(screen.getByText(activityWindowUsageHint)).toBeTruthy();
+    });
+
+    it('shows which end of the desktop overlay new activity appears at', () => {
+        const defaults = createProps({ showDesktopWidget: true });
+        render(
+            <SettingsNotificationsTab
+                {...defaults}
+                prefs={{ ...defaults.prefs, desktopWidgetNewestOnTop: false }}
+            />
+        );
+
+        const trigger = document.getElementById(
+            'settings-desktop-widget-order'
+        );
+        expect(trigger?.parentElement?.getAttribute('data-select-value')).toBe(
+            'bottom'
+        );
+        expect(
+            screen.getByText(
+                'view.settings.notifications.notifications.desktop_widget.order_newest_top'
+            )
+        ).toBeTruthy();
+        expect(
+            screen.getByText(
+                'view.settings.notifications.notifications.desktop_widget.order_newest_bottom'
+            )
+        ).toBeTruthy();
+    });
+
+    it('saves the desktop overlay background opacity when the slider is released', () => {
+        const props = createProps({ showDesktopWidget: true });
+        render(<SettingsNotificationsTab {...props} />);
+
+        const slider = document.getElementById(
+            'settings-desktop-widget-opacity'
+        ) as HTMLInputElement;
+        expect(slider).toBeInstanceOf(HTMLInputElement);
+        expect(screen.getByText('55%')).toBeTruthy();
+
+        fireEvent.change(slider, { target: { value: '30' } });
+        expect(screen.getByText('30%')).toBeTruthy();
+        expect(props.onDesktopWidgetOpacityChange).not.toHaveBeenCalled();
+
+        fireEvent.mouseUp(slider, { target: { value: '30' } });
+        expect(props.onDesktopWidgetOpacityChange).toHaveBeenCalledWith(30);
+    });
+
+    it('opens the desktop overlay activity filters from its settings card', () => {
+        const props = createProps({ showDesktopWidget: true });
+        render(<SettingsNotificationsTab {...props} />);
+
+        const field = document.querySelector(
+            `[data-field-label="${activityWindowFiltersLabel}"]`
+        );
+        const button = field?.querySelector('button');
+        expect(button).toBeInstanceOf(HTMLButtonElement);
+        fireEvent.click(button as HTMLButtonElement);
+
+        expect(props.onOpenDesktopWidgetFiltersDialog).toHaveBeenCalledTimes(1);
+        expect(
+            props.onOpenDesktopNotificationFiltersDialog
+        ).not.toHaveBeenCalled();
     });
 
     it('renders preview input and play action only when the preview is visible', () => {

@@ -28,7 +28,9 @@ import { TimeRulesTab } from './TimeRulesTab';
 
 const DEFAULT_INVITE_VALUES: InviteRulesTabValues = {
     autoAcceptInviteRequests: 'Off',
-    autoAcceptInviteGroups: []
+    autoAcceptInviteGroups: [],
+    autoAcceptInviteStatuses: [],
+    autoAcceptInviteMessageSlot: ''
 };
 
 const I18N_ROOT = 'view.tools.social_automation';
@@ -287,7 +289,9 @@ export function PresenceInviteRequestsDialog({
         setLoading(true);
         Promise.all([
             configRepository.getString('autoAcceptInviteRequests', 'Off'),
-            configRepository.getString('autoAcceptInviteGroups', '[]')
+            configRepository.getString('autoAcceptInviteGroups', '[]'),
+            configRepository.getString('autoAcceptInviteStatuses', '[]'),
+            configRepository.getString('autoAcceptInviteMessageSlot', '')
         ])
             .then((result) => {
                 if (!active) {
@@ -297,7 +301,9 @@ export function PresenceInviteRequestsDialog({
                     autoAcceptInviteRequests: normalizeAutoAcceptValue(
                         result[0]
                     ),
-                    autoAcceptInviteGroups: parseJsonArray(result[1])
+                    autoAcceptInviteGroups: parseJsonArray(result[1]),
+                    autoAcceptInviteStatuses: parseJsonArray(result[2]),
+                    autoAcceptInviteMessageSlot: result[3]
                 });
             })
             .catch((error: unknown) =>

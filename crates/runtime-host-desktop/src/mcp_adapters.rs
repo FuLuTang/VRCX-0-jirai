@@ -8,9 +8,10 @@ use vrcx_0_contracts::social_aggregates as social;
 use vrcx_0_contracts::FavoriteRow;
 use vrcx_0_core::{FavoriteEntityKind, OwnerId};
 use vrcx_0_mcp::{
-    McpActivityQueryPort, McpConfigPort, McpFavoritesQueryPort, McpFeedQueryPort, McpFriendCurrent,
-    McpFriendLocalDataPort, McpFriendMemo, McpInterruptCheck, McpLocalModeration, McpMemoSave,
-    McpMutualGraphMeta, McpMutualGraphPort, McpPlaySpan, McpSocialHistoryQueryPort,
+    McpActivityQueryPort, McpChatboxPort, McpConfigPort, McpFavoritesQueryPort, McpFeedQueryPort,
+    McpFriendCurrent, McpFriendLocalDataPort, McpFriendMemo, McpFuture, McpInterruptCheck,
+    McpLocalModeration, McpMemoSave, McpMutualGraphMeta, McpMutualGraphPort, McpPlaySpan,
+    McpScreenshotQueryPort, McpSocialHistoryQueryPort, McpWorldLookupPort,
 };
 use vrcx_0_persistence::{
     activity_page, config::ConfigRepository, favorites, friends, local_moderation, memos,
@@ -19,6 +20,121 @@ use vrcx_0_persistence::{
 
 pub(crate) struct DesktopMcpConfigAdapter {
     config: ConfigRepository,
+}
+
+pub(crate) struct DesktopMcpScreenshotAdapter {
+    db_path: std::path::PathBuf,
+    photos_root: String,
+    cache: std::sync::OnceLock<vrcx_0_persistence::screenshot_cache::MetadataCacheDb>,
+}
+
+impl DesktopMcpScreenshotAdapter {
+    pub(crate) fn new(db_path: std::path::PathBuf, photos_root: String) -> Self {
+        Self {
+            db_path,
+            photos_root,
+            cache: std::sync::OnceLock::new(),
+        }
+    }
+
+    fn cache(
+        &self,
+    ) -> vrcx_0_application_core::Result<&vrcx_0_persistence::screenshot_cache::MetadataCacheDb>
+    {
+        if let Some(cache) = self.cache.get() {
+            return Ok(cache);
+        }
+        let cache = vrcx_0_persistence::screenshot_cache::MetadataCacheDb::new(&self.db_path)?;
+        Ok(self.cache.get_or_init(|| cache))
+    }
+}
+
+impl McpScreenshotQueryPort for DesktopMcpScreenshotAdapter {
+    fn query(
+        &self,
+        filter: &vrcx_0_core::screenshots::ScreenshotFilter,
+        limit: i64,
+    ) -> vrcx_0_application_core::Result<vrcx_0_core::screenshots::ScreenshotQueryResult> {
+        Ok(self
+            .cache()?
+            .query_screenshots_for_root(&self.photos_root, filter, Some(limit))?)
+    }
+
+    fn people(
+        &self,
+        filter: &vrcx_0_core::screenshots::ScreenshotFilter,
+        limit: i64,
+    ) -> vrcx_0_application_core::Result<Vec<vrcx_0_core::screenshots::ScreenshotFacet>> {
+        Ok(self
+            .cache()?
+            .screenshot_people_for_root(&self.photos_root, filter, limit)?)
+    }
+
+    fn worlds(
+        &self,
+        filter: &vrcx_0_core::screenshots::ScreenshotFilter,
+        limit: i64,
+    ) -> vrcx_0_application_core::Result<Vec<vrcx_0_core::screenshots::ScreenshotFacet>> {
+        Ok(self
+            .cache()?
+            .screenshot_worlds_for_root(&self.photos_root, filter, limit)?)
+    }
+
+    fn months(
+        &self,
+        filter: &vrcx_0_core::screenshots::ScreenshotFilter,
+        utc_offset_minutes: i64,
+        limit: i64,
+    ) -> vrcx_0_application_core::Result<Vec<vrcx_0_core::screenshots::ScreenshotFacet>> {
+        Ok(self.cache()?.screenshot_months_for_root(
+            &self.photos_root,
+            filter,
+            utc_offset_minutes,
+            limit,
+        )?)
+    }
+}
+
+pub(crate) struct DesktopMcpWorldLookupAdapter {
+    web: Arc<vrcx_0_application_core::WebClient>,
+    world_cache: Arc<vrcx_0_application_core::WorldCache>,
+    auth_scope: vrcx_0_application_core::RuntimeAuthScope,
+}
+
+impl DesktopMcpWorldLookupAdapter {
+    pub(crate) fn new(
+        web: Arc<vrcx_0_application_core::WebClient>,
+        world_cache: Arc<vrcx_0_application_core::WorldCache>,
+        auth_scope: vrcx_0_application_core::RuntimeAuthScope,
+    ) -> Self {
+        Self {
+            web,
+            world_cache,
+            auth_scope,
+        }
+    }
+}
+
+impl McpWorldLookupPort for DesktopMcpWorldLookupAdapter {
+    fn world(
+        &self,
+        world_id: String,
+    ) -> McpFuture<'_, vrcx_0_application_core::Result<Option<serde_json::Value>>> {
+        Box::pin(async move {
+            let endpoint = self.auth_scope.snapshot().endpoint;
+            let response = self
+                .world_cache
+                .get(&self.web, &endpoint, &world_id, false, true)
+                .await?;
+            if !(200..=299).contains(&response.status) {
+                return Err(vrcx_0_application_core::Error::Custom(format!(
+                    "VRChat returned HTTP {}",
+                    response.status
+                )));
+            }
+            Ok(serde_json::from_str(&response.data).ok())
+        })
+    }
 }
 
 pub(crate) struct DesktopMcpMutualGraphAdapter {
@@ -158,6 +274,31 @@ impl McpActivityQueryPort for DesktopMcpActivityQueryAdapter {
         input: social::TopVisitedWorldsInput,
     ) -> vrcx_0_application_core::Result<Vec<social::TopVisitedWorldRow>> {
         social_aggregates::top_visited_worlds(self.db.as_ref(), owner_user_id, input)
+            .map_err(Into::into)
+    }
+
+    fn world_visit_history(
+        &self,
+        owner_user_id: &OwnerId,
+        world_id: &str,
+        recent_limit: i64,
+    ) -> vrcx_0_application_core::Result<social::WorldVisitHistory> {
+        social_aggregates::world_visit_history(
+            self.db.as_ref(),
+            owner_user_id,
+            world_id,
+            recent_limit,
+        )
+        .map_err(Into::into)
+    }
+
+    fn find_visited_worlds(
+        &self,
+        owner_user_id: &OwnerId,
+        name: &str,
+        limit: i64,
+    ) -> vrcx_0_application_core::Result<Vec<social::VisitedWorldMatch>> {
+        social_aggregates::find_visited_worlds(self.db.as_ref(), owner_user_id, name, limit)
             .map_err(Into::into)
     }
 
@@ -435,5 +576,52 @@ impl McpFeedQueryPort for DesktopMcpFeedQueryAdapter {
             move || should_interrupt(),
         )
         .map_err(Into::into)
+    }
+}
+
+pub(crate) struct DesktopMcpChatboxAdapter {
+    chatbox: Arc<crate::chatbox::ChatboxRuntime>,
+}
+
+impl DesktopMcpChatboxAdapter {
+    pub(crate) fn new(chatbox: Arc<crate::chatbox::ChatboxRuntime>) -> Self {
+        Self { chatbox }
+    }
+}
+
+fn chatbox_json(
+    value: impl serde::Serialize,
+) -> vrcx_0_application_core::Result<serde_json::Value> {
+    serde_json::to_value(value).map_err(vrcx_0_application_core::Error::Json)
+}
+
+impl McpChatboxPort for DesktopMcpChatboxAdapter {
+    fn state(&self) -> vrcx_0_application_core::Result<serde_json::Value> {
+        let editor = self.chatbox.editor_state();
+        Ok(serde_json::json!({
+            "status": self.chatbox.status(),
+            "config": editor.config,
+            "limits": editor.limits,
+            "variables": editor.variables,
+            "defaultFormats": editor.default_formats,
+        }))
+    }
+
+    fn update_config(
+        &self,
+        config: serde_json::Value,
+    ) -> vrcx_0_application_core::Result<serde_json::Value> {
+        let config =
+            serde_json::from_value(config).map_err(vrcx_0_application_core::Error::Json)?;
+        chatbox_json(self.chatbox.set_config(config)?)
+    }
+
+    fn send(&self, text: String) -> vrcx_0_application_core::Result<serde_json::Value> {
+        chatbox_json(self.chatbox.send_manual(&text)?)
+    }
+
+    fn set_afk(&self, afk: bool) -> vrcx_0_application_core::Result<serde_json::Value> {
+        self.chatbox.set_manual_afk(afk);
+        Ok(serde_json::json!({ "afk": afk }))
     }
 }

@@ -35,8 +35,11 @@ type ToolDialogHostKey =
     | 'exportFriendsListOpen'
     | 'exportAvatarsListOpen'
     | 'editInviteMessagesOpen'
+    | 'moderationReportsOpen'
+    | 'purchaseHistoryOpen'
     | 'llmEndpointsOpen'
     | 'profileBackupOpen'
+    | 'offlineRecordOpen'
     | 'syncWorkflowOpen';
 
 const toolRouteMap = {
@@ -44,6 +47,7 @@ const toolRouteMap = {
     inventory: '/tools/inventory',
     'screenshot-metadata': '/tools/screenshot-metadata',
     'vrchat-log': '/tools/vrchat-log',
+    chatbox: '/tools/chatbox',
     'group-moderation': '/tools/group-moderation',
     'my-groups': '/tools/my-groups'
 } satisfies Record<ToolRouteName, string>;
@@ -59,8 +63,11 @@ const toolDialogHostMap: Record<ToolDialogKey, ToolDialogHostKey> = {
     'export-friends-list': 'exportFriendsListOpen',
     'export-avatars-list': 'exportAvatarsListOpen',
     'edit-invite-messages': 'editInviteMessagesOpen',
+    'moderation-reports': 'moderationReportsOpen',
+    'purchase-history': 'purchaseHistoryOpen',
     'llm-endpoints': 'llmEndpointsOpen',
     'profile-backup': 'profileBackupOpen',
+    'offline-record': 'offlineRecordOpen',
     'sync-workflow': 'syncWorkflowOpen'
 };
 

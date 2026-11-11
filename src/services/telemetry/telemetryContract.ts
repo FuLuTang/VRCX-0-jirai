@@ -29,6 +29,7 @@ export const TELEMETRY_TOOL_KEYS = [
     'vrcx-data',
     'vrchat-data',
     'vrchat-log',
+    'chatbox',
     'profile-backup',
     'llm-endpoints',
     'crash-dumps',
@@ -42,11 +43,14 @@ export const TELEMETRY_TOOL_KEYS = [
     'group-calendar',
     'group-moderation',
     'my-groups',
+    'offline-record',
     'discord-names',
     'export-notes',
     'export-friend-list',
     'export-own-avatars',
     'edit-invite-message',
+    'moderation-reports',
+    'purchase-history',
     'sync-workflow'
 ] as const;
 

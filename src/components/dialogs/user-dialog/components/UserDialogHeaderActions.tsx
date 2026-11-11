@@ -1,11 +1,10 @@
 import {
     BanIcon,
-    BugIcon,
     EyeIcon,
     EyeOffIcon,
+    FlagIcon,
     HandIcon,
     HistoryIcon,
-    ImageIcon,
     MailPlusIcon,
     MailQuestionIcon,
     MessageSquarePlusIcon,
@@ -17,8 +16,9 @@ import {
     RefreshCwIcon,
     RotateCcwIcon,
     SettingsIcon,
+    ShieldAlertIcon,
+    ShieldCheckIcon,
     ShieldIcon,
-    SparklesIcon,
     UserIcon,
     UserCheckIcon,
     UserPlusIcon,
@@ -31,7 +31,7 @@ import {
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { FavoriteActionMenu } from '@/components/favorites/FavoriteActionMenu';
+import { FavoriteActionSub } from '@/components/favorites/FavoriteActionMenu';
 import { toast } from '@/services/toastService';
 import { useRuntimeStore } from '@/state/runtimeStore';
 import { useTrackedNonfriendsStore } from '@/state/trackedNonfriendsStore';
@@ -59,6 +59,7 @@ type UserActionMenuModel = Pick<
     | 'isFriend'
     | 'friendRequestState'
     | 'canInviteFromCurrentLocation'
+    | 'currentUserAccountStanding'
     | 'currentUserBoopingEnabled'
     | 'currentAvatarTarget'
     | 'fallbackAvatarTarget'
@@ -72,9 +73,7 @@ type UserActionMenuCommands = Pick<
     | 'onShowAvatarAuthor'
     | 'onOpenFallbackAvatar'
     | 'onEditSelfStatus'
-    | 'onEditSelfProfileDetails'
-    | 'onEditSelfProfileMedia'
-    | 'onEditSelfProfileDecorations'
+    | 'onEditSelfProfile'
     | 'onFriendRequest'
     | 'onInvite'
     | 'onInviteMessage'
@@ -88,8 +87,13 @@ type UserActionMenuCommands = Pick<
     | 'onModeration'
     | 'onAvatarOverride'
     | 'onExtendedModeration'
-    | 'onReportHacking'
+    | 'onReportUser'
+    | 'onShowAccountStanding'
 >;
+
+function AccountStandingAlertIcon() {
+    return <ShieldAlertIcon className="text-amber-500" />;
+}
 
 export function UserDialogHeaderActions({
     actionMenuModel: model,
@@ -110,6 +114,7 @@ export function UserDialogHeaderActions({
         isFriend,
         friendRequestState,
         canInviteFromCurrentLocation,
+        currentUserAccountStanding,
         currentUserBoopingEnabled,
         currentAvatarTarget,
         fallbackAvatarTarget,
@@ -121,9 +126,7 @@ export function UserDialogHeaderActions({
         onShowAvatarAuthor,
         onOpenFallbackAvatar,
         onEditSelfStatus,
-        onEditSelfProfileDetails,
-        onEditSelfProfileMedia,
-        onEditSelfProfileDecorations,
+        onEditSelfProfile,
         onFriendRequest,
         onInvite,
         onInviteMessage,
@@ -137,9 +140,14 @@ export function UserDialogHeaderActions({
         onModeration,
         onAvatarOverride,
         onExtendedModeration,
-        onReportHacking
+        onReportUser,
+        onShowAccountStanding
     } = commands;
     const isBusy = loadStatus === 'running' || actionStatus !== 'idle';
+    const accountStandingAlert =
+        isCurrentUser &&
+        Boolean(currentUserAccountStanding) &&
+        currentUserAccountStanding !== 'good';
     const actionsDisabled = actionStatus !== 'idle';
     const trackedAccountId = useRuntimeStore(
         (state) => state.auth.currentUserId || ''
@@ -237,21 +245,25 @@ export function UserDialogHeaderActions({
 
     return (
         <>
-            {!isCurrentUser && isFriend ? (
-                <FavoriteActionMenu
-                    kind="friend"
-                    entityId={profile.id ?? ''}
-                    entity={profile}
-                    iconOnly
-                />
-            ) : null}
             <EntityActionDropdown
                 busy={isBusy}
                 dangerous={moderationState.block}
                 indicator={
-                    friendRequestState.incoming || friendRequestState.outgoing
+                    friendRequestState.incoming ||
+                    friendRequestState.outgoing ||
+                    accountStandingAlert
                 }
             >
+                {!isCurrentUser && isFriend ? (
+                    <>
+                        <FavoriteActionSub
+                            kind="friend"
+                            entityId={profile.id ?? ''}
+                            entity={profile}
+                        />
+                        <EntityActionSeparator />
+                    </>
+                ) : null}
                 <EntityActionItem
                     icon={RefreshCwIcon}
                     disabled={loadStatus === 'running'}
@@ -301,23 +313,19 @@ export function UserDialogHeaderActions({
                         <EntityActionItem
                             icon={PencilIcon}
                             disabled={actionsDisabled}
-                            onClick={onEditSelfProfileDetails}
+                            onClick={onEditSelfProfile}
                         >
-                            {t('dialog.user.actions.edit_profile_details')}
+                            {t('dialog.user.actions.edit_profile')}
                         </EntityActionItem>
                         <EntityActionItem
-                            icon={ImageIcon}
-                            disabled={actionsDisabled}
-                            onClick={onEditSelfProfileMedia}
+                            icon={
+                                accountStandingAlert
+                                    ? AccountStandingAlertIcon
+                                    : ShieldCheckIcon
+                            }
+                            onClick={onShowAccountStanding}
                         >
-                            {t('dialog.user.actions.edit_profile_media')}
-                        </EntityActionItem>
-                        <EntityActionItem
-                            icon={SparklesIcon}
-                            disabled={actionsDisabled}
-                            onClick={onEditSelfProfileDecorations}
-                        >
-                            {t('dialog.inventory.profile_decorations')}
+                            {t('dialog.user.actions.account_standing')}
                         </EntityActionItem>
                     </>
                 ) : null}
@@ -594,12 +602,12 @@ export function UserDialogHeaderActions({
                             </EntityActionItem>
                         ) : null}
                         <EntityActionItem
-                            icon={BugIcon}
+                            icon={FlagIcon}
                             destructive
                             disabled={actionsDisabled}
-                            onClick={onReportHacking}
+                            onClick={onReportUser}
                         >
-                            {t('dialog.user.actions.report_hacking')}
+                            {t('dialog.user.actions.report_user')}
                         </EntityActionItem>
                     </>
                 ) : null}

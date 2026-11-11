@@ -2,10 +2,15 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use vrcx_0_application_activity::{ActivityActorRelation, ActivityDelivery, ActivityEntry};
-use vrcx_0_application_core::WorldCache;
+use chrono::Utc;
+use vrcx_0_application_activity::notification::unresolved_group_id;
+use vrcx_0_application_activity::{
+    ActivityActorRelation, ActivityCategory, ActivityContent, ActivityDelivery, ActivityEntry,
+    ActivityText,
+};
 use vrcx_0_contracts::activity::ActivityKind;
 use vrcx_0_core::location::{is_meaningful_world_name, parse_location, world_id_from_location};
+use vrcx_0_i18n::OverlayMessage;
 use vrcx_0_vr_overlay::{AvatarBitmap, OverlaySurfaceId, RgbaFrame, MAIN_SURFACE_ID};
 
 use super::super::manager::VrOverlayManager;
@@ -14,10 +19,12 @@ use super::super::runtime::{
 };
 use super::super::service::HostVrOverlayService;
 use super::super::test_preview::test_hmd_toast_views;
+use super::super::tracker_watch::TrackerDisconnect;
+use super::super::VrOverlayRuntimeServices;
 use super::main::{build_main_surface_model, HmdToastView, MainOverlayFrameInput};
 
 const HMD_TOAST_CAPACITY: usize = 3;
-const HMD_TOAST_WORLD_RESOLVE_BUDGET: Duration = Duration::from_secs(2);
+const HMD_TOAST_LOCATION_RESOLVE_BUDGET: Duration = Duration::from_secs(2);
 const HMD_JOIN_LEAVE_MERGE_WINDOW: Duration = Duration::from_secs(4);
 
 #[derive(Clone)]
@@ -42,12 +49,10 @@ impl VrOverlayRuntime {
             self.deliver_hmd_toast(entry);
             return;
         }
-        let pending = self
-            .services
-            .as_ref()
-            .cloned()
-            .zip(unresolved_entry_world_id(&entry));
-        let Some((services, world_id)) = pending else {
+        let world_id = unresolved_entry_world_id(&entry);
+        let group_id = unresolved_group_id(&entry.content);
+        let services = self.services.as_ref().cloned();
+        let Some(services) = services.filter(|_| world_id.is_some() || group_id.is_some()) else {
             self.deliver_hmd_toast(entry);
             return;
         };
@@ -57,15 +62,32 @@ impl VrOverlayRuntime {
             let mut entry = entry;
             let endpoint = services.auth_scope().snapshot().endpoint;
             if !endpoint.trim().is_empty() {
-                let resolve = services.world_cache().resolve_name(
-                    services.web_client().as_ref(),
-                    &endpoint,
-                    &world_id,
-                );
-                if let Ok(Some(world_name)) =
-                    tokio::time::timeout(HMD_TOAST_WORLD_RESOLVE_BUDGET, resolve).await
-                {
+                let world_name = async {
+                    let world_id = world_id.as_deref()?;
+                    let resolve = services.world_cache().resolve_name(
+                        services.web_client().as_ref(),
+                        &endpoint,
+                        world_id,
+                    );
+                    tokio::time::timeout(HMD_TOAST_LOCATION_RESOLVE_BUDGET, resolve)
+                        .await
+                        .ok()
+                        .flatten()
+                };
+                let group_name = async {
+                    let group_id = group_id.as_deref()?;
+                    let resolve = services.notification_group_name(&endpoint, group_id);
+                    tokio::time::timeout(HMD_TOAST_LOCATION_RESOLVE_BUDGET, resolve)
+                        .await
+                        .ok()
+                        .flatten()
+                };
+                let (world_name, group_name) = tokio::join!(world_name, group_name);
+                if let Some(world_name) = world_name {
                     entry.content.world_name = world_name;
+                }
+                if let Some(group_name) = group_name {
+                    entry.content.group_name = group_name;
                 }
             }
             runtime.deliver_hmd_toast(entry);
@@ -83,6 +105,24 @@ impl VrOverlayRuntime {
         }
         self.reconcile_current();
         self.spawn_avatar_fetch(&entry);
+    }
+
+    pub(crate) fn deliver_tracker_disconnect_toast(&self, disconnect: TrackerDisconnect) {
+        let config = self.current_runtime_config();
+        if !config.hmd.tracker_disconnect
+            || !self.hmd_notifications_allowed()
+            || !self.is_hmd_surface_active(config)
+        {
+            return;
+        }
+        let timeout = Duration::from_millis(config.hmd.timeout_ms);
+        if self.enqueue_hmd_toast(
+            tracker_disconnect_entry(disconnect),
+            Instant::now(),
+            timeout,
+        ) {
+            self.reconcile_current();
+        }
     }
 
     fn enqueue_hmd_toast(&self, entry: ActivityEntry, now: Instant, timeout: Duration) -> bool {
@@ -194,7 +234,7 @@ impl VrOverlayRuntime {
             .iter_mut()
             .map(|toast| {
                 if let Some(services) = &self.services {
-                    refresh_cached_world_name(services.world_cache(), &mut toast.entry);
+                    refresh_cached_location_names(services.as_ref(), &mut toast.entry);
                 }
                 let show_avatar = avatars && self.is_current_hmd_friend(&toast.entry.actor_user_id);
                 HmdToastView {
@@ -327,6 +367,30 @@ impl VrOverlayRuntime {
     }
 }
 
+fn tracker_disconnect_entry(disconnect: TrackerDisconnect) -> ActivityEntry {
+    let created_at = Utc::now().to_rfc3339();
+    let body = match (disconnect.count, disconnect.battery_percent) {
+        (1, Some(percent)) => OverlayMessage::notifications_tracker_disconnected_battery(percent),
+        (1, None) => OverlayMessage::notifications_tracker_disconnected(),
+        (count, _) => OverlayMessage::notifications_trackers_disconnected(count),
+    };
+    ActivityEntry {
+        sequence: 0,
+        source_id: format!("vrcx-0-tracker-disconnected:{created_at}"),
+        kind: ActivityKind::Event,
+        category: ActivityCategory::SystemSafety,
+        created_at,
+        actor_user_id: String::new(),
+        actor_display_name: String::new(),
+        content: ActivityContent {
+            title: ActivityText::message(OverlayMessage::notifications_tracker_title()),
+            body: ActivityText::message(body),
+            ..ActivityContent::default()
+        },
+        actor_relation: ActivityActorRelation::None,
+    }
+}
+
 fn prune_expired_hmd_toasts(queue: &mut VecDeque<HmdToastState>, now: Instant) -> bool {
     let had_toasts = !queue.is_empty();
     queue.retain(|toast| now < toast.expires_at);
@@ -360,7 +424,7 @@ fn hmd_instance_key(entry: &ActivityEntry) -> Option<String> {
     Some(format!("{}:{}", location.world_id, location.instance_name))
 }
 
-fn unresolved_entry_world_id(entry: &ActivityEntry) -> Option<String> {
+pub(crate) fn unresolved_entry_world_id(entry: &ActivityEntry) -> Option<String> {
     if is_meaningful_world_name(&entry.content.world_name) {
         return None;
     }
@@ -373,12 +437,19 @@ fn unresolved_entry_world_id(entry: &ActivityEntry) -> Option<String> {
     (!world_id.is_empty()).then_some(world_id)
 }
 
-pub(crate) fn refresh_cached_world_name(world_cache: &WorldCache, entry: &mut ActivityEntry) {
-    let Some(world_id) = unresolved_entry_world_id(entry) else {
-        return;
-    };
-    if let Some(world_name) = world_cache.get_name(&world_id) {
+pub(crate) fn refresh_cached_location_names(
+    services: &dyn VrOverlayRuntimeServices,
+    entry: &mut ActivityEntry,
+) {
+    if let Some(world_name) = unresolved_entry_world_id(entry)
+        .and_then(|world_id| services.world_cache().get_name(&world_id))
+    {
         entry.content.world_name = world_name;
+    }
+    if let Some(group_name) = unresolved_group_id(&entry.content)
+        .and_then(|group_id| services.cached_notification_group_name(&group_id))
+    {
+        entry.content.group_name = group_name;
     }
 }
 

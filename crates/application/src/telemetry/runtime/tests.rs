@@ -260,6 +260,66 @@ async fn startup_config_with_stored_friends_skips_the_sign_in_resend() {
     assert_eq!(payloads[0]["friendCountBucket"], "100_500");
 }
 
+fn clear_offline_record_check_backoff(runtime: &TelemetryRuntime) {
+    runtime
+        .inner
+        .state
+        .lock()
+        .unwrap()
+        .offline_record_checked_at = None;
+}
+
+#[tokio::test]
+async fn turning_the_offline_recorder_on_or_off_resends_the_config_snapshot() {
+    let environment = Arc::new(FakeEnvironment::default());
+    let transport = Arc::new(FakeTransport::new(None));
+    let runtime = runtime(environment.clone(), transport.clone());
+
+    runtime.tick().await;
+    clear_offline_record_check_backoff(&runtime);
+    runtime.tick().await;
+
+    environment.set(
+        OFFLINE_RECORD_SETTINGS_CONFIG_KEY,
+        r#"{"address":"http://nas:8787"}"#,
+    );
+    clear_offline_record_check_backoff(&runtime);
+    runtime.tick().await;
+    clear_offline_record_check_backoff(&runtime);
+    runtime.tick().await;
+
+    environment.set(OFFLINE_RECORD_SETTINGS_CONFIG_KEY, "");
+    clear_offline_record_check_backoff(&runtime);
+    runtime.tick().await;
+
+    let reported = config_payloads(&transport)
+        .iter()
+        .map(|config| config["offlineRecord"].clone())
+        .collect::<Vec<_>>();
+    assert_eq!(reported, ["off", "on", "off"].map(serde_json::Value::from));
+}
+
+#[tokio::test]
+async fn an_offline_recorder_set_up_before_the_upgrade_is_reported_once_with_the_new_version() {
+    let environment = Arc::new(FakeEnvironment::default());
+    environment.set(
+        OFFLINE_RECORD_SETTINGS_CONFIG_KEY,
+        r#"{"address":"http://nas:8787"}"#,
+    );
+    let transport = Arc::new(FakeTransport::new(None));
+    let runtime = runtime(environment.clone(), transport.clone());
+
+    runtime.tick().await;
+    clear_offline_record_check_backoff(&runtime);
+    runtime.tick().await;
+
+    let reported = config_payloads(&transport)
+        .iter()
+        .map(|config| config["offlineRecord"].clone())
+        .collect::<Vec<_>>();
+    assert_eq!(reported, ["on"].map(serde_json::Value::from));
+}
+
 fn heartbeat_payloads(transport: &FakeTransport) -> Vec<serde_json::Value> {
     transport
         .payloads
@@ -288,10 +348,10 @@ async fn heartbeat_reports_vrchat_seen_until_a_heartbeat_is_delivered() {
     let session = runtime.ensure_session().unwrap();
 
     set_game_running(&runtime, true);
-    runtime.observe_vrchat();
+    runtime.observe_activity();
     set_game_running(&runtime, false);
     for _ in 0..3 {
-        runtime.observe_vrchat();
+        runtime.observe_activity();
         runtime.send_heartbeat_locked(&session).await;
     }
 
@@ -300,6 +360,82 @@ async fn heartbeat_reports_vrchat_seen_until_a_heartbeat_is_delivered() {
         .map(|payload| payload["vrchatSeen"].clone())
         .collect::<Vec<_>>();
     assert_eq!(seen, [true, true, false].map(serde_json::Value::Bool));
+}
+
+#[tokio::test]
+async fn heartbeat_reports_signed_in_until_a_heartbeat_is_delivered() {
+    let transport = Arc::new(FakeTransport::new(None));
+    let auth_scope = RuntimeAuthScope::new();
+    let runtime = runtime_with_auth_scope(
+        Arc::new(FakeEnvironment::default()),
+        transport.clone(),
+        "2.33.0",
+        auth_scope.clone(),
+    );
+    let session = runtime.ensure_session().unwrap();
+
+    runtime.observe_activity();
+    runtime.send_heartbeat_locked(&session).await;
+    auth_scope.set("usr_signed_in", "");
+    runtime.observe_activity();
+    auth_scope.set("", "");
+    runtime.observe_activity();
+    runtime.send_heartbeat_locked(&session).await;
+    runtime.observe_activity();
+    runtime.send_heartbeat_locked(&session).await;
+
+    let signed_in = heartbeat_payloads(&transport)
+        .iter()
+        .map(|payload| payload["signedIn"].clone())
+        .collect::<Vec<_>>();
+    assert_eq!(signed_in, [false, true, false].map(serde_json::Value::Bool));
+}
+
+fn session_start_payloads(transport: &FakeTransport) -> Vec<serde_json::Value> {
+    transport
+        .payloads
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|(path, _)| path == "/api/v1/telemetry/session/start")
+        .map(|(_, payload)| payload.clone())
+        .collect()
+}
+
+#[tokio::test]
+async fn session_start_reports_the_sign_in_state_when_usage_telemetry_is_enabled() {
+    let transport = Arc::new(FakeTransport::new(None));
+    let auth_scope = RuntimeAuthScope::new();
+    auth_scope.set("usr_signed_in", "");
+    let runtime = runtime_with_auth_scope(
+        Arc::new(FakeEnvironment::default()),
+        transport.clone(),
+        "2.33.0",
+        auth_scope,
+    );
+
+    runtime.tick().await;
+
+    let payloads = session_start_payloads(&transport);
+    assert_eq!(payloads.len(), 1);
+    assert_eq!(payloads[0]["signedIn"], true);
+    assert!(payloads[0].get("basic").is_none());
+}
+
+#[tokio::test]
+async fn basic_session_start_is_marked_when_usage_telemetry_is_disabled() {
+    let environment = Arc::new(FakeEnvironment::default());
+    environment.set(ANONYMOUS_USAGE_TELEMETRY_CONFIG_KEY, "false");
+    let transport = Arc::new(FakeTransport::new(None));
+    let runtime = runtime_with_version(environment, transport.clone(), "2.33.0");
+
+    runtime.tick().await;
+
+    let payloads = session_start_payloads(&transport);
+    assert_eq!(payloads.len(), 1);
+    assert_eq!(payloads[0]["basic"], true);
+    assert!(payloads[0].get("signedIn").is_none());
+    assert!(heartbeat_payloads(&transport).is_empty());
 }
 
 #[test]
@@ -356,13 +492,26 @@ fn send_attempts_back_off_between_retries() {
 #[test]
 fn heartbeat_waits_for_interval_after_initial_baseline() {
     let now = instant_past_epoch_safe(HEARTBEAT_INTERVAL);
-    assert!(!is_heartbeat_due(None, now));
-    assert!(!is_heartbeat_due(Some(now), now));
+    assert!(!is_heartbeat_due(None, now, HEARTBEAT_INTERVAL));
+    assert!(!is_heartbeat_due(Some(now), now, HEARTBEAT_INTERVAL));
     assert!(!is_heartbeat_due(
         Some(now - HEARTBEAT_INTERVAL + Duration::from_secs(1)),
-        now
+        now,
+        HEARTBEAT_INTERVAL
     ));
-    assert!(is_heartbeat_due(Some(now - HEARTBEAT_INTERVAL), now));
+    assert!(is_heartbeat_due(
+        Some(now - HEARTBEAT_INTERVAL),
+        now,
+        HEARTBEAT_INTERVAL
+    ));
+}
+
+#[test]
+fn heartbeats_fire_at_one_and_five_minutes_before_the_regular_interval() {
+    assert_eq!(heartbeat_interval(0), Duration::from_secs(60));
+    assert_eq!(heartbeat_interval(1), Duration::from_secs(4 * 60));
+    assert_eq!(heartbeat_interval(2), HEARTBEAT_INTERVAL);
+    assert_eq!(heartbeat_interval(9), HEARTBEAT_INTERVAL);
 }
 
 #[test]

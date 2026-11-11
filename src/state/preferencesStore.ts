@@ -356,6 +356,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
     desktopNotificationAvatars: true,
     notificationDoNotDisturbEndOnGameStart: true,
     busyStatusDoNotDisturb: true,
+    hideVideoErrorNotifications: false,
     notificationTTS: 'Never',
     notificationTTSNameMode: 'username',
     notificationTTSNickName: false,
@@ -374,6 +375,9 @@ export const DEFAULT_PREFERENCES = Object.freeze({
     hmdNotificationPosition: 'bottom',
     hmdNotificationStyle: 'standard',
     hmdNotificationAvatars: true,
+    hmdNotificationTrackerDisconnect: true,
+    desktopWidgetOpacity: 55,
+    desktopWidgetNewestOnTop: true,
     webhookEnabled: false,
     webhookAuthEventsEnabled: true,
     webhookUrl: '',
@@ -420,11 +424,13 @@ export const DEFAULT_PREFERENCES = Object.freeze({
     localFavoriteFriendsGroups: [],
     feedHiddenUsers: [],
     feedHiddenUsersHideNotifications: true,
+    feedHiddenUsersHideAll: false,
     hidePrivateFromFeed: false,
     overlayActivityFilters: EMPTY_ACTIVITY_FILTER_PROFILE,
     vrNotificationActivityFilters: EMPTY_ACTIVITY_FILTER_PROFILE,
     hmdNotificationActivityFilters: EMPTY_ACTIVITY_FILTER_PROFILE,
     desktopNotificationActivityFilters: EMPTY_ACTIVITY_FILTER_PROFILE,
+    desktopWidgetActivityFilters: EMPTY_ACTIVITY_FILTER_PROFILE,
     webhookActivityFilters: EMPTY_ACTIVITY_FILTER_PROFILE,
     ttsNotificationActivityFilters: EMPTY_ACTIVITY_FILTER_PROFILE,
     feedTimeDisplayMode: 'relative',
@@ -575,6 +581,9 @@ export function normalizePreferenceSnapshot(snapshot: unknown = {}) {
             next.notificationDoNotDisturbEndOnGameStart
         ),
         busyStatusDoNotDisturb: normalizeBool(next.busyStatusDoNotDisturb),
+        hideVideoErrorNotifications: normalizeBool(
+            next.hideVideoErrorNotifications
+        ),
         notificationTTS: String(next.notificationTTS || 'Never'),
         notificationTTSNameMode: normalizeNotificationTtsNameMode(
             next.notificationTTSNameMode,
@@ -630,6 +639,15 @@ export function normalizePreferenceSnapshot(snapshot: unknown = {}) {
             next.hmdNotificationStyle
         ),
         hmdNotificationAvatars: normalizeBool(next.hmdNotificationAvatars),
+        hmdNotificationTrackerDisconnect: normalizeBool(
+            next.hmdNotificationTrackerDisconnect
+        ),
+        desktopWidgetOpacity: normalizeBoundedInt(next.desktopWidgetOpacity, {
+            min: 0,
+            max: 100,
+            fallback: 55
+        }),
+        desktopWidgetNewestOnTop: normalizeBool(next.desktopWidgetNewestOnTop),
         webhookEnabled: normalizeBool(next.webhookEnabled),
         webhookAuthEventsEnabled: normalizeBool(next.webhookAuthEventsEnabled),
         webhookUrl: String(next.webhookUrl || ''),
@@ -704,6 +722,7 @@ export function normalizePreferenceSnapshot(snapshot: unknown = {}) {
         feedHiddenUsersHideNotifications: normalizeBool(
             next.feedHiddenUsersHideNotifications
         ),
+        feedHiddenUsersHideAll: normalizeBool(next.feedHiddenUsersHideAll),
         hidePrivateFromFeed: normalizeBool(next.hidePrivateFromFeed),
         overlayActivityFilters: normalizeActivityFilterProfile(
             next.overlayActivityFilters
@@ -716,6 +735,9 @@ export function normalizePreferenceSnapshot(snapshot: unknown = {}) {
         ),
         desktopNotificationActivityFilters: normalizeActivityFilterProfile(
             next.desktopNotificationActivityFilters
+        ),
+        desktopWidgetActivityFilters: normalizeActivityFilterProfile(
+            next.desktopWidgetActivityFilters
         ),
         webhookActivityFilters: normalizeActivityFilterProfile(
             next.webhookActivityFilters

@@ -295,11 +295,80 @@ jobs:
                   path: ${{ matrix.artifact_path }}
                   if-no-files-found: error
 
+    logger:
+        name: Logger (${{ matrix.platform }} ${{ matrix.arch }})
+        needs: prepare
+        runs-on: ${{ matrix.os }}
+        defaults:
+            run:
+                shell: bash
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - platform: linux
+                      arch: x86_64
+                      os: ubuntu-24.04
+                      rust_target: x86_64-unknown-linux-musl
+                      exe_suffix: ''
+                      notices: true
+                      notices_suffix: ''
+                    - platform: linux
+                      arch: aarch64
+                      os: ubuntu-24.04-arm
+                      rust_target: aarch64-unknown-linux-musl
+                      exe_suffix: ''
+                      notices: false
+                      notices_suffix: ''
+                    - platform: windows
+                      arch: x86_64
+                      os: windows-latest
+                      rust_target: x86_64-pc-windows-msvc
+                      exe_suffix: .exe
+                      notices: true
+                      notices_suffix: _windows_x86_64
+        env:
+            CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -C target-feature=+crt-static
+        steps:
+            - uses: actions/checkout@v7
+
+            - uses: dtolnay/rust-toolchain@stable
+              with:
+                  targets: ${{ matrix.rust_target }}
+
+            - name: Install musl toolchain
+              if: runner.os == 'Linux'
+              run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+            - name: Build logger
+              run: cargo build --locked --release -p vrcx-0-logger --target "${{ matrix.rust_target }}"
+
+            - name: Prepare logger asset
+              run: |
+                  mkdir -p logger-assets
+                  cp "target/${{ matrix.rust_target }}/release/vrcx-0-logger${{ matrix.exe_suffix }}" "logger-assets/vrcx-0-logger_${{ needs.prepare.outputs.build_version }}_${{ matrix.platform }}_${{ matrix.arch }}${{ matrix.exe_suffix }}"
+
+            - uses: actions/setup-node@v6
+              if: matrix.notices
+              with:
+                  node-version: 24.x
+
+            - name: Generate logger third-party notices
+              if: matrix.notices
+              run: node scripts/generate-third-party-licenses.ts --logger "logger-assets/vrcx-0-logger_${{ needs.prepare.outputs.build_version }}${{ matrix.notices_suffix }}_THIRD_PARTY_NOTICES.txt" --target "${{ matrix.rust_target }}"
+
+            - uses: actions/upload-artifact@v7
+              with:
+                  name: release-logger-${{ matrix.platform }}-${{ matrix.arch }}
+                  path: logger-assets/*
+                  if-no-files-found: error
+
     publish-draft:
         name: Publish Draft Release
         needs:
             - prepare
             - package
+            - logger
         runs-on: ubuntu-24.04
         permissions:
             contents: write

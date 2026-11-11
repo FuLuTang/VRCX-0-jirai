@@ -2,6 +2,7 @@ import { ExternalLinkIcon, EyeIcon, ImageIcon } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { EconomyStoreListings } from '@/components/economy/EconomyStoreListings';
 import { FadeInImage } from '@/components/media/FadeInImage';
 import { TranslatableText } from '@/components/translation/TranslatableText';
 import type {
@@ -35,6 +36,7 @@ import {
     announcementUserId,
     announcementUserLabel
 } from './groupDialogUtils';
+import { GroupGalleryPanel } from './GroupGalleryPanel';
 import { GroupInstanceRows } from './GroupInstanceRows';
 import { GroupMembersPanel } from './GroupMembersPanel';
 import { GroupPostUserButton, RowList } from './GroupRowList';
@@ -210,6 +212,7 @@ export function GroupDialogTabPanels({
         activeTab,
         announcement,
         bannerUrl,
+        canManageCalendar,
         canManagePosts,
         currentUserId,
         filteredPosts,
@@ -233,7 +236,10 @@ export function GroupDialogTabPanels({
     } = model;
     const {
         onChangeTab,
+        onCreateEvent,
+        onDeleteEvent,
         onDeletePost,
+        onEditEvent,
         onEditPost,
         onExportMembers,
         onLoadMoreMembers,
@@ -242,6 +248,8 @@ export function GroupDialogTabPanels({
         onPreviousInstancesChange,
         onPreviewImage,
         onPreviewRowImage,
+        onGalleriesChanged,
+        onPhotosChanged,
         onRefreshEvents,
         onRefreshMembers,
         onSearchMembersChange,
@@ -531,8 +539,12 @@ export function GroupDialogTabPanels({
                     status={groupEventsStatus}
                     error={groupEventsError}
                     group={group}
+                    canManage={canManageCalendar}
                     onRefresh={onRefreshEvents}
                     onToggleFollow={onToggleEventFollow}
+                    onCreate={onCreateEvent}
+                    onEdit={onEditEvent}
+                    onDelete={onDeleteEvent}
                 />
             </EntityDialogTabContent>
             <EntityDialogTabContent
@@ -592,15 +604,22 @@ export function GroupDialogTabPanels({
                 value="photos"
                 className="flex flex-col gap-2"
             >
-                <RowList
-                    rows={photos}
+                <GroupGalleryPanel
                     group={group}
-                    kind="photos"
+                    rows={photos}
                     loading={remoteStatus.photos === 'running'}
-                    error={remoteErrors.photos}
+                    error={remoteErrors.photos ?? ''}
+                    currentUserId={currentUserId}
                     onPreviewImage={onPreviewRowImage}
+                    onGalleriesChanged={onGalleriesChanged}
+                    onImagesChanged={onPhotosChanged}
                 />
             </EntityDialogTabContent>
+            {group.storeId ? (
+                <EntityDialogTabContent value="store">
+                    <EconomyStoreListings storeId={group.storeId} />
+                </EntityDialogTabContent>
+            ) : null}
             <EntityDialogTabContent value="json">
                 <EntityRawJson value={group} />
             </EntityDialogTabContent>

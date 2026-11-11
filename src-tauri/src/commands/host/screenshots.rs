@@ -8,8 +8,11 @@ use crate::commands::blocking::run_blocking;
 use crate::error::AppError;
 use crate::state::AppState;
 use vrcx_0_core::screenshots::{
-    ScreenshotExportProgress, ScreenshotFolderTree, ScreenshotLibraryImage,
-    ScreenshotLibraryScanStatus, ScreenshotSearchResult, ScreenshotTimeWindow,
+    FavoriteScreenshots, ScreenshotExportProgress, ScreenshotFacet, ScreenshotFilter,
+    ScreenshotFolderTree, ScreenshotLibraryImage, ScreenshotLibraryScanStatus,
+    ScreenshotPrintInput, ScreenshotQueryResult, ScreenshotShareFacts, ScreenshotShareMessage,
+    ScreenshotShareProgress, ScreenshotShareRecord, ScreenshotShareSendResult,
+    ScreenshotShareTarget, ScreenshotShareTargetInput, ScreenshotTimeWindow,
     ScreenshotWindowImages,
 };
 
@@ -62,21 +65,6 @@ pub async fn app__get_screenshot_metadata(
     .await
 }
 
-#[tauri::command]
-#[specta::specta]
-pub async fn app__find_screenshots_by_search(
-    state: State<'_, AppState>,
-    search_query: String,
-    search_type: Option<i32>,
-) -> Result<Vec<ScreenshotSearchResult>, AppError> {
-    require_host_capability(HostCapability::ScreenshotCache)?;
-    let screenshots = state.runtime_host().screenshots().clone();
-    run_blocking("screenshot search", move || {
-        Ok::<_, AppError>(screenshots.find(&search_query, search_type))
-    })
-    .await
-}
-
 #[tauri::command(async)]
 #[specta::specta]
 pub fn app__start_screenshot_library_scan(
@@ -124,6 +112,58 @@ pub async fn app__get_screenshot_folder_images(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn app__pick_random_screenshot_in_folder_tree(
+    state: State<'_, AppState>,
+    folder_path: String,
+) -> Result<Option<String>, AppError> {
+    require_host_capability(HostCapability::ScreenshotCache)?;
+    let screenshots = state.runtime_host().screenshots().clone();
+    run_blocking("random screenshot in folder tree", move || {
+        screenshots.random_path_in_folder_tree(&folder_path)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__get_favorite_screenshots(
+    state: State<'_, AppState>,
+) -> Result<FavoriteScreenshots, AppError> {
+    require_host_capability(HostCapability::ScreenshotCache)?;
+    let screenshots = state.runtime_host().screenshots().clone();
+    run_blocking("favorite screenshots", move || screenshots.favorites()).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__forget_missing_screenshot_favorites(
+    state: State<'_, AppState>,
+) -> Result<u32, AppError> {
+    require_host_capability(HostCapability::ScreenshotCache)?;
+    let screenshots = state.runtime_host().screenshots().clone();
+    run_blocking("missing screenshot favorites", move || {
+        screenshots.forget_missing_favorites()
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__set_screenshot_favorite(
+    state: State<'_, AppState>,
+    path: String,
+    favorite: bool,
+) -> Result<(), AppError> {
+    require_host_capability(HostCapability::ScreenshotCache)?;
+    let screenshots = state.runtime_host().screenshots().clone();
+    run_blocking("screenshot favorite", move || {
+        screenshots.set_favorite(&path, favorite)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn app__get_world_screenshots(
     state: State<'_, AppState>,
     world_id: String,
@@ -132,6 +172,64 @@ pub async fn app__get_world_screenshots(
     let screenshots = state.runtime_host().screenshots().clone();
     run_blocking("world screenshots", move || {
         screenshots.world_screenshots(&world_id)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__query_screenshots(
+    state: State<'_, AppState>,
+    filter: ScreenshotFilter,
+) -> Result<ScreenshotQueryResult, AppError> {
+    require_host_capability(HostCapability::ScreenshotCache)?;
+    let screenshots = state.runtime_host().screenshots().clone();
+    run_blocking("query screenshots", move || {
+        screenshots.query(&filter, None)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__get_screenshot_people(
+    state: State<'_, AppState>,
+    filter: ScreenshotFilter,
+    limit: i64,
+) -> Result<Vec<ScreenshotFacet>, AppError> {
+    require_host_capability(HostCapability::ScreenshotCache)?;
+    let screenshots = state.runtime_host().screenshots().clone();
+    run_blocking("screenshot people", move || {
+        screenshots.people(&filter, limit)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__get_screenshot_worlds(
+    state: State<'_, AppState>,
+    filter: ScreenshotFilter,
+    limit: i64,
+) -> Result<Vec<ScreenshotFacet>, AppError> {
+    require_host_capability(HostCapability::ScreenshotCache)?;
+    let screenshots = state.runtime_host().screenshots().clone();
+    run_blocking("screenshot worlds", move || {
+        screenshots.worlds(&filter, limit)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__get_screenshots_by_file_names(
+    state: State<'_, AppState>,
+    file_names: Vec<String>,
+) -> Result<Vec<ScreenshotLibraryImage>, AppError> {
+    require_host_capability(HostCapability::ScreenshotCache)?;
+    let screenshots = state.runtime_host().screenshots().clone();
+    run_blocking("screenshots by file name", move || {
+        screenshots.by_file_names(&file_names)
     })
     .await
 }
@@ -338,4 +436,176 @@ pub fn app__cancel_screenshot_export(state: State<'_, AppState>) -> Result<(), A
     require_host_capability(HostCapability::ScreenshotCache)?;
     state.runtime_host().screenshots().request_export_cancel();
     Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__get_screenshot_share_targets(
+    state: State<'_, AppState>,
+) -> Result<Vec<ScreenshotShareTarget>, AppError> {
+    require_host_capability(HostCapability::ScreenshotCache)?;
+    let screenshots = state.runtime_host().screenshots().clone();
+    run_blocking("screenshot share targets", move || {
+        screenshots.share_targets()
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__save_screenshot_share_target(
+    state: State<'_, AppState>,
+    input: ScreenshotShareTargetInput,
+) -> Result<ScreenshotShareTarget, AppError> {
+    require_host_capability(HostCapability::ScreenshotCache)?;
+    let screenshots = state.runtime_host().screenshots().clone();
+    Ok(screenshots.save_share_target(input).await?)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__delete_screenshot_share_target(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<(), AppError> {
+    require_host_capability(HostCapability::ScreenshotCache)?;
+    let screenshots = state.runtime_host().screenshots().clone();
+    run_blocking("delete screenshot share target", move || {
+        screenshots.delete_share_target(&id)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__get_screenshot_share_facts(
+    state: State<'_, AppState>,
+    paths: Vec<String>,
+) -> Result<Vec<ScreenshotShareFacts>, AppError> {
+    require_host_capability(HostCapability::ScreenshotCache)?;
+    let screenshots = state.runtime_host().screenshots().clone();
+    run_blocking("screenshot share facts", move || {
+        screenshots.share_facts(&paths)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__share_screenshots(
+    state: State<'_, AppState>,
+    target_id: String,
+    messages: Vec<ScreenshotShareMessage>,
+) -> Result<ScreenshotShareSendResult, AppError> {
+    require_host_capability(HostCapability::ScreenshotCache)?;
+    let screenshots = state.runtime_host().screenshots().clone();
+    Ok(screenshots.share(&target_id, messages).await?)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__get_screenshot_share_history(
+    state: State<'_, AppState>,
+) -> Result<Vec<ScreenshotShareRecord>, AppError> {
+    require_host_capability(HostCapability::ScreenshotCache)?;
+    let screenshots = state.runtime_host().screenshots().clone();
+    run_blocking("screenshot share history", move || {
+        screenshots.share_history()
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__delete_screenshot_share_record(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<(), AppError> {
+    require_host_capability(HostCapability::ScreenshotCache)?;
+    let screenshots = state.runtime_host().screenshots().clone();
+    Ok(screenshots.delete_share_record(&id).await?)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__get_screenshot_share_progress(
+    state: State<'_, AppState>,
+) -> Result<ScreenshotShareProgress, AppError> {
+    require_host_capability(HostCapability::ScreenshotCache)?;
+    Ok(state.runtime_host().screenshots().share_progress())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__copy_screenshot_print(
+    state: State<'_, AppState>,
+    input: ScreenshotPrintInput,
+) -> Result<(), AppError> {
+    require_host_capability(HostCapability::ScreenshotCache)?;
+    let screenshots = state.runtime_host().screenshots().clone();
+    run_blocking("copy screenshot print", move || {
+        screenshots.copy_print(&input)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__save_screenshot_prints(
+    app_handle: AppHandle,
+    state: State<'_, AppState>,
+    items: Vec<ScreenshotPrintInput>,
+) -> Result<Vec<String>, AppError> {
+    use tauri_plugin_dialog::DialogExt;
+
+    require_host_capability(HostCapability::ScreenshotCache)?;
+    let screenshots = state.runtime_host().screenshots().clone();
+    let file_path = |selected: tauri_plugin_dialog::FilePath| match selected {
+        tauri_plugin_dialog::FilePath::Path(path) => path,
+        other => PathBuf::from(other.to_string()),
+    };
+    let saved = match items.as_slice() {
+        [] => return Ok(Vec::new()),
+        [item] => {
+            let Some(selected) = super::dialog::save_file(
+                app_handle
+                    .dialog()
+                    .file()
+                    .set_file_name(screenshots.print_file_name(&item.path))
+                    .add_filter("PNG", &["png"]),
+            )
+            .await
+            else {
+                return Ok(Vec::new());
+            };
+            let mut target = file_path(selected);
+            if target.extension().is_none() {
+                target.set_extension("png");
+            }
+            state.runtime_host().register_host_file_access(&target);
+            let item = item.clone();
+            let path = target.clone();
+            run_blocking("save screenshot print", move || {
+                screenshots.save_print(&item, &path)
+            })
+            .await?;
+            vec![target]
+        }
+        _ => {
+            let Some(selected) = super::dialog::pick_folder(app_handle.dialog().file()).await
+            else {
+                return Ok(Vec::new());
+            };
+            let directory = file_path(selected);
+            state.runtime_host().register_host_file_access(&directory);
+            run_blocking("save screenshot prints", move || {
+                screenshots.save_prints_to_folder(&items, &directory)
+            })
+            .await?
+        }
+    };
+    Ok(saved
+        .iter()
+        .map(|path| path.to_string_lossy().into_owned())
+        .collect())
 }

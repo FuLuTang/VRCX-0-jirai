@@ -16,7 +16,8 @@ use crate::state::{AppState, BACKGROUND_MODE_RESUME_ROUTE_STORAGE_KEY};
 use vrcx_0_runtime_host_desktop::deep_link::{parse_deep_link, queue_deep_link_action};
 
 use super::adapters::{
-    start_host_services, start_mcp_server_if_enabled, TauriDesktopNotifier, TauriUpdaterPort,
+    observe_tray_realtime_phase, start_host_services, start_mcp_server_if_enabled,
+    TauriDesktopNotifier, TauriUpdaterPort,
 };
 use super::autostart::{apply_autostart_window_state_if_needed, sync_autostart_from_db};
 use super::shared::app_language;
@@ -293,8 +294,11 @@ pub fn setup_app_with_data_dir(
     sync_autostart_from_db(app, &state);
     apply_autostart_window_state_if_needed(app, &state);
     start_host_services(app.handle(), &state);
+    observe_tray_realtime_phase(app.handle(), &state);
     start_mcp_server_if_enabled(app.handle());
     wire_deep_links(app.handle());
+    #[cfg(unix)]
+    exit_on_terminate_signal(app.handle());
     state.runtime_host().record_sync(
         "startup",
         RuntimeOperationStatus::Ready,
@@ -303,6 +307,25 @@ pub fn setup_app_with_data_dir(
     );
 
     Ok(())
+}
+
+#[cfg(unix)]
+fn exit_on_terminate_signal(app: &tauri::AppHandle) {
+    use tokio::signal::unix::{signal, SignalKind};
+
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let mut terminate = match signal(SignalKind::terminate()) {
+            Ok(terminate) => terminate,
+            Err(error) => {
+                tracing::warn!(error = %error, "failed to listen for SIGTERM");
+                return;
+            }
+        };
+        if terminate.recv().await.is_some() {
+            crate::commands::host::window::request_application_exit(&app);
+        }
+    });
 }
 
 fn wire_deep_links(app: &tauri::AppHandle) {

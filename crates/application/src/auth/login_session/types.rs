@@ -2,6 +2,7 @@ use futures_util::future::BoxFuture;
 
 use serde::Serialize;
 use vrcx_0_application_core::vrchat_api::VrchatApiResponse as HttpApiExecuteResponse;
+use vrcx_0_contracts::vrchat_login::VrchatLoginFailureKind;
 pub use vrcx_0_core::TwoFactorMethod;
 
 use crate::auth::{AuthenticatedRuntimeSession, SavedAuthSnapshot};
@@ -33,6 +34,13 @@ pub enum LoginRemoteOperation {
         endpoint: String,
         code: String,
     },
+    DeviceCode {
+        endpoint: String,
+    },
+    DeviceStatus {
+        endpoint: String,
+        device_code: String,
+    },
 }
 
 pub trait LoginApi: Send + Sync {
@@ -43,6 +51,7 @@ pub trait AuthSessionCookies: Send + Sync {
     fn get(&self) -> String;
     fn set(&self, cookies: &str) -> Result<()>;
     fn clear(&self);
+    fn clear_everywhere(&self);
     fn clear_auth(&self);
     fn save(&self);
 }
@@ -54,8 +63,22 @@ pub enum LoginFailureKind {
     MissingCredentials,
     SessionInvalidated,
     TwoFactorUnavailable,
+    DeviceCodeExpired,
+    DeviceDenied,
     Network,
     Other,
+}
+
+impl From<VrchatLoginFailureKind> for LoginFailureKind {
+    fn from(kind: VrchatLoginFailureKind) -> Self {
+        match kind {
+            VrchatLoginFailureKind::InvalidCredentials => Self::InvalidCredentials,
+            VrchatLoginFailureKind::MissingCredentials => Self::MissingCredentials,
+            VrchatLoginFailureKind::SessionInvalidated => Self::SessionInvalidated,
+            VrchatLoginFailureKind::TwoFactorUnavailable => Self::TwoFactorUnavailable,
+            VrchatLoginFailureKind::Other => Self::Other,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, specta::Type)]
@@ -74,6 +97,14 @@ pub enum LoginSessionState {
         #[specta(type = String)]
         mode: TwoFactorMethod,
         error: Option<String>,
+    },
+    DeviceApproval {
+        #[serde(rename = "attemptId")]
+        attempt_id: String,
+        #[serde(rename = "verificationUrl")]
+        verification_url: String,
+        #[serde(rename = "expiresAt")]
+        expires_at: i64,
     },
     Failed {
         reason: String,

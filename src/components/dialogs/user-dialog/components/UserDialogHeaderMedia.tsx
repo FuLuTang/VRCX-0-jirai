@@ -1,3 +1,4 @@
+import { UserIcon } from 'lucide-react';
 import { useEffect, useState, type ReactElement } from 'react';
 
 import { FadeInImage } from '@/components/media/FadeInImage';
@@ -10,8 +11,11 @@ import { UserDialogProfileDecorationImage } from './UserDialogProfileDecorationI
 
 interface UserDialogHeaderMediaProps {
     bannerAlt: string;
+    bannerColor: string;
     bannerFallbackUrl: string;
     bannerUrl: string;
+    collapsed?: boolean;
+    fallbackInitial?: string;
     iconFrame?: InventoryItemRecord;
     onBannerClick?: () => void;
     onOpenUserIcon: () => void;
@@ -21,8 +25,11 @@ interface UserDialogHeaderMediaProps {
 
 export function UserDialogHeaderMedia({
     bannerAlt,
+    bannerColor,
     bannerFallbackUrl,
     bannerUrl,
+    collapsed = false,
+    fallbackInitial = '',
     iconFrame,
     onBannerClick,
     onOpenUserIcon,
@@ -49,6 +56,25 @@ export function UserDialogHeaderMedia({
             fallback={null}
         />
     ) : null;
+    const avatarPlaceholder = (
+        <span
+            aria-hidden="true"
+            className="bg-muted text-muted-foreground flex size-full items-center justify-center rounded-full border-2 border-white text-lg font-semibold shadow-md"
+        >
+            {fallbackInitial || <UserIcon className="size-1/2" />}
+        </span>
+    );
+
+    if (collapsed) {
+        return (
+            <div
+                data-header-media="collapsed"
+                className="bg-muted relative flex h-16 w-full items-center rounded-lg border px-3"
+            >
+                <div className="size-11">{avatarPlaceholder}</div>
+            </div>
+        );
+    }
 
     return (
         <div className="relative">
@@ -56,14 +82,25 @@ export function UserDialogHeaderMedia({
                 type="button"
                 variant="ghost"
                 aria-label={bannerAlt}
-                disabled={!displayedBannerUrl || !onBannerClick}
+                disabled={
+                    Boolean(bannerColor) ||
+                    !displayedBannerUrl ||
+                    !onBannerClick
+                }
                 onClick={onBannerClick}
                 className={cn(
                     'bg-muted aspect-[4/3] h-auto w-full overflow-hidden rounded-lg border p-0 disabled:pointer-events-none disabled:opacity-100',
-                    displayedBannerUrl ? 'cursor-pointer' : 'cursor-default'
+                    displayedBannerUrl && !bannerColor
+                        ? 'cursor-pointer'
+                        : 'cursor-default'
                 )}
             >
-                {bannerUrl ? (
+                {bannerColor ? (
+                    <span
+                        className="size-full"
+                        style={{ backgroundColor: bannerColor }}
+                    />
+                ) : bannerUrl ? (
                     <span className="relative size-full">
                         {[previousBannerUrl, bannerUrl]
                             .filter(Boolean)
@@ -111,7 +148,11 @@ export function UserDialogHeaderMedia({
                         />
                     ) : null}
                 </div>
-            ) : null}
+            ) : (
+                <div className="absolute bottom-3 left-3 z-30 size-16">
+                    {avatarPlaceholder}
+                </div>
+            )}
         </div>
     );
 }

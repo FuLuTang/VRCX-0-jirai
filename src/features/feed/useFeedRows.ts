@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
     buildFeedFavoriteIdSet as buildFavoriteIdSet,
+    getFeedRowId,
     normalizeFeedId as normalizeId,
     resolveDisplayNameCandidate,
     resolveFeedUserId
@@ -24,6 +25,7 @@ import {
 import { useFavoriteStore } from '@/state/favoriteStore';
 import { useFeedLiveStore } from '@/state/feedLiveStore';
 import { useFriendLogStore } from '@/state/friendLogStore';
+import { useOfflineRecordStore } from '@/state/offlineRecordStore';
 import { usePreferencesStore } from '@/state/preferencesStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
 import { useSessionStore } from '@/state/sessionStore';
@@ -35,6 +37,7 @@ import {
     retainFeedRowWindow,
     resolveLastFeedCursor
 } from './feedPaging';
+import { useFeedHiddenUserFilters } from './useFeedHiddenUserFilters';
 
 type UseFeedRowsOptions = {
     activeFilters: FeedFilterType[];
@@ -59,8 +62,14 @@ export function useFeedRows({
     const isFavoritesLoaded = useSessionStore(
         (state) => state.isFavoritesLoaded
     );
-    const remoteFavoritesById = useFavoriteStore(
-        (state) => state.remoteFavoritesById
+    const favoriteFriendGroups = useFavoriteStore(
+        (state) => state.favoriteFriendGroups
+    );
+    const groupedFavoriteFriendIdsByGroupKey = useFavoriteStore(
+        (state) => state.groupedFavoriteFriendIdsByGroupKey
+    );
+    const localFriendFavoriteGroups = useFavoriteStore(
+        (state) => state.localFriendFavoriteGroups
     );
     const localFriendFavorites = useFavoriteStore(
         (state) => state.localFriendFavorites
@@ -68,9 +77,10 @@ export function useFeedRows({
     const favoriteGroupFilterIds = usePreferencesStore(
         (state) => state.localFavoriteFriendsGroups
     );
-    const feedHiddenUsers = usePreferencesStore(
-        (state) => state.feedHiddenUsers
-    );
+    const {
+        excludedUserIds: hiddenExcludedUserIds,
+        locationHiddenUserIds: hiddenUserIds
+    } = useFeedHiddenUserFilters();
     const maxFeedRows = usePreferencesStore(
         (state) => state.tableLimits.maxTableSize
     );
@@ -78,6 +88,9 @@ export function useFeedRows({
         (state) => state.feedPersistenceDisabled
     );
     const friendLogRevision = useFriendLogStore((state) => state.revision);
+    const backfillRevision = useOfflineRecordStore(
+        (state) => state.backfillRevision
+    );
     const [rows, setRows] = useState<FeedRow[]>([]);
     const [friendLogSeedNamesById, setFriendLogSeedNamesById] = useState<
         Record<string, string>
@@ -88,6 +101,7 @@ export function useFeedRows({
     const [loadStatus, setLoadStatus] = useState<FeedLoadStatus>('idle');
     const [hasMore, setHasMore] = useState(false);
     const [hasUnloadedLatest, setHasUnloadedLatest] = useState(false);
+    const [newSinceLeftCount, setNewSinceLeftCount] = useState(0);
     const [latestReloadToken, setLatestReloadToken] = useState(0);
     const [loadingOlder, setLoadingOlder] = useState(false);
     const cursorRef = useRef<FeedCursor | null>(null);
@@ -101,14 +115,25 @@ export function useFeedRows({
 
     const favoriteIdSet = useMemo(
         () =>
-            buildFavoriteIdSet(
-                remoteFavoritesById,
+            buildFavoriteIdSet({
+                remoteGroupKeys: favoriteFriendGroups
+                    .map((group) => normalizeId(group.key))
+                    .filter(Boolean),
+                remoteIdsByGroupKey: groupedFavoriteFriendIdsByGroupKey,
+                localGroupNames: localFriendFavoriteGroups.length
+                    ? localFriendFavoriteGroups
+                    : Object.keys(localFriendFavorites),
                 localFriendFavorites,
-                favoriteGroupFilterIds
-            ),
-        [favoriteGroupFilterIds, localFriendFavorites, remoteFavoritesById]
+                selectedGroupKeys: favoriteGroupFilterIds
+            }),
+        [
+            favoriteFriendGroups,
+            favoriteGroupFilterIds,
+            groupedFavoriteFriendIdsByGroupKey,
+            localFriendFavoriteGroups,
+            localFriendFavorites
+        ]
     );
-    const hiddenUserIds = feedHiddenUsers;
     const searchMode = Boolean(
         deferredSearchQuery.trim() || scopedUserIds.length || dateFrom || dateTo
     );
@@ -120,18 +145,22 @@ export function useFeedRows({
         () =>
             JSON.stringify({
                 activeFilters,
+                backfillRevision,
                 currentUserId,
                 favoriteUserIds,
                 feedPersistenceDisabled,
+                hiddenExcludedUserIds,
                 hiddenUserIds,
                 latestReloadToken,
                 maxFeedRows
             }),
         [
             activeFilters,
+            backfillRevision,
             currentUserId,
             favoriteUserIds,
             feedPersistenceDisabled,
+            hiddenExcludedUserIds,
             hiddenUserIds,
             latestReloadToken,
             maxFeedRows
@@ -146,16 +175,32 @@ export function useFeedRows({
         rowsRef.current = rows;
     }, [rows]);
 
-    const updateHasUnloadedLatest = useCallback((value: boolean) => {
-        hasUnloadedLatestRef.current = value;
-        setHasUnloadedLatest((current) =>
-            current === value ? current : value
-        );
+    const clearNewSinceLeftCount = useCallback(() => {
+        setNewSinceLeftCount((current) => (current === 0 ? current : 0));
     }, []);
 
-    const setViewingLatest = useCallback((value: boolean) => {
-        viewingLatestRef.current = value && !hasUnloadedLatestRef.current;
-    }, []);
+    const updateHasUnloadedLatest = useCallback(
+        (value: boolean) => {
+            hasUnloadedLatestRef.current = value;
+            setHasUnloadedLatest((current) =>
+                current === value ? current : value
+            );
+            if (!value) {
+                clearNewSinceLeftCount();
+            }
+        },
+        [clearNewSinceLeftCount]
+    );
+
+    const setViewingLatest = useCallback(
+        (value: boolean) => {
+            viewingLatestRef.current = value && !hasUnloadedLatestRef.current;
+            if (viewingLatestRef.current) {
+                clearNewSinceLeftCount();
+            }
+        },
+        [clearNewSinceLeftCount]
+    );
 
     const reloadLatest = useCallback(() => {
         viewingLatestRef.current = true;
@@ -201,9 +246,11 @@ export function useFeedRows({
 
     const createMergeOptionsBuilder = useCallback(
         ({
+            excludedUserIds,
             locationHiddenUserIds,
             favoriteUserIds
         }: {
+            excludedUserIds: string[];
             locationHiddenUserIds: string[];
             favoriteUserIds: string[];
         }): FeedLiveMergeOptionsBuilder =>
@@ -212,6 +259,7 @@ export function useFeedRows({
                 userId: currentUserId || '',
                 search: deferredSearchQuery,
                 filters: activeFilters,
+                excludedFavoriteUserIds: excludedUserIds,
                 locationHiddenUserIds,
                 favoriteUserIds,
                 scopedUserIds,
@@ -407,6 +455,7 @@ export function useFeedRows({
                     userId: currentUserId,
                     search: deferredSearchQuery,
                     filters: activeFilters,
+                    excludedFavoriteUserIds: hiddenExcludedUserIds,
                     locationHiddenUserIds: hiddenUserIds,
                     favoriteUserIds,
                     scopedUserIds,
@@ -436,6 +485,7 @@ export function useFeedRows({
             .queryFeedLatest({
                 userId: currentUserId,
                 filters: activeFilters,
+                excludedFavoriteUserIds: hiddenExcludedUserIds,
                 locationHiddenUserIds: hiddenUserIds,
                 favoriteUserIds,
                 scopedUserIds,
@@ -447,6 +497,7 @@ export function useFeedRows({
                     return;
                 }
                 const buildMergeOptions = createMergeOptionsBuilder({
+                    excludedUserIds: hiddenExcludedUserIds,
                     locationHiddenUserIds: hiddenUserIds,
                     favoriteUserIds
                 });
@@ -494,6 +545,7 @@ export function useFeedRows({
             });
     }, [
         activeFilters,
+        backfillRevision,
         commitRowsToWindow,
         createMergeOptionsBuilder,
         currentUserId,
@@ -503,6 +555,7 @@ export function useFeedRows({
         favoriteUserIds,
         favoritesOnly,
         feedPersistenceDisabled,
+        hiddenExcludedUserIds,
         hiddenUserIds,
         isFavoritesLoaded,
         latestReloadToken,
@@ -523,6 +576,7 @@ export function useFeedRows({
             const minLiveSequence = lastLiveFeedSequenceRef.current;
             mergeFeedRowsWithLiveEntries({
                 buildMergeOptions: createMergeOptionsBuilder({
+                    excludedUserIds: hiddenExcludedUserIds,
                     locationHiddenUserIds: hiddenUserIds,
                     favoriteUserIds
                 }),
@@ -541,6 +595,21 @@ export function useFeedRows({
                     if (result.maxSequence > lastLiveFeedSequenceRef.current) {
                         lastLiveFeedSequenceRef.current = result.maxSequence;
                     }
+                    if (!viewingLatestRef.current) {
+                        const previousKeys = new Set(
+                            rowsRef.current.map(getFeedRowId)
+                        );
+                        const added = result.rows.reduce(
+                            (count, row) =>
+                                previousKeys.has(getFeedRowId(row))
+                                    ? count
+                                    : count + 1,
+                            0
+                        );
+                        if (added > 0) {
+                            setNewSinceLeftCount((current) => current + added);
+                        }
+                    }
                     commitRowsToWindow(
                         result.rows,
                         viewingLatestRef.current ? 'latest' : 'oldest'
@@ -555,6 +624,7 @@ export function useFeedRows({
         createMergeOptionsBuilder,
         currentUserId,
         favoriteUserIds,
+        hiddenExcludedUserIds,
         hiddenUserIds,
         preferencesReady,
         searchMode
@@ -579,6 +649,7 @@ export function useFeedRows({
             .queryFeedPage({
                 userId: currentUserId,
                 filters: activeFilters,
+                excludedFavoriteUserIds: hiddenExcludedUserIds,
                 locationHiddenUserIds: hiddenUserIds,
                 favoriteUserIds,
                 favoritesOnly,
@@ -618,6 +689,7 @@ export function useFeedRows({
         favoritesOnly,
         feedPersistenceDisabled,
         hasMore,
+        hiddenExcludedUserIds,
         hiddenUserIds,
         loadingOlder,
         loadStatus,
@@ -632,6 +704,7 @@ export function useFeedRows({
         loadOlder,
         loadStatus,
         loadingOlder,
+        newSinceLeftCount,
         normalQueryKey,
         reloadLatest,
         searchMode,

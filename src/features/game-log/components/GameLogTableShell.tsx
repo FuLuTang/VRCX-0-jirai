@@ -12,10 +12,18 @@ import {
     DataTableSurface,
     getDataTableSizingStyle
 } from '@/components/data-table/DataTableView';
+import {
+    LogFilterContextMenu,
+    getLogFilterRowAttributes
+} from '@/components/data-table/LogFilterContextMenu';
 import { ResizableTableCell } from '@/components/data-table/ResizableTableParts';
 import { PageFooter } from '@/components/layout/PageScaffold';
 import { Table, TableBody } from '@/ui/shadcn/table';
 
+import {
+    getGameLogRowFilterTarget,
+    useGameLogFilterCommands
+} from '../gameLogFilterCommands';
 import { resolveGameLogPageSize } from '../gameLogState';
 import type { GameLogPaginationSetter, GameLogRow } from '../gameLogTypes';
 
@@ -24,7 +32,6 @@ type GameLogTableShellProps = {
     pageSizes: number[];
     rows: readonly GameLogRow[];
     setPagination: GameLogPaginationSetter;
-    setSessionLimit(value: number): void;
     table: AppTable<GameLogRow>;
 };
 
@@ -33,10 +40,10 @@ export function GameLogTableShell({
     pageSizes,
     rows,
     setPagination,
-    setSessionLimit,
     table
 }: GameLogTableShellProps) {
     const { t } = useTranslation();
+    const filterCommands = useGameLogFilterCommands();
     const pagination = table.state.pagination;
 
     return (
@@ -50,30 +57,38 @@ export function GameLogTableShell({
                         >
                             <DataTableColumnSizeColGroup table={table} />
                             <DataTableHeader table={table} />
-                            <TableBody>
-                                {table.getRowModel().rows.map((row) => (
-                                    <DataTableRow
-                                        key={
-                                            row.original?.rowId != null
-                                                ? `${String(row.original.type)}:${String(row.original.rowId)}`
-                                                : row.id
-                                        }
-                                    >
-                                        <DataTableColumnSortableContext
-                                            table={table}
+                            <LogFilterContextMenu commands={filterCommands}>
+                                <TableBody>
+                                    {table.getRowModel().rows.map((row) => (
+                                        <DataTableRow
+                                            key={
+                                                row.original?.rowId != null
+                                                    ? `${String(row.original.type)}:${String(row.original.rowId)}`
+                                                    : row.id
+                                            }
+                                            {...getLogFilterRowAttributes(
+                                                getGameLogRowFilterTarget(
+                                                    row.original,
+                                                    t
+                                                )
+                                            )}
                                         >
-                                            {row
-                                                .getVisibleCells()
-                                                .map((cell) => (
-                                                    <ResizableTableCell
-                                                        key={cell.id}
-                                                        cell={cell}
-                                                    />
-                                                ))}
-                                        </DataTableColumnSortableContext>
-                                    </DataTableRow>
-                                ))}
-                            </TableBody>
+                                            <DataTableColumnSortableContext
+                                                table={table}
+                                            >
+                                                {row
+                                                    .getVisibleCells()
+                                                    .map((cell) => (
+                                                        <ResizableTableCell
+                                                            key={cell.id}
+                                                            cell={cell}
+                                                        />
+                                                    ))}
+                                            </DataTableColumnSortableContext>
+                                        </DataTableRow>
+                                    ))}
+                                </TableBody>
+                            </LogFilterContextMenu>
                         </Table>
                     </DataTableColumnDndProvider>
                 </DataTableScrollArea>
@@ -107,7 +122,6 @@ export function GameLogTableShell({
                             pageIndex: 0,
                             pageSize: nextPageSize
                         });
-                        setSessionLimit(nextPageSize);
                     }}
                 />
             </PageFooter>

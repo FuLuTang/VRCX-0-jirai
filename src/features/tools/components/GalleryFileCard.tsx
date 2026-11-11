@@ -2,6 +2,7 @@ import { CheckIcon, EyeIcon, ImageIcon, Trash2Icon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import type { MediaFileRecord } from '@/repositories/vrchatMediaRepository';
+import { convertFileUrlToImageUrl } from '@/services/entityMediaService';
 import { extractFileId } from '@/shared/utils/fileUtils';
 
 import type { FileAssetTab, FileTabDefinition } from '../galleryConstants';
@@ -17,6 +18,7 @@ export function GalleryFileCard({
     file,
     bannerCustomUrl,
     userIcon,
+    locked,
     mutatingKey,
     currentUserId,
     selected,
@@ -31,6 +33,7 @@ export function GalleryFileCard({
     file: MediaFileRecord;
     bannerCustomUrl: string;
     userIcon: string;
+    locked: boolean;
     mutatingKey: string;
     currentUserId: string | null;
     selected: boolean;
@@ -42,7 +45,10 @@ export function GalleryFileCard({
 }) {
     const { t } = useTranslation();
 
-    const imageUrl = getLatestFileUrl(file);
+    const imageUrl = convertFileUrlToImageUrl(
+        getLatestFileUrl(file),
+        tab === 'icons' ? 256 : 512
+    );
     const displayName = getUsefulDisplayName(file);
     const activeFileId =
         tab === 'gallery'
@@ -58,7 +64,7 @@ export function GalleryFileCard({
         : false;
     const isMutating = isFileMutating || isProfileMutating;
     const primaryAction =
-        profileField && !isCurrent
+        profileField && !isCurrent && !locked
             ? {
                   label:
                       tab === 'icons'
@@ -85,6 +91,7 @@ export function GalleryFileCard({
             imageFit={tab === 'gallery' ? 'cover' : 'contain'}
             isCurrent={isCurrent}
             currentLabel={t('dialog.gallery_icons.current')}
+            locked={locked}
             menuLabel={t('aria.more')}
             placeholderIcon={ImageIcon}
             hideContent
@@ -98,6 +105,7 @@ export function GalleryFileCard({
                     ? ({ className }: { className: string }) => (
                           <GalleryEmojiImage
                               file={null}
+                              fadeIn={false}
                               imageUrl={imageUrl}
                               alt={file.displayName || file.name || file.id}
                               className={className}
@@ -109,7 +117,13 @@ export function GalleryFileCard({
             onMediaClick={
                 canUseProfileMedia ? primaryAction.onClick : previewAction
             }
-            mediaHoverLabel={canUseProfileMedia ? primaryAction.label : ''}
+            mediaHoverLabel={
+                locked
+                    ? t('dialog.inventory.requires_vrc_plus')
+                    : canUseProfileMedia
+                      ? primaryAction.label
+                      : ''
+            }
             menuActions={[
                 imageUrl
                     ? {

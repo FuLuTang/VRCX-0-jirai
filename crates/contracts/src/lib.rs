@@ -16,7 +16,9 @@ pub mod game_log;
 pub mod game_log_query;
 mod legacy_migration;
 pub mod llm;
+pub mod local_moderation;
 mod media;
+pub mod mutual_graph;
 pub mod notifications;
 mod persistence;
 mod profile_backup;
@@ -27,6 +29,8 @@ pub mod social_aggregates;
 pub mod telemetry;
 mod translation;
 pub mod vrchat_api;
+pub mod vrchat_device_login;
+pub mod vrchat_login;
 pub mod vrchat_requests;
 mod web;
 pub mod world_collections;
@@ -78,5 +82,6 @@ pub use vrcx_0_runtime_event::{
     RuntimeEventPayload,
 };
 pub use web::{
-    RealtimeAuthTokenFetch, RealtimeConnectionOptions, WebExecuteRequest, WebUploadMode,
+    RealtimeAuthTokenFetch, RealtimeConnectionOptions, WebExecuteRequest, WebMultipartPart,
+    WebUploadMode,
 };

@@ -16,6 +16,7 @@ import configRepository from '@/repositories/configRepository';
 import groupProfileRepository from '@/repositories/groupProfileRepository';
 import myAvatarRepository from '@/repositories/myAvatarRepository';
 import userProfileRepository from '@/repositories/userProfileRepository';
+import vrchatEconomyRepository from '@/repositories/vrchatEconomyRepository';
 import vrchatFavoriteRepository from '@/repositories/vrchatFavoriteRepository';
 import worldProfileRepository from '@/repositories/worldProfileRepository';
 import { onPreferenceChanged } from '@/shared/events/preferenceEvents';
@@ -49,6 +50,7 @@ const userDialogTabServiceRepositories = Object.freeze({
     groupProfileRepository,
     myAvatarRepository,
     userProfileRepository,
+    vrchatEconomyRepository,
     vrchatFavoriteRepository,
     worldProfileRepository
 });
@@ -122,19 +124,6 @@ function normalizeUserDialogAvatarSort(value: string): UserDialogAvatarSort {
     return isUserDialogAvatarSort(normalizedValue) ? normalizedValue : 'name';
 }
 
-function emptyDataPatchForTab(
-    tab: UserDialogDataTab
-): Partial<UserDialogRemoteData> {
-    const dataKey = userDialogDataKeyForTab(tab);
-    if (!dataKey) {
-        return {};
-    }
-    return {
-        [dataKey]: [],
-        ...(tab === 'favorite-worlds' ? { favoriteWorldGroups: [] } : {})
-    };
-}
-
 function visibleTabs<T extends { hidden?: boolean }>(tabs: T[]) {
     return tabs.filter((tab) => !tab.hidden);
 }
@@ -165,6 +154,9 @@ export function useUserDialogTabData({
     const [remoteTabCounts, setRemoteTabCounts] = useState<UserDialogTabCounts>(
         emptyUserDialogStatus
     );
+    const [loadedTabs, setLoadedTabs] = useState<
+        Partial<Record<UserDialogDataTab, boolean>>
+    >(emptyUserDialogStatus);
     const [search, setSearch] = useState(emptyUserDialogSearch);
     const [worldSort, setWorldSort] = useState<UserDialogWorldSort>('updated');
     const [worldOrder, setWorldOrder] =
@@ -183,6 +175,10 @@ export function useUserDialogTabData({
     const profileUserId = typeof profile.id === 'string' ? profile.id : '';
     const effectiveAvatarReleaseStatus =
         profileUserId === currentUserId ? avatarReleaseStatus : 'all';
+    const countAvatarReleaseStatus =
+        effectiveAvatarReleaseStatus === 'licensed'
+            ? 'all'
+            : effectiveAvatarReleaseStatus;
     const loadContextRef = useRef<UserDialogLoadContext>({
         endpoint: currentEndpoint,
         userId: profileUserId,
@@ -203,6 +199,7 @@ export function useUserDialogTabData({
         {}
     );
     const handledReloadTokenRef = useRef(reloadToken);
+    const resetTargetKeyRef = useRef('');
     const handledCountReloadTokenRef = useRef(reloadToken);
     countContextRef.current = {
         endpoint: currentEndpoint,
@@ -220,6 +217,7 @@ export function useUserDialogTabData({
                 profile,
                 remoteData,
                 remoteStatus,
+                loadedTabs,
                 friendsById,
                 search,
                 mutualSort,
@@ -239,6 +237,7 @@ export function useUserDialogTabData({
             groupSort,
             inGameGroupOrder,
             isCurrentUser,
+            loadedTabs,
             mutualSort,
             profile,
             remoteData,
@@ -259,9 +258,21 @@ export function useUserDialogTabData({
             avatarSort,
             avatarReleaseStatus: effectiveAvatarReleaseStatus
         };
-        setRemoteData(emptyUserDialogRemoteData);
+        const targetKey = [
+            currentEndpoint,
+            profileUserId,
+            isCurrentUser,
+            currentUserHasSharedConnectionsOptOut
+        ].join('|');
+        const targetChanged = resetTargetKeyRef.current !== targetKey;
+        resetTargetKeyRef.current = targetKey;
         setRemoteStatus(emptyUserDialogStatus);
         setRemoteErrors(emptyUserDialogStatus);
+        if (!targetChanged) {
+            return;
+        }
+        setRemoteData(emptyUserDialogRemoteData);
+        setLoadedTabs(emptyUserDialogStatus);
         setRemoteTabCounts(emptyUserDialogStatus);
         setSearch(emptyUserDialogSearch);
         const nextTab = resolveTabValue(
@@ -375,7 +386,7 @@ export function useUserDialogTabData({
                 userId: profileUserId,
                 endpoint: currentEndpoint,
                 currentUserId: currentUserId || '',
-                effectiveAvatarReleaseStatus,
+                effectiveAvatarReleaseStatus: countAvatarReleaseStatus,
                 includeMutualFriends: countContext.includeMutualFriends,
                 force
             });
@@ -392,7 +403,10 @@ export function useUserDialogTabData({
 
     async function loadTab(
         tab: string,
-        { force = false }: { force?: boolean } = {}
+        {
+            force = false,
+            refetch = false
+        }: { force?: boolean; refetch?: boolean } = {}
     ) {
         if (!isUserDialogDataTab(tab)) {
             return;
@@ -432,6 +446,9 @@ export function useUserDialogTabData({
                     previousAvatarSwapTime,
                     worldSort,
                     worldOrder,
+                    licensedAvatars:
+                        effectiveAvatarReleaseStatus === 'licensed',
+                    refetch,
                     repositories: userDialogTabServiceRepositories
                 });
 
@@ -458,6 +475,7 @@ export function useUserDialogTabData({
                     : {})
             }));
             setRemoteStatus((current) => ({ ...current, [tab]: 'ready' }));
+            setLoadedTabs((current) => ({ ...current, [tab]: true }));
             setRemoteErrors((current) => ({ ...current, [tab]: '' }));
         } catch (error) {
             if (
@@ -533,12 +551,7 @@ export function useUserDialogTabData({
     }
 
     async function refreshTab(tab: UserDialogDataTab) {
-        setRemoteStatus((current) => ({ ...current, [tab]: '' }));
-        setRemoteData((current) => ({
-            ...current,
-            ...emptyDataPatchForTab(tab)
-        }));
-        await loadTab(tab, { force: true });
+        await loadTab(tab, { force: true, refetch: true });
     }
 
     const loadActiveTab = useEffectEvent(() => {
@@ -547,7 +560,10 @@ export function useUserDialogTabData({
         if (shouldForceReload) {
             handledReloadTokenRef.current = reloadToken;
         }
-        loadTab(activeTab, { force: shouldForceReload });
+        loadTab(activeTab, {
+            force: shouldForceReload,
+            refetch: shouldForceReload
+        });
     });
 
     useEffect(() => {
@@ -614,6 +630,7 @@ export function useUserDialogTabData({
             return;
         }
         setRemoteData((current) => ({ ...current, avatars: [] }));
+        setLoadedTabs((current) => ({ ...current, avatars: false }));
         setRemoteStatus((current) => ({
             ...current,
             avatars: ''

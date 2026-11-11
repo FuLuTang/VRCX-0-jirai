@@ -1,15 +1,18 @@
 pub(crate) mod activity_events;
+mod avatar_change;
 pub mod connection;
 pub(crate) mod current_user;
 pub(crate) mod event_kind;
 mod event_time;
 pub(crate) mod friends;
+pub(crate) mod group_changes;
 pub(crate) mod instance_queue;
 pub(crate) mod invite_automation;
 pub(crate) mod notifications;
 mod output;
 mod print_content_refresh;
 mod projection;
+pub(crate) mod replay;
 mod runtime_types;
 pub(crate) mod service;
 pub(crate) mod user_facts;
@@ -35,7 +38,7 @@ pub use runtime_types::{
     RealtimeFriendRecordSnapshot, RealtimeFriendRosterSnapshot, RealtimeFriendSnapshot,
     RealtimeSessionContext, RealtimeTransportLifecycleEvent, RealtimeTransportStartResult,
     RealtimeTransportTermination, RealtimeWsMessagePayload, RealtimeWsStatus,
-    RealtimeWsStatusPayload,
+    RealtimeWsStatusPayload, PENDING_OFFLINE_DELAY_MS,
 };
 pub use service::{
     FriendProfileBulkLoadStatus, FriendProfileLoadStatusPayload, RealtimeCurrentUserSnapshotSink,

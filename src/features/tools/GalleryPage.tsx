@@ -1,5 +1,7 @@
 import type { ChangeEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 
+import { FileDropOverlay } from '@/components/file-drop/FileDropOverlay';
 import { PageBody, PageScaffold } from '@/components/layout/PageScaffold';
 
 import { GalleryDialogs } from './components/GalleryDialogs';
@@ -10,10 +12,11 @@ import type { GalleryProfileField, GalleryUploadOptions } from './galleryTypes';
 import { useGalleryPageController } from './useGalleryPageController';
 
 export function GalleryPage() {
+    const { t } = useTranslation();
     const pageState = useGalleryPageController();
 
     return (
-        <PageScaffold className="gallery-page">
+        <PageScaffold ref={pageState.pasteScopeRef} className="gallery-page">
             <GalleryHeader
                 uploadInputRef={pageState.uploadInputRef}
                 uploadingTab={pageState.uploadingTab}
@@ -41,6 +44,7 @@ export function GalleryPage() {
                     galleryModel={{
                         activeTab: pageState.activeTab,
                         assets: pageState.assets,
+                        clipboardPasting: pageState.clipboardPasting,
                         currentUserId: pageState.currentUserId,
                         gridDensityConfig: pageState.gridDensityConfig,
                         isVrcPlusSupporter: pageState.isVrcPlusSupporter,
@@ -56,6 +60,9 @@ export function GalleryPage() {
                     galleryCommands={{
                         onActiveTabChange: pageState.setActiveTab,
                         onBeginUpload: pageState.beginUpload,
+                        onPasteUpload: (tab: GalleryTab) => {
+                            void pageState.pasteClipboardUpload(tab);
+                        },
                         onClearProfileField: (
                             fieldName: GalleryProfileField,
                             fileId: string
@@ -89,9 +96,13 @@ export function GalleryPage() {
                     blob: Blob,
                     uploadOptions: GalleryUploadOptions = {}
                 ) => pageState.confirmCroppedUpload(blob, uploadOptions)}
-                onResetUploadAuthTarget={() => {
-                    pageState.uploadAuthTargetRef.current = null;
-                }}
+            />
+
+            <FileDropOverlay
+                active={pageState.fileDropActive}
+                label={t('view.tools.file_drop.upload_to', {
+                    target: t(`dialog.gallery_icons.${pageState.activeTab}`)
+                })}
             />
         </PageScaffold>
     );

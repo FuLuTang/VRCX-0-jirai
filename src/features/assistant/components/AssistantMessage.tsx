@@ -1,13 +1,15 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 
 import type { UIMessage } from '@/domain/assistant/types';
 import { Bubble, BubbleContent } from '@/ui/shadcn/bubble';
-import { Marker, MarkerContent, MarkerIcon } from '@/ui/shadcn/marker';
 import { Message, MessageContent } from '@/ui/shadcn/message';
-import { Spinner } from '@/ui/shadcn/spinner';
 
+import { AssistantCharts } from './AssistantCharts';
+import { AssistantChoiceCard } from './AssistantChoiceCard';
 import { AssistantMarkdown } from './AssistantMarkdown';
-import { ToolCallStatus } from './ToolCallStatus';
+import { AssistantScreenshots } from './AssistantScreenshots';
+import { AssistantTrace } from './AssistantTrace';
+import { MentionText } from './MentionText';
 
 interface AssistantMessageProps {
     message: UIMessage;
@@ -20,28 +22,54 @@ function AssistantMessageImpl({
 }: AssistantMessageProps) {
     const isUser = message.role === 'user';
     const hasVisibleText = message.text.trim().length > 0;
-    const renderPlain = isUser || message.streaming;
     const alignment = isUser ? 'end' : 'start';
+    const entities = useMemo(
+        () => message.toolCalls.flatMap((call) => call.entities),
+        [message.toolCalls]
+    );
+    const traceRunning =
+        message.streaming &&
+        (!hasVisibleText ||
+            message.toolCalls.some((call) => call.status === 'pending'));
 
     return (
         <Message align={alignment}>
             <MessageContent>
-                {message.toolCalls.map((call) => (
-                    <ToolCallStatus key={call.id} toolCall={call} />
+                {(message.toolCalls.length > 0 || traceRunning) && (
+                    <AssistantTrace
+                        toolCalls={message.toolCalls}
+                        running={traceRunning}
+                        thinkingLabel={thinkingLabel}
+                    />
+                )}
+
+                {message.choices?.map((choice) => (
+                    <AssistantChoiceCard
+                        key={choice.id}
+                        choice={choice}
+                        active={message.streaming}
+                    />
                 ))}
 
                 {hasVisibleText && (
                     <Bubble
                         align={alignment}
-                        variant={isUser ? 'secondary' : 'ghost'}
+                        variant={isUser ? 'muted' : 'ghost'}
+                        className={
+                            isUser
+                                ? '*:data-[slot=bubble-content]:bg-(--state-pressed-surface)'
+                                : undefined
+                        }
                     >
                         <BubbleContent>
-                            {renderPlain ? (
-                                <span className="whitespace-pre-wrap">
-                                    {message.text}
-                                </span>
+                            {isUser ? (
+                                <MentionText text={message.text} />
                             ) : (
-                                <AssistantMarkdown text={message.text} />
+                                <AssistantMarkdown
+                                    text={message.text}
+                                    entities={entities}
+                                    streaming={message.streaming}
+                                />
                             )}
                             {message.streaming && (
                                 <span
@@ -55,15 +83,11 @@ function AssistantMessageImpl({
                     </Bubble>
                 )}
 
-                {message.streaming && !hasVisibleText && (
-                    <Marker role="status">
-                        <MarkerIcon>
-                            <Spinner />
-                        </MarkerIcon>
-                        <MarkerContent className="shimmer">
-                            {thinkingLabel}
-                        </MarkerContent>
-                    </Marker>
+                {!isUser && !message.streaming && (
+                    <>
+                        <AssistantScreenshots toolCalls={message.toolCalls} />
+                        <AssistantCharts toolCalls={message.toolCalls} />
+                    </>
                 )}
 
                 {message.error && (

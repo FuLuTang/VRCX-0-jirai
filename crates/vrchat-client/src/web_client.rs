@@ -39,6 +39,7 @@ use WebClientError as Error;
 pub use crate::cookies::{
     deserialize_cookie_store, deserialize_legacy_cookie_entries, serialize_cookie_store,
 };
+pub use vrcx_0_contracts::{WebExecuteRequest, WebMultipartPart, WebUploadMode};
 
 pub(crate) fn build_vrcx_user_agent(app_version: &str) -> String {
     let app_version = app_version.trim();
@@ -59,52 +60,6 @@ pub struct AuthCookieState {
 pub struct AuthCookieSummary {
     pub total_cookie_count: usize,
     pub auth_cookies: Vec<AuthCookieState>,
-}
-
-#[derive(Clone, Debug, Default)]
-pub enum WebUploadMode {
-    #[default]
-    None,
-    FilePut {
-        file_data: Vec<u8>,
-        file_mime: String,
-        file_md5: Option<String>,
-    },
-    LegacyImage {
-        image_data: String,
-        post_data: Option<String>,
-    },
-    Image {
-        image_data: String,
-        post_data: Option<String>,
-    },
-    PrintImage {
-        image_data: String,
-        post_data: Option<String>,
-    },
-}
-
-#[derive(Clone, Debug)]
-pub struct WebExecuteRequest {
-    pub url: String,
-    pub method: String,
-    pub headers: Vec<(String, String)>,
-    pub body: Option<String>,
-    pub upload: WebUploadMode,
-    pub response_body_limit: Option<usize>,
-}
-
-impl WebExecuteRequest {
-    pub fn new(url: String, method: String) -> Self {
-        Self {
-            url,
-            method,
-            headers: Vec::new(),
-            body: None,
-            upload: WebUploadMode::None,
-            response_body_limit: None,
-        }
-    }
 }
 
 pub fn validate_vrchat_cookies_b64(b64: &str) -> Result<()> {
@@ -569,6 +524,7 @@ impl WebClient {
             } => {
                 self.build_print_image_upload_request(&request, &image_data, post_data.as_deref())?
             }
+            WebUploadMode::Multipart { parts } => self.build_multipart_request(&request, parts)?,
         };
 
         execute_request(&self.client, request, response_body_limit).await
@@ -688,6 +644,28 @@ impl WebClient {
             .multipart(form)
             .build()
             .map_err(|e| Error::Custom(format!("build legacy upload: {e}")))
+    }
+
+    fn build_multipart_request(
+        &self,
+        request: &WebExecuteRequest,
+        parts: Vec<WebMultipartPart>,
+    ) -> Result<reqwest::Request> {
+        let mut form = Form::new();
+        for part in parts {
+            let mut body = Part::bytes(part.data)
+                .mime_str(&part.mime)
+                .map_err(|e| Error::Custom(format!("multipart mime: {e}")))?;
+            if let Some(file_name) = part.file_name {
+                body = body.file_name(file_name);
+            }
+            form = form.part(part.name, body);
+        }
+        self.client
+            .post(&request.url)
+            .multipart(form)
+            .build()
+            .map_err(|e| Error::Custom(format!("build multipart upload: {e}")))
     }
 
     fn build_image_upload_request(

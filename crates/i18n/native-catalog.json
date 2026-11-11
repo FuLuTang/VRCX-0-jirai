@@ -113,6 +113,22 @@
                     "source": "notifications.group_transfer_request_title"
                 },
                 {
+                    "key": "notifications.group_left",
+                    "source": "notifications.group_left"
+                },
+                {
+                    "key": "notifications.group_member_updated",
+                    "source": "notifications.group_member_updated"
+                },
+                {
+                    "key": "notifications.group_member_roles",
+                    "source": "notifications.group_member_roles"
+                },
+                {
+                    "key": "notifications.group_role_updated",
+                    "source": "notifications.group_role_updated"
+                },
+                {
                     "key": "notifications.group_queue_ready_title",
                     "source": "notifications.group_queue_ready_title"
                 },
@@ -137,6 +153,10 @@
                     "source": "notifications.instance_closed_title"
                 },
                 {
+                    "key": "notifications.instance_closed_location",
+                    "source": "notifications.instance_closed_location"
+                },
+                {
                     "key": "notifications.event_title",
                     "source": "notifications.event_title"
                 },
@@ -147,6 +167,22 @@
                 {
                     "key": "notifications.video_play_title",
                     "source": "notifications.video_play_title"
+                },
+                {
+                    "key": "notifications.tracker_title",
+                    "source": "notifications.tracker_title"
+                },
+                {
+                    "key": "notifications.tracker_disconnected",
+                    "source": "notifications.tracker_disconnected"
+                },
+                {
+                    "key": "notifications.tracker_disconnected_battery",
+                    "source": "notifications.tracker_disconnected_battery"
+                },
+                {
+                    "key": "notifications.trackers_disconnected",
+                    "source": "notifications.trackers_disconnected"
                 },
                 {
                     "key": "notifications.blocked_player_joined",
@@ -171,6 +207,10 @@
                 {
                     "key": "overlay.footer.instance_duration",
                     "source": "overlay.footer.instance_duration"
+                },
+                {
+                    "key": "overlay.footer.online_duration",
+                    "source": "overlay.footer.online_duration"
                 },
                 {
                     "key": "overlay.generic_instance_location",
@@ -336,6 +376,46 @@
                 }
             ]
         },
+        "chatbox": {
+            "locales": "all",
+            "coverage": "fallback",
+            "messages": [
+                {
+                    "key": "chatbox.afk",
+                    "source": "view.tools.chatbox.in_game.afk"
+                }
+            ]
+        },
+        "desktopWidget": {
+            "locales": "all",
+            "coverage": "fallback",
+            "messages": [
+                {
+                    "key": "desktopWidget.title",
+                    "source": "desktop_widget.title"
+                },
+                {
+                    "key": "desktopWidget.menu.pin",
+                    "source": "desktop_widget.menu.pin"
+                },
+                {
+                    "key": "desktopWidget.menu.clickThrough",
+                    "source": "desktop_widget.menu.click_through"
+                },
+                {
+                    "key": "desktopWidget.menu.close",
+                    "source": "desktop_widget.menu.close"
+                },
+                {
+                    "key": "desktopWidget.tray.turnOn",
+                    "source": "desktop_widget.tray.turn_on"
+                },
+                {
+                    "key": "desktopWidget.tray.show",
+                    "source": "desktop_widget.tray.show"
+                }
+            ]
+        },
         "shell": {
             "locales": "all",
             "coverage": "required",
@@ -373,6 +453,10 @@
                     "source": "nativeShell.tray.doNotDisturbTurnOff"
                 },
                 {
+                    "key": "nativeShell.tray.gameIsolation",
+                    "source": "nativeShell.tray.gameIsolation"
+                },
+                {
                     "key": "nativeShell.tray.rebuildUi",
                     "source": "nativeShell.tray.rebuildUi"
                 },
@@ -387,6 +471,10 @@
                 {
                     "key": "nativeShell.tray.exit",
                     "source": "nativeShell.tray.exit"
+                },
+                {
+                    "key": "nativeShell.tray.realtimeReconnecting",
+                    "source": "nativeShell.tray.realtimeReconnecting"
                 },
                 {
                     "key": "nativeShell.notification.backgroundModeStarted.title",
@@ -547,10 +635,6 @@
                 {
                     "key": "nativeShell.menu.help.reportIssue",
                     "source": "nativeShell.menu.help.reportIssue"
-                },
-                {
-                    "key": "nativeShell.menu.help.qqGroup",
-                    "source": "nativeShell.menu.help.qqGroup"
                 },
                 {
                     "key": "nativeShell.menu.help.openDevtools",

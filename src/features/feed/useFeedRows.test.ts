@@ -3,10 +3,7 @@
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type {
-    FavoriteGroupMap,
-    FavoriteRecord
-} from '@/domain/favorites/types';
+import type { FavoriteGroup, FavoriteGroupMap } from '@/domain/favorites/types';
 
 const mocks = vi.hoisted(() => ({
     queryFeedLatest: vi.fn(),
@@ -17,12 +14,15 @@ const mocks = vi.hoisted(() => ({
     runtime: { auth: { currentUserId: 'usr_self' } },
     session: { isFavoritesLoaded: true },
     favorites: {
-        remoteFavoritesById: {} as Record<string, FavoriteRecord>,
+        favoriteFriendGroups: [] as FavoriteGroup[],
+        groupedFavoriteFriendIdsByGroupKey: {} as Record<string, string[]>,
+        localFriendFavoriteGroups: [] as string[],
         localFriendFavorites: {} as FavoriteGroupMap
     },
     preferences: {
         localFavoriteFriendsGroups: [] as string[],
         feedHiddenUsers: [] as string[],
+        feedHiddenUsersHideAll: false,
         feedPersistenceDisabled: false,
         tableLimits: { maxTableSize: 100 }
     },
@@ -112,6 +112,8 @@ describe('useFeedRows', () => {
         vi.useFakeTimers();
         vi.clearAllMocks();
         mocks.preferences.feedPersistenceDisabled = false;
+        mocks.preferences.feedHiddenUsers = [];
+        mocks.preferences.feedHiddenUsersHideAll = false;
         mocks.preferences.tableLimits.maxTableSize = 100;
         mocks.friendLog.revision = 0;
         useFeedLiveStore.getState().resetFeedLive();
@@ -144,6 +146,61 @@ describe('useFeedRows', () => {
         ]);
         expect(mocks.queryFeedLatest).toHaveBeenCalledTimes(1);
         expect(mocks.queryFeed).not.toHaveBeenCalled();
+    });
+
+    it('counts rows that arrive while the reader is away from the latest edge', async () => {
+        mocks.queryFeedLatest.mockResolvedValue({
+            rows: [{ userId: 'usr_base' }],
+            maxSequence: 0
+        });
+        const { result } = renderFeedRows();
+        await flush();
+
+        act(() => result.current.setViewingLatest(false));
+        pushLiveEntry('first');
+        pushLiveEntry('second');
+        await flush();
+        act(() => {
+            vi.advanceTimersByTime(250);
+        });
+        await flush();
+
+        expect(result.current.newSinceLeftCount).toBe(2);
+
+        act(() => result.current.setViewingLatest(true));
+
+        expect(result.current.newSinceLeftCount).toBe(0);
+    });
+
+    it('hides every row of hidden friends when the hide-all mode is on', async () => {
+        mocks.preferences.feedHiddenUsers = ['usr_hidden'];
+        mocks.preferences.feedHiddenUsersHideAll = true;
+        mocks.queryFeedLatest.mockResolvedValue({
+            rows: [{ userId: 'usr_base' }],
+            maxSequence: 0
+        });
+        const { result } = renderFeedRows();
+        await flush();
+
+        expect(mocks.queryFeedLatest).toHaveBeenCalledWith(
+            expect.objectContaining({
+                excludedFavoriteUserIds: ['usr_hidden'],
+                locationHiddenUserIds: []
+            })
+        );
+
+        pushLiveEntry('hidden');
+        pushLiveEntry('live');
+        await flush();
+        act(() => {
+            vi.advanceTimersByTime(250);
+        });
+        await flush();
+
+        expect(result.current.rows.map((row) => row.userId)).toEqual([
+            'usr_live',
+            'usr_base'
+        ]);
     });
 
     it('loads older cursor pages without trimming them when realtime rows arrive', async () => {

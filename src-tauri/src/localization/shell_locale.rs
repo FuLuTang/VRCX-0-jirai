@@ -1,4 +1,4 @@
-use vrcx_0_i18n::{text as native_text, ShellKey};
+use vrcx_0_i18n::{text as native_text, DesktopWidgetKey, ShellKey};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TrayLabels {
@@ -10,9 +10,16 @@ pub(crate) struct TrayLabels {
     pub(crate) do_not_disturb_three_hours: String,
     pub(crate) do_not_disturb_until_stopped: String,
     pub(crate) do_not_disturb_turn_off: String,
+    pub(crate) game_isolation: String,
     pub(crate) rebuild_ui: String,
     pub(crate) sidebar_mode: String,
     pub(crate) disable_theme: String,
+    pub(crate) desktop_widget: String,
+    pub(crate) desktop_widget_turn_on: String,
+    pub(crate) desktop_widget_show: String,
+    pub(crate) desktop_widget_pin: String,
+    pub(crate) desktop_widget_click_through: String,
+    pub(crate) desktop_widget_close: String,
     pub(crate) exit: String,
 }
 
@@ -93,7 +100,6 @@ pub(crate) mod macos_menu {
         pub(crate) report_issue: String,
         pub(crate) github: String,
         pub(crate) discord: String,
-        pub(crate) qq_group: String,
         #[cfg(feature = "devtools")]
         pub(crate) open_devtools: String,
         pub(crate) support_vrcx: String,
@@ -168,7 +174,6 @@ pub(crate) mod macos_menu {
             report_issue: text(language, ShellKey::NativeShellMenuHelpReportIssue),
             github: "GitHub".to_string(),
             discord: "Discord".to_string(),
-            qq_group: text(language, ShellKey::NativeShellMenuHelpQqGroup),
             #[cfg(feature = "devtools")]
             open_devtools: text(language, ShellKey::NativeShellMenuHelpOpenDevtools),
             support_vrcx: text(language, ShellKey::NativeShellMenuHelpSupportVrcx),
@@ -189,11 +194,25 @@ pub(crate) fn tray_labels_for_language(language: &str) -> TrayLabels {
             ShellKey::NativeShellTrayDoNotDisturbUntilStopped,
         ),
         do_not_disturb_turn_off: text(language, ShellKey::NativeShellTrayDoNotDisturbTurnOff),
+        game_isolation: text(language, ShellKey::NativeShellTrayGameIsolation),
         rebuild_ui: text(language, ShellKey::NativeShellTrayRebuildUi),
         sidebar_mode: text(language, ShellKey::NativeShellTraySidebarMode),
         disable_theme: text(language, ShellKey::NativeShellTrayDisableTheme),
+        desktop_widget: native_text(language, DesktopWidgetKey::DesktopWidgetTitle),
+        desktop_widget_turn_on: native_text(language, DesktopWidgetKey::DesktopWidgetTrayTurnOn),
+        desktop_widget_show: native_text(language, DesktopWidgetKey::DesktopWidgetTrayShow),
+        desktop_widget_pin: native_text(language, DesktopWidgetKey::DesktopWidgetMenuPin),
+        desktop_widget_click_through: native_text(
+            language,
+            DesktopWidgetKey::DesktopWidgetMenuClickThrough,
+        ),
+        desktop_widget_close: native_text(language, DesktopWidgetKey::DesktopWidgetMenuClose),
         exit: text(language, ShellKey::NativeShellTrayExit),
     }
+}
+
+pub(crate) fn tray_realtime_reconnecting_for_language(language: &str) -> String {
+    text(language, ShellKey::NativeShellTrayRealtimeReconnecting)
 }
 
 pub(crate) fn background_mode_notification_labels_for_language(
@@ -222,4 +241,21 @@ pub(crate) fn auth_failure_notification_labels_for_language(
 
 fn text(language: &str, key: ShellKey) -> String {
     native_text(language, key)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::tray_labels_for_language;
+
+    #[test]
+    fn the_tray_offers_the_activity_window_in_the_app_language() {
+        let labels = tray_labels_for_language("zh-CN");
+
+        assert_eq!(labels.desktop_widget, "桌面叠加界面");
+        assert_eq!(labels.desktop_widget_turn_on, "开启");
+        assert_eq!(labels.desktop_widget_show, "显示到最前");
+        assert_eq!(labels.desktop_widget_pin, "窗口置顶");
+        assert_eq!(labels.desktop_widget_click_through, "鼠标穿透");
+        assert_eq!(labels.desktop_widget_close, "关闭");
+    }
 }
