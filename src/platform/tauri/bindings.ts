@@ -7703,78 +7703,21 @@ export type ToolResultRecord = {
     screenshots?: AssistantScreenshots | null;
 };
 
-export type TrackedNonFriendAddInput = ({
+export type TrackedNonFriendAddInput = {
     userId: string;
-} & {
-    user_id: string;
-} extends infer T extends object
-    ? {
-          [K in keyof T]: {
-              [P in keyof T as P extends K ? P : never]: T[P];
-          } & { [P in keyof T as P extends K ? never : P]?: never };
-      }[keyof T] &
-          object
-    : never) &
-    ({
-        displayName?: string;
-    } & {
-        display_name?: string;
-    });
+    displayName?: string;
+};
 
-export type TrackedNonFriendOutput = ({
+export type TrackedNonFriendOutput = {
     userId: string;
-} & {
-    user_id: string;
-} extends infer T extends object
-    ? {
-          [K in keyof T]: {
-              [P in keyof T as P extends K ? P : never]: T[P];
-          } & { [P in keyof T as P extends K ? never : P]?: never };
-      }[keyof T] &
-          object
-    : never) &
-    ({
-        displayName: string;
-    } & {
-        display_name: string;
-    } extends infer T extends object
-        ? {
-              [K in keyof T]: {
-                  [P in keyof T as P extends K ? P : never]: T[P];
-              } & { [P in keyof T as P extends K ? never : P]?: never };
-          }[keyof T] &
-              object
-        : never) &
-    ({
-        addedAt: string;
-    } & {
-        added_at: string;
-    } extends infer T extends object
-        ? {
-              [K in keyof T]: {
-                  [P in keyof T as P extends K ? P : never]: T[P];
-              } & { [P in keyof T as P extends K ? never : P]?: never };
-          }[keyof T] &
-              object
-        : never);
+    displayName: string;
+    addedAt: string;
+};
 
-export type TrackedNonFriendUpdateNameInput = ({
+export type TrackedNonFriendUpdateNameInput = {
     userId: string;
-} & {
-    user_id: string;
-} extends infer T extends object
-    ? {
-          [K in keyof T]: {
-              [P in keyof T as P extends K ? P : never]: T[P];
-          } & { [P in keyof T as P extends K ? never : P]?: never };
-      }[keyof T] &
-          object
-    : never) &
-    ({
-        displayName?: string;
-    } & {
-        display_name?: string;
-    });
+    displayName?: string;
+};
 
 export type TranslationOverrides = {
     enabled: boolean | null;
