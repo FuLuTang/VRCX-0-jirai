@@ -797,6 +797,16 @@ export const commands = {
             'app__avatar_feed_history_cleanup',
             { cutoffDate }
         ),
+    appStartupOnlineBackfillInsert: (input: StartupOnlineBackfillInput) =>
+        __TAURI_INVOKE<StartupOnlineBackfillOutput>(
+            'app__startup_online_backfill_insert',
+            { input }
+        ),
+    appProfileFeedReconcile: (input: ProfileFeedReconcileInput) =>
+        __TAURI_INVOKE<ProfileFeedReconcileOutput>(
+            'app__profile_feed_reconcile',
+            { input }
+        ),
     appFeedLatestQuery: (query: FeedLatestQueryInput) =>
         __TAURI_INVOKE<FeedReadModelOutput>('app__feed_latest_query', {
             query
@@ -891,6 +901,28 @@ export const commands = {
             'app__mutual_graph_snapshot_get',
             { userId }
         ),
+    appManualRelationsList: () =>
+        __TAURI_INVOKE<ManualRelationOutput[]>('app__manual_relations_list'),
+    appManualRelationsForUser: (userId: string) =>
+        __TAURI_INVOKE<ManualRelationOutput[]>(
+            'app__manual_relations_for_user',
+            { userId }
+        ),
+    appManualRelationAdd: (
+        userIdA: string,
+        userIdB: string,
+        relationType: string
+    ) =>
+        __TAURI_INVOKE<null>('app__manual_relation_add', {
+            userIdA,
+            userIdB,
+            relationType
+        }),
+    appManualRelationRemove: (userIdA: string, userIdB: string) =>
+        __TAURI_INVOKE<null>('app__manual_relation_remove', {
+            userIdA,
+            userIdB
+        }),
     appMutualGraphFetchCancel: (input: MutualGraphFetchCancelInput) =>
         __TAURI_INVOKE<MutualGraphFetchStatus>(
             'app__mutual_graph_fetch_cancel',
@@ -1001,6 +1033,22 @@ export const commands = {
     appFriendProfileBioList: (ownerUserId: OwnerId) =>
         __TAURI_INVOKE<ProfileBioOutput[]>('app__friend_profile_bio_list', {
             ownerUserId
+        }),
+    appTrackedNonfriendsList: () =>
+        __TAURI_INVOKE<TrackedNonFriendOutput[]>(
+            'app__tracked_nonfriends_list'
+        ),
+    appTrackedNonfriendsAdd: (input: TrackedNonFriendAddInput) =>
+        __TAURI_INVOKE<boolean>('app__tracked_nonfriends_add', { input }),
+    appTrackedNonfriendsRemove: (userId: string) =>
+        __TAURI_INVOKE<boolean>('app__tracked_nonfriends_remove', { userId }),
+    appTrackedNonfriendsIsTracked: (userId: string) =>
+        __TAURI_INVOKE<boolean>('app__tracked_nonfriends_is_tracked', {
+            userId
+        }),
+    appTrackedNonfriendsUpdateName: (input: TrackedNonFriendUpdateNameInput) =>
+        __TAURI_INVOKE<boolean>('app__tracked_nonfriends_update_name', {
+            input
         }),
     appNotificationListQuery: (query: NotificationListQueryInput) =>
         __TAURI_INVOKE<NotificationListItemOutput[]>(
@@ -6084,6 +6132,13 @@ export type MaintenanceTableSizesOutput = {
     resourceLoad: number;
 };
 
+export type ManualRelationOutput = {
+    userIdA: string;
+    userIdB: string;
+    relationType: string;
+    addedAt: string;
+};
+
 export type McpInstallClient =
     | 'cherryStudio'
     | 'cursor'
@@ -6749,6 +6804,19 @@ export type ProfileDecorationEquipSlot =
     | 'iconFrame'
     | 'profileEffect'
     | 'nameplateEffect';
+
+export type ProfileFeedReconcileInput = {
+    userId: string;
+    displayName: string;
+    bio?: string;
+    status?: string;
+    statusDescription?: string;
+};
+
+export type ProfileFeedReconcileOutput = {
+    bioUpdated: boolean;
+    statusUpdated: boolean;
+};
 
 export type ProfileRestoreAppVersionCheck = 'compatible';
 
@@ -7589,6 +7657,19 @@ export type StartupBootstrapSnapshot = {
     systemCulture: string;
 };
 
+/**
+ *  A renderer request for an observed online friend. The host independently
+ *  verifies the current realtime friend record and creates the timestamp.
+ */
+export type StartupOnlineBackfillInput = {
+    targetUserId: string;
+    displayName: string;
+};
+
+export type StartupOnlineBackfillOutput = {
+    inserted: boolean;
+};
+
 export type TelemetryClientEvent =
     | { type: 'pageVisit'; route: string; landing: boolean }
     | { type: 'toolOpen'; tool: string }
@@ -7621,6 +7702,79 @@ export type ToolResultRecord = {
     charts?: AssistantChart[];
     screenshots?: AssistantScreenshots | null;
 };
+
+export type TrackedNonFriendAddInput = ({
+    userId: string;
+} & {
+    user_id: string;
+} extends infer T extends object
+    ? {
+          [K in keyof T]: {
+              [P in keyof T as P extends K ? P : never]: T[P];
+          } & { [P in keyof T as P extends K ? never : P]?: never };
+      }[keyof T] &
+          object
+    : never) &
+    ({
+        displayName?: string;
+    } & {
+        display_name?: string;
+    });
+
+export type TrackedNonFriendOutput = ({
+    userId: string;
+} & {
+    user_id: string;
+} extends infer T extends object
+    ? {
+          [K in keyof T]: {
+              [P in keyof T as P extends K ? P : never]: T[P];
+          } & { [P in keyof T as P extends K ? never : P]?: never };
+      }[keyof T] &
+          object
+    : never) &
+    ({
+        displayName: string;
+    } & {
+        display_name: string;
+    } extends infer T extends object
+        ? {
+              [K in keyof T]: {
+                  [P in keyof T as P extends K ? P : never]: T[P];
+              } & { [P in keyof T as P extends K ? never : P]?: never };
+          }[keyof T] &
+              object
+        : never) &
+    ({
+        addedAt: string;
+    } & {
+        added_at: string;
+    } extends infer T extends object
+        ? {
+              [K in keyof T]: {
+                  [P in keyof T as P extends K ? P : never]: T[P];
+              } & { [P in keyof T as P extends K ? never : P]?: never };
+          }[keyof T] &
+              object
+        : never);
+
+export type TrackedNonFriendUpdateNameInput = ({
+    userId: string;
+} & {
+    user_id: string;
+} extends infer T extends object
+    ? {
+          [K in keyof T]: {
+              [P in keyof T as P extends K ? P : never]: T[P];
+          } & { [P in keyof T as P extends K ? never : P]?: never };
+      }[keyof T] &
+          object
+    : never) &
+    ({
+        displayName?: string;
+    } & {
+        display_name?: string;
+    });
 
 export type TranslationOverrides = {
     enabled: boolean | null;

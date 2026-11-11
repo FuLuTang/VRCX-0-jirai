@@ -7,29 +7,24 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct TrackedNonFriendOutput {
-    #[serde(alias = "user_id")]
     pub user_id: String,
-    #[serde(alias = "display_name")]
     pub display_name: String,
-    #[serde(alias = "added_at")]
     pub added_at: String,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct TrackedNonFriendAddInput {
-    #[serde(alias = "user_id")]
     pub user_id: String,
-    #[serde(default, alias = "display_name")]
+    #[serde(default)]
     pub display_name: String,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct TrackedNonFriendUpdateNameInput {
-    #[serde(alias = "user_id")]
     pub user_id: String,
-    #[serde(default, alias = "display_name")]
+    #[serde(default)]
     pub display_name: String,
 }
 
