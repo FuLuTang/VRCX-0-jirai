@@ -1,9 +1,14 @@
 import { UploadIcon } from 'lucide-react';
-import type { DragEvent, ReactNode } from 'react';
-import { useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { GalleryUploadTarget } from '@/features/tools/galleryConstants';
+import { readDroppedUploadImage } from '@/features/tools/inventoryHelpers';
+import {
+    onFileDragDrop,
+    type FileDragDropEvent
+} from '@/platform/tauri/fileDrop';
 
 export const FEED_IMAGE_DROP_TARGETS = [
     'gallery',
@@ -20,19 +25,25 @@ type FeedImageDropOverlayProps = {
     onSelect(file: File, target: FeedImageDropTarget): void;
 };
 
-function hasFiles(event: DragEvent<HTMLElement>) {
-    return Array.from(event.dataTransfer?.types || []).includes('Files');
+type DropPosition = { x: number; y: number };
+
+/**
+ * Converts the physical window position reported by the Tauri drag-drop
+ * event into CSS pixels, the space getBoundingClientRect() reports in.
+ */
+function toCssPoint(position: DropPosition) {
+    const scale = window.devicePixelRatio || 1;
+    return { x: position.x / scale, y: position.y / scale };
 }
 
-function getSingleImageFile(event: DragEvent<HTMLElement>) {
-    const files = event.dataTransfer?.files;
-    if (!files || files.length !== 1) {
-        return null;
-    }
-    const file = files[0];
-    return file.type.startsWith('image/') ? file : null;
-}
-
+/**
+ * Shows five Gallery upload targets over the Feed while files are dragged
+ * onto the window and forwards a single dropped image with its target.
+ *
+ * Tauri intercepts OS file drags (dragDropEnabled), so the webview never
+ * receives DOM drop events with files; the overlay listens to the native
+ * drag-drop events instead, like the Gallery page's own drop intake.
+ */
 export function FeedImageDropOverlay({
     children,
     onSelect
@@ -42,92 +53,92 @@ export function FeedImageDropOverlay({
     const [hoveredTarget, setHoveredTarget] =
         useState<FeedImageDropTarget | null>(null);
     const hoveredTargetRef = useRef<FeedImageDropTarget | null>(null);
-    const dragEnterCount = useRef(0);
     const targetRefs = useRef<
         Partial<Record<FeedImageDropTarget, HTMLDivElement | null>>
     >({});
 
     function resetDragState() {
-        dragEnterCount.current = 0;
         setIsDragging(false);
         hoveredTargetRef.current = null;
         setHoveredTarget(null);
     }
 
-    function updateHoveredTarget(event: DragEvent<HTMLElement>) {
-        const eventTarget = event.target;
-        const directTarget =
-            eventTarget instanceof Element
-                ? eventTarget.closest<HTMLElement>('[data-drop-target]')
-                : null;
-        const targetFromElement = directTarget?.dataset.dropTarget;
-        const target = FEED_IMAGE_DROP_TARGETS.includes(
-            targetFromElement as FeedImageDropTarget
-        )
-            ? (targetFromElement as FeedImageDropTarget)
-            : FEED_IMAGE_DROP_TARGETS.find((value) => {
-                  const element = targetRefs.current[value];
-                  if (!element) {
-                      return false;
-                  }
-                  const bounds = element.getBoundingClientRect();
-                  return (
-                      event.clientX >= bounds.left &&
-                      event.clientX <= bounds.right &&
-                      event.clientY >= bounds.top &&
-                      event.clientY <= bounds.bottom
-                  );
-              }) || null;
+    function targetAt(position: DropPosition) {
+        const point = toCssPoint(position);
+        return (
+            FEED_IMAGE_DROP_TARGETS.find((value) => {
+                const element = targetRefs.current[value];
+                if (!element) {
+                    return false;
+                }
+                const bounds = element.getBoundingClientRect();
+                return (
+                    point.x >= bounds.left &&
+                    point.x <= bounds.right &&
+                    point.y >= bounds.top &&
+                    point.y <= bounds.bottom
+                );
+            }) || null
+        );
+    }
+
+    function updateHoveredTarget(position: DropPosition) {
+        const target = targetAt(position);
         hoveredTargetRef.current = target;
         setHoveredTarget(target);
     }
 
-    function onDragEnter(event: DragEvent<HTMLElement>) {
-        if (!hasFiles(event)) {
+    const handleDragDrop = useEffectEvent(async (event: FileDragDropEvent) => {
+        if (event.type === 'enter') {
+            setIsDragging(event.paths.length > 0);
+            updateHoveredTarget(event.position);
             return;
         }
-        event.preventDefault();
-        dragEnterCount.current += 1;
-        setIsDragging(true);
-    }
-
-    function onDragOver(event: DragEvent<HTMLElement>) {
-        if (!hasFiles(event)) {
+        if (event.type === 'over') {
+            updateHoveredTarget(event.position);
             return;
         }
-        event.preventDefault();
-        event.dataTransfer.dropEffect = 'copy';
-        updateHoveredTarget(event);
-    }
-
-    function onDragLeave(event: DragEvent<HTMLElement>) {
-        if (!hasFiles(event)) {
-            return;
-        }
-        dragEnterCount.current = Math.max(0, dragEnterCount.current - 1);
-        if (dragEnterCount.current === 0) {
+        if (event.type === 'leave') {
             resetDragState();
-        }
-    }
-
-    function onDrop(event: DragEvent<HTMLElement>) {
-        event.preventDefault();
-        const file = getSingleImageFile(event);
-        const target = hoveredTargetRef.current;
-        resetDragState();
-        if (!file || !target) {
             return;
         }
-        onSelect(file, target);
-    }
+        const target = targetAt(event.position) || hoveredTargetRef.current;
+        resetDragState();
+        if (event.paths.length !== 1 || !target) {
+            return;
+        }
+        const file = await readDroppedUploadImage(event.paths, t);
+        if (file) {
+            onSelect(file, target);
+        }
+    });
+
+    useEffect(() => {
+        let disposed = false;
+        let unlisten: (() => void) | null = null;
+        onFileDragDrop((event) => {
+            void handleDragDrop(event);
+        })
+            .then((stop) => {
+                if (disposed) {
+                    stop();
+                } else {
+                    unlisten = stop;
+                }
+            })
+            .catch((error: unknown) => {
+                console.error('Failed to listen for Feed image drops:', error);
+            });
+        return () => {
+            disposed = true;
+            unlisten?.();
+        };
+    }, []);
 
     return (
         <div
             className="relative h-full min-h-0 min-w-0"
-            onDragEnter={onDragEnter}
-            onDragOver={onDragOver}
-            onDragLeave={onDragLeave}
-            onDrop={onDrop}
+            data-testid="feed-image-drop-surface"
         >
             {children}
             {isDragging ? (
