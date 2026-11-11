@@ -188,7 +188,9 @@ describe('UserDialogHeaderSection tracked nonfriends action', () => {
         );
 
         fireEvent.click(
-            screen.getByRole('button', { name: 'Open entity actions' })
+            screen.getByRole('button', {
+                name: 'common.actions.more_actions'
+            })
         );
 
         expect(screen.getByText('tracked_nonfriends.add_user')).not.toBeNull();
@@ -207,7 +209,9 @@ describe('UserDialogHeaderSection tracked nonfriends action', () => {
         );
 
         fireEvent.click(
-            screen.getByRole('button', { name: 'Open entity actions' })
+            screen.getByRole('button', {
+                name: 'common.actions.more_actions'
+            })
         );
 
         expect(screen.queryByText('tracked_nonfriends.add_user')).toBeNull();

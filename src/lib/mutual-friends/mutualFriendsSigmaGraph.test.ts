@@ -415,6 +415,7 @@ describe('buildSigmaGraph', () => {
             zIndex: 1
         });
         emit('enterNode', { node: 'usr_a' });
+        // Incident edges sit above manual relation edges (zIndex 2).
         expect(
             options.edgeReducer?.(
                 'usr_a__usr_b',
@@ -427,7 +428,7 @@ describe('buildSigmaGraph', () => {
         ).toMatchObject({
             size: 0.75,
             path: 'curved',
-            zIndex: 2
+            zIndex: 3
         });
     });
 
