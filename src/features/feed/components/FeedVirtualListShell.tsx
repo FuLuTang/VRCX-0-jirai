@@ -31,12 +31,16 @@ import type {
     FeedRow,
     FeedTableInstance
 } from '@/components/feed/feedTypes';
+import { formatDateFilter } from '@/lib/dateTime';
+import { useTodayDate } from '@/lib/useTodayDate';
 import { cn } from '@/lib/utils';
 import { usePreferencesStore } from '@/state/preferencesStore';
 import { Button } from '@/ui/shadcn/button';
 import { Spinner } from '@/ui/shadcn/spinner';
 
+import { buildFeedListEntries, feedLocalDayKey } from '../feedListEntries';
 import { getFeedRowFilterTarget } from '../feedRowFilterTarget';
+import { shouldSkipFeedRowToggle } from '../feedRowInteraction';
 import { useFeedNewTopRowKeys } from '../useFeedNewTopRowKeys';
 import { FeedEmptyState, type FeedEmptyFilterModel } from './FeedEmptyState';
 import { FeedExpandedRow, FeedUserLink } from './FeedTableParts';
@@ -62,11 +66,6 @@ type FeedVirtualListShellProps = {
     rows: FeedRow[];
     sourceRows: FeedRow[];
     table: FeedTableInstance;
-};
-
-type FeedVirtualRow = {
-    key: string;
-    row: FeedRow;
 };
 
 type FeedListLayout = ColumnGridLayout;
@@ -143,9 +142,29 @@ function FeedListTime({ row }: { row: FeedRow }) {
     return (
         <TimestampText
             value={row.created_at}
+            format="time"
             tooltipSide="right"
             className="text-muted-foreground text-sm tabular-nums"
         />
+    );
+}
+
+function FeedListDayHeading({
+    label,
+    layout
+}: {
+    label: string;
+    layout: FeedListLayout;
+}) {
+    return (
+        <div
+            className="grid h-8 items-end border-b border-[var(--vrcx-0-table-divider)] pb-1.5"
+            style={layout}
+        >
+            <span className="text-muted-foreground col-[2/-1] px-[var(--vrcx-0-table-cell-padding-inline)] text-xs font-medium tracking-wide tabular-nums">
+                {label}
+            </span>
+        </div>
     );
 }
 
@@ -183,6 +202,7 @@ function FeedVirtualListRow({
             }
         >
             <div
+                role="presentation"
                 data-feed-list-summary=""
                 {...getLogFilterRowAttributes(
                     getFeedRowFilterTarget(
@@ -191,16 +211,29 @@ function FeedVirtualListRow({
                         cachedDisplayName || row.displayName || ''
                     )
                 )}
-                className="grid h-[var(--vrcx-0-table-row-height)] items-center border-b border-[var(--vrcx-0-table-divider)] text-sm hover:bg-[var(--vrcx-0-table-row-hover-surface)] [&>*]:px-[var(--vrcx-0-table-cell-padding-inline)]"
+                className={cn(
+                    'grid h-[var(--vrcx-0-table-row-height)] items-center border-b border-[var(--vrcx-0-table-divider)] text-sm hover:bg-[var(--vrcx-0-table-row-hover-surface)] [&>*]:px-[var(--vrcx-0-table-cell-padding-inline)]',
+                    canExpand && 'group/feed-row cursor-pointer'
+                )}
                 style={layout}
+                onClick={
+                    canExpand
+                        ? (event) => {
+                              if (!shouldSkipFeedRowToggle(event)) {
+                                  onToggle();
+                              }
+                          }
+                        : undefined
+                }
             >
                 <Button
                     type="button"
                     variant="ghost"
                     size="icon-sm"
                     className={cn(
-                        'text-muted-foreground hover:text-foreground justify-self-center !px-0',
-                        !canExpand && 'invisible'
+                        'text-muted-foreground hover:text-foreground justify-self-center !px-0 group-hover/feed-row:opacity-100 focus-visible:opacity-100',
+                        !canExpand && 'invisible',
+                        !expanded && 'opacity-0'
                     )}
                     aria-label={
                         expanded
@@ -283,13 +316,15 @@ export function FeedVirtualListShell({
     const { t } = useTranslation();
     const tableDensity = usePreferencesStore((state) => state.tableDensity);
     const estimatedRowHeight = tableDensity === 'compact' ? 32 : 40;
-    const entries = useMemo<FeedVirtualRow[]>(
-        () => rows.map((row) => ({ key: getFeedRowId(row), row })),
-        [rows]
+    const todayDate = useTodayDate();
+    const todayKey = feedLocalDayKey(todayDate);
+    const entries = useMemo(
+        () => buildFeedListEntries(rows, todayKey),
+        [rows, todayKey]
     );
     const rowKeys = useMemo(
-        () => new Set(entries.map((entry) => entry.key)),
-        [entries]
+        () => new Set(rows.map((row) => getFeedRowId(row))),
+        [rows]
     );
     const [expandedRowKeys, setExpandedRowKeys] = useState(
         () => new Set<string>()
@@ -329,37 +364,49 @@ export function FeedVirtualListShell({
                     latestLabel={t('view.feed.columns.latest')}
                     newCount={newCount}
                     rowClassName={(entry) =>
-                        newRowKeys.has(entry.key)
+                        entry.kind === 'row' && newRowKeys.has(entry.key)
                             ? 'feed-column-row-new'
                             : undefined
                     }
-                    renderRow={(entry) => (
-                        <FeedVirtualListRow
-                            actions={actions}
-                            cachedDisplayName={
-                                friendLogNamesById[
-                                    resolveFeedUserId(entry.row)
-                                ] || ''
-                            }
-                            expanded={expandedRowKeys.has(entry.key)}
-                            filterCommands={filterCommands}
-                            layout={layout}
-                            loadingPreviousInstancesKey={
-                                loadingPreviousInstancesKey
-                            }
-                            onOpenPreviousInstances={onOpenPreviousInstances}
-                            onToggle={() =>
-                                setExpandedRowKeys((current) => {
-                                    const next = new Set(current);
-                                    if (next.has(entry.key))
-                                        next.delete(entry.key);
-                                    else next.add(entry.key);
-                                    return next;
-                                })
-                            }
-                            row={entry.row}
-                        />
-                    )}
+                    renderRow={(entry) =>
+                        entry.kind === 'day' ? (
+                            <FeedListDayHeading
+                                label={formatDateFilter(
+                                    entry.createdAt,
+                                    'weekdayDate'
+                                )}
+                                layout={layout}
+                            />
+                        ) : (
+                            <FeedVirtualListRow
+                                actions={actions}
+                                cachedDisplayName={
+                                    friendLogNamesById[
+                                        resolveFeedUserId(entry.row)
+                                    ] || ''
+                                }
+                                expanded={expandedRowKeys.has(entry.key)}
+                                filterCommands={filterCommands}
+                                layout={layout}
+                                loadingPreviousInstancesKey={
+                                    loadingPreviousInstancesKey
+                                }
+                                onOpenPreviousInstances={
+                                    onOpenPreviousInstances
+                                }
+                                onToggle={() =>
+                                    setExpandedRowKeys((current) => {
+                                        const next = new Set(current);
+                                        if (next.has(entry.key))
+                                            next.delete(entry.key);
+                                        else next.add(entry.key);
+                                        return next;
+                                    })
+                                }
+                                row={entry.row}
+                            />
+                        )
+                    }
                     footer={
                         loadingOlder ? (
                             <>

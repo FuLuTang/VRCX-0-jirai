@@ -1,20 +1,10 @@
-use serde::Serialize;
-
 use crate::common::{normalize_text, now_iso, row_string, ParamsBuilder};
 use crate::database::schema::ensure_user_store_tables;
 use crate::database::DatabaseService;
 use crate::ownership::OwnerId;
 use crate::realtime::normalize_user_table_prefix;
 use crate::Error;
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct ManualRelationOutput {
-    pub user_id_a: String,
-    pub user_id_b: String,
-    pub relation_type: String,
-    pub added_at: String,
-}
+use vrcx_0_contracts::jirai::ManualRelationOutput;
 
 fn canonical_pair(user_id_a: String, user_id_b: String) -> Result<(String, String), Error> {
     let mut user_id_a = normalize_text(user_id_a);

@@ -709,6 +709,7 @@
             "confirm": "Confirm",
             "clear": "Clear",
             "delete": "Delete",
+            "edit": "Edit",
             "remove": "Remove",
             "reset": "Reset",
             "back": "Back",
@@ -720,6 +721,7 @@
             "accept": "Accept",
             "decline": "Decline",
             "copy": "Copy",
+            "copied": "Copied",
             "open_link": "Open Link",
             "view_on_website": "View on Website",
             "save": "Save",
@@ -1126,6 +1128,7 @@
         "about": "About VRCX-0",
         "messages": {
             "zoom_failed": "Failed to apply zoom",
+            "zoom_level": "Zoom: {value}",
             "logout_failed": "Failed to sign out of VRCX-0",
             "restart_failed": "Failed to restart VRCX-0",
             "open_devtools_failed": "Failed to open DevTools"
@@ -1547,7 +1550,10 @@
                 "online_for": "Online for {duration}",
                 "rows": "entries",
                 "favorites_are_still_hydrating": "Favorites are still loading",
-                "favorites_only": "Favorites only"
+                "favorites_only": "Favorites only",
+                "previous_location": "Previous location",
+                "current_location": "Current location",
+                "stayed": "Stayed {duration}"
             },
             "success": {
                 "vrchat_launch_request_sent": "Opened in VRChat",
@@ -1650,7 +1656,9 @@
                 "collapse_all": "Collapse all",
                 "players_count": "{count} players",
                 "videos_count": "{count} videos",
-                "latest": "Latest"
+                "latest": "Latest",
+                "show_all_videos": "Show all {count}",
+                "show_fewer_videos": "Show less"
             },
             "label": {
                 "sessions": "Sessions",
@@ -1768,7 +1776,8 @@
                 "avatar_made_private": "Avatar made private",
                 "untitled_avatar": "Untitled avatar",
                 "local_test_avatars": "Local test avatars",
-                "local_test_avatars_description": "Avatars built with Build & Test in the VRChat SDK. Only you can see them in game."
+                "local_test_avatars_description": "Avatars built with Build & Test in the VRChat SDK. Only you can see them in game.",
+                "sort_by": "Sort by"
             },
             "source": {
                 "own": "Uploaded",
@@ -1826,7 +1835,6 @@
             "clear_results_tooltip": "Clear Search Results",
             "user": {
                 "header": "User",
-                "search_by_bio": "Search by bio",
                 "sort_by_last_logged_in": "Sort by last sign-in"
             },
             "world": {
@@ -1848,6 +1856,20 @@
             "group": {
                 "header": "Group"
             },
+            "hot": {
+                "header": "Explore",
+                "active": "Popular",
+                "discover": "Discover",
+                "shuffle": "Shuffle",
+                "rooms": "{count} instances",
+                "friends_here_one": "{count} friend here",
+                "friends_here_other": "{count} friends here",
+                "friends_visited_one": "{count} friend visited in 7 days",
+                "friends_visited_other": "{count} friends visited in 7 days",
+                "friends_visited_short_one": "7 days · {count} friend",
+                "friends_visited_short_other": "7 days · {count} friends",
+                "empty": "No worlds to show"
+            },
             "label": {
                 "avatar_provider": "Avatar provider"
             },
@@ -1858,7 +1880,8 @@
                 "failed_to_search_worlds": "Failed to search worlds",
                 "failed_to_search_groups": "Failed to search groups",
                 "failed_to_search_avatars": "Failed to search avatars",
-                "failed_to_save_avatar_provider": "Failed to save avatar provider"
+                "failed_to_save_avatar_provider": "Failed to save avatar provider",
+                "failed_to_load_hot_worlds": "Failed to load hot worlds"
             }
         },
         "favorite": {
@@ -3388,6 +3411,8 @@
                     "theme_mode_pink": "Pink",
                     "theme_mode_material3": "Material 3",
                     "zoom": "Zoom",
+                    "ctrl_wheel_zoom": "Zoom with Mouse Wheel",
+                    "ctrl_wheel_zoom_description": "Hold Ctrl (⌘ on macOS) and scroll to change the zoom level. Off by default to prevent accidental zooming.",
                     "show_instance_id": "Show Instance ID",
                     "age_gated_instances": "Show Age-Gated Instances",
                     "age_gated_instances_description": "Show age-restricted instances. When off, they appear only as restricted, without their details.",
@@ -4717,7 +4742,7 @@
                 "unfriend": "Unfriend",
                 "edit_note_memo": "Edit Note and Local Note",
                 "edit_profile": "Edit Profile",
-                "account_standing": "Account Standing"
+                "vrchat_account": "VRChat Account"
             },
             "group_invite": {
                 "select_group": "Select a group",
@@ -5088,12 +5113,31 @@
                 "apply_color": "Apply Color"
             },
             "account_standing": {
-                "header": "Account Standing",
-                "description": "Your account standing as reported by VRChat.",
                 "status": "Status",
                 "issue_clear_days": "Days until cleared",
                 "sanctions": "Sanctions",
-                "load_failed": "Couldn't load account standing"
+                "load_failed": "Couldn't load account standing",
+                "raw_data": "Raw data"
+            },
+            "vrchat_account": {
+                "header": "VRChat Account",
+                "description": "Settings and standing for the VRChat account you are signed in with.",
+                "tabs": {
+                    "content_filters": "Content Filters",
+                    "account_standing": "Account Standing"
+                },
+                "content_filters": {
+                    "description": "Hide avatars and worlds that creators have tagged with this content. Changes are saved to your VRChat account and apply in game.",
+                    "unavailable": "VRChat doesn't offer content filter settings for this account.",
+                    "update_failed": "Couldn't update content filters",
+                    "items": {
+                        "gore": "Hide excessive gore",
+                        "horror": "Hide extreme horror",
+                        "violence": "Hide intense violence",
+                        "sex": "Hide sexually suggestive content",
+                        "adult": "Hide adult language and themes"
+                    }
+                }
             },
             "relationship": {
                 "friend": "Friend",
@@ -5144,6 +5188,8 @@
                 "new_instance_and_open_ingame": "New Instance and Open In-game",
                 "make_home": "Make Home",
                 "reset_home": "Reset Home",
+                "like": "Like",
+                "dislike": "Dislike",
                 "show_previous_instances": "Show Instance History",
                 "edit_details": "Edit Details",
                 "manage_world": "Manage World",
@@ -5171,7 +5217,14 @@
                 "unpin_from_sidebar": "Unpin from Sidebar",
                 "unpinned_from_sidebar": "Unpinned from the sidebar",
                 "unpin_from_sidebar_failed": "Couldn't unpin from the sidebar",
-                "instance_creator": "Instance Creator"
+                "instance_creator": "Instance Creator",
+                "languages_declared": "Set by host: {languages}",
+                "languages_current": "In instance now: {languages}",
+                "filter_with_friends": "With friends",
+                "filter_hide_unavailable": "Hide closed or full",
+                "filter_category_all": "All",
+                "filter_clear": "Clear filters",
+                "filter_no_match": "No instances match the filters"
             },
             "info": {
                 "header": "Info",
@@ -5310,6 +5363,7 @@
                 "failed_to_launch_vrchat_instance": "Failed to launch VRChat instance",
                 "home_world_reset": "Home world reset",
                 "failed_to_update_home_world": "Failed to update home world",
+                "failed_to_update_rating": "Couldn't update your rating",
                 "memo_saved": "Local note saved",
                 "memo_cleared": "Local note cleared",
                 "failed_to_save_memo": "Failed to save local note",
@@ -5855,7 +5909,62 @@
             "normal": "Normal",
             "group": "Group",
             "legacy": "Legacy",
-            "display_name": "Instance Name"
+            "display_name": "Instance Name",
+            "description": "Description",
+            "category": "Category",
+            "vibes": "Vibes",
+            "vibes_placeholder": "Select vibes",
+            "vibes_hint": "Pick up to 3. The first one is shown as the main vibe.",
+            "reset_defaults": "Reset to Defaults",
+            "category_options": {
+                "hangout": "Hangout",
+                "music_shows": "Music & Shows",
+                "games": "Games",
+                "roleplay": "Roleplay",
+                "avatars": "Avatars",
+                "explore": "Explore",
+                "watch_party": "Watch Party",
+                "other": "Other"
+            },
+            "vibe_options": {
+                "adventure": "Adventure",
+                "anime": "Anime",
+                "arts": "Arts",
+                "casual": "Casual",
+                "chill": "Chill",
+                "club": "Club",
+                "combat": "Combat",
+                "comedy": "Comedy",
+                "competitive": "Competitive",
+                "cozy": "Cozy",
+                "creative": "Creative",
+                "cuddle": "Cuddle",
+                "dance": "Dance",
+                "drinking": "Drinking",
+                "education": "Education",
+                "explore": "Explore",
+                "fantasy": "Fantasy",
+                "flight": "Flight",
+                "fun": "Fun",
+                "furry": "Furry",
+                "horror": "Horror",
+                "karaoke": "Karaoke",
+                "liminal": "Liminal",
+                "meme": "Meme",
+                "military": "Military",
+                "newcomer_friendly": "Newcomer Friendly",
+                "open_mic": "Open Mic",
+                "racing": "Racing",
+                "rave": "Rave",
+                "relaxing": "Relaxing",
+                "shader": "Shader",
+                "showcase": "Showcase",
+                "sleep": "Sleep",
+                "social": "Social",
+                "visualizer": "Visualizer",
+                "wellness": "Wellness",
+                "world_hop": "World Hop"
+            }
         },
         "launch": {
             "header": "Launch",
@@ -6117,6 +6226,7 @@
         },
         "image_crop": {
             "crop_area": "Crop area. Drag an edge or corner to resize. Drag the handle above the frame to rotate.",
+            "toolbar_label": "Image crop tools",
             "rotate_left": "Rotate Left",
             "rotate_right": "Rotate Right",
             "rotation_angle": "Rotation angle",
@@ -6660,6 +6770,14 @@
             "list_view": "List View",
             "calendar_view": "Calendar View",
             "timeline_view": "Timeline View",
+            "discover_view": "Discover",
+            "discover": {
+                "live": "Happening now",
+                "upcoming": "Upcoming",
+                "sort_start_time": "Starting soonest",
+                "sort_follows": "Most followed",
+                "linked_instance_only": "Only with an open instance"
+            },
             "no_events": "No events found",
             "search_placeholder": "Search groups or events",
             "search_no_matching": "No matching events found",
@@ -6719,8 +6837,12 @@
             "support_development": "Support development",
             "loading": "Loading changelog",
             "failed_to_load": "Failed to load changelog.",
-            "latest_release": "Latest release",
             "empty": "No changelog is available for this release.",
+            "current_version": "Current version",
+            "older_releases": "Older releases",
+            "view_on_github": "View on GitHub",
+            "language": "Changelog language",
+            "versions": "Versions",
             "toast_title": "Updated to {value}",
             "toast_description": "Review what changed in this version.",
             "view_changes": "View changes"
@@ -7205,26 +7327,47 @@
         }
     },
     "notifications": {
-        "has_joined": "has joined",
-        "has_left": "has left",
-        "joined_with_others": "and {count} more joined",
-        "left_with_others": "and {count} more left",
-        "is_joining": "is joining",
-        "gps": "is in {location}",
-        "online_location": "has logged in to {location}",
-        "online": "has logged in",
-        "offline": "has logged out",
-        "status_update": "status is now {status} {description}",
-        "invite": "has invited you to {location} {message}",
-        "request_invite": "has requested an invite {message}",
-        "invite_response": "has responded to your invite {message}",
-        "request_invite_response": "has responded to your invite request {message}",
-        "friend_request": "has sent you a friend request",
-        "friend": "is now your friend",
-        "unfriend": "is no longer your friend",
-        "trust_level": "Trust level is now {trustLevel}",
-        "display_name": "changed their name to {displayName}",
-        "bio": "updated bio",
+        "has_joined": "Joined",
+        "has_left": "Left",
+        "joined_with_others": "Joined with {count} others",
+        "left_with_others": "Left with {count} others",
+        "is_joining": "Joining",
+        "gps": "In {location}",
+        "online_location": "Online in {location}",
+        "online": "Online",
+        "offline": "Offline",
+        "status_update": "Status: {status} {description}",
+        "invite": "Invite to {location} {message}",
+        "request_invite": "Invite request {message}",
+        "invite_response": "Invite reply {message}",
+        "request_invite_response": "Invite request reply {message}",
+        "friend_request": "Friend request",
+        "friend": "Now friends",
+        "unfriend": "No longer friends",
+        "trust_level": "Trust rank: {trustLevel}",
+        "display_name": "Renamed to {displayName}",
+        "bio": "Updated bio",
+        "sentence": {
+            "has_joined": "{name} joined",
+            "has_left": "{name} left",
+            "is_joining": "{name} is joining",
+            "gps": "{name} is now in {location}",
+            "online_location": "{name} came online in {location}",
+            "online": "{name} came online",
+            "offline": "{name} went offline",
+            "status_update": "{name} changed status to {status} {description}",
+            "invite": "{name} invited you to {location} {message}",
+            "request_invite": "{name} asked for an invite {message}",
+            "invite_response": "{name} replied to your invite {message}",
+            "request_invite_response": "{name} replied to your invite request {message}",
+            "friend_request": "{name} sent you a friend request",
+            "friend": "You and {name} are now friends",
+            "unfriend": "{name} is no longer your friend",
+            "trust_level": "{name}'s trust rank is now {trustLevel}",
+            "display_name": "{name} changed their name to {displayName}",
+            "bio": "{name} updated their bio",
+            "avatar_change": "{name} switched to {avatar}"
+        },
         "group_announcement_title": "Group Announcement",
         "group_event_created_title": "Group Event Created",
         "group_event_starting_title": "Group Event Starting",
@@ -7249,7 +7392,7 @@
         "tracker_disconnected": "disconnected",
         "tracker_disconnected_battery": "disconnected · last battery {percent}%",
         "trackers_disconnected": "{count} disconnected",
-        "avatar_change": "changed avatar to {avatar}",
+        "avatar_change": "Avatar: {avatar}",
         "blocked_player_joined": "Blocked user has joined",
         "blocked_player_left": "Blocked user has left",
         "muted_player_joined": "Muted user has joined",

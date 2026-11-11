@@ -97,6 +97,28 @@ fn default_filters_give_alert_surfaces_one_profile_and_keep_webhook_off() {
 }
 
 #[test]
+fn boop_defaults_stay_off_on_vr_overlays_but_reach_desktop_surfaces() {
+    let filters = ActivityFilters::default();
+    let scope = |surface| filters.rule_for(surface, ActivityKind::Boop).scope;
+
+    for surface in [
+        NotificationSurface::Wrist,
+        NotificationSurface::ExternalOverlay,
+        NotificationSurface::Hmd,
+        NotificationSurface::Webhook,
+    ] {
+        assert_eq!(scope(surface), ActivityScope::Off, "{surface:?}");
+    }
+    for surface in [
+        NotificationSurface::Desktop,
+        NotificationSurface::Tts,
+        NotificationSurface::DesktopWidget,
+    ] {
+        assert_eq!(scope(surface), ActivityScope::Friends, "{surface:?}");
+    }
+}
+
+#[test]
 fn desktop_widget_defaults_keep_friend_movement_to_favorites_and_show_instance_safety() {
     let definitions = activity_type_definitions();
     let scope = |kind: ActivityKind| {
@@ -498,11 +520,11 @@ fn location_content_is_built_from_the_event_facts() {
     );
     assert_eq!(
         entry.content.body.source_text(),
-        "is in Great World public(Group A)"
+        "In Great World public(Group A)"
     );
     assert_eq!(
         entry.content.summary,
-        "Map User is in Great World public(Group A)"
+        "Map User In Great World public(Group A)"
     );
     assert_eq!(entry.content.location, "wrld_1:123");
     assert_eq!(entry.content.world_name, "Great World");
@@ -687,7 +709,7 @@ fn invite_content_names_the_world_and_the_invite_message() {
     assert_eq!(body.params()["message"], "come over");
     assert_eq!(
         entry.content.body.source_text(),
-        "has invited you to Invite World come over"
+        "Invite to Invite World come over"
     );
     assert_eq!(entry.content.detail, "come over");
     assert_eq!(entry.content.world_name, "Invite World");
@@ -728,7 +750,7 @@ fn location_ids_are_not_shown_as_names() {
 
     let entry = runtime.ingest(gps).unwrap();
 
-    assert_eq!(entry.content.body.source_text(), "is in group");
+    assert_eq!(entry.content.body.source_text(), "In group");
     assert_eq!(
         entry
             .content
@@ -753,7 +775,7 @@ fn private_location_aligns_with_original_display() {
 
     let entry = runtime.ingest(gps).unwrap();
 
-    assert_eq!(entry.content.body.source_text(), "is in Private");
+    assert_eq!(entry.content.body.source_text(), "In Private");
     assert_eq!(
         entry
             .content

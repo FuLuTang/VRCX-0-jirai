@@ -26,6 +26,7 @@ import {
     userImage
 } from '@/services/entityMediaService';
 import type { UserNameColourStyle } from '@/shared/utils/entityMedia';
+import { HintTooltip } from '@/ui/hint-tooltip';
 import { Button } from '@/ui/shadcn/button';
 import { Checkbox } from '@/ui/shadcn/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/shadcn/tooltip';
@@ -167,15 +168,11 @@ export function useFriendListColumns({
                         className="ml-auto"
                     />
                 ),
-                cell: ({ row }) => {
-                    const friendNumber =
-                        parseListNumber(
-                            row.original?.$friendNumber ??
-                                row.original?.friendNumber ??
-                                row.getValue('friendNumber')
-                        ) || row.index + 1;
-                    return <span>{friendNumber}</span>;
-                }
+                cell: ({ row }) => (
+                    <span>
+                        {parseListNumber(row.getValue('friendNumber')) || ''}
+                    </span>
+                )
             },
             {
                 id: 'avatar',
@@ -589,23 +586,24 @@ export function useFriendListColumns({
                 cell: ({ row }) => {
                     const friendId = normalizeId(row.original?.id);
                     return (
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="text-destructive size-7"
-                            aria-label={t('table.friendList.unfriend')}
-                            disabled={
-                                !currentUserId ||
-                                deletingFriendIds.has(friendId)
-                            }
-                            onClick={(event) => {
-                                event.stopPropagation();
-                                onConfirmDeleteFriend(row.original);
-                            }}
-                        >
-                            <UserMinusIcon data-icon="inline-start" />
-                        </Button>
+                        <HintTooltip label={t('table.friendList.unfriend')}>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive size-7"
+                                disabled={
+                                    !currentUserId ||
+                                    deletingFriendIds.has(friendId)
+                                }
+                                onClick={(event) => {
+                                    event.stopPropagation();
+                                    onConfirmDeleteFriend(row.original);
+                                }}
+                            >
+                                <UserMinusIcon data-icon="inline-start" />
+                            </Button>
+                        </HintTooltip>
                     );
                 }
             }

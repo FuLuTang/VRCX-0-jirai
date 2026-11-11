@@ -1,6 +1,6 @@
 <div align="center">
 
-# <img src="images/VRCX-0.png" alt="VRCX-0 Logo" width="25"> VRCX-0
+# <img src="images/brand/VRCX-0.png" alt="VRCX-0 Logo" width="25"> VRCX-0
 
 ### もっと速く、使いやすく。AI 対応。
 
@@ -19,7 +19,7 @@
 
 Windows · macOS · Linux
 
-![VRCX-0](images/screenshot-user-dialog.webp)
+![VRCX-0](images/screenshots/user-dialog.webp)
 
 </div>
 
@@ -86,7 +86,7 @@ macOS で初回起動がブロックされた場合は、**システム設定 �
 
 ### Linux
 
-アプリ画面のハードウェアアクセラレーションは初期状態でオフです。**設定 → システム → ハードウェアアクセラレーション（試験的）** からオンにでき、表示に問題があれば VRCX-0 が自動でオフに戻します。`WEBKIT_DISABLE_DMABUF_RENDERER` を自分で設定している場合、この項目は表示されません。
+アプリ画面のハードウェアアクセラレーションは初期状態でオフです。**設定 → システム → ハードウェアアクセラレーション（試験的）** からオンにでき、表示に問題があれば VRCX-0 が自動でオフに戻します。X11 や Hyprland 環境の NVIDIA GPU では、通常は利用できません。`WEBKIT_DISABLE_DMABUF_RENDERER` を自分で設定している場合、この項目は表示されません。
 
 ## フィードバック
 

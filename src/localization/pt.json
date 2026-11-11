@@ -671,6 +671,7 @@
             "confirm": "Confirmar",
             "clear": "Limpar",
             "delete": "Excluir",
+            "edit": "Editar",
             "remove": "Remover",
             "reset": "Redefinir",
             "back": "Voltar",
@@ -682,6 +683,7 @@
             "accept": "Aceitar",
             "decline": "Recusar",
             "copy": "Copiar",
+            "copied": "Copiado",
             "open_link": "Abrir Link",
             "view_on_website": "Ver no site",
             "save": "Salvar",
@@ -1084,6 +1086,7 @@
         "about": "Sobre o VRCX-0",
         "messages": {
             "zoom_failed": "Falha ao aplicar o zoom",
+            "zoom_level": "Zoom: {value}",
             "logout_failed": "Falha ao sair do VRCX-0",
             "restart_failed": "Falha ao reiniciar o VRCX-0",
             "open_devtools_failed": "Falha ao abrir o DevTools"
@@ -1496,7 +1499,10 @@
                 "online_for": "Online por {duration}",
                 "rows": "linhas",
                 "favorites_are_still_hydrating": "Os favoritos ainda estão carregando",
-                "favorites_only": "Apenas favoritos"
+                "favorites_only": "Apenas favoritos",
+                "previous_location": "Local anterior",
+                "current_location": "Local atual",
+                "stayed": "{duration} de permanência"
             },
             "success": {
                 "vrchat_launch_request_sent": "Aberto no VRChat",
@@ -1599,7 +1605,9 @@
                 "collapse_all": "Recolher tudo",
                 "players_count": "{count} jogadores",
                 "videos_count": "{count} vídeos",
-                "latest": "Mais recente"
+                "latest": "Mais recente",
+                "show_all_videos": "Ver todos os {count}",
+                "show_fewer_videos": "Ver menos"
             },
             "label": {
                 "sessions": "Sessões",
@@ -1715,7 +1723,8 @@
                 "avatar_made_private": "Avatar tornado privado",
                 "untitled_avatar": "Avatar sem título",
                 "local_test_avatars": "Avatares de teste locais",
-                "local_test_avatars_description": "Avatares criados com Build & Test no SDK do VRChat. No jogo, só você consegue vê-los."
+                "local_test_avatars_description": "Avatares criados com Build & Test no SDK do VRChat. No jogo, só você consegue vê-los.",
+                "sort_by": "Ordenar por"
             },
             "source": {
                 "own": "Enviados",
@@ -1773,7 +1782,6 @@
             "clear_results_tooltip": "Limpar Resultados da Pesquisa",
             "user": {
                 "header": "Usuário",
-                "search_by_bio": "Pesquisar por bio",
                 "sort_by_last_logged_in": "Ordenar por último login"
             },
             "world": {
@@ -1795,6 +1803,20 @@
             "group": {
                 "header": "Grupo"
             },
+            "hot": {
+                "header": "Explorar",
+                "active": "Popular",
+                "discover": "Descobrir",
+                "shuffle": "Embaralhar",
+                "rooms": "{count} instâncias",
+                "friends_here_one": "{count} amigo aqui",
+                "friends_here_other": "{count} amigos aqui",
+                "friends_visited_one": "{count} amigo visitou em 7 dias",
+                "friends_visited_other": "{count} amigos visitaram em 7 dias",
+                "friends_visited_short_one": "7 dias · {count} amigo",
+                "friends_visited_short_other": "7 dias · {count} amigos",
+                "empty": "Nenhum mundo para mostrar"
+            },
             "label": {
                 "avatar_provider": "Provedor de Avatar"
             },
@@ -1805,7 +1827,8 @@
                 "failed_to_search_worlds": "Falha ao buscar Mundos",
                 "failed_to_search_groups": "Falha ao buscar Grupos",
                 "failed_to_search_avatars": "Falha ao buscar Avatares",
-                "failed_to_save_avatar_provider": "Falha ao salvar o provedor de Avatar"
+                "failed_to_save_avatar_provider": "Falha ao salvar o provedor de Avatar",
+                "failed_to_load_hot_worlds": "Falha ao carregar mundos populares"
             }
         },
         "favorite": {
@@ -3296,6 +3319,8 @@
                     "theme_mode_pink": "Rosa",
                     "theme_mode_material3": "Material 3",
                     "zoom": "Zoom",
+                    "ctrl_wheel_zoom": "Zoom com a roda do mouse",
+                    "ctrl_wheel_zoom_description": "Segure Ctrl (⌘ no macOS) e role a roda do mouse para alterar o zoom. Desativado por padrão para evitar zoom acidental.",
                     "show_instance_id": "Mostrar ID da Instância",
                     "age_gated_instances": "Mostrar Instâncias com Restrição de Idade",
                     "age_gated_instances_description": "Mostrar instâncias com restrição de idade. Quando desativado, essas instâncias ficam ocultas e aparecem como restritas.",
@@ -4621,7 +4646,7 @@
                 "unfriend": "Desfazer Amizade",
                 "edit_note_memo": "Editar Nota e Memo",
                 "edit_profile": "Editar perfil",
-                "account_standing": "Situação da conta"
+                "vrchat_account": "Conta do VRChat"
             },
             "group_invite": {
                 "description": "Escolha o grupo para o qual deseja convidar {value}.",
@@ -4981,12 +5006,31 @@
                 "apply_color": "Aplicar cor"
             },
             "account_standing": {
-                "header": "Situação da conta",
-                "description": "A situação da sua conta segundo o VRChat.",
                 "status": "Status",
                 "issue_clear_days": "Dias até a regularização",
                 "sanctions": "Sanções",
-                "load_failed": "Não foi possível carregar a situação da conta"
+                "load_failed": "Não foi possível carregar a situação da conta",
+                "raw_data": "Dados brutos"
+            },
+            "vrchat_account": {
+                "header": "Conta do VRChat",
+                "description": "Configurações e situação da conta do VRChat conectada.",
+                "tabs": {
+                    "content_filters": "Filtros de conteúdo",
+                    "account_standing": "Situação da conta"
+                },
+                "content_filters": {
+                    "description": "Oculta avatares e mundos que os criadores marcaram com este conteúdo. As alterações são salvas na sua conta do VRChat e valem no jogo.",
+                    "unavailable": "O VRChat não oferece filtros de conteúdo para esta conta.",
+                    "update_failed": "Não foi possível atualizar os filtros de conteúdo",
+                    "items": {
+                        "gore": "Ocultar conteúdo excessivamente sangrento",
+                        "horror": "Ocultar terror extremo",
+                        "violence": "Ocultar violência intensa",
+                        "sex": "Ocultar conteúdo sexualmente sugestivo",
+                        "adult": "Ocultar linguagem e temas adultos"
+                    }
+                }
             },
             "relationship": {
                 "friend": "Amigo",
@@ -5037,6 +5081,8 @@
                 "new_instance_and_open_ingame": "Nova Instância e Abrir no Jogo",
                 "make_home": "Definir como Inicial",
                 "reset_home": "Redefinir Inicial",
+                "like": "Gostei",
+                "dislike": "Não gostei",
                 "show_previous_instances": "Mostrar Histórico de Instâncias",
                 "edit_details": "Editar Detalhes",
                 "manage_world": "Gerenciar Mundo",
@@ -5064,7 +5110,14 @@
                 "unpin_from_sidebar": "Desafixar da barra lateral",
                 "unpinned_from_sidebar": "Desafixado da barra lateral",
                 "unpin_from_sidebar_failed": "Não foi possível desafixar da barra lateral",
-                "instance_creator": "Criador da Instância"
+                "instance_creator": "Criador da Instância",
+                "languages_declared": "Definido pelo anfitrião: {languages}",
+                "languages_current": "Na instância agora: {languages}",
+                "filter_with_friends": "Com amigos",
+                "filter_hide_unavailable": "Ocultar fechadas ou cheias",
+                "filter_category_all": "Todas",
+                "filter_clear": "Limpar filtros",
+                "filter_no_match": "Nenhuma instância corresponde aos filtros"
             },
             "info": {
                 "header": "Informações",
@@ -5203,6 +5256,7 @@
                 "failed_to_launch_vrchat_instance": "Falha ao iniciar a instância do VRChat",
                 "home_world_reset": "Mundo inicial redefinido",
                 "failed_to_update_home_world": "Falha ao atualizar o mundo inicial",
+                "failed_to_update_rating": "Falha ao atualizar sua avaliação",
                 "memo_saved": "Nota local salva",
                 "memo_cleared": "Nota local removida",
                 "failed_to_save_memo": "Falha ao salvar a nota local",
@@ -5704,7 +5758,52 @@
             "normal": "Normal",
             "group": "Grupo",
             "legacy": "Legado",
-            "display_name": "Nome da instância"
+            "display_name": "Nome da instância",
+            "description": "Descrição",
+            "category": "Categoria",
+            "vibes": "Vibes",
+            "vibes_placeholder": "Selecionar vibes",
+            "vibes_hint": "Escolha até 3. A primeira aparece como vibe principal.",
+            "reset_defaults": "Restaurar padrões",
+            "category_options": {
+                "hangout": "Bate-papo",
+                "music_shows": "Música e shows",
+                "games": "Jogos",
+                "avatars": "Avatares",
+                "explore": "Explorar",
+                "watch_party": "Assistir juntos",
+                "other": "Outros"
+            },
+            "vibe_options": {
+                "adventure": "Aventura",
+                "arts": "Artes",
+                "chill": "Tranquilo",
+                "club": "Balada",
+                "combat": "Combate",
+                "comedy": "Comédia",
+                "competitive": "Competitivo",
+                "cozy": "Aconchegante",
+                "creative": "Criativo",
+                "cuddle": "Abraços",
+                "dance": "Dança",
+                "drinking": "Bebidas",
+                "education": "Educação",
+                "explore": "Explorar",
+                "fantasy": "Fantasia",
+                "flight": "Voo",
+                "fun": "Diversão",
+                "horror": "Terror",
+                "military": "Militar",
+                "newcomer_friendly": "Amigável para iniciantes",
+                "open_mic": "Microfone aberto",
+                "racing": "Corrida",
+                "relaxing": "Relaxante",
+                "showcase": "Vitrine",
+                "sleep": "Dormir",
+                "visualizer": "Visualizador",
+                "wellness": "Bem-estar",
+                "world_hop": "Pular entre mundos"
+            }
         },
         "launch": {
             "header": "Iniciar",
@@ -5966,6 +6065,7 @@
         },
         "image_crop": {
             "crop_area": "Área de recorte. Arraste uma borda ou um canto para redimensioná-la. Arraste a alça acima da moldura para girar a imagem.",
+            "toolbar_label": "Ferramentas de recorte",
             "rotate_left": "Girar para a Esquerda",
             "rotate_right": "Girar para a Direita",
             "rotation_angle": "Ângulo de rotação",
@@ -6509,6 +6609,14 @@
             "list_view": "Visualização em Lista",
             "calendar_view": "Visualização em Calendário",
             "timeline_view": "Visualização em Linha do Tempo",
+            "discover_view": "Descobrir",
+            "discover": {
+                "live": "Acontecendo agora",
+                "upcoming": "Em breve",
+                "sort_start_time": "Começam antes",
+                "sort_follows": "Mais seguidos",
+                "linked_instance_only": "Somente com instância aberta"
+            },
             "no_events": "Nenhum evento encontrado",
             "search_placeholder": "Pesquisar grupos ou eventos",
             "search_no_matching": "Nenhum evento correspondente encontrado",
@@ -6568,8 +6676,12 @@
             "support_development": "Apoiar o desenvolvimento",
             "loading": "Carregando changelog",
             "failed_to_load": "Falha ao carregar o changelog.",
-            "latest_release": "Versão mais recente",
             "empty": "Nenhum changelog disponível para esta versão.",
+            "current_version": "Versão atual",
+            "older_releases": "Versões anteriores",
+            "view_on_github": "Ver no GitHub",
+            "language": "Idioma do changelog",
+            "versions": "Versões",
             "toast_title": "Atualizado para {value}",
             "toast_description": "Veja o que mudou nesta versão.",
             "view_changes": "Ver mudanças"
@@ -7057,25 +7169,25 @@
         "group_instance_opened": "Criou uma nova instância",
         "group_instance_opened_location": "Criou uma nova instância: {location}",
         "group_instances_opened": "Criou {count} novas instâncias",
-        "has_joined": "entrou",
-        "has_left": "saiu",
-        "joined_with_others": "e mais {count} entraram",
-        "left_with_others": "e mais {count} saíram",
-        "is_joining": "está entrando",
-        "gps": "está em {location}",
-        "online_location": "entrou em {location}",
-        "online": "ficou online",
-        "offline": "ficou offline",
-        "status_update": "agora está com status {status} {description}",
-        "invite": "convidou você para {location} {message}",
-        "request_invite": "solicitou um convite {message}",
-        "invite_response": "respondeu ao seu convite {message}",
-        "request_invite_response": "respondeu à sua solicitação de convite {message}",
-        "friend_request": "enviou um pedido de amizade para você",
-        "friend": "agora é seu amigo",
-        "unfriend": "não é mais seu amigo",
-        "trust_level": "O nível de confiança agora é {trustLevel}",
-        "display_name": "mudou o nome para {displayName}",
+        "has_joined": "Entrou",
+        "has_left": "Saiu",
+        "joined_with_others": "Entrou com mais {count}",
+        "left_with_others": "Saiu com mais {count}",
+        "is_joining": "Entrando",
+        "gps": "Em {location}",
+        "online_location": "Online em {location}",
+        "online": "Online",
+        "offline": "Offline",
+        "status_update": "Status: {status} {description}",
+        "invite": "Convite para {location} {message}",
+        "request_invite": "Pedido de convite {message}",
+        "invite_response": "Resposta ao convite {message}",
+        "request_invite_response": "Resposta ao pedido de convite {message}",
+        "friend_request": "Pedido de amizade",
+        "friend": "Agora são amigos",
+        "unfriend": "Não são mais amigos",
+        "trust_level": "Nível de confiança: {trustLevel}",
+        "display_name": "Mudou o nome para {displayName}",
         "group_announcement_title": "Anúncio do Grupo",
         "group_event_created_title": "Evento de Grupo Criado",
         "group_event_starting_title": "Evento de Grupo Começando",
@@ -7090,7 +7202,7 @@
         "group_queue_ready_title": "Fila da Instância Pronta",
         "instance_closed_title": "Instância Fechada",
         "instance_closed_location": "Instância fechada: {location}",
-        "avatar_change": "trocou para o avatar {avatar}",
+        "avatar_change": "Avatar: {avatar}",
         "blocked_player_joined": "Um usuário bloqueado entrou",
         "blocked_player_left": "Um usuário bloqueado saiu",
         "muted_player_joined": "Um usuário silenciado entrou",

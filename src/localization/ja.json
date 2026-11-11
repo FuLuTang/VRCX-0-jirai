@@ -670,6 +670,7 @@
             "confirm": "確認",
             "clear": "クリア",
             "delete": "削除",
+            "edit": "編集",
             "remove": "削除",
             "reset": "リセット",
             "back": "戻る",
@@ -681,6 +682,7 @@
             "accept": "承認",
             "decline": "断る",
             "copy": "コピー",
+            "copied": "コピーしました",
             "open_link": "リンクを開く",
             "view_on_website": "ウェブサイトで見る",
             "save": "保存",
@@ -1079,6 +1081,7 @@
         "about": "VRCX-0 について",
         "messages": {
             "zoom_failed": "ズームの適用に失敗しました",
+            "zoom_level": "ズーム：{value}",
             "logout_failed": "VRCX-0 からのログアウトに失敗しました",
             "restart_failed": "VRCX-0 の再起動に失敗しました",
             "open_devtools_failed": "DevTools を開けませんでした"
@@ -1489,7 +1492,10 @@
                 "online_for": "オンライン時間 {duration}",
                 "rows": "件",
                 "favorites_are_still_hydrating": "お気に入りを読み込み中です",
-                "favorites_only": "お気に入りのみ"
+                "favorites_only": "お気に入りのみ",
+                "previous_location": "前の場所",
+                "current_location": "現在地",
+                "stayed": "滞在 {duration}"
             },
             "success": {
                 "vrchat_launch_request_sent": "VRChat で開きました",
@@ -1592,7 +1598,9 @@
                 "collapse_all": "すべて折りたたむ",
                 "players_count": "{count} 人",
                 "videos_count": "動画 {count} 件",
-                "latest": "最新"
+                "latest": "最新",
+                "show_all_videos": "すべて表示（{count}件）",
+                "show_fewer_videos": "折りたたむ"
             },
             "label": {
                 "sessions": "セッション",
@@ -1708,7 +1716,8 @@
                 "avatar_made_private": "アバターを非公開にしました",
                 "untitled_avatar": "無題のアバター",
                 "local_test_avatars": "ローカルテストアバター",
-                "local_test_avatars_description": "VRChat SDK の Build & Test でビルドしたアバターです。ゲーム内では自分にしか見えません。"
+                "local_test_avatars_description": "VRChat SDK の Build & Test でビルドしたアバターです。ゲーム内では自分にしか見えません。",
+                "sort_by": "並べ替え"
             },
             "source": {
                 "own": "アップロード",
@@ -1766,7 +1775,6 @@
             "clear_results_tooltip": "検索結果を消去",
             "user": {
                 "header": "ユーザー",
-                "search_by_bio": "自己紹介から検索",
                 "sort_by_last_logged_in": "最後にログインした順で並べ替え"
             },
             "world": {
@@ -1788,6 +1796,17 @@
             "group": {
                 "header": "グループ"
             },
+            "hot": {
+                "header": "探索",
+                "active": "人気",
+                "discover": "発見",
+                "shuffle": "シャッフル",
+                "rooms": "{count} インスタンス",
+                "friends_here_other": "フレンド {count} 人が滞在中",
+                "friends_visited_other": "7日間でフレンド {count} 人が訪問",
+                "friends_visited_short_other": "7日間 · フレンド{count}人",
+                "empty": "表示できるワールドがありません"
+            },
             "label": {
                 "avatar_provider": "アバター検索プロバイダー"
             },
@@ -1798,7 +1817,8 @@
                 "failed_to_search_worlds": "ワールド検索に失敗しました",
                 "failed_to_search_groups": "グループ検索に失敗しました",
                 "failed_to_search_avatars": "アバター検索に失敗しました",
-                "failed_to_save_avatar_provider": "アバタープロバイダーの保存に失敗しました"
+                "failed_to_save_avatar_provider": "アバタープロバイダーの保存に失敗しました",
+                "failed_to_load_hot_worlds": "人気ワールドを読み込めませんでした"
             }
         },
         "favorite": {
@@ -3288,6 +3308,8 @@
                     "theme_mode_pink": "ピンク",
                     "theme_mode_material3": "Material 3",
                     "zoom": "ズーム",
+                    "ctrl_wheel_zoom": "マウスホイールでズーム",
+                    "ctrl_wheel_zoom_description": "Ctrl（macOS では ⌘）を押しながらホイールを回すと表示倍率を変更できます。誤操作を防ぐため、初期設定ではオフです。",
                     "show_instance_id": "インスタンス名を表示",
                     "age_gated_instances": "年齢制限付きインスタンス",
                     "age_gated_instances_description": "年齢制限付きインスタンスを表示します。無効にすると詳細が隠され、「制限付き」とだけ表示されます。",
@@ -4609,7 +4631,7 @@
                 "unfriend": "フレンドを解除",
                 "edit_note_memo": "ノートとローカルノートを編集",
                 "edit_profile": "プロフィールを編集",
-                "account_standing": "アカウントの状態"
+                "vrchat_account": "VRChat アカウント"
             },
             "group_invite": {
                 "select_group": "グループを選択",
@@ -4969,12 +4991,31 @@
                 "apply_color": "色を適用"
             },
             "account_standing": {
-                "header": "アカウントの状態",
-                "description": "VRChat から取得したアカウントの状態です。",
                 "status": "状態",
                 "issue_clear_days": "問題が解消されるまでの日数",
                 "sanctions": "処分",
-                "load_failed": "アカウントの状態を読み込めませんでした"
+                "load_failed": "アカウントの状態を読み込めませんでした",
+                "raw_data": "生データ"
+            },
+            "vrchat_account": {
+                "header": "VRChat アカウント",
+                "description": "ログイン中の VRChat アカウントの設定と状態です。",
+                "tabs": {
+                    "content_filters": "コンテンツフィルター",
+                    "account_standing": "アカウントの状態"
+                },
+                "content_filters": {
+                    "description": "クリエイターがタグ付けした内容を含むアバターやワールドを非表示にします。設定は VRChat アカウントに保存され、ゲーム内に反映されます。",
+                    "unavailable": "このアカウントでは VRChat のコンテンツフィルター設定を利用できません。",
+                    "update_failed": "コンテンツフィルターを更新できませんでした",
+                    "items": {
+                        "gore": "過度な流血表現を非表示",
+                        "horror": "過激なホラー表現を非表示",
+                        "violence": "激しい暴力表現を非表示",
+                        "sex": "性的なほのめかしを含む内容を非表示",
+                        "adult": "成人向けの言葉やテーマを非表示"
+                    }
+                }
             },
             "relationship": {
                 "friend": "フレンド",
@@ -5025,6 +5066,8 @@
                 "new_instance_and_open_ingame": "インスタンスを作成してゲーム内で開く",
                 "make_home": "ホームに設定",
                 "reset_home": "ホームをリセット",
+                "like": "高評価",
+                "dislike": "低評価",
                 "show_previous_instances": "インスタンス履歴を表示",
                 "edit_details": "詳細を編集",
                 "manage_world": "ワールドを管理",
@@ -5052,7 +5095,14 @@
                 "unpin_from_sidebar": "サイドバーから固定を解除",
                 "unpinned_from_sidebar": "サイドバーから固定を解除しました",
                 "unpin_from_sidebar_failed": "サイドバーから固定を解除できませんでした",
-                "instance_creator": "インスタンス作成者"
+                "instance_creator": "インスタンス作成者",
+                "languages_declared": "ホストが設定：{languages}",
+                "languages_current": "現在のプレイヤー：{languages}",
+                "filter_with_friends": "フレンドがいる",
+                "filter_hide_unavailable": "終了・満員を隠す",
+                "filter_category_all": "すべて",
+                "filter_clear": "フィルターをクリア",
+                "filter_no_match": "条件に合うインスタンスはありません"
             },
             "info": {
                 "header": "情報",
@@ -5191,6 +5241,7 @@
                 "failed_to_launch_vrchat_instance": "VRChat インスタンスを起動できませんでした",
                 "home_world_reset": "ホームワールドをリセットしました",
                 "failed_to_update_home_world": "ホームワールドを更新できませんでした",
+                "failed_to_update_rating": "評価を更新できませんでした",
                 "memo_saved": "ローカルノートを保存しました",
                 "memo_cleared": "ローカルノートをクリアしました",
                 "failed_to_save_memo": "ローカルノートの保存に失敗しました",
@@ -5736,7 +5787,38 @@
             "normal": "通常",
             "group": "グループ",
             "legacy": "レガシー",
-            "display_name": "インスタンス名"
+            "display_name": "インスタンス名",
+            "description": "説明",
+            "category": "カテゴリー",
+            "vibes": "雰囲気",
+            "vibes_placeholder": "雰囲気を選択",
+            "vibes_hint": "3つまで選べます。最初に選んだものがメインとして表示されます。",
+            "reset_defaults": "初期設定に戻す",
+            "category_options": {
+                "hangout": "雑談",
+                "music_shows": "音楽・ショー",
+                "explore": "探索",
+                "other": "その他"
+            },
+            "vibe_options": {
+                "adventure": "冒険",
+                "chill": "まったり",
+                "combat": "バトル",
+                "comedy": "お笑い",
+                "competitive": "対戦",
+                "cozy": "ほっこり",
+                "creative": "ものづくり",
+                "drinking": "飲み会",
+                "education": "勉強",
+                "explore": "探索",
+                "fun": "わいわい",
+                "furry": "ケモノ",
+                "newcomer_friendly": "初心者歓迎",
+                "sleep": "睡眠",
+                "social": "交流",
+                "wellness": "癒やし",
+                "world_hop": "ワールド巡り"
+            }
         },
         "launch": {
             "header": "起動",
@@ -5998,6 +6080,7 @@
         },
         "image_crop": {
             "crop_area": "トリミング枠。辺または角をドラッグするとサイズを変更できます。枠の上にあるハンドルをドラッグすると回転できます。",
+            "toolbar_label": "トリミングツール",
             "rotate_left": "左に回転",
             "rotate_right": "右に回転",
             "rotation_angle": "回転角度",
@@ -6541,6 +6624,14 @@
             "list_view": "リスト表示",
             "calendar_view": "カレンダー表示",
             "timeline_view": "タイムライン表示",
+            "discover_view": "見つける",
+            "discover": {
+                "live": "開催中",
+                "upcoming": "開催予定",
+                "sort_start_time": "開始が早い順",
+                "sort_follows": "フォローが多い順",
+                "linked_instance_only": "インスタンスがあるイベントのみ"
+            },
             "no_events": "イベントが見つかりません",
             "search_placeholder": "グループまたはイベントを検索",
             "search_no_matching": "一致するイベントが見つかりません",
@@ -6600,8 +6691,12 @@
             "support_development": "開発を支援",
             "loading": "更新履歴を読み込んでいます",
             "failed_to_load": "更新履歴の読み込みに失敗しました。",
-            "latest_release": "最新リリース",
             "empty": "このリリースには利用可能な更新履歴がありません。",
+            "current_version": "使用中",
+            "older_releases": "それ以前のリリース",
+            "view_on_github": "GitHub で見る",
+            "language": "更新履歴の言語",
+            "versions": "バージョン",
             "toast_title": "{value} に更新しました",
             "toast_description": "このバージョンの更新内容を確認できます。",
             "view_changes": "更新内容を見る"
@@ -7086,26 +7181,47 @@
         }
     },
     "notifications": {
-        "has_joined": "が参加しました",
-        "has_left": "が退出しました",
-        "joined_with_others": "と他{count}人が参加しました",
-        "left_with_others": "と他{count}人が退出しました",
-        "is_joining": "が参加しようとしています",
-        "gps": "は {location} にいます",
-        "online_location": "が {location} にログインしました",
-        "online": "はログインしました",
-        "offline": "はログアウトしました",
-        "status_update": "のステータスが {status} {description} に更新されました",
-        "invite": "から {location} への招待が届きました {message}",
-        "request_invite": "から招待リクエストが届きました {message}",
-        "invite_response": "から招待の返事が届きました {message}",
-        "request_invite_response": "から招待リクエストへの返信が届きました {message}",
-        "friend_request": "がフレンドリクエストを送信しました",
-        "friend": "とフレンドになりました",
-        "unfriend": "とのフレンド関係が解除されました",
-        "trust_level": "トラストレベルが {trustLevel} になりました",
-        "display_name": "の表示名が {displayName} に変更されました",
-        "bio": "が自己紹介を更新しました",
+        "has_joined": "参加",
+        "has_left": "退出",
+        "joined_with_others": "ほか {count} 人が参加",
+        "left_with_others": "ほか {count} 人が退出",
+        "is_joining": "まもなく参加",
+        "gps": "現在地：{location}",
+        "online_location": "{location} でオンライン",
+        "online": "オンライン",
+        "offline": "オフライン",
+        "status_update": "ステータス：{status} {description}",
+        "invite": "{location} への招待 {message}",
+        "request_invite": "招待リクエスト {message}",
+        "invite_response": "招待の返事 {message}",
+        "request_invite_response": "招待リクエストへの返信 {message}",
+        "friend_request": "フレンドリクエスト",
+        "friend": "新しいフレンド",
+        "unfriend": "フレンド解除",
+        "trust_level": "トラストランク：{trustLevel}",
+        "display_name": "表示名を {displayName} に変更",
+        "bio": "自己紹介を更新",
+        "sentence": {
+            "has_joined": "{name} が参加しました",
+            "has_left": "{name} が退出しました",
+            "is_joining": "{name} がまもなく参加します",
+            "gps": "{name} は今 {location} にいます",
+            "online_location": "{name} が {location} でオンラインになりました",
+            "online": "{name} がオンラインになりました",
+            "offline": "{name} がオフラインになりました",
+            "status_update": "{name} のステータスが {status} {description} になりました",
+            "invite": "{name} から {location} への招待が届きました {message}",
+            "request_invite": "{name} から招待リクエストが届きました {message}",
+            "invite_response": "{name} から招待の返事が届きました {message}",
+            "request_invite_response": "{name} から招待リクエストへの返信が届きました {message}",
+            "friend_request": "{name} からフレンドリクエストが届きました",
+            "friend": "{name} とフレンドになりました",
+            "unfriend": "{name} とのフレンドが解除されました",
+            "trust_level": "{name} のトラストランクが {trustLevel} になりました",
+            "display_name": "{name} が表示名を {displayName} に変更しました",
+            "bio": "{name} が自己紹介を更新しました",
+            "avatar_change": "{name} がアバターを {avatar} に変更しました"
+        },
         "group_announcement_title": "グループのお知らせ",
         "group_event_created_title": "グループイベントの作成",
         "group_event_starting_title": "グループイベントの開始",
@@ -7130,7 +7246,7 @@
         "tracker_disconnected": "接続が切れました",
         "tracker_disconnected_battery": "接続が切れました · 最後の残量 {percent}%",
         "trackers_disconnected": "{count}台の接続が切れました",
-        "avatar_change": "がアバターを {avatar} に変更しました",
+        "avatar_change": "アバター：{avatar}",
         "blocked_player_joined": "ブロックしたユーザーが参加しました",
         "blocked_player_left": "ブロックしたユーザーが退出しました",
         "muted_player_joined": "ミュートしたユーザーが参加しました",

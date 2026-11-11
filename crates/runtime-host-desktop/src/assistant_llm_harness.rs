@@ -741,7 +741,7 @@ impl Snapshot {
         let user_id = env.get("VRCX0_HARNESS_USER_ID").unwrap_or_else(|| {
             runtime
                 .desktop_assembly()
-                .config()
+                .config_store()
                 .get_string("lastUserLoggedIn", "")
                 .unwrap_or_default()
         });
@@ -1530,6 +1530,7 @@ fn call(id: &str, name: &str, arguments: &str) -> ToolCall {
             name: name.into(),
             arguments: arguments.into(),
         },
+        extra_content: None,
     }
 }
 

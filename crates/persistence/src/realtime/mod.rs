@@ -1,5 +1,7 @@
+mod jirai;
 mod query;
 mod schema;
+mod self_profile;
 mod types;
 mod write;
 
@@ -10,8 +12,5 @@ pub use types::{
     NotificationExpiration, NotificationV2Update, RealtimePersistenceBatch, RealtimeWriteCounts,
     SelfProfileField, SelfProfileObservation,
 };
-pub(crate) use write::write_friend_log_current;
-pub use write::{
-    insert_backfilled_feed, insert_startup_online_backfill, profile_feed_reconcile,
-    write_realtime_batch, BackfillWrites, ProfileFeedReconcileInput, ProfileFeedReconcileOutput,
-};
+pub use jirai::{insert_startup_online_backfill, profile_feed_reconcile};
+pub use write::write_realtime_batch;

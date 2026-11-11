@@ -1,22 +1,50 @@
 #![allow(non_snake_case)]
 
 use tauri::State;
-use vrcx_0_application_core::vrchat_api::VrchatApiResponse;
+use vrcx_0_contracts::vrchat_api::VrchatResponse;
 
 use crate::error::AppError;
 use crate::state::AppState;
 
 use super::types::{
     VrchatWorldIdInput, VrchatWorldListByUserInput, VrchatWorldPersistentDataDeleteInput,
-    VrchatWorldSaveInput,
+    VrchatWorldRatingSetInput, VrchatWorldSaveInput,
 };
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__vrchat_world_rating_get(
+    state: State<'_, AppState>,
+    input: VrchatWorldIdInput,
+) -> Result<VrchatResponse, AppError> {
+    state
+        .runtime_host()
+        .worlds()
+        .rating_get(input.world_id)
+        .await
+        .map_err(AppError::from)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__vrchat_world_rating_set(
+    state: State<'_, AppState>,
+    input: VrchatWorldRatingSetInput,
+) -> Result<VrchatResponse, AppError> {
+    state
+        .runtime_host()
+        .worlds()
+        .rating_set(input.world_id, input.value)
+        .await
+        .map_err(AppError::from)
+}
 
 #[tauri::command]
 #[specta::specta]
 pub async fn app__vrchat_world_list_by_user_get(
     state: State<'_, AppState>,
     input: VrchatWorldListByUserInput,
-) -> Result<VrchatApiResponse, AppError> {
+) -> Result<VrchatResponse, AppError> {
     state
         .runtime_host()
         .worlds()
@@ -37,7 +65,7 @@ pub async fn app__vrchat_world_list_by_user_get(
 pub async fn app__vrchat_world_persistent_data_exists(
     state: State<'_, AppState>,
     input: VrchatWorldPersistentDataDeleteInput,
-) -> Result<VrchatApiResponse, AppError> {
+) -> Result<VrchatResponse, AppError> {
     state
         .runtime_host()
         .worlds()
@@ -51,7 +79,7 @@ pub async fn app__vrchat_world_persistent_data_exists(
 pub async fn app__vrchat_world_save(
     state: State<'_, AppState>,
     input: VrchatWorldSaveInput,
-) -> Result<VrchatApiResponse, AppError> {
+) -> Result<VrchatResponse, AppError> {
     state
         .runtime_host()
         .worlds()
@@ -65,7 +93,7 @@ pub async fn app__vrchat_world_save(
 pub async fn app__vrchat_world_delete(
     state: State<'_, AppState>,
     input: VrchatWorldIdInput,
-) -> Result<VrchatApiResponse, AppError> {
+) -> Result<VrchatResponse, AppError> {
     state
         .runtime_host()
         .worlds()
@@ -79,7 +107,7 @@ pub async fn app__vrchat_world_delete(
 pub async fn app__vrchat_world_publish(
     state: State<'_, AppState>,
     input: VrchatWorldIdInput,
-) -> Result<VrchatApiResponse, AppError> {
+) -> Result<VrchatResponse, AppError> {
     state
         .runtime_host()
         .worlds()
@@ -93,7 +121,7 @@ pub async fn app__vrchat_world_publish(
 pub async fn app__vrchat_world_unpublish(
     state: State<'_, AppState>,
     input: VrchatWorldIdInput,
-) -> Result<VrchatApiResponse, AppError> {
+) -> Result<VrchatResponse, AppError> {
     state
         .runtime_host()
         .worlds()
@@ -107,7 +135,7 @@ pub async fn app__vrchat_world_unpublish(
 pub async fn app__vrchat_world_persistent_data_delete(
     state: State<'_, AppState>,
     input: VrchatWorldPersistentDataDeleteInput,
-) -> Result<VrchatApiResponse, AppError> {
+) -> Result<VrchatResponse, AppError> {
     state
         .runtime_host()
         .worlds()

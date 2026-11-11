@@ -33,7 +33,10 @@ function ExpanderCell({ row }: { row: AppRow<FeedRow> }) {
             type="button"
             variant="ghost"
             size="icon-sm"
-            className="text-muted-foreground hover:text-foreground"
+            className={cn(
+                'text-muted-foreground hover:text-foreground group-hover/feed-row:opacity-100 focus-visible:opacity-100',
+                !row.getIsExpanded() && 'opacity-0'
+            )}
             onClick={() => row.toggleExpanded()}
         >
             <ChevronRightIcon
@@ -92,7 +95,10 @@ function DetailCell({ row, table }: AppCellContext<FeedRow>) {
     );
 }
 
-export function useFeedColumns(meta: FeedTableMeta): FeedColumns {
+export function useFeedColumns(
+    meta: FeedTableMeta,
+    searchMode: boolean
+): FeedColumns {
     const { t } = useTranslation();
 
     return useMemo<FeedColumns>(
@@ -114,6 +120,7 @@ export function useFeedColumns(meta: FeedTableMeta): FeedColumns {
             },
             {
                 id: 'created_at',
+                size: searchMode ? 150 : 96,
                 enableHiding: false,
                 accessorFn: (row: FeedRow) =>
                     getFeedTableSortValue(row, 'created_at', meta),
@@ -128,6 +135,7 @@ export function useFeedColumns(meta: FeedTableMeta): FeedColumns {
             },
             {
                 id: 'displayName',
+                size: 180,
                 enableHiding: false,
                 accessorFn: (row: FeedRow) =>
                     getFeedTableSortValue(row, 'displayName', meta),
@@ -185,6 +193,6 @@ export function useFeedColumns(meta: FeedTableMeta): FeedColumns {
                 cell: DetailCell
             }
         ],
-        [meta, t]
+        [meta, searchMode, t]
     );
 }

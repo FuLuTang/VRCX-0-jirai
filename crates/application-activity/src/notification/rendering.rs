@@ -1,12 +1,12 @@
-use super::NotificationConfig;
 use crate::ActivityDelivery;
+use vrcx_0_application_core::ConfigStore;
 use vrcx_0_contracts::activity::ActivityKind;
 
 use super::{OverlayLocale, OverlayLocalizer, RenderedNotification};
 
 const APP_LANGUAGE_CONFIG_KEY: &str = "appLanguage";
 
-pub fn load_notification_locale(config: &dyn NotificationConfig) -> OverlayLocale {
+pub fn load_notification_locale(config: &dyn ConfigStore) -> OverlayLocale {
     config
         .get_string(APP_LANGUAGE_CONFIG_KEY, "en")
         .map(|value| OverlayLocale::from_config(&value))
@@ -32,7 +32,15 @@ pub fn render_delivery(
         &entry.content.world_name,
         &entry.content.group_name,
     );
-    let text = combine_text(entry.kind, &title, &body);
+    let text = localizer
+        .activity_sentence(
+            &entry.content.title,
+            &entry.content.body,
+            &entry.content.location,
+            &entry.content.world_name,
+            &entry.content.group_name,
+        )
+        .unwrap_or_else(|| combine_text(entry.kind, &title, &body));
     let display_location = localizer.display_location(
         &entry.content.location,
         &entry.content.world_name,

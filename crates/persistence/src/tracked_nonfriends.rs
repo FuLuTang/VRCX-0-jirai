@@ -1,39 +1,11 @@
-use serde::{Deserialize, Serialize};
-
 use crate::common::{normalize_text, row_string, ParamsBuilder};
 use crate::database::DatabaseService;
 use crate::ownership::OwnerId;
 use crate::realtime::{ensure_realtime_tables, normalize_user_table_prefix};
 use crate::Error;
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct TrackedNonFriendOutput {
-    #[serde(alias = "user_id")]
-    pub user_id: String,
-    #[serde(alias = "display_name")]
-    pub display_name: String,
-    #[serde(alias = "added_at")]
-    pub added_at: String,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct TrackedNonFriendAddInput {
-    #[serde(alias = "user_id")]
-    pub user_id: String,
-    #[serde(default, alias = "display_name")]
-    pub display_name: String,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct TrackedNonFriendUpdateNameInput {
-    #[serde(alias = "user_id")]
-    pub user_id: String,
-    #[serde(default, alias = "display_name")]
-    pub display_name: String,
-}
+use vrcx_0_contracts::jirai::{
+    TrackedNonFriendAddInput, TrackedNonFriendOutput, TrackedNonFriendUpdateNameInput,
+};
 
 fn owner_prefix(db: &DatabaseService, owner_user_id: &OwnerId) -> Result<String, Error> {
     let owner_user_id = normalize_text(owner_user_id.as_str());

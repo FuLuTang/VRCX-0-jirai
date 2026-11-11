@@ -15,6 +15,7 @@ import { FadeInImage } from '@/components/media/FadeInImage';
 import type { AvatarProfileRecord } from '@/domain/entities/avatar';
 import type { UserProfileRecord } from '@/domain/entities/user';
 import type { WorldProfileRecord } from '@/domain/entities/world';
+import type { FriendRecord } from '@/domain/friends/types';
 import { cn } from '@/lib/utils';
 import type { SearchGroupJson } from '@/repositories/vrchatSearchRepository';
 import {
@@ -31,11 +32,18 @@ import {
     type LanguageOption,
     normalizeProfileLanguageRows
 } from '@/shared/utils/userLanguage';
-import { Avatar, AvatarFallback, AvatarImage } from '@/ui/shadcn/avatar';
+import {
+    Avatar,
+    AvatarFallback,
+    AvatarGroup,
+    AvatarGroupCount,
+    AvatarImage
+} from '@/ui/shadcn/avatar';
 import { Badge } from '@/ui/shadcn/badge';
 import { Button } from '@/ui/shadcn/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/shadcn/tooltip';
 
+import type { SearchHotWorld } from '../searchHotWorlds';
 import type { SearchActiveTab } from '../searchTypes';
 
 const SEARCH_EMPTY_ICONS: Record<SearchActiveTab, LucideIcon> = {
@@ -100,15 +108,87 @@ export function SearchLoadingState() {
     return <LoadingState variant="panel" label={t('common.loading')} />;
 }
 
-const searchMediaTextStyle: CSSProperties = {
-    textShadow: '0 1px 2px rgb(0 0 0 / 0.9), 0 0 10px rgb(0 0 0 / 0.65)'
-};
+function HotUserCount({
+    count,
+    className
+}: {
+    count: number;
+    className?: string;
+}) {
+    const { i18n } = useTranslation();
+
+    return (
+        <span
+            className={cn(
+                'flex items-center gap-1.5 rounded-md bg-black/80 px-2 py-1 text-sm leading-none font-semibold text-white tabular-nums',
+                className
+            )}
+        >
+            <span className="size-2 rounded-full bg-[var(--status-online)]" />
+            {count.toLocaleString(i18n.language)}
+        </span>
+    );
+}
+
+const HOT_FRIEND_AVATAR_LIMIT = 3;
+
+function HotWorldFriends({ friends }: { friends: readonly FriendRecord[] }) {
+    const { t } = useTranslation();
+    if (friends.length === 0) {
+        return null;
+    }
+    const shown = friends.slice(0, HOT_FRIEND_AVATAR_LIMIT);
+    const hidden = friends.slice(shown.length);
+
+    return (
+        <AvatarGroup
+            className="-space-x-1.5"
+            aria-label={t('view.search.hot.friends_here', {
+                count: friends.length
+            })}
+        >
+            {shown.map((friend) => {
+                const avatarUrl = userImage(friend, 64);
+                return (
+                    <Avatar
+                        key={friend.id}
+                        size="sm"
+                        title={friend.displayName}
+                    >
+                        {avatarUrl ? (
+                            <AvatarImage
+                                src={avatarUrl}
+                                alt=""
+                                loading="lazy"
+                            />
+                        ) : null}
+                        <AvatarFallback>
+                            <UserIcon className="size-3" />
+                        </AvatarFallback>
+                    </Avatar>
+                );
+            })}
+            {hidden.length > 0 ? (
+                <AvatarGroupCount
+                    className="text-xs tabular-nums"
+                    title={hidden
+                        .map((friend) => friend.displayName)
+                        .join(', ')}
+                >
+                    +{hidden.length}
+                </AvatarGroupCount>
+            ) : null}
+        </AvatarGroup>
+    );
+}
 
 function SearchMediaCard({
     imageUrl,
     imageAlt,
     title,
     subtitle,
+    userCount,
+    overlay,
     FallbackIcon,
     onClick
 }: {
@@ -116,48 +196,53 @@ function SearchMediaCard({
     imageAlt: string;
     title?: ReactNode;
     subtitle?: ReactNode;
+    userCount?: number;
+    overlay?: ReactNode;
     FallbackIcon: LucideIcon;
     onClick: () => void;
 }) {
+    const fallback = (
+        <div className="text-muted-foreground grid h-full w-full place-items-center [&>svg]:size-8">
+            <FallbackIcon />
+        </div>
+    );
+
     return (
         <Button
             type="button"
             variant="outline"
-            className="group/search-media h-auto w-full min-w-0 flex-col items-stretch justify-start overflow-hidden p-0 text-left font-normal whitespace-normal"
+            className="group/search-media h-auto w-full min-w-0 flex-col items-stretch justify-start gap-0 overflow-hidden p-0 text-left font-normal whitespace-normal"
             onClick={onClick}
         >
-            <div className="bg-muted relative aspect-[16/10] w-full overflow-hidden">
+            <div className="bg-muted relative aspect-[4/3] w-full overflow-hidden">
                 {imageUrl ? (
                     <FadeInImage
                         src={imageUrl}
                         alt={imageAlt}
                         loading="lazy"
-                        className="h-full w-full object-cover"
-                        fallback={
-                            <div className="text-muted-foreground grid h-full w-full place-items-center [&>svg]:size-8">
-                                <FallbackIcon />
-                            </div>
-                        }
+                        className="h-full w-full object-cover transition-transform duration-300 group-hover/search-media:scale-[1.03]"
+                        fallback={fallback}
                     />
                 ) : (
-                    <div className="text-muted-foreground grid h-full w-full place-items-center [&>svg]:size-8">
-                        <FallbackIcon />
-                    </div>
+                    fallback
                 )}
-                <div className="absolute right-0 bottom-0 left-0 flex min-w-0 flex-col gap-1 bg-gradient-to-t from-black/85 via-black/35 to-transparent px-3 pt-10 pb-3">
-                    <span
-                        className="block truncate text-sm font-semibold text-white"
-                        style={searchMediaTextStyle}
-                    >
-                        {title || ''}
-                    </span>
-                    <span
-                        className="block min-h-4 truncate text-xs font-medium text-white/75"
-                        style={searchMediaTextStyle}
-                    >
-                        {subtitle || ''}
-                    </span>
-                </div>
+                {userCount ? (
+                    <HotUserCount
+                        count={userCount}
+                        className="absolute bottom-2 left-2"
+                    />
+                ) : null}
+                {overlay ? (
+                    <div className="absolute right-2 bottom-2">{overlay}</div>
+                ) : null}
+            </div>
+            <div className="flex min-w-0 flex-col gap-0.5 px-3 py-2.5">
+                <span className="truncate text-sm font-semibold">
+                    {title || ''}
+                </span>
+                <span className="text-muted-foreground min-h-4 truncate text-xs">
+                    {subtitle || ''}
+                </span>
             </div>
         </Button>
     );
@@ -317,27 +402,157 @@ export function AvatarCard({ avatar }: { avatar: AvatarProfileRecord }) {
     );
 }
 
-export function WorldCard({ world }: { world: WorldProfileRecord }) {
-    const occupants = Number(world.occupants) || 0;
-    const subtitle = occupants
-        ? `${world.authorName || ''} (${occupants})`
-        : world.authorName || '';
+function openWorld(world: WorldProfileRecord) {
+    openWorldDialog({
+        worldId: world.id,
+        title: world.name || undefined,
+        seedData: world
+    });
+}
 
+export function WorldCard({
+    world,
+    userCount = Number(world.occupants) || 0,
+    subtitle = world.authorName || '',
+    overlay
+}: {
+    world: WorldProfileRecord;
+    userCount?: number;
+    subtitle?: ReactNode;
+    overlay?: ReactNode;
+}) {
     return (
         <SearchMediaCard
             imageUrl={world.thumbnailImageUrl}
             imageAlt={world.name || 'World'}
             title={world.name || ''}
             subtitle={subtitle}
+            userCount={userCount}
+            overlay={overlay}
             FallbackIcon={GlobeIcon}
-            onClick={() =>
-                openWorldDialog({
-                    worldId: world.id,
-                    title: world.name || undefined,
-                    seedData: world
-                })
-            }
+            onClick={() => openWorld(world)}
         />
+    );
+}
+
+function HotWorldSubtitle({
+    entry,
+    recentFriendCount
+}: {
+    entry: SearchHotWorld;
+    recentFriendCount: number;
+}) {
+    const { t } = useTranslation();
+
+    return (
+        <span className="flex min-w-0 items-center gap-2">
+            <span className="min-w-0 flex-1 truncate">
+                {[
+                    entry.world.authorName,
+                    t('view.search.hot.rooms', { count: entry.instanceCount })
+                ]
+                    .filter(Boolean)
+                    .join(' · ')}
+            </span>
+            {recentFriendCount > 0 ? (
+                <span
+                    className="max-w-[60%] shrink-0 truncate tabular-nums"
+                    title={t('view.search.hot.friends_visited', {
+                        count: recentFriendCount
+                    })}
+                >
+                    {t('view.search.hot.friends_visited_short', {
+                        count: recentFriendCount
+                    })}
+                </span>
+            ) : null}
+        </span>
+    );
+}
+
+export function HotWorldCard({
+    entry,
+    friends,
+    recentFriendCount
+}: {
+    entry: SearchHotWorld;
+    friends: readonly FriendRecord[];
+    recentFriendCount: number;
+}) {
+    return (
+        <WorldCard
+            world={entry.world}
+            userCount={entry.userCount}
+            subtitle={
+                <HotWorldSubtitle
+                    entry={entry}
+                    recentFriendCount={recentFriendCount}
+                />
+            }
+            overlay={<HotWorldFriends friends={friends} />}
+        />
+    );
+}
+
+export function HotWorldHero({
+    entry,
+    friends,
+    recentFriendCount
+}: {
+    entry: SearchHotWorld;
+    friends: readonly FriendRecord[];
+    recentFriendCount: number;
+}) {
+    const { world } = entry;
+    const imageUrl = world.imageUrl || world.thumbnailImageUrl;
+    const fallback = (
+        <div className="text-muted-foreground grid h-full w-full place-items-center [&>svg]:size-10">
+            <GlobeIcon />
+        </div>
+    );
+
+    return (
+        <Button
+            type="button"
+            variant="outline"
+            className="group/search-media relative aspect-[21/9] h-auto max-h-80 w-full min-w-0 items-stretch justify-start overflow-hidden p-0 text-left font-normal whitespace-normal"
+            onClick={() => openWorld(world)}
+        >
+            <div className="bg-muted absolute inset-0">
+                {imageUrl ? (
+                    <FadeInImage
+                        src={imageUrl}
+                        alt={world.name || 'World'}
+                        className="h-full w-full object-cover transition-transform duration-300 group-hover/search-media:scale-[1.02]"
+                        fallback={fallback}
+                    />
+                ) : (
+                    fallback
+                )}
+            </div>
+            <div className="absolute inset-x-0 bottom-0 flex items-end gap-4 bg-gradient-to-t from-black/85 via-black/45 to-transparent p-4 pt-16 text-white">
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    <span className="truncate text-xl font-semibold">
+                        {world.name || ''}
+                    </span>
+                    <span className="text-sm text-white/75">
+                        <HotWorldSubtitle
+                            entry={entry}
+                            recentFriendCount={recentFriendCount}
+                        />
+                    </span>
+                    {world.description ? (
+                        <span className="line-clamp-2 text-xs leading-snug break-words text-white/70">
+                            {world.description}
+                        </span>
+                    ) : null}
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                    <HotWorldFriends friends={friends} />
+                    <HotUserCount count={entry.userCount} />
+                </div>
+            </div>
+        </Button>
     );
 }
 

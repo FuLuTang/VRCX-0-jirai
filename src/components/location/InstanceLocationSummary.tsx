@@ -1,4 +1,4 @@
-import { AlertTriangleIcon, LockIcon, UnlockIcon } from 'lucide-react';
+import { LockIcon, UnlockIcon } from 'lucide-react';
 import { useMemo } from 'react';
 import type { SyntheticEvent } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -23,7 +23,6 @@ import { accessTypeLocaleKeyMap } from '@/shared/constants/accessType';
 import { translateAccessType } from '@/shared/utils/location';
 import { useLaunchStore } from '@/state/launchStore';
 import { Button } from '@/ui/shadcn/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/shadcn/tooltip';
 
 export type InstanceLocationSummaryProps = {
     locationObject?: LocationObjectRecord | string | null;
@@ -38,11 +37,11 @@ export type InstanceLocationSummaryProps = {
     endpoint?: string;
     hint?: string | null;
     interactive?: boolean;
-    disableTooltip?: boolean;
     instanceClickAction?: 'launch' | 'world';
     showGroupName?: boolean;
     showWorldName?: boolean;
     showPlayerSummary?: boolean;
+    showRegion?: boolean;
     className?: string;
 };
 
@@ -59,11 +58,11 @@ export function InstanceLocationSummary({
     endpoint = '',
     hint = '',
     interactive = true,
-    disableTooltip = false,
     instanceClickAction = 'launch',
     showGroupName = true,
     showWorldName = true,
     showPlayerSummary = true,
+    showRegion = true,
     className = ''
 }: InstanceLocationSummaryProps) {
     const { t } = useTranslation();
@@ -207,7 +206,7 @@ export function InstanceLocationSummary({
                 className
             )}
         >
-            <RegionCodeBadge region={region} />
+            {showRegion ? <RegionCodeBadge region={region} /> : null}
             {interactive ? (
                 <Button
                     type="button"
@@ -263,23 +262,9 @@ export function InstanceLocationSummary({
                 </LocationPendingText>
             ) : null}
             {isClosed ? (
-                disableTooltip ? (
-                    <AlertTriangleIcon
-                        className="text-destructive ml-1 size-4 shrink-0"
-                        title={t('dialog.user.info.instance_closed')}
-                    />
-                ) : (
-                    <Tooltip>
-                        <TooltipTrigger
-                            render={
-                                <AlertTriangleIcon className="text-destructive ml-1 size-4 shrink-0" />
-                            }
-                        />
-                        <TooltipContent>
-                            {t('dialog.user.info.instance_closed')}
-                        </TooltipContent>
-                    </Tooltip>
-                )
+                <span className="text-muted-foreground ml-2 shrink-0 text-xs">
+                    {t('dialog.world.instances.closed')}
+                </span>
             ) : null}
             {locObj.strict ? (
                 <LockIcon className="text-muted-foreground ml-1.5 size-4 shrink-0" />

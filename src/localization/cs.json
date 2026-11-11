@@ -673,6 +673,7 @@
             "confirm": "Potvrdit",
             "clear": "Vymazat",
             "delete": "Odstranit",
+            "edit": "Upravit",
             "remove": "Odebrat",
             "reset": "Resetovat",
             "back": "Zpět",
@@ -684,6 +685,7 @@
             "accept": "Přijmout",
             "decline": "Odmítnout",
             "copy": "Kopírovat",
+            "copied": "Zkopírováno",
             "open_link": "Otevřít odkaz",
             "view_on_website": "Zobrazit na webu",
             "save": "Uložit",
@@ -1094,6 +1096,7 @@
         "about": "O aplikaci VRCX-0",
         "messages": {
             "zoom_failed": "Nepodařilo se použít přiblížení",
+            "zoom_level": "Přiblížení: {value}",
             "logout_failed": "Nepodařilo se odhlásit z VRCX-0",
             "restart_failed": "Nepodařilo se restartovat VRCX-0",
             "open_devtools_failed": "Nepodařilo se otevřít DevTools"
@@ -1510,7 +1513,10 @@
                 "online_for": "Online po dobu {duration}",
                 "rows": "řádků",
                 "favorites_are_still_hydrating": "Oblíbené se ještě načítají",
-                "favorites_only": "Pouze oblíbení"
+                "favorites_only": "Pouze oblíbení",
+                "previous_location": "Předchozí místo",
+                "current_location": "Aktuální místo",
+                "stayed": "Pobyt {duration}"
             },
             "success": {
                 "vrchat_launch_request_sent": "Otevřeno ve VRChatu",
@@ -1615,7 +1621,9 @@
                 "collapse_all": "Sbalit vše",
                 "players_count": "Hráči: {count}",
                 "videos_count": "Videa: {count}",
-                "latest": "Nejnovější"
+                "latest": "Nejnovější",
+                "show_all_videos": "Zobrazit všech {count}",
+                "show_fewer_videos": "Zobrazit méně"
             },
             "label": {
                 "sessions": "Relace",
@@ -1731,7 +1739,8 @@
                 "avatar_made_private": "Avatar zneviditelněn",
                 "untitled_avatar": "Avatar bez názvu",
                 "local_test_avatars": "Místní testovací avatary",
-                "local_test_avatars_description": "Avatary sestavené pomocí Build & Test ve VRChat SDK. Ve hře je vidíte jen vy."
+                "local_test_avatars_description": "Avatary sestavené pomocí Build & Test ve VRChat SDK. Ve hře je vidíte jen vy.",
+                "sort_by": "Seřadit podle"
             },
             "source": {
                 "own": "Nahrané",
@@ -1789,7 +1798,6 @@
             "clear_results_tooltip": "Vymazat výsledky vyhledávání",
             "user": {
                 "header": "Uživatel",
-                "search_by_bio": "Hledat podle bia",
                 "sort_by_last_logged_in": "Seřadit dle posledního přihlášení"
             },
             "world": {
@@ -1811,6 +1819,26 @@
             "group": {
                 "header": "Skupina"
             },
+            "hot": {
+                "header": "Prozkoumat",
+                "active": "Populární",
+                "discover": "Objevit",
+                "shuffle": "Zamíchat",
+                "rooms": "Instance: {count}",
+                "friends_here_one": "{count} přítel zde",
+                "friends_here_few": "{count} přátelé zde",
+                "friends_here_many": "{count} přítele zde",
+                "friends_here_other": "{count} přátel zde",
+                "friends_visited_one": "{count} přítel zde byl za 7 dní",
+                "friends_visited_few": "{count} přátelé zde byli za 7 dní",
+                "friends_visited_many": "{count} přítele zde bylo za 7 dní",
+                "friends_visited_other": "{count} přátel zde bylo za 7 dní",
+                "friends_visited_short_one": "7 dní · {count} přítel",
+                "friends_visited_short_few": "7 dní · {count} přátelé",
+                "friends_visited_short_many": "7 dní · {count} přítele",
+                "friends_visited_short_other": "7 dní · {count} přátel",
+                "empty": "Žádné světy k zobrazení"
+            },
             "label": {
                 "avatar_provider": "Poskytovatel avatarů"
             },
@@ -1821,7 +1849,8 @@
                 "failed_to_search_worlds": "Nepodařilo se vyhledat světy",
                 "failed_to_search_groups": "Nepodařilo se vyhledat skupiny",
                 "failed_to_search_avatars": "Nepodařilo se vyhledat avatary",
-                "failed_to_save_avatar_provider": "Nepodařilo se uložit poskytovatele avatarů"
+                "failed_to_save_avatar_provider": "Nepodařilo se uložit poskytovatele avatarů",
+                "failed_to_load_hot_worlds": "Nepodařilo se načíst populární světy"
             }
         },
         "favorite": {
@@ -3318,6 +3347,8 @@
                     "theme_mode_pink": "Růžový",
                     "theme_mode_material3": "Material 3",
                     "zoom": "Přiblížení",
+                    "ctrl_wheel_zoom": "Přiblížení kolečkem myši",
+                    "ctrl_wheel_zoom_description": "Podržte Ctrl (⌘ v macOS) a otáčejte kolečkem myši pro změnu přiblížení. Ve výchozím stavu vypnuto, aby nedošlo k nechtěné změně.",
                     "show_instance_id": "Zobrazit ID instance",
                     "age_gated_instances": "Zobrazit věkově omezené instance",
                     "age_gated_instances_description": "Zobrazí věkově omezené instance. Když je vypnuto, jsou tyto instance skryty a zobrazeny jako omezené.",
@@ -4655,7 +4686,7 @@
                 "unfriend": "Odebrat z přátel",
                 "edit_note_memo": "Upravit poznámku a lokální poznámku",
                 "edit_profile": "Upravit profil",
-                "account_standing": "Stav účtu"
+                "vrchat_account": "Účet VRChat"
             },
             "group_invite": {
                 "select_group": "Vyberte skupinu",
@@ -5015,12 +5046,31 @@
                 "apply_color": "Použít barvu"
             },
             "account_standing": {
-                "header": "Stav účtu",
-                "description": "Stav vašeho účtu podle VRChatu.",
                 "status": "Stav",
                 "issue_clear_days": "Dní do odstranění",
                 "sanctions": "Sankce",
-                "load_failed": "Stav účtu se nepodařilo načíst"
+                "load_failed": "Stav účtu se nepodařilo načíst",
+                "raw_data": "Nezpracovaná data"
+            },
+            "vrchat_account": {
+                "header": "Účet VRChat",
+                "description": "Nastavení a stav přihlášeného účtu VRChat.",
+                "tabs": {
+                    "content_filters": "Filtry obsahu",
+                    "account_standing": "Stav účtu"
+                },
+                "content_filters": {
+                    "description": "Skryje avatary a světy, které autoři označili tímto obsahem. Změny se uloží do tvého účtu VRChat a platí ve hře.",
+                    "unavailable": "VRChat pro tento účet filtry obsahu nenabízí.",
+                    "update_failed": "Filtry obsahu se nepodařilo aktualizovat",
+                    "items": {
+                        "gore": "Skrýt nadměrně krvavý obsah",
+                        "horror": "Skrýt extrémní horor",
+                        "violence": "Skrýt intenzivní násilí",
+                        "sex": "Skrýt sexuálně podbarvený obsah",
+                        "adult": "Skrýt jazyk a témata pro dospělé"
+                    }
+                }
             },
             "relationship": {
                 "friend": "Přítel",
@@ -5073,6 +5123,8 @@
                 "new_instance_and_open_ingame": "Nová instance a otevřít ve hře",
                 "make_home": "Nastavit jako domov",
                 "reset_home": "Obnovit domov",
+                "like": "Líbí se mi",
+                "dislike": "Nelíbí se mi",
                 "show_previous_instances": "Zobrazit historii instancí",
                 "edit_details": "Upravit podrobnosti",
                 "manage_world": "Spravovat svět",
@@ -5100,7 +5152,14 @@
                 "unpin_from_sidebar": "Odepnout z postranního panelu",
                 "unpinned_from_sidebar": "Odepnuto z postranního panelu",
                 "unpin_from_sidebar_failed": "Odepnutí z postranního panelu se nezdařilo",
-                "instance_creator": "Tvůrce instance"
+                "instance_creator": "Tvůrce instance",
+                "languages_declared": "Nastaveno hostitelem: {languages}",
+                "languages_current": "Aktuálně v instanci: {languages}",
+                "filter_with_friends": "S přáteli",
+                "filter_hide_unavailable": "Skrýt zavřené nebo plné",
+                "filter_category_all": "Vše",
+                "filter_clear": "Zrušit filtry",
+                "filter_no_match": "Žádné instance neodpovídají filtrům"
             },
             "info": {
                 "header": "Info",
@@ -5239,6 +5298,7 @@
                 "failed_to_launch_vrchat_instance": "Nepodařilo se spustit instanci VRChat",
                 "home_world_reset": "Domovský svět obnoven",
                 "failed_to_update_home_world": "Nepodařilo se aktualizovat domovský svět",
+                "failed_to_update_rating": "Hodnocení se nepodařilo aktualizovat",
                 "memo_saved": "Lokální poznámka uložena",
                 "memo_cleared": "Lokální poznámka vymazána",
                 "failed_to_save_memo": "Nepodařilo se uložit lokální poznámku",
@@ -5740,7 +5800,48 @@
             "normal": "Normální",
             "group": "Skupina",
             "legacy": "Zastaralé",
-            "display_name": "Název instance"
+            "display_name": "Název instance",
+            "description": "Popis",
+            "category": "Kategorie",
+            "vibes": "Atmosféra",
+            "vibes_placeholder": "Vyberte atmosféru",
+            "vibes_hint": "Vyberte až 3. První se zobrazí jako hlavní.",
+            "reset_defaults": "Obnovit výchozí",
+            "category_options": {
+                "hangout": "Pokec",
+                "music_shows": "Hudba a show",
+                "games": "Hry",
+                "avatars": "Avatary",
+                "explore": "Objevování",
+                "watch_party": "Společné sledování",
+                "other": "Ostatní"
+            },
+            "vibe_options": {
+                "adventure": "Dobrodružství",
+                "arts": "Umění",
+                "casual": "Pohodové",
+                "chill": "Klidné",
+                "combat": "Boj",
+                "comedy": "Komedie",
+                "competitive": "Soutěžní",
+                "cozy": "Útulné",
+                "creative": "Kreativní",
+                "cuddle": "Mazlení",
+                "dance": "Tanec",
+                "drinking": "Pití",
+                "education": "Vzdělávání",
+                "explore": "Objevování",
+                "flight": "Létání",
+                "fun": "Zábava",
+                "military": "Vojenské",
+                "newcomer_friendly": "Pro nováčky",
+                "open_mic": "Otevřený mikrofon",
+                "racing": "Závody",
+                "relaxing": "Odpočinkové",
+                "sleep": "Spánek",
+                "social": "Společenské",
+                "world_hop": "Cestování po světech"
+            }
         },
         "launch": {
             "header": "Spustit",
@@ -6002,6 +6103,7 @@
         },
         "image_crop": {
             "crop_area": "Oblast ořezu. Přetažením okraje nebo rohu změníte její velikost. Obrázek otočíte přetažením úchytu nad rámečkem.",
+            "toolbar_label": "Nástroje ořezu",
             "rotate_left": "Otočit doleva",
             "rotate_right": "Otočit doprava",
             "rotation_angle": "Úhel otočení",
@@ -6545,6 +6647,14 @@
             "list_view": "Zobrazení seznamu",
             "calendar_view": "Zobrazení kalendáře",
             "timeline_view": "Zobrazení časové osy",
+            "discover_view": "Objevovat",
+            "discover": {
+                "live": "Právě probíhá",
+                "upcoming": "Nadcházející",
+                "sort_start_time": "Nejdříve začínající",
+                "sort_follows": "Nejsledovanější",
+                "linked_instance_only": "Jen s otevřenou instancí"
+            },
             "no_events": "Nebyly nalezeny žádné události",
             "search_placeholder": "Hledat skupiny nebo události",
             "search_no_matching": "Nebyly nalezeny žádné odpovídající události",
@@ -6604,8 +6714,12 @@
             "support_development": "Podpořit vývoj",
             "loading": "Načítání seznamu změn",
             "failed_to_load": "Nepodařilo se načíst seznam změn.",
-            "latest_release": "Poslední verze",
             "empty": "Pro tuto verzi není k dispozici žádný seznam změn.",
+            "current_version": "Aktuální verze",
+            "older_releases": "Starší verze",
+            "view_on_github": "Zobrazit na GitHubu",
+            "language": "Jazyk seznamu změn",
+            "versions": "Verze",
             "toast_title": "Aktualizováno na {value}",
             "toast_description": "Podívejte se, co se v této verzi změnilo.",
             "view_changes": "Zobrazit změny"
@@ -7093,25 +7207,25 @@
         "group_instance_opened": "Vytvořena nová instance",
         "group_instance_opened_location": "Vytvořena nová instance: {location}",
         "group_instances_opened": "Vytvořeno nových instancí: {count}",
-        "has_joined": "se připojil(a)",
-        "has_left": "odešel(odešla)",
-        "joined_with_others": "a {count} dalších se připojilo",
-        "left_with_others": "a {count} dalších odešlo",
-        "is_joining": "se připojuje",
-        "gps": "je v {location}",
-        "online_location": "se přihlásil(a) do {location}",
-        "online": "se přihlásil(a)",
-        "offline": "se odhlásil(a)",
-        "status_update": "status je nyní {status} {description}",
-        "invite": "vás pozval(a) do {location} {message}",
-        "request_invite": "požádal(a) o pozvání {message}",
-        "invite_response": "odpověděl(a) na vaši pozvánku {message}",
-        "request_invite_response": "odpověděl(a) na vaši žádost o pozvání {message}",
-        "friend_request": "vám poslal(a) žádost o přátelství",
-        "friend": "je nyní váš přítel/vaše přítelkyně",
-        "unfriend": "již není váš přítel/vaše přítelkyně",
-        "trust_level": "Úroveň důvěry je nyní {trustLevel}",
-        "display_name": "změnil(a) své jméno na {displayName}",
+        "has_joined": "Připojil(a) se",
+        "has_left": "Odešel/odešla",
+        "joined_with_others": "Připojil(a) se s {count} dalšími",
+        "left_with_others": "Odešel/odešla s {count} dalšími",
+        "is_joining": "Připojuje se",
+        "gps": "V {location}",
+        "online_location": "Online v {location}",
+        "online": "Online",
+        "offline": "Offline",
+        "status_update": "Status: {status} {description}",
+        "invite": "Pozvánka do {location} {message}",
+        "request_invite": "Žádost o pozvání {message}",
+        "invite_response": "Odpověď na pozvánku {message}",
+        "request_invite_response": "Odpověď na žádost o pozvání {message}",
+        "friend_request": "Žádost o přátelství",
+        "friend": "Nyní přátelé",
+        "unfriend": "Již nejste přátelé",
+        "trust_level": "Úroveň důvěry: {trustLevel}",
+        "display_name": "Přejmenován(a) na {displayName}",
         "group_announcement_title": "Oznámení skupiny",
         "group_event_created_title": "Vytvořena událost skupiny",
         "group_event_starting_title": "Událost skupiny brzy začne",
@@ -7126,7 +7240,7 @@
         "group_queue_ready_title": "Fronta do instance je připravena",
         "instance_closed_title": "Instance uzavřena",
         "instance_closed_location": "Instance uzavřena: {location}",
-        "avatar_change": "změnil(a) avatar na {avatar}",
+        "avatar_change": "Avatar: {avatar}",
         "blocked_player_joined": "Zablokovaný uživatel se připojil",
         "blocked_player_left": "Zablokovaný uživatel odešel",
         "muted_player_joined": "Ztlumený uživatel se připojil",

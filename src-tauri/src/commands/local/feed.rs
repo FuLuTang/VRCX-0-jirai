@@ -4,11 +4,16 @@ use crate::error::AppError;
 use crate::state::AppState;
 use tauri::State;
 
-use vrcx_0_runtime_host_desktop::local_data::{
+use vrcx_0_contracts::feed::{
     FeedLatestQueryInput, FeedReadModelOutput, FeedRowOutput, FeedRowsQueryInput,
-    FeedSearchQueryInput, ProfileFeedReconcileInput, ProfileFeedReconcileOutput,
-    StartupOnlineBackfillInput, StartupOnlineBackfillOutput,
+    FeedSearchQueryInput,
 };
+use vrcx_0_contracts::jirai::{
+    ProfileFeedReconcileInput, ProfileFeedReconcileOutput, StartupOnlineBackfillInput,
+    StartupOnlineBackfillOutput,
+};
+
+use crate::commands::blocking::run_blocking;
 
 #[tauri::command(async)]
 #[specta::specta]
@@ -45,10 +50,10 @@ pub async fn app__startup_online_backfill_insert(
     input: StartupOnlineBackfillInput,
 ) -> Result<StartupOnlineBackfillOutput, AppError> {
     let local_data = state.runtime_host().local_data().clone();
-    tauri::async_runtime::spawn_blocking(move || local_data.startup_online_backfill_insert(input))
-        .await
-        .map_err(|error| AppError::Custom(format!("startup online backfill task: {error}")))?
-        .map_err(AppError::from)
+    run_blocking("startup online backfill", move || {
+        local_data.startup_online_backfill_insert(input)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -58,10 +63,10 @@ pub async fn app__profile_feed_reconcile(
     input: ProfileFeedReconcileInput,
 ) -> Result<ProfileFeedReconcileOutput, AppError> {
     let local_data = state.runtime_host().local_data().clone();
-    tauri::async_runtime::spawn_blocking(move || local_data.profile_feed_reconcile(input))
-        .await
-        .map_err(|error| AppError::Custom(format!("profile feed reconcile task: {error}")))?
-        .map_err(AppError::from)
+    run_blocking("profile feed reconcile", move || {
+        local_data.profile_feed_reconcile(input)
+    })
+    .await
 }
 
 #[tauri::command]

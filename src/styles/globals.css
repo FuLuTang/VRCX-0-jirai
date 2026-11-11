@@ -1084,25 +1084,37 @@
     }
 
     .vrcx-0-data-table [data-slot='table-cell'].vrcx-0-table-sticky-action {
-        background: var(--vrcx-0-table-surface);
+        --vrcx-0-table-sticky-state-surface: transparent;
+        background:
+            linear-gradient(
+                var(--vrcx-0-table-sticky-state-surface),
+                var(--vrcx-0-table-sticky-state-surface)
+            ),
+            var(--vrcx-0-table-surface);
     }
 
     .vrcx-0-data-table
         [data-vrcx-0-table-row]:hover
         > [data-slot='table-cell'].vrcx-0-table-sticky-action {
-        background: var(--vrcx-0-table-row-hover-surface);
+        --vrcx-0-table-sticky-state-surface: var(
+            --vrcx-0-table-row-hover-surface
+        );
     }
 
     .vrcx-0-data-table
         [data-vrcx-0-table-row][data-state='selected']
         > [data-slot='table-cell'].vrcx-0-table-sticky-action {
-        background: var(--vrcx-0-table-row-selected-surface);
+        --vrcx-0-table-sticky-state-surface: var(
+            --vrcx-0-table-row-selected-surface
+        );
     }
 
     .vrcx-0-data-table
         [data-vrcx-0-table-row][data-state='selected']:hover
         > [data-slot='table-cell'].vrcx-0-table-sticky-action {
-        background: var(--vrcx-0-table-row-selected-hover-surface);
+        --vrcx-0-table-sticky-state-surface: var(
+            --vrcx-0-table-row-selected-hover-surface
+        );
     }
 
     .vrcx-0-data-table
@@ -1111,7 +1123,9 @@
     .vrcx-0-data-table
         [data-vrcx-0-table-row]:has([aria-expanded='true'])
         > [data-slot='table-cell'].vrcx-0-table-sticky-action {
-        background: var(--vrcx-0-table-row-expanded-surface);
+        --vrcx-0-table-sticky-state-surface: var(
+            --vrcx-0-table-row-expanded-surface
+        );
     }
 
     i.x-user-status,
@@ -1187,7 +1201,9 @@
             [data-state='expanded']
         ):not(:has([aria-expanded='true']))
         > [data-slot='table-cell'].vrcx-0-table-sticky-action {
-        background: var(--vrcx-0-table-row-striped-surface);
+        --vrcx-0-table-sticky-state-surface: var(
+            --vrcx-0-table-row-striped-surface
+        );
     }
 
     .reduce-effects *,
@@ -1492,11 +1508,30 @@
 
 .reduce-effects [data-slot='dialog-overlay'],
 .reduce-effects [data-slot='alert-dialog-overlay'],
-.reduce-effects [data-slot='sheet-overlay'] {
+.reduce-effects [data-slot='sheet-overlay'],
+[data-platform='linux'] [data-slot='dialog-overlay'],
+[data-platform='linux'] [data-slot='alert-dialog-overlay'],
+[data-platform='linux'] [data-slot='sheet-overlay'] {
     --tw-backdrop-blur: initial;
     background-color: rgb(0 0 0 / 0.4) !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
+}
+
+[data-platform='linux'] *,
+[data-platform='linux'] *::before,
+[data-platform='linux'] *::after {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+}
+
+[data-platform='linux'] [class*='bg-popover/70'] {
+    background-color: var(--popover);
+}
+
+[data-platform='linux'] .vrcx-0-app-root::before,
+[data-platform='linux'] .vrcx-0-background-image-transition-layer {
+    filter: none;
 }
 
 .lucide-person-standing {

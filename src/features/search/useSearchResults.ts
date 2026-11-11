@@ -9,7 +9,10 @@ import worldProfileRepository from '@/repositories/worldProfileRepository';
 import { toast } from '@/services/toastService';
 import { isAvatarSearchQueryLongEnough } from '@/shared/utils/avatarSearchQuery';
 
-import type { SearchPageSizes } from './searchPageSizes';
+import {
+    DEFAULT_SEARCH_PAGE_SIZE,
+    type SearchPageSizes
+} from './searchPageSizes';
 import { useSearchPageField, useSearchPageStore } from './searchPageStore';
 import {
     buildAvatarSearchRequest,
@@ -22,6 +25,7 @@ import type {
     AvatarSearchRequest,
     GroupSearchRequest,
     SearchActiveTab,
+    SearchPageTab,
     SearchWorldCategory,
     UserSearchRequest,
     WorldSearchRequest
@@ -34,7 +38,6 @@ export function useSearchResults({
     includeCommunityLabs,
     pageSizes,
     searchText,
-    searchUserByBio,
     searchUserSortByLastLoggedIn,
     selectedAvatarProvider,
     selectedWorldCategory,
@@ -43,12 +46,11 @@ export function useSearchResults({
     setSelectedWorldCategory,
     worldCategories
 }: {
-    activeTab: SearchActiveTab;
+    activeTab: SearchPageTab;
     avatarProviderEnabled: boolean;
     includeCommunityLabs: boolean;
     pageSizes: SearchPageSizes;
     searchText: string;
-    searchUserByBio: boolean;
     searchUserSortByLastLoggedIn: boolean;
     selectedAvatarProvider: string;
     selectedWorldCategory: string;
@@ -237,7 +239,6 @@ export function useSearchResults({
             runUserSearch(
                 buildUserSearchRequest(
                     searchText,
-                    searchUserByBio,
                     searchUserSortByLastLoggedIn,
                     pageSizes.user
                 )
@@ -297,7 +298,6 @@ export function useSearchResults({
         runUserSearch,
         runWorldSearch,
         searchText,
-        searchUserByBio,
         searchUserSortByLastLoggedIn,
         selectedAvatarProvider,
         selectedWorldCategory,
@@ -387,6 +387,9 @@ export function useSearchResults({
 
     const handlePageSizeChange = useCallback(
         (pageSize: number) => {
+            if (activeTab === 'hot') {
+                return;
+            }
             setPageSize(activeTab, pageSize);
             if (activeTab === 'user' && userRequest) {
                 runUserSearch({
@@ -443,7 +446,10 @@ export function useSearchResults({
     });
     const pagination = {
         ...tabPagination,
-        pageSize: pageSizes[activeTab],
+        pageSize:
+            activeTab === 'hot'
+                ? DEFAULT_SEARCH_PAGE_SIZE
+                : pageSizes[activeTab],
         onPageSizeChange: handlePageSizeChange
     };
     const avatarOffset = avatarRequest?.offset ?? 0;

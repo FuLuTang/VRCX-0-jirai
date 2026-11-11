@@ -1,6 +1,6 @@
 <div align="center">
 
-# <img src="images/VRCX-0.png" alt="VRCX-0 Logo" width="25"> VRCX-0
+# <img src="images/brand/VRCX-0.png" alt="VRCX-0 Logo" width="25"> VRCX-0
 
 ### 更快、更好用，支援 AI。
 
@@ -19,7 +19,7 @@
 
 Windows · macOS · Linux
 
-![VRCX-0](images/screenshot-user-dialog.webp)
+![VRCX-0](images/screenshots/user-dialog.webp)
 
 </div>
 
@@ -86,7 +86,7 @@ macOS 首次啟動若被系統阻擋，請前往 **系統設定 → 隱私權與
 
 ### Linux
 
-軟體介面的硬體加速預設關閉，可在 **設定 → 系統 → 硬體加速（實驗性）** 中開啟；若介面顯示異常，VRCX-0 會自動關閉硬體加速。自行設定 `WEBKIT_DISABLE_DMABUF_RENDERER` 時不會顯示此選項。
+軟體介面的硬體加速預設關閉，可在 **設定 → 系統 → 硬體加速（實驗性）** 中開啟；若介面顯示異常，VRCX-0 會自動關閉硬體加速。NVIDIA 顯示卡在 X11 或 Hyprland 下通常無法使用。自行設定 `WEBKIT_DISABLE_DMABUF_RENDERER` 時不會顯示此選項。
 
 ## 回饋與交流
 

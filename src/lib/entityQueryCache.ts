@@ -92,6 +92,12 @@ export const entityQueryPolicies = Object.freeze({
         retry: 1,
         refetchOnWindowFocus: false
     }),
+    cosmeticsIndex: Object.freeze({
+        staleTime: 240 * MINUTE_MS,
+        gcTime: 480 * MINUTE_MS,
+        retry: 1,
+        refetchOnWindowFocus: false
+    }),
     fileAnalysis: Object.freeze({
         staleTime: 120 * MINUTE_MS,
         gcTime: 240 * MINUTE_MS,
@@ -99,6 +105,12 @@ export const entityQueryPolicies = Object.freeze({
         refetchOnWindowFocus: false
     }),
     avatarStyles: Object.freeze({
+        staleTime: 60 * MINUTE_MS,
+        gcTime: 240 * MINUTE_MS,
+        retry: 1,
+        refetchOnWindowFocus: false
+    }),
+    instanceCreateOptions: Object.freeze({
         staleTime: 60 * MINUTE_MS,
         gcTime: 240 * MINUTE_MS,
         retry: 1,
@@ -117,6 +129,12 @@ export const entityQueryPolicies = Object.freeze({
         refetchOnWindowFocus: false
     }),
     worldPersistData: Object.freeze({
+        staleTime: 30 * MINUTE_MS,
+        gcTime: 120 * MINUTE_MS,
+        retry: 1,
+        refetchOnWindowFocus: false
+    }),
+    worldRating: Object.freeze({
         staleTime: 30 * MINUTE_MS,
         gcTime: 120 * MINUTE_MS,
         retry: 1,
@@ -250,6 +268,8 @@ export const queryKeys = Object.freeze({
     ) => withEndpoint(['inventory', 'item', userId, inventoryId], endpoint),
     inventoryTemplate: (inventoryTemplateId: string, endpoint: string = '') =>
         withEndpoint(['inventory', 'template', inventoryTemplateId], endpoint),
+    cosmeticsIndex: (itemType: string, endpoint: string = '') =>
+        withEndpoint(['cosmetics', 'index', itemType], endpoint),
     boopEmoji: (userId: string, inventoryId: string, endpoint: string = '') =>
         withEndpoint(['boopEmoji', userId, inventoryId], endpoint),
     fileAnalysis: (
@@ -262,6 +282,8 @@ export const queryKeys = Object.freeze({
     ) => withEndpoint(['analysis', fileId, version, variant], endpoint),
     avatarStyles: (endpoint: string = '') =>
         withEndpoint(['avatar', 'styles'], endpoint),
+    instanceCreateOptions: (endpoint: string = '') =>
+        withEndpoint(['instance', 'createOptions'], endpoint),
     representedGroup: (userId: string, endpoint: string = '') =>
         withEndpoint(['user', userId, 'representedGroup'], endpoint),
     userMutualFriends: (userId: string, endpoint: string = '') =>
@@ -280,7 +302,11 @@ export const queryKeys = Object.freeze({
             worldId = ''
         }: { userId?: string; worldId?: string } = {},
         endpoint: string = ''
-    ) => withEndpoint(['world', worldId, 'persistData', userId], endpoint)
+    ) => withEndpoint(['world', worldId, 'persistData', userId], endpoint),
+    worldRating: (
+        { userId, worldId }: { userId: string; worldId: string },
+        endpoint: string = ''
+    ) => withEndpoint(['world', worldId, 'rating', userId], endpoint)
 });
 
 function toQueryOptions(

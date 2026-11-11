@@ -1,6 +1,6 @@
 <div align="center">
 
-# <img src="images/VRCX-0.png" alt="VRCX-0 Logo" width="25"> VRCX-0
+# <img src="images/brand/VRCX-0.png" alt="VRCX-0 Logo" width="25"> VRCX-0
 
 ### 더 빠르고, 더 편하게. AI 지원.
 
@@ -19,7 +19,7 @@
 
 Windows · macOS · Linux
 
-![VRCX-0](images/screenshot-user-dialog.webp)
+![VRCX-0](images/screenshots/user-dialog.webp)
 
 </div>
 
@@ -86,7 +86,7 @@ macOS에서 처음 실행이 차단되면 **시스템 설정 → 개인정보 �
 
 ### Linux
 
-앱 화면의 하드웨어 가속은 기본적으로 꺼져 있으며, **설정 → 시스템 → 하드웨어 가속 (실험적)** 항목에서 켤 수 있습니다. 화면이 제대로 표시되지 않으면 VRCX-0이 자동으로 다시 끕니다. `WEBKIT_DISABLE_DMABUF_RENDERER`를 직접 설정한 경우 이 옵션은 표시되지 않습니다.
+앱 화면의 하드웨어 가속은 기본적으로 꺼져 있으며, **설정 → 시스템 → 하드웨어 가속 (실험적)** 항목에서 켤 수 있습니다. 화면이 제대로 표시되지 않으면 VRCX-0이 자동으로 다시 끕니다. X11 또는 Hyprland 환경의 NVIDIA GPU에서는 대체로 사용할 수 없습니다. `WEBKIT_DISABLE_DMABUF_RENDERER`를 직접 설정한 경우 이 옵션은 표시되지 않습니다.
 
 ## 피드백
 

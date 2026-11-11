@@ -1,4 +1,3 @@
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use vrcx_0_application_core::{Result, RuntimeOperationStatus};
 
@@ -10,7 +9,7 @@ use vrcx_0_core::user_facts::UserFactMergeOptions;
 
 use crate::realtime::{
     FriendProjection, RealtimeCurrentUserOutput, RealtimeFriendOutput,
-    RealtimeInstanceClosedOutput, RealtimeNotificationOutput, RealtimeSessionContext,
+    RealtimeInstanceClosedOutput, RealtimeNotificationOutput,
 };
 
 use super::message_dispatch::json_string_field;
@@ -32,11 +31,7 @@ impl RealtimeHostRuntime {
     }
 
     pub fn emit_friend_log_changed(&self) {
-        let (generation, baseline_revision) = self
-            .friends
-            .snapshot()
-            .map(|snapshot| (snapshot.generation, snapshot.baseline_revision))
-            .unwrap_or((0, 0));
+        let (generation, baseline_revision) = self.friends.roster_revision().unwrap_or((0, 0));
         self.emit_friend_projection(FriendProjection {
             friend_log_changed: true,
             ..FriendProjection::new(generation, baseline_revision)
@@ -45,17 +40,17 @@ impl RealtimeHostRuntime {
 
     pub fn emit_friend_location_time_snapshot(self: &Arc<Self>) {
         let _owner = self.lock_friend_owner();
-        let Some(snapshot) = self.friends.snapshot() else {
+        let Some(scope) = self.friends.roster_scope() else {
             return;
         };
         if !self
             .deps
             .auth_scope
-            .matches(&snapshot.current_user_id, &snapshot.endpoint)
+            .matches(&scope.current_user_id, &scope.endpoint)
         {
             return;
         }
-        let mut projection = FriendProjection::new(snapshot.generation, snapshot.baseline_revision);
+        let mut projection = FriendProjection::new(scope.generation, scope.baseline_revision);
         projection.location_time_snapshot = Some(self.deps.instance_dwell.snapshot());
         self.emit_friend_projection(projection);
     }
@@ -63,11 +58,10 @@ impl RealtimeHostRuntime {
     pub fn set_feed_persistence_disabled(&self, disabled: bool) -> Result<()> {
         let _owner = self.lock_friend_owner();
         self.deps
-            .store
+            .config
             .set_bool("feedPersistenceDisabled", disabled)?;
-        self.feed_persistence_disabled
-            .store(disabled, Ordering::Relaxed);
-        self.reset_feed_live_cache();
+        self.feed.set_persistence_disabled(disabled);
+        self.feed.reset();
         Ok(())
     }
 
@@ -77,7 +71,11 @@ impl RealtimeHostRuntime {
         }
     }
 
-    fn ingest_friend_activity(&self, projection: &FriendProjection, entries: &[FeedLiveEntry]) {
+    fn ingest_friend_activity<'a>(
+        &self,
+        projection: &FriendProjection,
+        entries: impl Iterator<Item = &'a FeedLiveEntry>,
+    ) {
         let Some(activity) = &self.deps.activity else {
             return;
         };
@@ -89,7 +87,7 @@ impl RealtimeHostRuntime {
                 .collect(),
             projection.removals.clone(),
         );
-        activity.ingest_activity(entries.iter().filter_map(feed_activity_event).collect());
+        activity.ingest_activity(entries.filter_map(feed_activity_event).collect());
     }
 
     pub(super) fn lock_friend_owner(&self) -> FriendOwnerGuard<'_> {
@@ -122,7 +120,7 @@ impl RealtimeHostRuntime {
         if !self.is_friend_projection_current(&projection) {
             return;
         }
-        self.ingest_friend_activity(&projection, &feed_entries);
+        self.ingest_friend_activity(&projection, feed_entries.iter());
         self.emit_feed_entries(generation, owner_user_id, feed_entries);
     }
 
@@ -132,9 +130,9 @@ impl RealtimeHostRuntime {
         mut output: RealtimeFriendOutput,
     ) -> FriendOutputApplyOutcome {
         let wake = output.wake.take();
-        let profile_refetch_user_ids = output.profile_refetch_user_ids.clone();
+        let profile_refetch_user_ids = output.profile_refetch_user_ids;
         let icon_changes = std::mem::take(&mut output.icon_changes);
-        let projection = output.projection.clone();
+        let mut projection = output.projection;
         let projection_generation = projection.generation;
         if !self.is_friend_projection_current(&projection) {
             return FriendOutputApplyOutcome::Stale;
@@ -142,7 +140,7 @@ impl RealtimeHostRuntime {
         let mut joining = std::mem::take(&mut output.joining);
         self.retain_current_instance_joining_entries(&mut joining, output.owner_user_id.as_str());
         let mut live_feed = output.persistence.feed_entries.clone();
-        let feed_persistence_disabled = self.feed_persistence_disabled.load(Ordering::Relaxed);
+        let feed_persistence_disabled = self.feed.persistence_disabled();
         if feed_persistence_disabled {
             output.persistence.feed_entries.clear();
         }
@@ -151,7 +149,8 @@ impl RealtimeHostRuntime {
         world_name_fetch_ids.extend(self.enrich_persistence_world_names(&mut output.persistence));
         let persisted = match self
             .deps
-            .store
+            .stores
+            .batch_writer
             .write_realtime_batch(&output.owner_user_id, &output.persistence)
         {
             Ok(_) => {
@@ -175,7 +174,25 @@ impl RealtimeHostRuntime {
                 false
             }
         };
-        self.ingest_friend_activity(&projection, &[live_feed.as_slice(), &joining].concat());
+        if persisted
+            && output
+                .persistence
+                .friend_log_upserts
+                .iter()
+                .any(|upsert| upsert.friend_number <= 0)
+        {
+            for patch in self.sync_roster_friend_numbers(output.owner_user_id.as_str()) {
+                match projection
+                    .patches
+                    .iter_mut()
+                    .find(|existing| existing.user_id == patch.user_id)
+                {
+                    Some(existing) => existing.record = patch.record,
+                    None => projection.patches.push(patch),
+                }
+            }
+        }
+        self.ingest_friend_activity(&projection, live_feed.iter().chain(&joining));
         if !projection.patches.is_empty() || !projection.removals.is_empty() {
             let endpoint = self.active_endpoint();
             if !projection.removals.is_empty() {
@@ -270,7 +287,8 @@ impl RealtimeHostRuntime {
         let projection = self.visible_notification_projection(output.projection.clone());
         match self
             .deps
-            .store
+            .stores
+            .batch_writer
             .write_realtime_batch(&output.owner_user_id, &output.persistence)
         {
             Ok(_) => {
@@ -314,41 +332,14 @@ impl RealtimeHostRuntime {
         self.schedule_world_name_warm(world_name_fetch_ids);
     }
 
-    pub(super) fn schedule_notification_output(
-        self: &Arc<Self>,
-        generation: u64,
-        session_generation: u64,
-        session: RealtimeSessionContext,
-        output: RealtimeNotificationOutput,
-    ) {
-        let runtime = Arc::clone(self);
-        self.deps.tasks.spawn(async move {
-            let _guard = runtime.notification_apply_lock.lock().await;
-            if !runtime.is_notification_context_current(generation, session_generation, &session) {
-                return;
-            }
-            let mut output = output;
-            if runtime.notification_output_needs_remote_resolution(&output) {
-                runtime.resolve_notification_output_names(&mut output).await;
-                if !runtime.is_notification_context_current(
-                    generation,
-                    session_generation,
-                    &session,
-                ) {
-                    return;
-                }
-            }
-            runtime.apply_notification_output(output);
-        });
-    }
-
     pub(super) fn apply_current_user_output(&self, mut output: RealtimeCurrentUserOutput) {
         self.enrich_current_user_location_output(&mut output);
         let projection = output.projection;
         let snapshot = output.snapshot;
         match self
             .deps
-            .store
+            .stores
+            .batch_writer
             .write_realtime_batch(&output.owner_user_id, &output.persistence)
         {
             Ok(_) => {
@@ -410,7 +401,8 @@ impl RealtimeHostRuntime {
         }
         match self
             .deps
-            .store
+            .stores
+            .batch_writer
             .write_realtime_batch(owner_user_id, &output.persistence)
         {
             Ok(_) => {
