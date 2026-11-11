@@ -102,11 +102,15 @@ pub fn profile_feed_reconcile(
 ) -> Result<ProfileFeedReconcileOutput, Error> {
     let owner_user_id = OwnerId::new(normalize_user_id(owner_user_id.as_str()));
     if owner_user_id.is_empty() {
-        return Err(Error::Database("Profile feed reconciliation requires a current user id.".into()));
+        return Err(Error::Database(
+            "Profile feed reconciliation requires a current user id.".into(),
+        ));
     }
     let user_id = normalize_user_id(&input.user_id);
     if user_id.is_empty() {
-        return Err(Error::InvalidData("Profile feed reconciliation requires a user id.".into()));
+        return Err(Error::InvalidData(
+            "Profile feed reconciliation requires a user id.".into(),
+        ));
     }
     let user_prefix = normalize_user_table_prefix(owner_user_id.as_str())?;
     ensure_realtime_tables(db, &user_prefix)?;

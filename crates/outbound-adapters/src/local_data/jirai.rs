@@ -12,10 +12,12 @@ use crate::Result;
 
 impl LocalDataStore {
     pub fn tracked_nonfriends_list(&self, owner: &OwnerId) -> Result<Vec<TrackedNonFriendOutput>> {
-        Ok(vrcx_0_persistence::tracked_nonfriends::tracked_nonfriends_list(
-            self.db.as_ref(),
-            owner,
-        )?)
+        Ok(
+            vrcx_0_persistence::tracked_nonfriends::tracked_nonfriends_list(
+                self.db.as_ref(),
+                owner,
+            )?,
+        )
     }
 
     pub fn tracked_nonfriends_add(
@@ -23,27 +25,33 @@ impl LocalDataStore {
         owner: &OwnerId,
         input: TrackedNonFriendAddInput,
     ) -> Result<bool> {
-        Ok(vrcx_0_persistence::tracked_nonfriends::tracked_nonfriends_add(
-            self.db.as_ref(),
-            owner,
-            input,
-        )?)
+        Ok(
+            vrcx_0_persistence::tracked_nonfriends::tracked_nonfriends_add(
+                self.db.as_ref(),
+                owner,
+                input,
+            )?,
+        )
     }
 
     pub fn tracked_nonfriends_remove(&self, owner: &OwnerId, user_id: String) -> Result<bool> {
-        Ok(vrcx_0_persistence::tracked_nonfriends::tracked_nonfriends_remove(
-            self.db.as_ref(),
-            owner,
-            user_id,
-        )?)
+        Ok(
+            vrcx_0_persistence::tracked_nonfriends::tracked_nonfriends_remove(
+                self.db.as_ref(),
+                owner,
+                user_id,
+            )?,
+        )
     }
 
     pub fn tracked_nonfriends_is_tracked(&self, owner: &OwnerId, user_id: String) -> Result<bool> {
-        Ok(vrcx_0_persistence::tracked_nonfriends::tracked_nonfriends_is_tracked(
-            self.db.as_ref(),
-            owner,
-            user_id,
-        )?)
+        Ok(
+            vrcx_0_persistence::tracked_nonfriends::tracked_nonfriends_is_tracked(
+                self.db.as_ref(),
+                owner,
+                user_id,
+            )?,
+        )
     }
 
     pub fn tracked_nonfriends_update_name(
@@ -51,11 +59,13 @@ impl LocalDataStore {
         owner: &OwnerId,
         input: TrackedNonFriendUpdateNameInput,
     ) -> Result<bool> {
-        Ok(vrcx_0_persistence::tracked_nonfriends::tracked_nonfriends_update_name(
-            self.db.as_ref(),
-            owner,
-            input,
-        )?)
+        Ok(
+            vrcx_0_persistence::tracked_nonfriends::tracked_nonfriends_update_name(
+                self.db.as_ref(),
+                owner,
+                input,
+            )?,
+        )
     }
 
     pub fn manual_relations_list(&self, owner: &OwnerId) -> Result<Vec<ManualRelationOutput>> {
@@ -70,11 +80,13 @@ impl LocalDataStore {
         owner: &OwnerId,
         user_id: String,
     ) -> Result<Vec<ManualRelationOutput>> {
-        Ok(vrcx_0_persistence::manual_relations::manual_relations_for_user(
-            self.db.as_ref(),
-            owner.clone(),
-            user_id,
-        )?)
+        Ok(
+            vrcx_0_persistence::manual_relations::manual_relations_for_user(
+                self.db.as_ref(),
+                owner.clone(),
+                user_id,
+            )?,
+        )
     }
 
     pub fn manual_relation_add(
@@ -99,12 +111,14 @@ impl LocalDataStore {
         user_id_a: String,
         user_id_b: String,
     ) -> Result<()> {
-        Ok(vrcx_0_persistence::manual_relations::manual_relation_remove(
-            self.db.as_ref(),
-            owner.clone(),
-            user_id_a,
-            user_id_b,
-        )?)
+        Ok(
+            vrcx_0_persistence::manual_relations::manual_relation_remove(
+                self.db.as_ref(),
+                owner.clone(),
+                user_id_a,
+                user_id_b,
+            )?,
+        )
     }
 
     /// Appends an observed-now Online edge unless the owner's latest
@@ -116,12 +130,14 @@ impl LocalDataStore {
         target_user_id: &str,
         display_name: &str,
     ) -> Result<bool> {
-        Ok(vrcx_0_persistence::realtime::insert_startup_online_backfill(
-            self.db.as_ref(),
-            owner,
-            target_user_id,
-            display_name,
-        )?)
+        Ok(
+            vrcx_0_persistence::realtime::insert_startup_online_backfill(
+                self.db.as_ref(),
+                owner,
+                target_user_id,
+                display_name,
+            )?,
+        )
     }
 
     pub fn profile_feed_reconcile(

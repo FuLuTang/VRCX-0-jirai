@@ -231,7 +231,9 @@ mod tests {
             "friend".into(),
         )
         .unwrap_err();
-        assert!(error.to_string().contains("cannot connect a user to itself"));
+        assert!(error
+            .to_string()
+            .contains("cannot connect a user to itself"));
 
         manual_relation_add(
             &db,
@@ -249,13 +251,14 @@ mod tests {
             "friend".into(),
         )
         .unwrap();
-        let relations = manual_relations_for_user(&db, owner("usr_owner"), "usr_b".into())
-            .unwrap();
+        let relations = manual_relations_for_user(&db, owner("usr_owner"), "usr_b".into()).unwrap();
         assert_eq!(relations.len(), 1);
         assert_eq!(relations[0].relation_type, "friend");
-        assert!(manual_relations_for_user(&db, owner("usr_owner"), "".into())
-            .unwrap()
-            .is_empty());
+        assert!(
+            manual_relations_for_user(&db, owner("usr_owner"), "".into())
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[test]
@@ -294,19 +297,15 @@ mod tests {
             "friend".into(),
         )
         .unwrap();
-        manual_relation_remove(
-            &db,
-            owner("usr_owner_a"),
-            "usr_b".into(),
-            "usr_a".into(),
-        )
-        .unwrap();
+        manual_relation_remove(&db, owner("usr_owner_a"), "usr_b".into(), "usr_a".into()).unwrap();
 
         assert!(manual_relations_list(&db, owner("usr_owner_a"))
             .unwrap()
             .is_empty());
         assert_eq!(
-            manual_relations_list(&db, owner("usr_owner_b")).unwrap().len(),
+            manual_relations_list(&db, owner("usr_owner_b"))
+                .unwrap()
+                .len(),
             1
         );
         let after = mutual_graph_snapshot_get(&db, "usr_owner_a".into()).unwrap();

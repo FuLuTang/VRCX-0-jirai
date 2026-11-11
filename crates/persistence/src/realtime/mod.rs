@@ -5,6 +5,7 @@ mod self_profile;
 mod types;
 mod write;
 
+pub use jirai::{insert_startup_online_backfill, profile_feed_reconcile};
 pub use query::lookup_game_log_world_name;
 pub use schema::{ensure_realtime_tables, normalize_user_table_prefix};
 pub use types::{
@@ -12,5 +13,4 @@ pub use types::{
     NotificationExpiration, NotificationV2Update, RealtimePersistenceBatch, RealtimeWriteCounts,
     SelfProfileField, SelfProfileObservation,
 };
-pub use jirai::{insert_startup_online_backfill, profile_feed_reconcile};
 pub use write::write_realtime_batch;

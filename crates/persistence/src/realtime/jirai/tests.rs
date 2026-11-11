@@ -72,7 +72,8 @@ fn add_startup_current_friend(
 }
 
 #[test]
-fn startup_online_backfill_writes_only_current_friends_with_native_now() -> Result<(), crate::Error> {
+fn startup_online_backfill_writes_only_current_friends_with_native_now() -> Result<(), crate::Error>
+{
     let dir = TestDir::new("startup-online-backfill");
     let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3"))?;
     let owner = OwnerId::new("usr_self");
@@ -165,13 +166,8 @@ fn startup_online_backfill_writes_only_current_friends_with_native_now() -> Resu
     assert_eq!(rows[0].r#type.as_deref(), Some("Online"));
 
     // A non-friend cannot create a feed edge through this native boundary.
-    let non_friend = insert_startup_online_backfill(
-        &db,
-        &owner,
-        "usr_nonfriend",
-        "Not A Friend",
-    )
-    .unwrap_err();
+    let non_friend =
+        insert_startup_online_backfill(&db, &owner, "usr_nonfriend", "Not A Friend").unwrap_err();
     assert!(matches!(non_friend, crate::Error::InvalidData(_)));
 
     // User-prefixed Feed tables keep different owners independent.
@@ -202,20 +198,40 @@ fn profile_feed_reconcile_records_only_owner_scoped_changes() -> Result<(), crat
     assert!(first.bio_updated && first.status_updated);
     let repeated = profile_feed_reconcile(&db, &owner, input())?;
     assert!(!repeated.bio_updated && !repeated.status_updated);
-    let description_changed = profile_feed_reconcile(&db, &owner, ProfileFeedReconcileInput {
-        status_description: "changed".into(), ..input()
-    })?;
+    let description_changed = profile_feed_reconcile(
+        &db,
+        &owner,
+        ProfileFeedReconcileInput {
+            status_description: "changed".into(),
+            ..input()
+        },
+    )?;
     assert!(!description_changed.bio_updated && description_changed.status_updated);
-    let disallowed = profile_feed_reconcile(&db, &owner, ProfileFeedReconcileInput {
-        status: "offline".into(), status_description: "ignored".into(), ..input()
-    })?;
+    let disallowed = profile_feed_reconcile(
+        &db,
+        &owner,
+        ProfileFeedReconcileInput {
+            status: "offline".into(),
+            status_description: "ignored".into(),
+            ..input()
+        },
+    )?;
     assert!(!disallowed.status_updated);
 
     let other = OwnerId::new("usr_other");
     assert!(profile_feed_reconcile(&db, &other, input())?.bio_updated);
-    let self_bio = db.execute("SELECT COUNT(*) FROM usrself_feed_bio", &ParamsBuilder::new().build())?;
-    let other_bio = db.execute("SELECT COUNT(*) FROM usrother_feed_bio", &ParamsBuilder::new().build())?;
-    let self_status = db.execute("SELECT COUNT(*) FROM usrself_feed_status", &ParamsBuilder::new().build())?;
+    let self_bio = db.execute(
+        "SELECT COUNT(*) FROM usrself_feed_bio",
+        &ParamsBuilder::new().build(),
+    )?;
+    let other_bio = db.execute(
+        "SELECT COUNT(*) FROM usrother_feed_bio",
+        &ParamsBuilder::new().build(),
+    )?;
+    let self_status = db.execute(
+        "SELECT COUNT(*) FROM usrself_feed_status",
+        &ParamsBuilder::new().build(),
+    )?;
     assert_eq!(self_bio[0][0].as_i64(), Some(1));
     assert_eq!(other_bio[0][0].as_i64(), Some(1));
     assert_eq!(self_status[0][0].as_i64(), Some(2));

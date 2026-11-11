@@ -192,9 +192,12 @@ impl LocalDataRuntime {
             .filter(|snapshot| snapshot.current_user_id == current_owner.as_str())
             .is_some_and(|snapshot| {
                 snapshot.friends_by_id.contains_key(target_user_id)
-                    && snapshot.presence_by_id.get(target_user_id).is_some_and(|presence| {
-                        presence.view.section() == vrcx_0_core::friends::StateBucket::Online
-                    })
+                    && snapshot
+                        .presence_by_id
+                        .get(target_user_id)
+                        .is_some_and(|presence| {
+                            presence.view.section() == vrcx_0_core::friends::StateBucket::Online
+                        })
             });
         if current_owner.is_empty() || !is_current_online_friend {
             return Err(vrcx_0_application_core::Error::PersistenceInvalidData(
@@ -214,7 +217,8 @@ impl LocalDataRuntime {
         &self,
         input: ProfileFeedReconcileInput,
     ) -> Result<ProfileFeedReconcileOutput> {
-        self.store.profile_feed_reconcile(&self.current_owner(), input)
+        self.store
+            .profile_feed_reconcile(&self.current_owner(), input)
     }
 
     pub fn query_feed_latest(&self, query: FeedLatestQueryInput) -> Result<FeedReadModelOutput> {
@@ -560,22 +564,26 @@ impl LocalDataRuntime {
     }
 
     pub fn tracked_nonfriends_add(&self, input: TrackedNonFriendAddInput) -> Result<bool> {
-        self.store.tracked_nonfriends_add(&self.current_owner(), input)
+        self.store
+            .tracked_nonfriends_add(&self.current_owner(), input)
     }
 
     pub fn tracked_nonfriends_remove(&self, user_id: String) -> Result<bool> {
-        self.store.tracked_nonfriends_remove(&self.current_owner(), user_id)
+        self.store
+            .tracked_nonfriends_remove(&self.current_owner(), user_id)
     }
 
     pub fn tracked_nonfriends_is_tracked(&self, user_id: String) -> Result<bool> {
-        self.store.tracked_nonfriends_is_tracked(&self.current_owner(), user_id)
+        self.store
+            .tracked_nonfriends_is_tracked(&self.current_owner(), user_id)
     }
 
     pub fn tracked_nonfriends_update_name(
         &self,
         input: TrackedNonFriendUpdateNameInput,
     ) -> Result<bool> {
-        self.store.tracked_nonfriends_update_name(&self.current_owner(), input)
+        self.store
+            .tracked_nonfriends_update_name(&self.current_owner(), input)
     }
 
     pub fn friend_log_history_delete(
@@ -708,11 +716,9 @@ impl LocalDataRuntime {
         self.store.manual_relations_list(&self.current_owner())
     }
 
-    pub fn manual_relations_for_user(
-        &self,
-        user_id: String,
-    ) -> Result<Vec<ManualRelationOutput>> {
-        self.store.manual_relations_for_user(&self.current_owner(), user_id)
+    pub fn manual_relations_for_user(&self, user_id: String) -> Result<Vec<ManualRelationOutput>> {
+        self.store
+            .manual_relations_for_user(&self.current_owner(), user_id)
     }
 
     pub fn manual_relation_add(
@@ -721,11 +727,13 @@ impl LocalDataRuntime {
         user_id_b: String,
         relation_type: String,
     ) -> Result<()> {
-        self.store.manual_relation_add(&self.current_owner(), user_id_a, user_id_b, relation_type)
+        self.store
+            .manual_relation_add(&self.current_owner(), user_id_a, user_id_b, relation_type)
     }
 
     pub fn manual_relation_remove(&self, user_id_a: String, user_id_b: String) -> Result<()> {
-        self.store.manual_relation_remove(&self.current_owner(), user_id_a, user_id_b)
+        self.store
+            .manual_relation_remove(&self.current_owner(), user_id_a, user_id_b)
     }
 
     pub fn local_moderation_list(

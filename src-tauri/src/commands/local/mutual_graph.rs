@@ -32,7 +32,10 @@ pub async fn app__manual_relations_list(
     state: State<'_, AppState>,
 ) -> Result<Vec<ManualRelationOutput>, AppError> {
     let local_data = state.runtime_host().local_data().clone();
-    run_blocking("manual relations list", move || local_data.manual_relations_list()).await
+    run_blocking("manual relations list", move || {
+        local_data.manual_relations_list()
+    })
+    .await
 }
 
 #[tauri::command]
