@@ -1312,8 +1312,6 @@ fn backfill_duplicate_lookup_reads_a_created_at_range_through_an_index() -> Resu
     }
     Ok(())
 }
-    Ok(())
-}
 
 fn add_startup_current_friend(
     db: &DatabaseService,
