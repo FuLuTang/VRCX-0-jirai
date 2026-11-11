@@ -2398,8 +2398,11 @@
                 "tips": {
                     "description": "Analyzes your local history to find instances where two friends were present in the same room."
                 },
-                "select_friend_a": "Select Friend A",
-                "select_friend_b": "Select Friend B",
+                "select_friend_a": "Type a friend name or usr_ ID (A)",
+                "select_friend_b": "Type a friend name or usr_ ID (B)",
+                "use_id": "Use this ID: {id}",
+                "tracked": "Tracked",
+                "no_matches": "No matching people",
                 "swap_friends": "Swap friends",
                 "total_coexistence_time": "Total co-presence time",
                 "instance_count": "Shared instance count",

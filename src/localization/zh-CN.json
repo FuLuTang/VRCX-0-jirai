@@ -2379,8 +2379,11 @@
                 "tips": {
                     "description": "通过分析本地记录，找出两位好友曾经共处一室的记录。"
                 },
-                "select_friend_a": "选择好友 A",
-                "select_friend_b": "选择好友 B",
+                "select_friend_a": "输入好友名称或 usr_ ID（A）",
+                "select_friend_b": "输入好友名称或 usr_ ID（B）",
+                "use_id": "使用该 ID：{id}",
+                "tracked": "已跟踪",
+                "no_matches": "没有匹配的人",
                 "swap_friends": "交换好友",
                 "total_coexistence_time": "共存总时长",
                 "instance_count": "共同在场次数",

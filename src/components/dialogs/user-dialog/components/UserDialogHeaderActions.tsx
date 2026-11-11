@@ -1,5 +1,7 @@
 import {
     BanIcon,
+    BookmarkMinusIcon,
+    BookmarkPlusIcon,
     EyeIcon,
     EyeOffIcon,
     FlagIcon,
@@ -378,8 +380,8 @@ export function UserDialogHeaderActions({
                             <EntityActionItem
                                 icon={
                                     isTrackedNonfriend
-                                        ? UserRoundMinusIcon
-                                        : UserPlusIcon
+                                        ? BookmarkMinusIcon
+                                        : BookmarkPlusIcon
                                 }
                                 disabled={!canToggleTrackedNonfriend}
                                 onClick={() => void toggleTrackedNonfriend()}

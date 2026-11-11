@@ -12,10 +12,12 @@ import { timeToText } from '@/lib/dateTime';
 import feedRepository from '@/repositories/feedRepository';
 import { useFriendRosterStore } from '@/state/friendRosterStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
+import { useTrackedNonfriendsStore } from '@/state/trackedNonfriendsStore';
 import { Button } from '@/ui/shadcn/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/shadcn/card';
 import { Spinner } from '@/ui/shadcn/spinner';
 
+import { RelationshipUserPicker } from './components/RelationshipUserPicker';
 import { getHistoryDateMs } from './historyUtils';
 import { buildRelationshipSessions } from './relationshipHistory';
 
@@ -139,27 +141,6 @@ function buildTimelineRows(
     return rows;
 }
 
-function HistorySelect({ label, value, options, onChange }) {
-    return (
-        <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
-            <span className="text-muted-foreground truncate text-xs">
-                {label}
-            </span>
-            <select
-                className="border-input bg-background h-10 rounded-md border px-3 text-sm outline-none"
-                value={value}
-                onChange={(event) => onChange(event.target.value)}
-            >
-                {options.map((option) => (
-                    <option key={option.id} value={option.id}>
-                        {option.label}
-                    </option>
-                ))}
-            </select>
-        </label>
-    );
-}
-
 function ChartCard({ title, rows, valueKey, colorClass, formatValue }) {
     const width = 860;
     const height = 220;
@@ -273,25 +254,60 @@ export function RelationshipTimelinePage() {
         () => buildFriendOptions(friendsById),
         [friendsById]
     );
+    const trackedEntries = useTrackedNonfriendsStore((state) => state.entries);
+    const trackedAccountId = useTrackedNonfriendsStore(
+        (state) => state.currentUserId
+    );
+    const trackedLoadStatus = useTrackedNonfriendsStore(
+        (state) => state.loadStatus
+    );
+    const loadTrackedNonfriends = useTrackedNonfriendsStore(
+        (state) => state.load
+    );
+    const relationshipUserOptions = useMemo(() => {
+        const options = new Map(
+            friendOptions.map((friend) => [friend.id, friend])
+        );
+        for (const entry of trackedAccountId === currentUserId
+            ? trackedEntries
+            : []) {
+            if (!options.has(entry.userId)) {
+                options.set(entry.userId, {
+                    id: entry.userId,
+                    label: entry.displayName?.trim() || entry.userId,
+                    tracked: true
+                });
+            }
+        }
+        return [...options.values()];
+    }, [currentUserId, friendOptions, trackedAccountId, trackedEntries]);
 
     const [friendId, setFriendId] = useState('');
+    const [defaultsInitialized, setDefaultsInitialized] = useState(false);
     const [rangeDays, setRangeDays] = useState(90);
     const [status, setStatus] = useState('idle');
     const [detail, setDetail] = useState('');
     const [timelineRows, setTimelineRows] = useState([]);
 
     useEffect(() => {
-        if (!friendOptions.length) {
-            setFriendId('');
-            return;
-        }
         if (
-            !friendId ||
-            !friendOptions.some((friend) => friend.id === friendId)
+            currentUserId &&
+            (trackedAccountId !== currentUserId || trackedLoadStatus === 'idle')
         ) {
-            setFriendId(friendOptions[0].id);
+            void loadTrackedNonfriends(currentUserId);
         }
-    }, [friendOptions, friendId]);
+    }, [
+        currentUserId,
+        loadTrackedNonfriends,
+        trackedAccountId,
+        trackedLoadStatus
+    ]);
+
+    useEffect(() => {
+        if (defaultsInitialized || !friendOptions.length) return;
+        if (!friendId) setFriendId(friendOptions[0].id);
+        setDefaultsInitialized(true);
+    }, [defaultsInitialized, friendId, friendOptions]);
 
     useEffect(() => {
         let active = true;
@@ -397,14 +413,16 @@ export function RelationshipTimelinePage() {
                         {t('view.charts.relationship_timeline.header')}
                     </CardTitle>
                     <div className="flex flex-wrap items-end gap-3">
-                        <HistorySelect
-                            label={t(
-                                'view.charts.relationship_timeline.friend'
-                            )}
-                            value={friendId}
-                            options={friendOptions}
-                            onChange={setFriendId}
-                        />
+                        <div className="min-w-0 flex-1">
+                            <RelationshipUserPicker
+                                value={friendId}
+                                options={relationshipUserOptions}
+                                placeholder={t(
+                                    'view.charts.relationship_timeline.friend'
+                                )}
+                                onValueChange={setFriendId}
+                            />
+                        </div>
                         <label className="flex min-w-0 flex-col gap-1 text-sm">
                             <span className="text-muted-foreground truncate text-xs">
                                 {t(
@@ -431,7 +449,7 @@ export function RelationshipTimelinePage() {
                             type="button"
                             variant="outline"
                             className="h-10"
-                            disabled={!friendOptions.length}
+                            disabled={!friendId}
                             onClick={() => setRangeDays((current) => current)}
                         >
                             <RefreshCcwIcon className="mr-2 size-4" />
