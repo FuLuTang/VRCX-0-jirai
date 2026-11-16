@@ -24,13 +24,7 @@ const service = vi.hoisted(() => ({
 const controls = vi.hoisted(() => ({
     enabled: true,
     getBool: vi.fn(),
-    jobs: [] as import('@/platform/tauri/bindings').RuntimeBackgroundJobSnapshot[],
-    relationships: undefined as
-        | undefined
-        | {
-              progress: { done: number; total: number; step: string };
-              suggestions: unknown[];
-          }
+    jobs: [] as import('@/platform/tauri/bindings').RuntimeBackgroundJobSnapshot[]
 }));
 vi.mock('@/repositories/configRepository', () => ({
     default: { getBool: controls.getBool }
@@ -38,14 +32,6 @@ vi.mock('@/repositories/configRepository', () => ({
 vi.mock('@/services/useEnhancedFetchSchedule', () => ({
     useEnhancedFetchSchedule: () => ({ jobs: controls.jobs, error: false })
 }));
-vi.mock(
-    '@/features/charts/relationship-recommendations/relationshipRecommendationsService',
-    () => ({
-        useRelationshipRecommendations: (
-            selector: (state: unknown) => unknown
-        ) => selector({ accounts: { usr_current: controls.relationships } })
-    })
-);
 vi.mock('@/services/enhancedInfoFetchService', () => ({
     getEnhancedInfoFetchSnapshot: () => service.snapshot,
     subscribeEnhancedInfoFetch: (
@@ -109,7 +95,6 @@ beforeEach(() => {
     controls.enabled = true;
     controls.getBool.mockImplementation(async () => controls.enabled);
     controls.jobs = [];
-    controls.relationships = undefined;
     service.run.mockResolvedValue(undefined);
     service.snapshot = {
         accountId: 'usr_current',
@@ -185,9 +170,14 @@ describe('SyncWorkflowDialog parallel periodic refresh', () => {
             bioUpdated: 2,
             relationshipStatus: 'running'
         };
-        controls.relationships = {
-            progress: { done: 4, total: 10, step: 'real-computation' },
-            suggestions: []
+        service.snapshot = {
+            ...service.snapshot,
+            relationshipProgress: {
+                done: 4,
+                total: 10,
+                step: 'real-computation'
+            },
+            relationshipSuggestions: 0
         };
         render(<SyncWorkflowDialog {...props} />);
         expect(
@@ -216,9 +206,10 @@ describe('SyncWorkflowDialog parallel periodic refresh', () => {
             processed: 10,
             relationshipStatus: 'running'
         };
-        controls.relationships = {
-            progress: { done: 4, total: 10, step: 'local-history' },
-            suggestions: []
+        service.snapshot = {
+            ...service.snapshot,
+            relationshipProgress: { done: 4, total: 10, step: 'local-history' },
+            relationshipSuggestions: 0
         };
         render(<SyncWorkflowDialog {...props} />);
         expect(
@@ -246,9 +237,10 @@ describe('SyncWorkflowDialog parallel periodic refresh', () => {
             processed: 10,
             relationshipStatus: 'unavailable'
         };
-        controls.relationships = {
-            progress: { done: 10, total: 10, step: 'stale' },
-            suggestions: []
+        service.snapshot = {
+            ...service.snapshot,
+            relationshipProgress: { done: 10, total: 10, step: 'stale' },
+            relationshipSuggestions: 0
         };
         render(<SyncWorkflowDialog {...props} />);
         expect(

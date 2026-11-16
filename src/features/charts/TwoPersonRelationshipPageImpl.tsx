@@ -8,7 +8,7 @@ import {
     RefreshCcwIcon,
     UsersIcon
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Location } from '@/components/Location';
@@ -16,11 +16,19 @@ import { formatDateTime, timeToText } from '@/lib/dateTime';
 import { commands } from '@/platform/tauri/bindings';
 import feedRepository from '@/repositories/feedRepository';
 import { openWorldDialog } from '@/services/dialogService';
+import { isUserId } from '@/shared/constants/vrchatIds';
 import { parseLocation } from '@/shared/utils/location';
 import { useFriendRosterStore } from '@/state/friendRosterStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
 import { useTrackedNonfriendsStore } from '@/state/trackedNonfriendsStore';
 import { Button } from '@/ui/shadcn/button';
+import {
+    Combobox,
+    ComboboxContent,
+    ComboboxInput,
+    ComboboxItem,
+    ComboboxList
+} from '@/ui/shadcn/combobox';
 import {
     HoverCard,
     HoverCardContent,
@@ -29,7 +37,6 @@ import {
 import { Switch } from '@/ui/shadcn/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/shadcn/tooltip';
 
-import { RelationshipUserPicker } from './components/RelationshipUserPicker';
 import {
     observedJoinOrder,
     observedPeakPlayerCount
@@ -53,6 +60,61 @@ function buildFriendOptions(friendsById, trackedEntries) {
     }
     return [...options.values()].sort((left, right) =>
         left.label.localeCompare(right.label)
+    );
+}
+
+function RelationshipPlayerSelect({
+    options,
+    value,
+    excludedId,
+    placeholder,
+    onSelect
+}) {
+    const items = useMemo(() => {
+        const ids = options
+            .filter((option) => option.id !== excludedId)
+            .map((option) => option.id);
+        if (value && !ids.includes(value)) ids.push(value);
+        return ids;
+    }, [options, value, excludedId]);
+    const label = useCallback(
+        (id) => options.find((option) => option.id === id)?.label || id,
+        [options]
+    );
+
+    return (
+        <Combobox
+            items={items}
+            value={value || null}
+            filter={null}
+            itemToStringLabel={label}
+            onValueChange={(id) => {
+                if (id) onSelect(id);
+            }}
+        >
+            <ComboboxInput
+                className="w-full"
+                aria-label={placeholder}
+                placeholder={placeholder}
+                onKeyDown={(event) => {
+                    const id = event.currentTarget.value.trim().toLowerCase();
+                    if (event.key === 'Enter' && isUserId(id)) {
+                        event.preventDefault();
+                        event.preventBaseUIHandler();
+                        if (id !== excludedId) onSelect(id);
+                    }
+                }}
+            />
+            <ComboboxContent>
+                <ComboboxList>
+                    {(id) => (
+                        <ComboboxItem key={id} value={id}>
+                            {label(id)}
+                        </ComboboxItem>
+                    )}
+                </ComboboxList>
+            </ComboboxContent>
+        </Combobox>
     );
 }
 
@@ -205,6 +267,7 @@ export function TwoPersonRelationshipPage() {
     const trackedAccountId = useTrackedNonfriendsStore(
         (state) => state.currentUserId
     );
+
     const friendOptions = useMemo(
         () =>
             buildFriendOptions(
@@ -213,29 +276,6 @@ export function TwoPersonRelationshipPage() {
             ),
         [friendsById, trackedEntries, trackedAccountId, currentUserId]
     );
-    const trackedLoadStatus = useTrackedNonfriendsStore(
-        (state) => state.loadStatus
-    );
-    const loadTrackedNonfriends = useTrackedNonfriendsStore(
-        (state) => state.load
-    );
-    const relationshipUserOptions = useMemo(() => {
-        const options = new Map(
-            friendOptions.map((friend) => [friend.id, friend])
-        );
-        for (const entry of trackedAccountId === currentUserId
-            ? trackedEntries
-            : []) {
-            if (!options.has(entry.userId)) {
-                options.set(entry.userId, {
-                    id: entry.userId,
-                    label: entry.displayName?.trim() || entry.userId,
-                    tracked: true
-                });
-            }
-        }
-        return [...options.values()];
-    }, [currentUserId, friendOptions, trackedAccountId, trackedEntries]);
 
     const [leftUserId, setLeftUserId] = useState('');
     const [rightUserId, setRightUserId] = useState('');
@@ -245,20 +285,6 @@ export function TwoPersonRelationshipPage() {
     const [selfSessions, setSelfSessions] = useState([]);
     const [showSelfPresence, setShowSelfPresence] = useState(false);
     const [peakCounts, setPeakCounts] = useState(new Map());
-
-    useEffect(() => {
-        if (
-            currentUserId &&
-            (trackedAccountId !== currentUserId || trackedLoadStatus === 'idle')
-        ) {
-            void loadTrackedNonfriends(currentUserId);
-        }
-    }, [
-        currentUserId,
-        loadTrackedNonfriends,
-        trackedAccountId,
-        trackedLoadStatus
-    ]);
 
     useEffect(() => {
         let active = true;
@@ -346,13 +372,11 @@ export function TwoPersonRelationshipPage() {
                 if (!active) return;
 
                 const leftLabel =
-                    relationshipUserOptions.find(
-                        (user) => user.id === leftUserId
-                    )?.label || leftUserId;
+                    friendOptions.find((friend) => friend.id === leftUserId)
+                        ?.label || leftUserId;
                 const rightLabel =
-                    relationshipUserOptions.find(
-                        (user) => user.id === rightUserId
-                    )?.label || rightUserId;
+                    friendOptions.find((friend) => friend.id === rightUserId)
+                        ?.label || rightUserId;
                 const leftSessions = buildSessions(
                     leftRows,
                     leftUserId,
@@ -395,7 +419,7 @@ export function TwoPersonRelationshipPage() {
         return () => {
             active = false;
         };
-    }, [currentUserId, relationshipUserOptions, leftUserId, rightUserId, t]);
+    }, [currentUserId, friendOptions, leftUserId, rightUserId, t]);
 
     useEffect(() => {
         if (!showSelfPresence || !currentUserId || !overlapRows.length) {
@@ -502,14 +526,18 @@ export function TwoPersonRelationshipPage() {
 
                 <div className="mt-3 flex items-center gap-2">
                     <div className="min-w-0 flex-1">
-                        <RelationshipUserPicker
+                        <RelationshipPlayerSelect
+                            options={friendOptions}
                             value={leftUserId}
-                            options={relationshipUserOptions}
-                            excludeUserId={rightUserId}
+                            excludedId={rightUserId}
+                            onSelect={handleFriendASelect}
                             placeholder={t(
-                                'view.charts.two_person_relationship.select_friend_a'
+                                'jirai.two_person_relationship.select_player_a',
+                                {
+                                    defaultValue:
+                                        'Select player A / enter a usr_ ID and press Enter'
+                                }
                             )}
-                            onValueChange={handleFriendASelect}
                         />
                     </div>
 
@@ -534,14 +562,18 @@ export function TwoPersonRelationshipPage() {
                     </Tooltip>
 
                     <div className="min-w-0 flex-1">
-                        <RelationshipUserPicker
+                        <RelationshipPlayerSelect
+                            options={friendOptions}
                             value={rightUserId}
-                            options={relationshipUserOptions}
-                            excludeUserId={leftUserId}
+                            excludedId={leftUserId}
+                            onSelect={handleFriendBSelect}
                             placeholder={t(
-                                'view.charts.two_person_relationship.select_friend_b'
+                                'jirai.two_person_relationship.select_player_b',
+                                {
+                                    defaultValue:
+                                        'Select player B / enter a usr_ ID and press Enter'
+                                }
                             )}
-                            onValueChange={handleFriendBSelect}
                         />
                     </div>
 
