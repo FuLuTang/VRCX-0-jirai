@@ -8,7 +8,7 @@ use vrcx_0_application_core::HostSessionGameProcessStatus as GameProcessStatus;
 use vrcx_0_contracts::{InstanceRosterMember, InstanceRosterSnapshot};
 use vrcx_0_core::friends::{FriendBaselineEntry, FriendBaselinePresence, FriendRecord};
 use crate::FriendLocationTimeSource;
-use crate::FriendStatusVerdicts;
+use crate::social_baseline::FriendStatusVerdicts;
 use vrcx_0_core::presence::PresenceView;
 use vrcx_0_core::OwnerId;
 
@@ -876,7 +876,7 @@ fn startup_baseline_restores_remote_arrival_and_repeated_baselines_keep_it() -> 
         .iter()
         .any(|event| event.name == "realtimeFriendProjection"
             && event.payload["locationTimeSnapshot"] == serde_json::to_value(&restored).unwrap()));
-    seed_online_friend(&runtime, &session, transport.generation)?;
+    seed_online_friend(&runtime, &session)?;
     assert_eq!(runtime.runtime().deps.instance_dwell.snapshot(), restored);
     // A later live move must not inherit the older room's history, even if a
     // subsequent periodic baseline brings the friend back to the old room.
@@ -889,7 +889,7 @@ fn startup_baseline_restores_remote_arrival_and_repeated_baselines_keep_it() -> 
         moved,
         FriendStatusVerdicts::default(),
     )?;
-    seed_online_friend(&runtime, &session, transport.generation)?;
+    seed_online_friend(&runtime, &session)?;
     assert_ne!(
         runtime.runtime().deps.instance_dwell.snapshot()[0].since_ms,
         restored[0].since_ms

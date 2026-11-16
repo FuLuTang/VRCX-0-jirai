@@ -25,6 +25,16 @@ struct RecordingStore {
 }
 
 impl MutualGraphStore for RecordingStore {
+    fn archive_observation(
+        &self,
+        _owner_user_id: String,
+        _friend_id: String,
+        _mutual_ids: Vec<String>,
+        _observed_at: String,
+    ) -> Result<()> {
+        Ok(())
+    }
+
     fn friend_refresh_commit(
         &self,
         owner_user_id: String,
@@ -32,6 +42,7 @@ impl MutualGraphStore for RecordingStore {
         mutual_ids: Option<Vec<String>>,
         total_count: Option<usize>,
         opted_out: bool,
+        _observed_at: Option<String>,
     ) -> Result<()> {
         self.commits.lock().unwrap().push(GraphCommit {
             owner_user_id,
@@ -52,6 +63,9 @@ impl MutualGraphStore for RecordingStore {
         _owner_user_id: String,
         _entries: Vec<MutualGraphSnapshotEntryInput>,
         _meta: Vec<MutualGraphMetaInput>,
+        _observations: Vec<MutualGraphObservationInput>,
+        _replace_missing: bool,
+        _scope_ids: Vec<String>,
     ) -> Result<()> {
         panic!("list requests must not replace the graph snapshot")
     }
@@ -72,6 +86,7 @@ impl<F: Fn() + Send + Sync> VrchatRequestPort for ResponsePort<F> {
             Ok(VrchatResponse {
                 status: self.status,
                 data: self.rows.to_string(),
+                retry_after: None,
             })
         })
     }
