@@ -227,6 +227,8 @@ fn profile_feed_reconcile_records_only_owner_scoped_changes() -> Result<(), crat
         &owner,
         ProfileFeedReconcileInput {
             bio: None,
+            // Keep the latest recorded description so only bio absence is under test.
+            status_description: "changed".into(),
             ..input()
         },
     )?;
