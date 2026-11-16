@@ -63,7 +63,7 @@ async function getSnapshot(userId: string): Promise<{
         snapshot.set(friendId, mutualIds);
     }
 
-    for (const row of historicalLinkRows) {
+    for (const row of historicalLinkRows ?? []) {
         if (!row.friendId || !row.mutualId) {
             continue;
         }

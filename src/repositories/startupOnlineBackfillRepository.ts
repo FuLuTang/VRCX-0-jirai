@@ -14,7 +14,7 @@ function normalize(value: string): string {
 async function insertObservedOnline(
     input: StartupOnlineBackfillInsert
 ): Promise<StartupOnlineBackfillInsertResult> {
-    const expectedOwnerUserId = normalize(input.expectedOwnerUserId);
+    const expectedOwnerUserId = normalize(input.expectedOwnerUserId ?? '');
     if (!expectedOwnerUserId) {
         throw new Error('Startup online backfill requires an account.');
     }

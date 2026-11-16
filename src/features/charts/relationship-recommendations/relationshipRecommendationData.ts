@@ -122,7 +122,7 @@ export async function loadRecommendationInput(
     const oldMutualSnapshot = new Map<string, Set<string>>();
     // Keep the original directed OLD snapshot: symmetrizing changes the
     // legacy "both expose mutuals" exclusion heuristic.
-    for (const { friendId, mutualId } of rawGraph.historicalLinks) {
+    for (const { friendId, mutualId } of rawGraph.historicalLinks ?? []) {
         if (!friendId || !mutualId) continue;
         const ids = oldMutualSnapshot.get(friendId) || new Set<string>();
         ids.add(mutualId);
