@@ -63,3 +63,40 @@ where
         }
     }
 }
+
+impl Error {
+    /// Rebuilds an equivalent error from a shared reference (errors are not `Clone`
+    /// because of `io::Error` / `serde_json::Error`).
+    pub fn duplicate(&self) -> Self {
+        match self {
+            Error::Database(message) => Error::Database(message.clone()),
+            Error::Sqlite { message, category } => Error::Sqlite {
+                message: message.clone(),
+                category: *category,
+            },
+            Self::Io(error) => Error::Io(
+                error
+                    .raw_os_error()
+                    .map(std::io::Error::from_raw_os_error)
+                    .unwrap_or_else(|| std::io::Error::new(error.kind(), error.to_string())),
+            ),
+            Error::Json(error) => Error::Json(serde_json::Error::io(std::io::Error::other(
+                error.to_string(),
+            ))),
+            Error::UpdateArtifactInvalid(message) => Error::UpdateArtifactInvalid(message.clone()),
+            Error::PersistenceInvalidData(message) => {
+                Error::PersistenceInvalidData(message.clone())
+            }
+            Error::RegistryPolicyInvalid(message) => Error::RegistryPolicyInvalid(message.clone()),
+            Error::WebClient(message) => Error::WebClient(message.clone()),
+            Error::VrchatApi {
+                status_code,
+                message,
+            } => Error::VrchatApi {
+                status_code: *status_code,
+                message: message.clone(),
+            },
+            Error::Custom(message) => Error::Custom(message.clone()),
+        }
+    }
+}

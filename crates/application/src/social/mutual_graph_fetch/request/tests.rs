@@ -23,16 +23,21 @@ struct GraphCommit {
 #[derive(Default)]
 struct RecordingStore {
     commits: Mutex<Vec<GraphCommit>>,
+    archives: Mutex<Vec<(String, String, Vec<String>)>>,
 }
 
 impl MutualGraphStore for RecordingStore {
     fn archive_observation(
         &self,
-        _owner_user_id: String,
-        _friend_id: String,
-        _mutual_ids: Vec<String>,
+        owner_user_id: String,
+        friend_id: String,
+        mutual_ids: Vec<String>,
         _observed_at: String,
     ) -> Result<()> {
+        self.archives
+            .lock()
+            .unwrap()
+            .push((owner_user_id, friend_id, mutual_ids));
         Ok(())
     }
 
@@ -132,8 +137,17 @@ async fn non_friend_and_pending_request_lists_only_backfill_after_friend_add() -
             Some("users/usr%5Ftarget/mutuals/friends")
         );
         assert_eq!(sent.endpoint.as_deref(), Some(session.endpoint.as_str()));
-        assert!(!result.persisted);
+        // Non-friend lists are archived as history observations, never as graph edges.
+        assert!(result.persisted);
         assert!(store.commits.lock().unwrap().is_empty());
+        assert_eq!(
+            store.archives.lock().unwrap().pop(),
+            Some((
+                session.user_id.clone(),
+                "usr_target".into(),
+                vec!["usr_mutual".into()]
+            ))
+        );
     }
 
     runtime.handle_active_friend_ws_message_for_test(&RealtimeWsMessagePayload {
@@ -189,8 +203,12 @@ async fn empty_non_friend_list_does_not_create_an_isolated_node() -> Result<()> 
     )
     .await?;
     assert!(result.rows.is_empty());
-    assert!(!result.persisted);
+    assert!(result.persisted);
     assert!(store.commits.lock().unwrap().is_empty());
+    assert_eq!(
+        *store.archives.lock().unwrap(),
+        vec![(session.user_id.clone(), "usr_target".to_string(), Vec::<String>::new())]
+    );
     Ok(())
 }
 
@@ -288,7 +306,8 @@ async fn friend_removed_during_list_request_is_not_backfilled() -> Result<()> {
     )
     .await?;
     assert_eq!(result.rows.len(), 1);
-    assert!(!result.persisted);
+    assert!(result.persisted);
     assert!(store.commits.lock().unwrap().is_empty());
+    assert_eq!(store.archives.lock().unwrap().len(), 1);
     Ok(())
 }

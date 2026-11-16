@@ -1436,38 +1436,8 @@ impl ProfileRequestBroker {
 fn copy_profile_request_error(
     error: Arc<vrcx_0_application_core::Error>,
 ) -> vrcx_0_application_core::Error {
-    use vrcx_0_application_core::Error;
     match Arc::try_unwrap(error) {
         Ok(error) => error,
-        Err(error) => match error.as_ref() {
-            Error::Database(message) => Error::Database(message.clone()),
-            Error::Sqlite { message, category } => Error::Sqlite {
-                message: message.clone(),
-                category: *category,
-            },
-            Error::Io(error) => Error::Io(
-                error
-                    .raw_os_error()
-                    .map(std::io::Error::from_raw_os_error)
-                    .unwrap_or_else(|| std::io::Error::new(error.kind(), error.to_string())),
-            ),
-            Error::Json(error) => Error::Json(serde_json::Error::io(std::io::Error::other(
-                error.to_string(),
-            ))),
-            Error::UpdateArtifactInvalid(message) => Error::UpdateArtifactInvalid(message.clone()),
-            Error::PersistenceInvalidData(message) => {
-                Error::PersistenceInvalidData(message.clone())
-            }
-            Error::RegistryPolicyInvalid(message) => Error::RegistryPolicyInvalid(message.clone()),
-            Error::WebClient(message) => Error::WebClient(message.clone()),
-            Error::VrchatApi {
-                status_code,
-                message,
-            } => Error::VrchatApi {
-                status_code: *status_code,
-                message: message.clone(),
-            },
-            Error::Custom(message) => Error::Custom(message.clone()),
-        },
+        Err(error) => error.duplicate(),
     }
 }
