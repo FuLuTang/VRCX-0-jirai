@@ -448,6 +448,16 @@ export const commands = {
             choiceId,
             userId
         }),
+    appAssistantAnswerApproval: (
+        sessionId: string,
+        approvalId: string,
+        approved: boolean
+    ) =>
+        __TAURI_INVOKE<null>('app__assistant_answer_approval', {
+            sessionId,
+            approvalId,
+            approved
+        }),
     appAssistantListSessions: () =>
         __TAURI_INVOKE<SessionSummary[]>('app__assistant_list_sessions'),
     appAssistantGetSession: (sessionId: string) =>
@@ -479,25 +489,22 @@ export const commands = {
         sessionId: string,
         endpointId: string | null,
         model: string | null,
-        allowWrites: boolean,
         playbookMode: PlaybookMode
     ) =>
         __TAURI_INVOKE<Session>('app__assistant_set_session_runtime', {
             sessionId,
             endpointId,
             model,
-            allowWrites,
             playbookMode
         }),
     appAssistantSetDefaultRuntime: (
         endpointId: string | null,
         model: string | null,
-        allowWrites: boolean,
         playbookMode: PlaybookMode
     ) =>
         __TAURI_INVOKE<AssistantRuntimeSelection>(
             'app__assistant_set_default_runtime',
-            { endpointId, model, allowWrites, playbookMode }
+            { endpointId, model, playbookMode }
         ),
     appLlmEndpointFollowCustomProxy: () =>
         __TAURI_INVOKE<boolean>('app__llm_endpoint_follow_custom_proxy'),
@@ -3025,6 +3032,30 @@ export type AppUpdateStatusSnapshot = {
     shouldNotify: boolean;
 };
 
+/**
+ *  A side-effecting tool call waiting for the user. `fields` are the exact
+ *  arguments the call runs with once approved.
+ */
+export type AssistantApproval = {
+    id: string;
+    toolCallId: string;
+    tool: string;
+    fields: AssistantApprovalField[];
+    favoriteMove: AssistantFavoriteMovePreview | null;
+};
+
+export type AssistantApprovalField = {
+    name: string;
+    value: string;
+};
+
+export type AssistantApprovalRequestEvent = {
+    ownerUserId: OwnerId;
+    sessionId: string;
+    turnId: string;
+    approval: AssistantApproval;
+};
+
 export type AssistantChart = {
     kind: AssistantChartKind;
     axis: AssistantChartAxis;
@@ -3087,10 +3118,36 @@ export type AssistantErrorEvent = {
     message: string;
 };
 
+export type AssistantFavoriteGroup = {
+    name: string;
+    displayName: string;
+};
+
+export type AssistantFavoriteMoveItem = {
+    entityId: string;
+    name: string | null;
+    source: AssistantFavoriteGroup | null;
+    status: AssistantFavoriteMoveStatus;
+};
+
+/**
+ *  What a `favorite_move` call would do, from its dry run, so the user approves
+ *  the whole batch knowing each favorite's name and current group.
+ */
+export type AssistantFavoriteMovePreview = {
+    kind: FavoriteEntityKind;
+    target: AssistantFavoriteGroup;
+    items: AssistantFavoriteMoveItem[];
+};
+
+export type AssistantFavoriteMoveStatus =
+    | 'wouldMove'
+    | 'alreadyInTarget'
+    | 'notFavorited';
+
 export type AssistantRuntimeSelection = {
     endpointId: string | null;
     model: string | null;
-    allowWrites: boolean;
     playbookMode: PlaybookMode;
 };
 
@@ -3124,6 +3181,7 @@ export type AssistantToolResultEvent = {
     entities: Entity[];
     charts: AssistantChart[];
     screenshots: AssistantScreenshots | null;
+    denied: boolean;
 };
 
 export type AssistantTurnEntitiesEvent = {
@@ -7465,9 +7523,9 @@ export type Session = {
     title: string;
     messages: Message[];
     activeTurn: ActiveTurn | null;
+    pendingApproval: AssistantApproval | null;
     endpointId: string | null;
     model: string | null;
-    allowWrites: boolean;
     playbookMode: PlaybookMode;
     entityPanelOpen: boolean;
     surfacedEntities: Entity[];
@@ -7700,6 +7758,8 @@ export type ToolResultRecord = {
     summary: string;
     entities: Entity[];
     charts?: AssistantChart[];
+    /**  The user declined the approval card, so the call never ran. */
+    denied?: boolean;
     screenshots?: AssistantScreenshots | null;
 };
 
