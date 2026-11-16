@@ -6,8 +6,10 @@ use vrcx_0_application::social::{
     MutualGraphFriendRefreshInput, MutualGraphFriendRefreshOutput, UserMutualFriendsListInput,
     UserMutualFriendsListOutput,
 };
-use vrcx_0_contracts::jirai::ManualRelationOutput;
-use vrcx_0_contracts::mutual_graph::MutualGraphSnapshotOutput;
+use vrcx_0_contracts::mutual_graph::{
+    MutualGraphExtrasOutput, MutualGraphHistoryOutput, MutualGraphManualLinkSetInput,
+    MutualGraphSnapshotOutput, MutualGraphTrackedUserSetInput,
+};
 
 use crate::commands::blocking::run_blocking;
 use crate::error::AppError;
@@ -28,56 +30,63 @@ pub async fn app__mutual_graph_snapshot_get(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn app__manual_relations_list(
+pub async fn app__mutual_graph_history_get(
     state: State<'_, AppState>,
-) -> Result<Vec<ManualRelationOutput>, AppError> {
+    friend_id: String,
+) -> Result<MutualGraphHistoryOutput, AppError> {
     let local_data = state.runtime_host().local_data().clone();
-    run_blocking("manual relations list", move || {
-        local_data.manual_relations_list()
+    run_blocking("mutual graph history", move || {
+        local_data.mutual_graph_history_get(friend_id)
     })
     .await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn app__manual_relations_for_user(
+pub async fn app__mutual_graph_extras_get(
     state: State<'_, AppState>,
-    user_id: String,
-) -> Result<Vec<ManualRelationOutput>, AppError> {
+    owner_user_id: String,
+) -> Result<MutualGraphExtrasOutput, AppError> {
     let local_data = state.runtime_host().local_data().clone();
-    run_blocking("manual relations for user", move || {
-        local_data.manual_relations_for_user(user_id)
+    run_blocking("mutual graph extras", move || {
+        local_data.mutual_graph_extras_get(owner_user_id)
     })
     .await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn app__manual_relation_add(
+pub async fn app__mutual_graph_tracked_user_set(
     state: State<'_, AppState>,
-    user_id_a: String,
-    user_id_b: String,
-    relation_type: String,
+    input: MutualGraphTrackedUserSetInput,
 ) -> Result<(), AppError> {
     let local_data = state.runtime_host().local_data().clone();
-    run_blocking("manual relation add", move || {
-        local_data.manual_relation_add(user_id_a, user_id_b, relation_type)
+    run_blocking("mutual graph tracked user", move || {
+        local_data.mutual_graph_tracked_user_set(input)
     })
     .await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn app__manual_relation_remove(
+pub async fn app__mutual_graph_manual_link_set(
     state: State<'_, AppState>,
-    user_id_a: String,
-    user_id_b: String,
+    input: MutualGraphManualLinkSetInput,
 ) -> Result<(), AppError> {
     let local_data = state.runtime_host().local_data().clone();
-    run_blocking("manual relation remove", move || {
-        local_data.manual_relation_remove(user_id_a, user_id_b)
+    run_blocking("mutual graph manual link", move || {
+        local_data.mutual_graph_manual_link_set(input)
     })
     .await
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn app__mutual_graph_fetch_status_get(state: State<'_, AppState>) -> MutualGraphFetchStatus {
+    state
+        .runtime_host()
+        .local_data()
+        .mutual_graph_fetch_status()
 }
 
 #[tauri::command(async)]

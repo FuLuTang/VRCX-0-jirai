@@ -35,6 +35,7 @@ export const TELEMETRY_TOOL_KEYS = [
     'crash-dumps',
     'vrchat-config',
     'launch-options',
+    'sync-workflow',
     'app-launcher',
     'registry-backup',
     'presence-schedule',

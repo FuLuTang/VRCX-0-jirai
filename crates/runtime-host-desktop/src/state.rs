@@ -599,22 +599,37 @@ impl DesktopRuntimeHostState {
         is_friend: Option<bool>,
     ) -> Result<vrcx_0_contracts::vrchat_api::VrchatResponse> {
         let command = "app__vrchat_user_get";
+        let profile_scope = self.runtime.desktop_assembly().auth_scope().snapshot();
         let diagnostics = self.runtime.desktop_assembly().diagnostics();
         diagnostics.record_command(
             command,
             RuntimeOperationStatus::Running,
             format!("Getting user {user_id}."),
         );
+        let realtime = Arc::clone(self.runtime.realtime_runtime());
+        let request_id = user_id.clone();
+        let facade = self.vrchat_remote.clone();
+        let expected_scope = profile_scope.clone();
         let result = self
-            .runtime
-            .realtime_runtime()
-            .get_user_via_cache(
-                vrcx_0_core::vrchat_endpoints::VRCHAT_API_DEFAULT_ENDPOINT.into(),
-                user_id,
-                force,
-                dialog,
-                is_friend,
-            )
+            .vrchat_remote
+            .share_user_request(&profile_scope, &request_id, async move {
+                let mut response = realtime
+                    .get_user_via_cache(
+                        vrcx_0_core::vrchat_endpoints::VRCHAT_API_DEFAULT_ENDPOINT.into(),
+                        user_id,
+                        force,
+                        dialog,
+                        is_friend,
+                    )
+                    .await?;
+                // Observe once inside the shared request, so every joined caller
+                // receives the same committed-change receipt rather than a second
+                // reconciliation reporting zero changes.
+                if force || dialog {
+                    facade.observe_dialog_user(&mut response, &expected_scope);
+                }
+                Ok(response)
+            })
             .await;
         match &result {
             Ok(response) => diagnostics.record_command(
@@ -1377,6 +1392,19 @@ impl DesktopRuntimeHostState {
         self.runtime
             .desktop_assembly()
             .notification_activity_filter_profiles()
+    }
+
+    pub fn set_relationship_recommendations(
+        &self,
+        account_id: String,
+        auth_scope_generation: u64,
+        pairs: Vec<vrcx_0_application_game::RelationshipRecommendationPair>,
+    ) {
+        self.game.game_log_runtime.set_relationship_recommendations(
+            account_id,
+            auth_scope_generation,
+            pairs,
+        );
     }
 
     pub fn set_notification_activity_filters(

@@ -188,6 +188,7 @@ mod tests {
                     Arc::new(VrchatResponse {
                         status: 404,
                         data: "{}".into(),
+                        retry_after: None,
                     }),
                 )
                 .await;

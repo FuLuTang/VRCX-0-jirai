@@ -70,7 +70,9 @@ type MutualFriendsEdgeAttributes = Record<string, unknown> & {
     color?: string;
     crossCommunity: boolean;
     curvature?: number;
-    manual: boolean;
+    current?: boolean;
+    historical?: boolean;
+    manual?: boolean;
     size: number;
     type?: string;
     zIndex?: number;
@@ -373,7 +375,9 @@ export async function buildSigmaGraph({
                 targetCommunity !== UNASSIGNED_COMMUNITY;
             graph.addEdgeWithKey(key, link.source, link.target, {
                 crossCommunity,
-                manual: link.kind === 'manual',
+                current: link.current === true,
+                historical: link.historical === true,
+                manual: link.manual === true,
                 size: crossCommunity
                     ? CROSS_COMMUNITY_EDGE_SIZE
                     : INTRA_COMMUNITY_EDGE_SIZE
@@ -537,12 +541,27 @@ export function renderSigmaGraph({
         const theme = themeRef.current;
         const dim = hoverTransition.value;
         const isCross = attributes.crossCommunity === true;
+        const isCurrent = attributes.current === true;
         const isManual = attributes.manual === true;
-        const baseColor = isManual
-            ? theme.edgeManualColor
-            : isCross
-              ? theme.edgeCrossColor
-              : theme.edgeColor;
+        const isHistorical =
+            attributes.historical === true && !isCurrent && !isManual;
+        const ordinaryColor = isCross ? theme.edgeCrossColor : theme.edgeColor;
+        const baseColor = isCurrent
+            ? ordinaryColor
+            : isManual
+              ? theme.edgeManualColor
+              : isHistorical
+                ? mixGraphColors(ordinaryColor, theme.backgroundColor, 0.62)
+                : ordinaryColor;
+        result.size =
+            isManual && !isCurrent
+                ? isHistorical
+                    ? 1.35
+                    : 1.1
+                : isHistorical
+                  ? 0.55
+                  : data.size;
+        const edgeZIndex = isManual ? 2 : isCross ? 1 : 0;
         const restingColor =
             !isManual && crossCommunityOnlyRef.current && !isCross
                 ? mixGraphColors(
@@ -554,7 +573,7 @@ export function renderSigmaGraph({
 
         if (!dim) {
             result.color = restingColor;
-            result.zIndex = isManual ? 2 : isCross ? 1 : 0;
+            result.zIndex = edgeZIndex;
             return result;
         }
 
@@ -571,7 +590,7 @@ export function renderSigmaGraph({
                   theme.backgroundColor,
                   dim * EDGE_DIM_STRENGTH
               );
-        result.zIndex = isIncident ? 3 : isManual ? 2 : isCross ? 1 : 0;
+        result.zIndex = isIncident ? 3 : edgeZIndex;
         return result;
     };
 

@@ -28,6 +28,8 @@ const DEFAULT_VISIBILITY: StatusBarVisibility = {
     proxy: true,
     ws: true,
     instanceQueue: true,
+    mutualGraph: true,
+    profileInfoSync: true,
     nowPlaying: true,
     uptime: false,
     zoom: true,

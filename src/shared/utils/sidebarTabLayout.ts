@@ -5,9 +5,13 @@ import {
 import { isRecord } from '@/shared/utils/record';
 
 const SYSTEM_TAB_FRIENDS = 'friends';
+const SYSTEM_TAB_TRACKED = 'tracked-nonfriends';
 const SYSTEM_TAB_GROUPS = 'groups';
 
-type SidebarSystemTabId = typeof SYSTEM_TAB_FRIENDS | typeof SYSTEM_TAB_GROUPS;
+type SidebarSystemTabId =
+    | typeof SYSTEM_TAB_FRIENDS
+    | typeof SYSTEM_TAB_TRACKED
+    | typeof SYSTEM_TAB_GROUPS;
 
 interface SidebarSystemTabLayoutItem {
     id: SidebarSystemTabId;
@@ -59,6 +63,13 @@ export const DEFAULT_SIDEBAR_TAB_LAYOUT: SidebarTabLayout = [
         type: 'system',
         systemTab: SYSTEM_TAB_FRIENDS,
         icon: 'lucide:UserRound',
+        visible: true
+    },
+    {
+        id: SYSTEM_TAB_TRACKED,
+        type: 'system',
+        systemTab: SYSTEM_TAB_TRACKED,
+        icon: 'lucide:UserSearch',
         visible: true
     },
     {
@@ -181,6 +192,7 @@ export function normalizeSidebarTabLayout(value: unknown): SidebarTabLayout {
             const systemTab = normalizeText(item.systemTab || item.id);
             if (
                 (systemTab === SYSTEM_TAB_FRIENDS ||
+                    systemTab === SYSTEM_TAB_TRACKED ||
                     systemTab === SYSTEM_TAB_GROUPS) &&
                 !seenSystemTabs.has(systemTab)
             ) {
@@ -218,6 +230,17 @@ export function normalizeSidebarTabLayout(value: unknown): SidebarTabLayout {
     }
     if (!seenSystemTabs.has(SYSTEM_TAB_GROUPS)) {
         nextLayout.push(normalizeSystemTab(SYSTEM_TAB_GROUPS));
+    }
+    if (!seenSystemTabs.has(SYSTEM_TAB_TRACKED)) {
+        // Add the new built-in tab after friends without reordering saved tabs.
+        const friendsIndex = nextLayout.findIndex(
+            (item) => item.id === SYSTEM_TAB_FRIENDS
+        );
+        nextLayout.splice(
+            friendsIndex + 1,
+            0,
+            normalizeSystemTab(SYSTEM_TAB_TRACKED)
+        );
     }
 
     return nextLayout;
@@ -322,6 +345,9 @@ export function sidebarTabFallbackIcon(
     }
     if (item.systemTab === SYSTEM_TAB_GROUPS) {
         return 'lucide:UsersRound';
+    }
+    if (item.systemTab === SYSTEM_TAB_TRACKED) {
+        return 'lucide:UserSearch';
     }
     if (item.systemTab === SYSTEM_TAB_FRIENDS) {
         return 'lucide:UserRound';

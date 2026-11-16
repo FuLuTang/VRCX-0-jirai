@@ -1,6 +1,6 @@
-//! IPC DTOs for Jirai fork features (tracked non-friends, manual relations,
-//! profile Feed reconciliation and startup Online backfill). Kept in one
-//! module so upstream contract changes rarely touch fork code.
+//! IPC DTOs for Jirai fork features (tracked non-friends, mutual-graph extras,
+//! profile Feed reconciliation and startup Online backfill). Kept in one module
+//! so upstream contract changes rarely touch fork code.
 
 use serde::{Deserialize, Serialize};
 
@@ -28,29 +28,26 @@ pub struct TrackedNonFriendUpdateNameInput {
     pub display_name: String,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct ManualRelationOutput {
-    pub user_id_a: String,
-    pub user_id_b: String,
-    pub relation_type: String,
-    pub added_at: String,
-}
-
-#[derive(Debug, Deserialize, specta::Type)]
+/// A partial profile observation. `bio`/`status` are optional so a sweep that
+/// did not look at one of them never overwrites the recorded value.
+#[derive(Clone, Debug, Default, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileFeedReconcileInput {
+    /// The account the renderer prepared this request for. Empty means the
+    /// caller relied on the host's own authenticated owner.
+    #[serde(default)]
+    pub expected_owner_user_id: String,
     pub user_id: String,
     pub display_name: String,
     #[serde(default)]
-    pub bio: String,
+    pub bio: Option<String>,
     #[serde(default)]
     pub status: String,
     #[serde(default)]
     pub status_description: String,
 }
 
-#[derive(Debug, Serialize, specta::Type)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileFeedReconcileOutput {
     pub bio_updated: bool,
@@ -59,15 +56,29 @@ pub struct ProfileFeedReconcileOutput {
 
 /// A renderer request for an observed online friend. The host independently
 /// verifies the current realtime friend record and creates the timestamp.
-#[derive(Debug, Deserialize, specta::Type)]
+#[derive(Clone, Debug, Default, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct StartupOnlineBackfillInput {
+    #[serde(default)]
+    pub expected_owner_user_id: String,
     pub target_user_id: String,
     pub display_name: String,
 }
 
-#[derive(Debug, Serialize, specta::Type)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct StartupOnlineBackfillOutput {
     pub inserted: bool,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SelfStatusHistoryInput {
+    pub expected_owner_user_id: String,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SelfBioHistoryInput {
+    pub expected_owner_user_id: String,
 }

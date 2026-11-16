@@ -1,4 +1,10 @@
-import { RefreshCcwIcon, SearchIcon, XIcon } from 'lucide-react';
+import {
+    EyeIcon,
+    EyeOffIcon,
+    RefreshCcwIcon,
+    SearchIcon,
+    XIcon
+} from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -54,8 +60,10 @@ export function MutualFriendsHud({
     onFetchGraph,
     onRefreshPage,
     onSearchQueryChange,
+    managementSlots,
+    onToggleNonFriends,
+    showNonFriends,
     searchQuery,
-    manualRelationsSlot,
     settingsSlot
 }: {
     baseNodeCount: number;
@@ -66,8 +74,10 @@ export function MutualFriendsHud({
     onFetchGraph: () => void;
     onRefreshPage: () => void;
     onSearchQueryChange: (value: string) => void;
+    managementSlots: ReactNode;
+    onToggleNonFriends: () => void;
+    showNonFriends: boolean;
     searchQuery: string;
-    manualRelationsSlot: ReactNode;
     settingsSlot: ReactNode;
 }) {
     const { t } = useTranslation();
@@ -144,18 +154,38 @@ export function MutualFriendsHud({
             </div>
 
             <MutualFriendsSurface className="pointer-events-auto ml-auto flex items-center gap-1 p-1.5">
+                {managementSlots}
+                <Button
+                    type="button"
+                    variant={showNonFriends ? 'secondary' : 'ghost'}
+                    size="icon-sm"
+                    aria-pressed={showNonFriends}
+                    aria-label={t(
+                        showNonFriends
+                            ? 'view.charts.mutual_friend.actions.hide_non_friends'
+                            : 'view.charts.mutual_friend.actions.show_non_friends'
+                    )}
+                    title={t(
+                        showNonFriends
+                            ? 'view.charts.mutual_friend.actions.hide_non_friends'
+                            : 'view.charts.mutual_friend.actions.show_non_friends'
+                    )}
+                    onClick={onToggleNonFriends}
+                >
+                    {showNonFriends ? <EyeIcon /> : <EyeOffIcon />}
+                </Button>
                 <HintTooltip label={t('common.actions.refresh')}>
                     <Button
                         type="button"
                         variant="ghost"
                         size="icon-sm"
+                        aria-label={t('common.actions.refresh')}
                         disabled={isReloading}
                         onClick={onRefreshPage}
                     >
                         {isReloading ? <Spinner /> : <RefreshCcwIcon />}
                     </Button>
                 </HintTooltip>
-                {manualRelationsSlot}
                 {settingsSlot}
             </MutualFriendsSurface>
         </div>

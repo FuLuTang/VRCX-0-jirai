@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 import type { TrackedNonfriend } from '@/repositories/trackedNonfriendsRepository';
 import trackedNonfriendsRepository from '@/repositories/trackedNonfriendsRepository';
+import { useMutualGraphRevisionStore } from '@/state/mutualGraphRevisionStore';
 
 export type TrackedNonfriendsLoadStatus =
     | 'idle'
@@ -64,7 +65,8 @@ export const useTrackedNonfriendsStore = create<TrackedNonfriendsState>(
                 error: null
             });
             try {
-                const entries = await trackedNonfriendsRepository.list();
+                const entries =
+                    await trackedNonfriendsRepository.list(normalizedAccountId);
                 if (get().currentUserId !== normalizedAccountId) {
                     return;
                 }
@@ -85,10 +87,13 @@ export const useTrackedNonfriendsStore = create<TrackedNonfriendsState>(
             if (!sameAccount(get(), accountId)) {
                 return false;
             }
-            const added = await trackedNonfriendsRepository.add({
+            const added = await trackedNonfriendsRepository.add(accountId, {
                 userId,
                 displayName
             });
+            if (added) {
+                useMutualGraphRevisionStore.getState().bumpRevision(accountId);
+            }
             if (added && sameAccount(get(), accountId)) {
                 await get().load(accountId);
             }
@@ -98,7 +103,13 @@ export const useTrackedNonfriendsStore = create<TrackedNonfriendsState>(
             if (!sameAccount(get(), accountId)) {
                 return false;
             }
-            const removed = await trackedNonfriendsRepository.remove(userId);
+            const removed = await trackedNonfriendsRepository.remove(
+                accountId,
+                userId
+            );
+            if (removed) {
+                useMutualGraphRevisionStore.getState().bumpRevision(accountId);
+            }
             if (removed && sameAccount(get(), accountId)) {
                 set((state) => ({
                     ...state,
@@ -113,10 +124,10 @@ export const useTrackedNonfriendsStore = create<TrackedNonfriendsState>(
             if (!sameAccount(get(), accountId)) {
                 return false;
             }
-            const updated = await trackedNonfriendsRepository.updateName({
-                userId,
-                displayName
-            });
+            const updated = await trackedNonfriendsRepository.updateName(
+                accountId,
+                { userId, displayName }
+            );
             if (updated && sameAccount(get(), accountId)) {
                 set((state) => ({
                     ...state,

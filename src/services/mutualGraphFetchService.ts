@@ -9,6 +9,7 @@ type StartMutualGraphFetchInput = {
     ownerUserId: string;
     endpoint?: string;
     friendIds: string[];
+    replaceMissing?: boolean;
 };
 
 const TERMINAL_STATUSES: ReadonlySet<MutualGraphFetchState> = new Set([
@@ -73,12 +74,14 @@ export function handleMutualGraphFetchStatusEvent(
 export async function startMutualGraphFetch({
     ownerUserId,
     endpoint = '',
-    friendIds
+    friendIds,
+    replaceMissing = false
 }: StartMutualGraphFetchInput) {
     const status = await commands.appMutualGraphFetchStart({
         ownerUserId,
         endpoint,
-        friendIds
+        friendIds,
+        replaceMissing
     });
     const runId = status.runId;
     if (runId) {

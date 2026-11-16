@@ -33,6 +33,7 @@ vi.mock('@/services/entityMediaService', () => ({
     userImage: () => ''
 }));
 import { useRuntimeStore } from '@/state/runtimeStore';
+import { useSessionStore } from '@/state/sessionStore';
 
 import { PrivacyLockOverlay } from './PrivacyLockOverlay';
 
@@ -50,6 +51,10 @@ beforeEach(() => {
     vi.resetAllMocks();
     document.elementFromPoint = () => null;
     useRuntimeStore.getState().setAuthBootstrap({ currentUserId: 'usr_1' });
+    useRuntimeStore.setState((state) => ({
+        shell: { ...state.shell, backendRuntimeSnapshotHydrated: false }
+    }));
+    useSessionStore.getState().setTransportStatus('disconnected');
     setLockState(false);
 });
 
@@ -70,6 +75,24 @@ describe('PrivacyLockOverlay', () => {
         expect(
             document.querySelector('[data-vrcx-0-surface="privacy-lock"]')
         ).not.toBeNull();
+    });
+
+    it('shows a recovery action instead of an endless spinner after backend startup fails', () => {
+        useRuntimeStore.setState((state) => ({
+            shell: { ...state.shell, backendRuntimeSnapshotHydrated: true }
+        }));
+        setLockState(false, 'usr_other');
+        render(<PrivacyLockOverlay />);
+
+        expect(
+            screen.getByText('privacy_lock.startup_error.title')
+        ).toBeTruthy();
+        expect(
+            screen.getByRole('button', {
+                name: 'privacy_lock.startup_error.retry'
+            })
+        ).toBeTruthy();
+        expect(screen.queryByLabelText('Loading')).toBeNull();
     });
 
     it('keeps the lock on a wrong password and lifts it on success', async () => {

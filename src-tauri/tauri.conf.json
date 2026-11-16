@@ -34,6 +34,7 @@
             {
                 "label": "main",
                 "create": false,
+                "dragDropEnabled": false,
                 "title": "VRCX-0-jirai",
                 "width": 1024,
                 "height": 768,

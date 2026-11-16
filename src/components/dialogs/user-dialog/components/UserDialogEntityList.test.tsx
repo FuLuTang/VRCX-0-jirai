@@ -136,6 +136,39 @@ describe('UserDialog EntityList', () => {
         expect(container.querySelector('[aria-busy="true"]')).not.toBeNull();
     });
 
+    it('uses date and color to distinguish confirmed from historical mutuals', () => {
+        const { container } = render(
+            <EntityList
+                kind="user"
+                rows={[
+                    {
+                        id: 'usr_current',
+                        displayName: 'Current',
+                        $mutualConfirmed: true,
+                        $mutualDate: '2026-09-26T00:00:00Z'
+                    },
+                    {
+                        id: 'usr_history',
+                        displayName: 'History',
+                        $mutualConfirmed: false,
+                        $mutualDate: '2026-07-21T00:00:00Z'
+                    }
+                ]}
+            />
+        );
+        const badges = Array.from(container.querySelectorAll('span'));
+        expect(
+            badges.find((badge) => badge.className.includes('green'))
+        ).toBeTruthy();
+        expect(
+            badges.find((badge) => badge.className.includes('gray'))
+        ).toBeTruthy();
+        expect(container.textContent).not.toContain('Confirmed');
+        expect(container.textContent).not.toContain(
+            'Historical, currently unconfirmed'
+        );
+    });
+
     it('localizes undisclosed mutual friends and prevents opening them', () => {
         render(
             <EntityList

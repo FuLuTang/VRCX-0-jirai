@@ -13,9 +13,6 @@ vi.mock('@/components/layout/PageScaffold', () => ({
     )
 }));
 
-vi.mock('./components/mutual-friends/ManualRelationsControl', () => ({
-    ManualRelationsControl: () => null
-}));
 vi.mock('./components/mutual-friends/MutualFriendsAutoFetch', () => ({
     MutualFriendsAutoFetch: () => null
 }));
@@ -36,6 +33,10 @@ vi.mock('./components/mutual-friends/MutualFriendsNodeCard', () => ({
 
 vi.mock('./components/mutual-friends/MutualFriendsSettingsSheet', () => ({
     MutualFriendsSettingsSheet: () => null
+}));
+
+vi.mock('./components/mutual-friends/MutualFriendsManagementSheets', () => ({
+    MutualFriendsManagementSheets: () => null
 }));
 
 vi.mock('./components/mutual-friends/MutualFriendsStageOverlay', () => ({
@@ -61,9 +62,13 @@ function controllerValue(currentUserId: string, friendCount: number) {
             openNode: noop,
             refreshPage: noop,
             refreshSelectedNode: noop,
+            resetLayoutAndHidden: noop,
             resetLayoutSettings: noop,
             setMinDegree: noop,
             setSearchQuery: noop,
+            setManualLink: noop,
+            setTrackedUser: noop,
+            toggleNonFriends: noop,
             toggleExcludedFriendId: noop,
             toggleCrossCommunityOnly: noop,
             toggleFocusedCommunity: noop
@@ -91,10 +96,13 @@ function controllerValue(currentUserId: string, friendCount: number) {
                 lastFetchedAt: null
             },
             currentUserId,
+            resolvedTheme: 'dark',
+            showNonFriends: true,
+            trackedUsers: [],
+            manualLinks: [],
             detail: '',
             edgeCount: 0,
             friendCount,
-            friendLabelsById: {},
             isolatedCounts: { noConnections: 0, unavailable: 0 },
             unknownCount: 0,
             isLayoutRunning: false,
@@ -106,16 +114,10 @@ function controllerValue(currentUserId: string, friendCount: number) {
             layoutSettings: {},
             setLayoutSetting: noop
         },
-        manualRelations: {
-            add: noop,
-            error: '',
-            isLoading: false,
-            relations: [],
-            remove: noop
-        },
         selection: {
             communityIndex: null,
             isRefreshing: false,
+            isCurrentFriend: false,
             node: null,
             user: null
         },

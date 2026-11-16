@@ -285,7 +285,16 @@ fn ensure_user_store_statements(db: &DatabaseService, user_prefix: &str) -> Resu
             "CREATE TABLE IF NOT EXISTS {user_prefix}_mutual_graph_meta (friend_id TEXT PRIMARY KEY, last_fetched_at TEXT, opted_out INTEGER DEFAULT 0, total_count INTEGER)"
         ),
         format!(
-            "CREATE TABLE IF NOT EXISTS {user_prefix}_manual_relations_MANUEL (user_id_a TEXT NOT NULL, user_id_b TEXT NOT NULL, relation_type TEXT NOT NULL DEFAULT 'friend', added_at TEXT NOT NULL, PRIMARY KEY(user_id_a, user_id_b))"
+            "CREATE TABLE IF NOT EXISTS {user_prefix}_mutual_graph_friends_old (friend_id TEXT PRIMARY KEY, last_updated TEXT NOT NULL)"
+        ),
+        format!(
+            "CREATE TABLE IF NOT EXISTS {user_prefix}_mutual_graph_links_old (friend_id TEXT NOT NULL, mutual_id TEXT NOT NULL, date TEXT NOT NULL, PRIMARY KEY(friend_id, mutual_id))"
+        ),
+        format!(
+            "CREATE TABLE IF NOT EXISTS {user_prefix}_tracked_nonfriends (user_id TEXT PRIMARY KEY, display_name TEXT, added_at TEXT)"
+        ),
+        format!(
+            "CREATE TABLE IF NOT EXISTS {user_prefix}_manual_relations_MANUEL (user_id_a TEXT NOT NULL, user_id_b TEXT NOT NULL, relation_type TEXT NOT NULL DEFAULT 'friend', added_at TEXT, PRIMARY KEY(user_id_a, user_id_b))"
         ),
         format!(
             "CREATE INDEX IF NOT EXISTS {user_prefix}_manual_relations_MANUEL_user_a_idx ON {user_prefix}_manual_relations_MANUEL (user_id_a, added_at DESC)"

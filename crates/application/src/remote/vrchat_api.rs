@@ -28,6 +28,7 @@ impl VrchatRequestPort for TestVrchatRequestPort {
             Ok(VrchatResponse {
                 status: 200,
                 data: "{}".into(),
+                retry_after: None,
             })
         })
     }
@@ -113,6 +114,7 @@ mod tests {
                 Ok(VrchatResponse {
                     status: 200,
                     data: "{}".into(),
+                    retry_after: None,
                 })
             })
         }

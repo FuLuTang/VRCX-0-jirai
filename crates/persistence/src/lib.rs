@@ -18,7 +18,6 @@ pub mod game_log;
 pub mod legacy_migration;
 pub mod legacy_vrcx;
 pub mod local_moderation;
-pub mod manual_relations;
 pub mod memos;
 pub mod migration;
 pub mod migrations;

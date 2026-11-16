@@ -84,7 +84,7 @@ describe('useMyGroupsPageState', () => {
         runtimeState.gameState.isGameRunning = false;
         runtimeState.hostCapabilities.registryPrefs.available = true;
         runtimeState.hostCapabilities.registryPrefs.reason = '';
-        usePreferencesStore.getState().patchPreferences({
+        usePreferencesStore.getState().hydratePreferences({
             autoJoinGroupCertification: true
         });
         repositoryMocks.getUserGroups.mockResolvedValue(groups);
@@ -222,6 +222,60 @@ describe('useMyGroupsPageState', () => {
             expect(repositoryMocks.getUserGroups).toHaveBeenCalledOnce()
         );
         expect(repositoryMocks.joinGroup).not.toHaveBeenCalled();
+    });
+
+    it('waits for preferences hydration before default auto-join', async () => {
+        usePreferencesStore.setState({ preferencesHydrated: false });
+        renderHook(() => useMyGroupsPageState());
+        await waitFor(() =>
+            expect(repositoryMocks.getUserGroups).toHaveBeenCalledOnce()
+        );
+        expect(repositoryMocks.joinGroup).not.toHaveBeenCalled();
+    });
+
+    it('does not join from a stale account group response', async () => {
+        let resolveOld!: (value: typeof groups) => void;
+        repositoryMocks.getUserGroups
+            .mockReturnValueOnce(
+                new Promise((resolve) => {
+                    resolveOld = resolve;
+                })
+            )
+            .mockResolvedValueOnce(groups);
+        const { rerender } = renderHook(() => useMyGroupsPageState());
+        runtimeState.auth.currentUserId = 'usr_other';
+        rerender();
+        await act(async () => resolveOld(groups));
+        await waitFor(() =>
+            expect(repositoryMocks.joinGroup).toHaveBeenCalledOnce()
+        );
+        expect(repositoryMocks.getUserGroups).toHaveBeenCalledWith({
+            userId: 'usr_other',
+            force: false
+        });
+    });
+
+    it('does not refresh the old account after an in-flight join', async () => {
+        let finishOldJoin!: () => void;
+        repositoryMocks.joinGroup.mockReturnValueOnce(
+            new Promise((resolve) => {
+                finishOldJoin = () => resolve({});
+            })
+        );
+        const { rerender } = renderHook(() => useMyGroupsPageState());
+        await waitFor(() =>
+            expect(repositoryMocks.joinGroup).toHaveBeenCalledOnce()
+        );
+        runtimeState.auth.currentUserId = 'usr_other';
+        rerender();
+        await waitFor(() =>
+            expect(repositoryMocks.joinGroup).toHaveBeenCalledTimes(2)
+        );
+        await act(async () => finishOldJoin());
+        expect(repositoryMocks.getUserGroups).not.toHaveBeenCalledWith({
+            userId: 'usr_self',
+            force: true
+        });
     });
 
     it('joins once and refreshes the cache when enabled', async () => {

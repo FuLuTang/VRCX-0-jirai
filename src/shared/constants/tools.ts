@@ -2,6 +2,7 @@ type ToolCategoryKey =
     | 'image'
     | 'shortcuts'
     | 'automation'
+    | 'system'
     | 'group'
     | 'vrchat'
     | 'data'
@@ -103,6 +104,7 @@ interface ToolNavDefinition {
 }
 
 const toolCategories: ToolCategory[] = [
+    { key: 'system', labelKey: 'enhanced_info_fetch.system_tools' },
     { key: 'image', labelKey: 'view.tools.pictures.header' },
     { key: 'shortcuts', labelKey: 'view.tools.shortcuts.header' },
     {
@@ -314,11 +316,11 @@ const toolDefinitions: ToolDefinition[] = [
     },
     {
         key: 'sync-workflow',
-        category: 'automation',
+        category: 'system',
         iconKey: 'list-checks',
         navIcon: 'lucide:ListChecks',
-        titleKey: 'workflow.title',
-        descriptionKey: 'workflow.tools_description',
+        titleKey: 'view.tools.system_tools.info_completion',
+        descriptionKey: 'enhanced_info_fetch.tools_description',
         navEligible: true,
         action: { type: 'dialog', dialogKey: 'sync-workflow' }
     },

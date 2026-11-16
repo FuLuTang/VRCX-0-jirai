@@ -14,7 +14,7 @@ use vrcx_0_application::social::{
 };
 use vrcx_0_application_activity::activity_page::{ActivityPageBuildInput, ActivityPageView};
 use vrcx_0_application_core::{
-    AvatarCache, FavoriteEntityKind, FileCache, Result, RuntimeAuthScope, TaskSupervisor,
+    AvatarCache, Error, FavoriteEntityKind, FileCache, Result, RuntimeAuthScope, TaskSupervisor,
     WorldCache,
 };
 use vrcx_0_application_game::{
@@ -48,15 +48,18 @@ use vrcx_0_contracts::game_log::{
 };
 use vrcx_0_contracts::game_log_query::{GameLogQuery, GameLogQueryOutput};
 use vrcx_0_contracts::jirai::{
-    ManualRelationOutput, ProfileFeedReconcileInput, ProfileFeedReconcileOutput,
-    StartupOnlineBackfillInput, StartupOnlineBackfillOutput, TrackedNonFriendAddInput,
-    TrackedNonFriendOutput, TrackedNonFriendUpdateNameInput,
+    ProfileFeedReconcileInput, ProfileFeedReconcileOutput, SelfBioHistoryInput,
+    SelfStatusHistoryInput, StartupOnlineBackfillInput, StartupOnlineBackfillOutput,
+    TrackedNonFriendAddInput, TrackedNonFriendOutput, TrackedNonFriendUpdateNameInput,
 };
 use vrcx_0_contracts::local_moderation::LocalModerationOutput;
 use vrcx_0_contracts::memos::{
     AvatarMemoOutput, MemoSaveResult, UserMemoOutput, UserNoteOutput, WorldMemoOutput,
 };
-use vrcx_0_contracts::mutual_graph::MutualGraphSnapshotOutput;
+use vrcx_0_contracts::mutual_graph::{
+    MutualGraphExtrasOutput, MutualGraphHistoryOutput, MutualGraphManualLinkSetInput,
+    MutualGraphSnapshotOutput, MutualGraphTrackedUserSetInput,
+};
 use vrcx_0_contracts::notifications::{NotificationListItemOutput, NotificationListQueryInput};
 use vrcx_0_contracts::player_list::InstanceActivityRowOutput;
 use vrcx_0_contracts::profile_bio::ProfileBioOutput;
@@ -117,6 +120,22 @@ pub struct LocalDataRuntime {
 impl LocalDataRuntime {
     fn current_owner(&self) -> OwnerId {
         OwnerId::new(self.auth_scope.snapshot().current_user_id)
+    }
+
+    /// Binds a renderer request to the account it was prepared for. Requests
+    /// without an expectation fall back to the host's authenticated owner.
+    fn owner_for_expected(&self, expected_owner_user_id: &str) -> Result<OwnerId> {
+        let scope = self.auth_scope.snapshot();
+        let expected_owner_user_id = expected_owner_user_id.trim();
+        if expected_owner_user_id.is_empty() {
+            return Ok(OwnerId::new(scope.current_user_id));
+        }
+        if !scope.active || scope.current_user_id != expected_owner_user_id {
+            return Err(Error::PersistenceInvalidData(
+                "Local account changed before local access.".into(),
+            ));
+        }
+        Ok(OwnerId::new(scope.current_user_id))
     }
 
     fn game_state_store(&self) -> crate::game_state_store::PersistenceGameStateStore {
@@ -185,6 +204,13 @@ impl LocalDataRuntime {
         input: StartupOnlineBackfillInput,
     ) -> Result<StartupOnlineBackfillOutput> {
         let current_owner = self.current_owner();
+        if !input.expected_owner_user_id.trim().is_empty()
+            && input.expected_owner_user_id.trim() != current_owner.as_str()
+        {
+            return Err(Error::PersistenceInvalidData(
+                "Startup online backfill account changed before persistence.".into(),
+            ));
+        }
         let target_user_id = input.target_user_id.trim();
         let is_current_online_friend = self
             .realtime
@@ -205,11 +231,16 @@ impl LocalDataRuntime {
             ));
         }
 
-        let inserted = self.store.startup_online_backfill_insert(
+        let entry = self.store.startup_online_backfill_entry(
             &current_owner,
             target_user_id,
             &input.display_name,
         )?;
+        let inserted = entry.is_some();
+        if let Some(entry) = entry {
+            self.realtime
+                .emit_persisted_profile_entries(&current_owner, vec![entry]);
+        }
         Ok(StartupOnlineBackfillOutput { inserted })
     }
 
@@ -217,8 +248,19 @@ impl LocalDataRuntime {
         &self,
         input: ProfileFeedReconcileInput,
     ) -> Result<ProfileFeedReconcileOutput> {
-        self.store
-            .profile_feed_reconcile(&self.current_owner(), input)
+        let owner = self.current_owner();
+        let (output, entries) = self.store.profile_feed_reconcile_with_entries(&owner, input)?;
+        self.realtime
+            .emit_persisted_profile_entries(&owner, entries);
+        Ok(output)
+    }
+
+    pub fn self_status_history(&self, input: SelfStatusHistoryInput) -> Result<Vec<FeedRowOutput>> {
+        self.store.self_status_history(&self.current_owner(), input)
+    }
+
+    pub fn self_bio_history(&self, input: SelfBioHistoryInput) -> Result<Vec<FeedRowOutput>> {
+        self.store.self_bio_history(&self.current_owner(), input)
     }
 
     pub fn query_feed_latest(&self, query: FeedLatestQueryInput) -> Result<FeedReadModelOutput> {
@@ -273,6 +315,10 @@ impl LocalDataRuntime {
 
     pub fn saved_group_favorite_remove(&self, input: SavedGroupFavoriteRemoveInput) -> Result<i64> {
         self.saved_group_favorites.remove_group(input)
+    }
+
+    pub fn mutual_graph_fetch_status(&self) -> MutualGraphFetchStatus {
+        self.mutual_graph_fetch.status()
     }
 
     pub fn mutual_graph_fetch_cancel(
@@ -559,31 +605,48 @@ impl LocalDataRuntime {
         self.store.friend_log_current_list(user_id)
     }
 
-    pub fn tracked_nonfriends_list(&self) -> Result<Vec<TrackedNonFriendOutput>> {
-        self.store.tracked_nonfriends_list(&self.current_owner())
+    pub fn tracked_nonfriends_list(
+        &self,
+        expected_owner_user_id: String,
+    ) -> Result<Vec<TrackedNonFriendOutput>> {
+        let owner = self.owner_for_expected(&expected_owner_user_id)?;
+        self.store.tracked_nonfriends_list(&owner)
     }
 
-    pub fn tracked_nonfriends_add(&self, input: TrackedNonFriendAddInput) -> Result<bool> {
-        self.store
-            .tracked_nonfriends_add(&self.current_owner(), input)
+    pub fn tracked_nonfriends_add(
+        &self,
+        expected_owner_user_id: String,
+        input: TrackedNonFriendAddInput,
+    ) -> Result<bool> {
+        let owner = self.owner_for_expected(&expected_owner_user_id)?;
+        self.store.tracked_nonfriends_add(&owner, input)
     }
 
-    pub fn tracked_nonfriends_remove(&self, user_id: String) -> Result<bool> {
-        self.store
-            .tracked_nonfriends_remove(&self.current_owner(), user_id)
+    pub fn tracked_nonfriends_remove(
+        &self,
+        expected_owner_user_id: String,
+        user_id: String,
+    ) -> Result<bool> {
+        let owner = self.owner_for_expected(&expected_owner_user_id)?;
+        self.store.tracked_nonfriends_remove(&owner, user_id)
     }
 
-    pub fn tracked_nonfriends_is_tracked(&self, user_id: String) -> Result<bool> {
-        self.store
-            .tracked_nonfriends_is_tracked(&self.current_owner(), user_id)
+    pub fn tracked_nonfriends_is_tracked(
+        &self,
+        expected_owner_user_id: String,
+        user_id: String,
+    ) -> Result<bool> {
+        let owner = self.owner_for_expected(&expected_owner_user_id)?;
+        self.store.tracked_nonfriends_is_tracked(&owner, user_id)
     }
 
     pub fn tracked_nonfriends_update_name(
         &self,
+        expected_owner_user_id: String,
         input: TrackedNonFriendUpdateNameInput,
     ) -> Result<bool> {
-        self.store
-            .tracked_nonfriends_update_name(&self.current_owner(), input)
+        let owner = self.owner_for_expected(&expected_owner_user_id)?;
+        self.store.tracked_nonfriends_update_name(&owner, input)
     }
 
     pub fn friend_log_history_delete(
@@ -712,28 +775,35 @@ impl LocalDataRuntime {
         self.store.mutual_graph_snapshot_get(user_id)
     }
 
-    pub fn manual_relations_list(&self) -> Result<Vec<ManualRelationOutput>> {
-        self.store.manual_relations_list(&self.current_owner())
-    }
-
-    pub fn manual_relations_for_user(&self, user_id: String) -> Result<Vec<ManualRelationOutput>> {
-        self.store
-            .manual_relations_for_user(&self.current_owner(), user_id)
-    }
-
-    pub fn manual_relation_add(
+    pub fn mutual_graph_history_get(
         &self,
-        user_id_a: String,
-        user_id_b: String,
-        relation_type: String,
-    ) -> Result<()> {
-        self.store
-            .manual_relation_add(&self.current_owner(), user_id_a, user_id_b, relation_type)
+        friend_id: String,
+    ) -> Result<MutualGraphHistoryOutput> {
+        let owner = self.current_owner();
+        if owner.is_empty() {
+            return Err(Error::PersistenceInvalidData(
+                "Mutual graph history requires an authenticated user.".into(),
+            ));
+        }
+        self.store.mutual_graph_history_get(&owner, friend_id)
     }
 
-    pub fn manual_relation_remove(&self, user_id_a: String, user_id_b: String) -> Result<()> {
-        self.store
-            .manual_relation_remove(&self.current_owner(), user_id_a, user_id_b)
+    pub fn mutual_graph_extras_get(&self, owner_user_id: String) -> Result<MutualGraphExtrasOutput> {
+        let owner = self.owner_for_expected(&owner_user_id)?;
+        self.store.mutual_graph_extras_get(&owner)
+    }
+
+    pub fn mutual_graph_tracked_user_set(
+        &self,
+        input: MutualGraphTrackedUserSetInput,
+    ) -> Result<()> {
+        let owner = self.owner_for_expected(&input.owner_user_id)?;
+        self.store.mutual_graph_tracked_user_set(&owner, input)
+    }
+
+    pub fn mutual_graph_manual_link_set(&self, input: MutualGraphManualLinkSetInput) -> Result<()> {
+        let owner = self.owner_for_expected(&input.owner_user_id)?;
+        self.store.mutual_graph_manual_link_set(&owner, input)
     }
 
     pub fn local_moderation_list(

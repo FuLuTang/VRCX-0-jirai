@@ -1,6 +1,7 @@
 import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { RelationshipRecommendationNotificationSetting } from '@/features/charts/relationship-recommendations/RelationshipRecommendationNotificationSetting';
 import type { TtsVoice } from '@/platform/tauri/bindings';
 import {
     normalizeNotificationTtsNameMode,
@@ -238,6 +239,7 @@ export function SettingsNotificationsTabContent({
                     />
                 </Field>
             </SettingsCard>
+            <RelationshipRecommendationNotificationSetting />
             <SettingsCard
                 cardId="notifications.desktop"
                 title={t(

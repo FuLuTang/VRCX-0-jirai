@@ -7,6 +7,10 @@ dist/
 target/
 src-tauri/gen/
 docs/
+!docs/
+!docs/mutual-graph-schema.mcd
+!docs/mutual-graph-schema.svg
+!docs/mutual-graph-schema_geo.json
 src-tauri/resources/licenses/THIRD_PARTY_NOTICES.txt
 
 # Misc

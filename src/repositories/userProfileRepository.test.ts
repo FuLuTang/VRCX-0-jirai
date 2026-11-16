@@ -456,7 +456,8 @@ describe('UserProfileRepository', () => {
                 null,
                 { displayName: 'Missing id' }
             ],
-            persisted: true
+            persisted: true,
+            observedAt: '2026-09-26T00:00:00Z'
         });
 
         const result = await userProfileRepository.getAllMutualFriends({
@@ -470,7 +471,8 @@ describe('UserProfileRepository', () => {
         });
         expect(result).toEqual({
             rows: [{ id: 'usr_mutual', futureField: 'keep' }],
-            persisted: true
+            persisted: true,
+            observedAt: '2026-09-26T00:00:00Z'
         });
         expect(
             getCachedQueryData(

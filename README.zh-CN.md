@@ -72,6 +72,80 @@ VRCX-0 是 VRCX 的完全重写版本，由 VRCX 前维护者之一开发。基�
 
 VRCX 的其他功能，VRCX-0 同样具备。
 
+## VRCX-jirai 功能还原核对表
+
+**2026-10-13 实机验收更新：**已通过项目已归档。本轮已去掉增强抓取人为间隔／并发上限，修追踪名字、双人候选／ID、时间轴样式、灯色图入口与无会员拖放；Online 补线和其他房间好友计时的原生恢复已修并通过定向 Rust 测试。自身 Bio 现在会写入现有 `self_profile_log`，不复制到好友动态；自身灯色观察路径仍待查。其余界面与真实账号行为待复测。共同好友 CURRENT／OLD／曾经好友／陌生人判定及推荐弹出策略留待讨论，关系 Overlay 等推荐交互通过后再验。详见 [实机验收与修复队列](docs/jirai-port/2026-10-13-实机验收与修复队列.md)；下方历史“已接入”标签只表示代码存在，不代表本轮实机通过。
+
+2026-10-12 文档复核：已合入 VRCX-0 v2.31.0（`620fb2b3a`），关系建议进房提醒已适配 VRCX-0 的 ActivityRouter；后续也补齐个人资料页自己的 Bio 历史查询及推荐玩家资料入口。来源、当前文件及限制见 [三条功能链路还原记录](docs/jirai-port/三条功能链路还原记录.md) 与 [待手测清单](docs/jirai-port/待手测清单.md)。
+
+2026-10-11 合并时的历史验证：前端类型检查、27 项冲突相关测试、格式检查和 Vite 生产前端构建通过；当时 Rust 测试及绑定生成受本机 Cargo 代理／缓存阻塞。2026-10-12 后续补充验证结果见下文。
+
+2026-10-12 后续验证：21 项定向前端测试、TypeScript 检查、persistence 477 项测试（1 项忽略）、application／game／activity／desktop-host 相关 Rust 测试共 964 项，以及 Tauri devtools／SteamVR／OpenXR 特性组合的 `cargo check` 均通过。真实账号、数据库迁移、界面／VR 与独立发布包验收仍待完成。另有一次 `tauri:dev` 在 Vite 优化依赖并刷新页面后触发 `softbuffer 0.4.8` Windows 位图断言；同样断言也见 [Tauri issue #11525](https://github.com/tauri-apps/tauri/issues/11525)，该 issue 仍待分诊，但这不足以证明触发原因相同。Windows“窗口兼容模式”会绕过透明窗口路径的 softbuffer surface 创建，因此列为 A/B 诊断步骤，而非已确认的修复。桌面运行时稳定性尚未验收。
+
+VRCX-0-jirai 正在逐步还原并重写旧版 VRCX-jirai 的部分功能。**还原工作尚未完成。**旧版 README 本身已说明 VRCX-jirai 停止维护；本清单反映当前代码，不代表功能已完全一致，也不承诺恢复旧版的每种行为。盘点范围还包括旧仓库中 FuLuTang 的功能提交（截至 `c8b8f744`），不只依据 README 的功能清单。
+
+后续补全项、参考文件和实机验收清单见 [docs/jirai-feature-backlog.md](docs/jirai-feature-backlog.md)。
+
+已修复追踪非好友列表的页签回跳，补上中文文案、总人数和点击打开玩家资料。个人资料页现在从当前账号 `self_profile_log` 读取自己的 Bio 历史，Activity 查询也按当前玩家显式选择 self 分支；不是重做一套“完整活动历史”，真实账号验收待做。关系推荐结果中的双方名字现在可点开资料。增强采集、双人关系细节、灯色占比及关系推荐已有实现，按实机结果收尾，不再列为从零移植。搜索优化继续暂缓。实施顺序见 [后续迁移计划](docs/jirai-port/后续迁移计划.md)，实机步骤见 [待手测清单](docs/jirai-port/待手测清单.md)。
+
+注意：高级设置中的“自动加入开发者群”默认开启；进入“我的群组”并完成偏好设置加载后，若当前账号尚未加入，会尝试加入 VRCX-jirai 使用的群组。可在高级设置关闭。
+
+状态标签：**【已还原/已重写】**、**【部分实现】**、**【未实现/缺失】**、**【行为或 UI 有出入】**、**【待核实】**。状态依据当前 VRCX-0-jirai 代码，不代表与 VRCX-jirai 完全一致。
+
+验证记录：**2026-10-11 合入 VRCX-0 v2.31.0 后**，类型检查、27 项冲突相关前端测试、格式检查与 Vite 生产前端构建通过；本轮自身历史／推荐 UI 接线再通过 16 项定向前端测试及 TypeScript 检查。2026-10-12 又通过 persistence 477 项测试（1 项忽略）、application／game／activity／desktop-host 相关 Rust 测试 964 项，以及 Tauri devtools／SteamVR／OpenXR 特性组合的 `cargo check`。全量 lint 仍被 `src/shared/utils/string.test.ts` 的既有未使用导入告警阻断。真实账号／数据库迁移／视觉／VR 验收仍待完成；`tauri:dev` 曾在 Vite 依赖优化后的页面刷新中触发 `softbuffer 0.4.8` Windows 位图断言，运行时稳定性需另行复测。较早版本的通过记录不能替代本次验证。
+
+### 核心功能
+
+2026-10-11 侧栏标签收尾：“已追踪陌生人”已纳入“自定义侧边栏标签”，和好友／群组共用保存的布局，不再固定插在最上方。默认与重置顺序为 **好友 → 已追踪陌生人 → 群组房间**；追踪标签支持拖动排序、换图标、隐藏／重新显示。旧配置在好友后自动补入一次追踪标签，保留其他标签的顺序及设置；已自行设置过的追踪顺序不会被重置。入口隐藏后可在自定义窗口重新开启。
+
+**已追踪陌生人列表：**展开右侧好友面板，点击最右侧窄栏的“人＋放大镜”图标，中文名称为“已追踪陌生人”。页签自动回跳已修复；显示当前账号的追踪总人数，可筛选、点击名字打开资料或停止追踪，名字按钮支持键盘操作。总人数不随筛选减少，其他账号的条目不显示。接入：`VRCX-0-jirai/src/components/sidebar/useSidePanelTabData.ts`、`SidePanel.tsx`、`TrackedNonfriendsSidebar.tsx`、`src/localization/zh-CN.json`。增强抓取窗口中的追踪人数是统计，不是名单入口。新增 8 项组件／页签测试通过；真实侧栏操作仍待实测。
+
+2026-10-11 增强型信息抓取修正（请求间隔／并发描述于 10-13 已更新）：Bio 与状态短语比较兼容新旧标点编码，避免无实际内容变化的重复历史。当前资料请求不再人为增加 300 毫秒间隔或三人并发上限；失败重试、取消、进行中请求合并与账号隔离保留，实际遇到 429 时遵从服务端 Retry-After。启动基线就绪、每小时基线刷新完成、点击“立即刷新”共用执行器；资料采集与本地关系建议是并行任务，各有进度和状态。浮窗使用双任务卡片、好友／追踪非好友独立数字、本轮结果网格与周期倒计时。启动计时恢复和 Online 补线是独立功能，不纳入该面板。真实账号验收见 `docs/jirai-port/待手测清单.md`。
+
+| VRCX-jirai README 项目     | VRCX-0-jirai 当前状态与证据                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 双人共同实例历史           | **【已接入，待实测】共同实例与时间保留，补本地记录峰值人数；记录不足显示未知，近时出现不再等同相约。见 src/features/charts/TwoPersonRelationshipPageImpl.tsx。**                                                                                                                                                                                                                                                                                                                                                                                                             |
+| 共同好友关系网             | **【已还原/已重写，待实测】**CURRENT 与 OLD 历史边、按账号的追踪节点、手动关系管理和绿灰日期融合已有实现。当前 API 关系普通色、手动绿色、仅 OLD 历史为淡普通色，适配亮暗主题；来源重叠依次优先 API、手动、OLD。非好友详情成功抓取也写 OLD，失败或拒绝共享不刷新最后确认日期；OLD 查询失败仍保留 API 行。手动类型目前为 `friend`。参考：`src/features/charts/MutualFriendsPageImpl.tsx`、`src/lib/mutual-friends/mutualFriendsSigmaGraph.ts`、`crates/application/src/social/mutual_graph_fetch/request.rs`、`crates/persistence/src/mutual_graph.rs`。资料自动采集另见下项。 |
+| Bio Diff                   | **【已还原/已重写】**Git 风格逐行差异和历史切换仍融合在原有个人资料 Bio 面板。相邻间隔不超过 24 小时的连续修改会合并成一组，以组内第一条旧 Bio 和最新 Bio 计算差异；历史按组选择，而不是每次修改单独显示。证据：`src/components/dialogs/user-dialog/components/UserDialogInfoTab.tsx`、`src/components/dialogs/user-dialog/bioHistory.ts`、`crates/application/src/social/profile_bio/mod.rs`。                                                                                                                                                                              |
+| “或许是好友”关系推测       | **【已接入，待实测】移植旧评分／私房优先与过滤；手动关系管理提供证据、确认与本次忽略，推荐双方名字可点开玩家资料。真实同房进房提醒默认开启、可关闭，连续同房去重；本次 VRCX-0 v2.31 通知路由重构后改由 ActivityEvent／ActivityRouter 投递，不伪造日志。见 `src/features/charts/relationship-recommendations/RelationshipRecommendationsPanel.tsx`、`crates/application-game/src/activity_events/relationship_recommendations.rs`、`crates/application-activity/src/router/`。**                                                                                              |
+| 关系时间轴                 | **【已还原/已重写】**会话和分时间区间排名算法基于保存的 GPS/离线 Feed 重建，并支持“其他用户”、仅看当前好友和缩放。Top users、Days per unit、两个筛选开关共用尾随 1 秒重算防抖；ECharts 缩放即时，数据库只在加载/手动刷新时读一次完整历史，不会因拖动重复查询。能访问到的旧 VRCX-jirai 源码同样在加载时查询，只对图表重建防抖；未找到旧 VRCX-0-jirai 每次滑动查询的代码证据。实机大库验收待做。证据：`src/features/charts/relationshipHistory.ts`、相关测试、`src/features/charts/RelationshipTimelinePageImpl.tsx`。                                                         |
+| 仅统计在线时长的灯色分布图 | **【已接入，待实测】保留数字时长，增加 UTC 分桶堆叠占比图、缩放、日期提示与亮暗主题；滑条停止一秒后重算，不逐格查库。自己仅统计有记录的游戏区间。见 UserDialogStatusDistribution.tsx、statusDistributionQuery.ts。**                                                                                                                                                                                                                                                                                                                                                         |
+| Feed 中追踪非好友          | **【已接入，待实测】**增强型信息抓取将好友和追踪非好友按用户 ID 去重；成功资料通过同一账号范围的 Feed 对账写入 Bio／状态变化，事务提交后发布实时 Feed。启动基线、小时刷新和立即刷新共用执行器；不会补回开始追踪前的历史，旧渐进 Bio 扫描仍只处理好友。见 `src/services/enhancedProfileFetchExecutor.ts`、`src/services/enhancedInfoFetchService.ts`、`crates/persistence/src/realtime/write.rs`。                                                                                                                                                                            |
+| 多账号登录与合并视图       | **【未实现/缺失】**已有按账号归属存储的游戏日志，但没有旧版同时登录主/次账号、逐账号切换和合并视图的实现。                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+
+旧 README 将 **自动跟随** 标为未实现且不再计划，因此不计入必须迁移的缺口。不过提交历史更复杂：`4a38a56f` 曾实现该功能，之后 `3a5c269e` 隐藏了入口。历史上曾有实现，不改变旧 README 明确写明的“不再计划”状态。
+
+### 其他增强与行为
+
+| VRCX-jirai README 项目                                              | VRCX-0-jirai 当前状态与证据                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 快捷搜索：最近遇见的人/世界、非好友模糊匹配、即时检索、Bio/历史检索 | **【行为或 UI 有出入，暂缓】**旧版最近人/世界由 Copilot 的 `e8e862da` 引入、`30ba80f6` 修正；FuLu糖福禄的 `a94824c2` 加入本地 Bio 匹配，`1dc272ce` 调整查询。旧数据库只匹配每人最新保存的一条 Bio，不是遍历全部旧版本。当前最近项是最近打开的实体，日志来源与本地 Bio 补充未迁入。用户 2026-10-02 决定暂不优化搜索，移出近期计划。来源：`VRCX-jirai/src/stores/quickSearch.js`、`VRCX-jirai/src/services/database/feed.js::searchBiosByContent`；当前：`src/components/sidebar/quick-search/quickSearchHistory.ts`。                                             |
+| 为 Bio Diff 存档所有好友 Bio                                        | **【已接入，待实测】增强抓取使用公开 /profile Bio，启动／小时好友基线完成后补采；按钮使用同一刷新，重连不额外全扫。协调渐进扫描，不覆盖原扫描开关。见 src/services/enhancedInfoFetchService.ts。**                                                                                                                                                                                                                                                                                                                                                               |
+| 打开资料页时保存 Bio/灯色快照                                       | **【已接入，待实测】好友与非好友的 Bio／有效灯色快照均复用原生比较落盘和 Feed 通知；缺状态短语保留旧值，缺 Bio 不清空。见 crates/runtime-host-desktop/src/profile_bio.rs。**                                                                                                                                                                                                                                                                                                                                                                                     |
+| 自己的位置、头像、状态及上下线历史                                  | **【部分实现，待实测】**自己的公开 `/profile` Bio 现在经 VRCX-0 原生观察流程写入当前账号 `self_profile_log`，资料页从该表读取；不会写好友 Feed。桌面宿主及应用调用链定向测试通过，已有数据库无历史记录不会被回填。Activity 查询显式走 self 分支；位置／头像／灯色和完整上下线明细并未因此补齐，也不宣称离线期间历史完整。参考：`crates/runtime-host-desktop/src/profile_bio.rs`、`crates/application/src/social/profile_bio/`、`crates/persistence/src/realtime/self_status_history.rs`、`src/components/dialogs/user-dialog/components/UserDialogInfoTab.tsx`。 |
+| 启动/重连时全量补全                                                 | **【已接入并调整，待实测】Online 补线与计时恢复独立于增强抓取，两项恢复现有定向测试。增强抓取仅由启动／小时基线完成及按钮触发，资料采集与关系建议并行；每次强刷、只合并进行中的请求，账号变化取消旧任务。重连不另加增强全扫。**                                                                                                                                                                                                                                                                                                                                  |
+| 重启后恢复好友房间停留计时                                          | **【已修，待实机复测】**启动好友基线会读取当前账号的最近位置历史；只在历史位置、启动确认位置和无离线／换房证据一致时恢复旧计时，并防止恢复查询期间到达的新离房事件被覆盖。定向计时／运行时 Rust 测试通过。证据：`crates/application-core/src/instance_dwell.rs`、`crates/application-realtime/src/realtime/service/host/baseline.rs`、`crates/application-realtime/src/realtime/friends/runtime/state.rs`。                                                                                                                                                      |
+| 从历史实例添加伪造的同行记录                                        | **【未实现/缺失】**FuLuTang 的 `c4f1a461` 在历史实例详情中加入操作：把选定用户的五秒进出记录插入当前实例在本地记录的进入时间。VRCX-0-jirai 未找到手动/伪造游戏日志记录的等价入口。                                                                                                                                                                                                                                                                                                                                                                               |
+| 从 Feed 拖动文件到 Gallery 分类上传                                 | **【部分实现，待手动验收】**Friend Feed 已加入分类拖放提示并接入 Gallery 资源上传操作；前端单元测试已覆盖拖放和上传分流，实际文件、分类与失败提示仍需在运行中的软件里验收。证据：`src/features/feed/components/FeedImageDropOverlay.tsx`、`src/features/tools/useGalleryAssetActions.ts` 及测试。                                                                                                                                                                                                                                                                |
+| 状态抓取进度指示器                                                  | **【已接入，待实测】工具浮窗与状态栏显示当前对象、逐人处理、成功／未变／失败／缺字段与确认落盘更新数量；关闭浮窗继续后台，显式取消才停止。**                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 持续同步 VRCX 更新                                                  | **【已合入当前 VRCX-0 基线】**当前已合入 VRCX-0 v2.31.0（`620fb2b3a`），并保留 Jirai 关系图、历史查询与资料面板；关系提醒已适配新 ActivityRouter。未来更新仍需合并与验收，当前不是自动同步机制。                                                                                                                                                                                                                                                                                                                                                                 |
+| 新功能未显示时“恢复默认导航”提示                                    | **【行为或 UI 有出入】**VRCX-0 仍保留自定义导航里的“恢复默认”操作，关系页面则通过 route/dashboard 注册机制加入；尚未实测恢复默认后所有已保存的导航布局是否都会显示这些页面。证据：`src/components/layout/CustomNavDialog.tsx`、`src/app/routes.tsx`、dashboard registry。                                                                                                                                                                                                                                                                                        |
+| 开发者数据库结构/刷新文档                                           | **【行为或 UI 有出入】**当前仓库有共同好友关系网的 schema 图 `docs/mutual-graph-schema.svg`；旧 README 中通用的 `DATABASE_SCHEMA.md` 与 `DATA_REFRESH.md` 暂无直接对应文档。                                                                                                                                                                                                                                                                                                                                                                                     |
+
+### 旧版限制与副作用
+
+| 旧 README 说明                                 | VRCX-0-jirai 当前状态                                                                                                                                                                                                                                                                                                                                                                           |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 自动加入 VRCX-jirai Home Group，让被追踪者知情 | **【部分实现，行为有别】**我的群组页加载后会检查 VRCX-jirai 使用的同一群组 ID；偏好设置完成加载、用户未加入且开关开启时尝试加入。用户已决定保留该功能并默认开启，可在高级设置关闭。它不是独立于页面加载的启动/认证后台流程。证据：`src/features/my-groups/useMyGroupsPageState.ts`、`src/state/preferencesStore.ts`、`src/features/settings/components/settings-tabs/SettingsAdvancedTab.tsx`。 |
+| 黄灯/红灯会导致核心功能失效                    | **【待核实】**当前数据仍受 VRChat 可见性/API 限制，但尚未逐一验证旧版所说的“黄灯/红灯会使核心功能失效”是否在这些还原页面中完全相同。私密或被脱敏的位置按不可用数据处理，不会推断。证据：`crates/mcp/src/tools/feed.rs`。                                                                                                                                                                        |
+| 收集的信息均公开、不会获取无法访问的信息       | **【待核实】**不沿用旧版这项宽泛保证：VRCX-0-jirai 使用登录态 VRChat 接口和本机观察到的游戏日志，各数据入口有各自的可见性限制；旧免责声明不能作为当前数据范围的证明。                                                                                                                                                                                                                           |
+
+旧 README 中关于上游反对意见及社区态度的文字属于历史背景，不是软件功能，因此没有照搬。
+
+## 计划中的功能
+
+- **指定好友的互动主动性分析**（尚未实现）：选择一位好友，根据可获取的互动历史（如邀请、加入实例等），比较自己与对方谁更常主动发起接触；证据不足时明确标注无法判断。
+
 ## 安装
 
 在 [最新 Release](https://github.com/Map1en/VRCX-0/releases/latest) 里下载对应平台的文件：
@@ -100,7 +174,25 @@ macOS 首次启动如被系统拦截，请前往 **系统设置 → 隐私与安
 以下步骤适用于参与开发或在本地自行构建 VRCX-0。参与贡献前，请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 依赖：Node.js ≥ 24.10、npm ≥ 11.5，以及通过 rustup 安装的稳定版 Rust 工具链。
-Windows 用户还需安装 **Visual Studio Build Tools**，并勾选 **"使用 C++ 的桌面开发"**。
+Windows 用户还需安装 **Visual Studio Build Tools**，并勾选 **"使用 C++ 的桌面开发"**。若使用普通 PowerShell，先加载 VS 编译环境：
+
+```powershell
+$jiraiVsPath = 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools'
+if (!(Test-Path "$jiraiVsPath\Common7\Tools\Launch-VsDevShell.ps1")) {
+    throw '请改成实际安装的 Visual Studio 路径，或直接打开 Developer PowerShell。'
+}
+& "$jiraiVsPath\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64
+Set-Location 'C:\Users\tangh\Documents\GitHub\VRCX-0-jirai' # 其他机器改为自己的仓库路径
+where.exe link.exe
+where.exe lld-link.exe
+where.exe cmake
+if (!(Get-Command lld-link.exe -ErrorAction SilentlyContinue)) {
+    throw '当前终端未找到 lld-link.exe，请检查 VS 开发环境是否成功加载。'
+}
+npm run tauri:dev
+```
+
+整段按顺序复制到新开的 PowerShell 执行。VS 环境只对当前终端及子进程生效；另开终端重启时要重新加载。2026-10-13 再次出现的 `lld-link.exe not found` 属于该终端的环境问题，不表示已安装的 C++ 工具被卸载；不要跳过赋值、先运行加载脚本，或使用筛选为空的 `$vsPath`。
 
 ```bash
 git clone https://github.com/Map1en/VRCX-0
@@ -114,6 +206,28 @@ npm install
 ```bash
 npm run tauri:dev
 ```
+
+### 配置加载失败的修复与备用启动方式（2026-10-03）
+
+若启动时报 `sourcemapPathTransform ... returned object, but expected string`，这是 Vite 默认打包配置的加载步骤失败，不是 Rust 链接器错误。本机曾在 Vite 8.3.2／Rolldown 1.2.12 下复现。停止本仓库的开发／构建进程后运行 `npm ci --no-audit --no-fund`，依 lockfile 恢复为 Vite 8.3.1、Rolldown 及 Windows 原生绑定 1.2.11、Vitest 5.0.2 后，默认加载、前端 HTTP 200、普通测试和前端生产构建均通过。修复了本机依赖状态；尚不能单凭这个对照确定是原生文件混用还是新版本组合问题。不修改 lockfile，也不需要修改默认 npm 脚本。若文件被占用，先关闭该仓库的 Vite／Tauri 进程，不要强行混装依赖。
+
+完成上述修复并加载 VS 开发环境后，仍使用 `npm run tauri:dev` 同时启动前后端。下面的 runner 双窗口方式仅作备用，不是当前必需步骤；runner 是 [Vite 官方支持的配置加载方式](https://vite.dev/guide/cli)。
+
+两个 PowerShell 均先切到当前仓库。第一个运行前端并保持窗口开启：
+
+```powershell
+Set-Location 'C:\Users\tangh\Documents\GitHub\VRCX-0-jirai'
+npm run dev -- --configLoader runner
+```
+
+第二个先按上面的步骤加载 Visual Studio 开发环境，再运行后端／桌面程序：
+
+```powershell
+Set-Location 'C:\Users\tangh\Documents\GitHub\VRCX-0-jirai'
+cargo run --manifest-path src-tauri/Cargo.toml --no-default-features --features devtools,steamvr-overlay,openxr-overlay
+```
+
+该方式不再执行 Tauri 的 `beforeDevCommand`，因此不会重复启动失败的默认 Vite 命令；端口 9000 必须由第一个窗口的前端提供。不要同时再运行 `npm run tauri:dev`。这是开发运行，不是独立发布包。
 
 构建发布版（跳过签名和安装包）：
 

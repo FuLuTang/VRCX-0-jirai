@@ -228,6 +228,15 @@ pub(super) fn definition(kind: ActivityKind) -> KindDefinition {
             S::Off,
             S::Off,
         ),
+        K::RelationshipRecommendation => (
+            C::SystemSafety,
+            BOOLEAN_SCOPES,
+            S::On,
+            S::On,
+            S::On,
+            S::Off,
+            S::On,
+        ),
         K::VideoPlay => (
             C::Media,
             BOOLEAN_SCOPES,

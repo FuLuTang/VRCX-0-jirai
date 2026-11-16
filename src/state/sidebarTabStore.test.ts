@@ -48,6 +48,7 @@ describe('pinning a world to the sidebar', () => {
         const worldTab = tabLayout.at(-1);
         expect(tabLayout.map((item) => item.id)).toEqual([
             'friends',
+            'tracked-nonfriends',
             'favorite-a',
             'groups',
             worldTab?.id
@@ -134,7 +135,12 @@ describe('unpinning a world from the sidebar', () => {
         const ids = store.useSidebarTabStore
             .getState()
             .tabLayout.map((item) => item.id);
-        expect(ids).toEqual(['friends', 'favorite-a', 'groups']);
+        expect(ids).toEqual([
+            'friends',
+            'tracked-nonfriends',
+            'favorite-a',
+            'groups'
+        ]);
         expect(savedLayout().map((item) => item.id)).toEqual(ids);
     });
 
@@ -172,12 +178,14 @@ describe('customizing sidebar tabs', () => {
             visibility(store.useSidebarTabStore.getState().tabLayout)
         ).toEqual([
             ['friends', true],
+            ['tracked-nonfriends', true],
             ['groups', false]
         ]);
         expect(
             visibility(savedLayout() as Array<{ id: string; visible: unknown }>)
         ).toEqual([
             ['friends', true],
+            ['tracked-nonfriends', true],
             ['groups', false]
         ]);
     });

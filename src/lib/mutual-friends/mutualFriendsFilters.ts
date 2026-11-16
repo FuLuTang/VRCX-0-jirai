@@ -80,6 +80,19 @@ export function applyMutualFriendsViewFilters(
     return { nodes, links };
 }
 
+export function hideNonFriendNodes(
+    graph: MutualFriendGraph,
+    friendIds: ReadonlySet<string>,
+    showNonFriends: boolean
+): MutualFriendGraph {
+    if (showNonFriends) {
+        return graph;
+    }
+    const nodes = graph.nodes.filter((node) => friendIds.has(node.id));
+    const keptIds = new Set(nodes.map((node) => node.id));
+    return { nodes, links: keepLinksBetween(graph.links, keptIds) };
+}
+
 export function isMutualFriendNodeUnavailable(node: MutualFriendNode) {
     return node.optedOut || node.lastFetchedAt === null;
 }

@@ -86,6 +86,7 @@ fn response(status: i32, body: serde_json::Value) -> VrchatResponse {
     VrchatResponse {
         status,
         data: body.to_string(),
+        retry_after: None,
     }
 }
 

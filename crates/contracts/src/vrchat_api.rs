@@ -116,6 +116,8 @@ pub struct VrchatRequest {
 pub struct VrchatResponse {
     pub status: i32,
     pub data: String,
+    #[serde(rename = "retryAfter", skip_serializing_if = "Option::is_none")]
+    pub retry_after: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -263,7 +265,11 @@ pub fn classify_vrchat_response(status: i32) -> VrchatResponsePolicy {
 }
 
 pub fn vrchat_response(status: i32, data: String) -> VrchatResponse {
-    VrchatResponse { status, data }
+    VrchatResponse {
+        status,
+        data,
+        retry_after: None,
+    }
 }
 
 fn auth_scalar_text(value: Option<&Value>) -> Option<String> {

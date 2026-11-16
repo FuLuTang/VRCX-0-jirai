@@ -2567,7 +2567,49 @@ export const commands = {
             ugcFolderPath,
             monthFolder,
             fileName
-        })
+        }),
+    appRelationshipRecommendationsSet: (
+        accountId: string,
+        authScopeGeneration: number,
+        pairs: RelationshipRecommendationPair[]
+    ) =>
+        __TAURI_INVOKE<null>('app__relationship_recommendations_set', {
+            accountId,
+            authScopeGeneration,
+            pairs
+        }),
+    appSelfStatusHistoryQuery: (input: SelfStatusHistoryInput) =>
+        __TAURI_INVOKE<FeedRowOutput[]>('app__self_status_history_query', {
+            input
+        }),
+    appSelfBioHistoryQuery: (input: SelfBioHistoryInput) =>
+        __TAURI_INVOKE<FeedRowOutput[]>('app__self_bio_history_query', {
+            input
+        }),
+    appMutualGraphHistoryGet: (friendId: string) =>
+        __TAURI_INVOKE<MutualGraphHistoryOutput>('app__mutual_graph_history_get', {
+            friendId
+        }),
+    appMutualGraphExtrasGet: (ownerUserId: string) =>
+        __TAURI_INVOKE<MutualGraphExtrasOutput>('app__mutual_graph_extras_get', {
+            ownerUserId
+        }),
+    appMutualGraphTrackedUserSet: (input: MutualGraphTrackedUserSetInput) =>
+        __TAURI_INVOKE<null>('app__mutual_graph_tracked_user_set', { input }),
+    appMutualGraphManualLinkSet: (input: MutualGraphManualLinkSetInput) =>
+        __TAURI_INVOKE<null>('app__mutual_graph_manual_link_set', { input }),
+    appMutualGraphFetchStatusGet: () =>
+        __TAURI_INVOKE<MutualGraphFetchStatus>(
+            'app__mutual_graph_fetch_status_get'
+        ),
+    appFindScreenshotsBySearch: (
+        searchQuery: string,
+        searchType: number | null
+    ) =>
+        __TAURI_INVOKE<ScreenshotSearchResult[]>(
+            'app__find_screenshots_by_search',
+            { searchQuery, searchType }
+        )
 };
 
 /* Types */
@@ -8705,4 +8747,90 @@ export type WorldUpdateRequest = {
     tags?: string[] | null;
     urlList?: string[] | null;
     disabledPropAbilities?: string[] | null;
+};
+
+export type RelationshipRecommendationPair = {
+    userIdA: string;
+    userIdB: string;
+    nameA: string;
+    nameB: string;
+    score: number;
+};
+
+export type SelfBioHistoryInput = { expectedOwnerUserId: string };
+
+export type SelfStatusHistoryInput = { expectedOwnerUserId: string };
+
+export type MutualGraphHistoryOutput = {
+    lastSuccessfulAt: string | null;
+    links: MutualGraphHistoricalLinkOutput[];
+};
+
+export type MutualGraphExtrasOutput = {
+    trackedUsers: MutualGraphTrackedUserOutput[];
+    manualLinks: MutualGraphManualLinkOutput[];
+};
+
+export type MutualGraphTrackedUserOutput = {
+    userId: string;
+    displayName: string;
+    addedAt: string;
+};
+
+export type MutualGraphTrackedUserSetInput = {
+    ownerUserId: string;
+    userId: string;
+    displayName?: string;
+    tracked: boolean;
+};
+
+export type MutualGraphManualLinkOutput = {
+    userIdA: string;
+    userIdB: string;
+    relationType: string;
+    addedAt: string;
+};
+
+export type MutualGraphManualLinkSetInput = {
+    ownerUserId: string;
+    userIdA: string;
+    userIdB: string;
+    related: boolean;
+};
+
+export type MutualGraphHistoricalLinkOutput = {
+    friendId: string;
+    mutualId: string;
+    date: string;
+};
+
+export type RuntimeBackgroundJobSnapshot = {
+    name: string;
+    owner: string;
+    status: RuntimeOperationStatus;
+    cadenceSeconds: number | null;
+    lastStartedAt: string | null;
+    lastFinishedAt: string | null;
+    nextRunAt: string | null;
+    lastDetail: string;
+    lastError: string | null;
+    failureCount: number;
+};
+
+export type ModerationSyncLocalOutput = {
+    userId: string;
+    updatedAt: string;
+    displayName: string;
+    block: boolean;
+    mute: boolean;
+};
+
+export type ScreenshotSearchResult = {
+    filePath: string;
+    fileName: string;
+    fileSizeBytes: number;
+    creationDate: string | null;
+    width: number | null;
+    height: number | null;
+    metadata: ScreenshotMetadata;
 };

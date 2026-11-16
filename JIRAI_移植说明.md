@@ -1,5 +1,7 @@
 # VRCX-0-jirai 清洁移植
 
+> 本文记录 v2.28 清洁移植的**历史起点与当时约束**，不代表当前代码的完整功能状态。当前还原状态、后续缺口与验收项请以 [README.zh-CN.md](README.zh-CN.md#vrcx-jirai-功能还原核对表) 和 [docs/jirai-feature-backlog.md](docs/jirai-feature-backlog.md) 为准。
+
 此分支基于 `vrcx` 提交 `bd63532d4`（v2.28），而不是重放历史上的
 `vrcx-0-jirai` 提交。旧的 `vrcx-jirai` 仓库仍作为只读实现参考。后续工作依据
 有证据支持的清单：仅可针对当前 VRCX-0 重新实现选定的低风险功能，而复杂的仅旧版功能需要

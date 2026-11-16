@@ -1,6 +1,7 @@
-import userProfileRepository from '@/repositories/userProfileRepository';
+import { useRuntimeStore } from '@/state/runtimeStore';
 import { useTrackedNonfriendsStore } from '@/state/trackedNonfriendsStore';
 
+import { fetchRawProfile } from './profileFetchRequest';
 import type {
     SyncWorkflowActionContext,
     SyncWorkflowActionOutcome
@@ -10,7 +11,7 @@ import {
     type TrackedNonfriendsRefreshExecutor
 } from './syncWorkflowActions';
 
-const REFRESH_INTERVAL_MS = 250;
+const REFRESH_INTERVAL_MS = 3_000;
 
 export type TrackedNonfriendsRefreshResult = {
     refreshed: number;
@@ -22,13 +23,14 @@ type Dependencies = {
         typeof useTrackedNonfriendsStore.getState
     >['entries'];
     load: (accountId: string) => Promise<void>;
+    isAccountCurrent: (accountId: string) => boolean;
     isTracked: (userId: string) => boolean;
     updateName: (
         accountId: string,
         userId: string,
         displayName: string
     ) => Promise<boolean>;
-    getUserProfile: typeof userProfileRepository.getUserProfile;
+    getUserProfile: typeof fetchRawProfile;
     wait: (milliseconds: number, signal: AbortSignal) => Promise<void>;
 };
 
@@ -84,6 +86,14 @@ export function createTrackedNonfriendsRefreshExecutor(
         abortIfNeeded(context.signal);
         await dependencies.load(accountId);
         abortIfNeeded(context.signal);
+        if (!dependencies.isAccountCurrent(accountId)) {
+            return {
+                status: 'skipped',
+                skipReason: context.translate(
+                    'workflow.skip.tracked_nonfriends_no_account'
+                )
+            };
+        }
 
         const entries = dependencies.getEntries();
         if (!entries.length) {
@@ -100,6 +110,14 @@ export function createTrackedNonfriendsRefreshExecutor(
         let nextRequestAt = 0;
         for (const entry of entries) {
             abortIfNeeded(context.signal);
+            if (!dependencies.isAccountCurrent(accountId)) {
+                return {
+                    status: 'skipped',
+                    skipReason: context.translate(
+                        'workflow.skip.tracked_nonfriends_no_account'
+                    )
+                };
+            }
             if (!dependencies.isTracked(entry.userId)) {
                 skippedRemoved += 1;
                 continue;
@@ -107,6 +125,14 @@ export function createTrackedNonfriendsRefreshExecutor(
             const waitMs = Math.max(0, nextRequestAt - Date.now());
             await dependencies.wait(waitMs, context.signal);
             abortIfNeeded(context.signal);
+            if (!dependencies.isAccountCurrent(accountId)) {
+                return {
+                    status: 'skipped',
+                    skipReason: context.translate(
+                        'workflow.skip.tracked_nonfriends_no_account'
+                    )
+                };
+            }
             if (!dependencies.isTracked(entry.userId)) {
                 skippedRemoved += 1;
                 continue;
@@ -115,10 +141,20 @@ export function createTrackedNonfriendsRefreshExecutor(
             const profile = await dependencies.getUserProfile({
                 userId: entry.userId,
                 force: true,
-                isFriend: false
+                isFriend: false,
+                signal: context.signal
             });
             abortIfNeeded(context.signal);
+            if (!dependencies.isAccountCurrent(accountId)) {
+                return {
+                    status: 'skipped',
+                    skipReason: context.translate(
+                        'workflow.skip.tracked_nonfriends_no_account'
+                    )
+                };
+            }
             refreshed += 1;
+            context.profiles?.set(entry.userId, profile);
             nextRequestAt = Date.now() + REFRESH_INTERVAL_MS;
             if (!dependencies.isTracked(entry.userId)) {
                 skippedRemoved += 1;
@@ -144,13 +180,17 @@ export const trackedNonfriendsRefreshExecutor =
         getEntries: () => useTrackedNonfriendsStore.getState().entries,
         load: (accountId) =>
             useTrackedNonfriendsStore.getState().load(accountId),
+        isAccountCurrent: (accountId) =>
+            useRuntimeStore.getState().auth.currentUserId === accountId &&
+            useTrackedNonfriendsStore.getState().currentUserId === accountId &&
+            useTrackedNonfriendsStore.getState().loadStatus === 'ready',
         isTracked: (userId) =>
             useTrackedNonfriendsStore.getState().isTracked(userId),
         updateName: (accountId, userId, displayName) =>
             useTrackedNonfriendsStore
                 .getState()
                 .updateName(accountId, userId, displayName),
-        getUserProfile: userProfileRepository.getUserProfile,
+        getUserProfile: fetchRawProfile,
         wait: waitWithAbort
     });
 

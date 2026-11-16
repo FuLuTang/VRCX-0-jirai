@@ -72,9 +72,9 @@
         "context_rules_description": "Add a rule to change your status based on the instance, world, or friends around you."
     },
     "workflow": {
-        "title": "Account sync workflow",
+        "title": "Enhanced information fetching",
         "tools_description": "Run available account synchronization tasks and review skipped dependencies.",
-        "description": "Tasks run for the current account: {{account}}.",
+        "description": "Tasks run for the current account: {account}.",
         "action_list": "Synchronization tasks",
         "account_unavailable": "No current account",
         "ready": "Ready to run a new workflow.",
@@ -83,7 +83,7 @@
         "cancel_current": "Cancel current task",
         "progress_bar": "Workflow progress",
         "skip_reason": "Skip reason",
-        "summary": "Progress {{progress}}/{{total}} · Completed {{completed}} · Skipped {{skipped}} · Errors {{error}} · Running {{running}}",
+        "summary": "Progress {progress}/{total} · Completed {completed} · Skipped {skipped} · Errors {error} · Running {running}",
         "status": {
             "completed": "Completed",
             "skipped": "Skipped",
@@ -273,7 +273,9 @@
             "scope_default": "These settings apply to new conversations",
             "more_settings": "More AI settings",
             "guided_badge": "Guided mode",
-            "guided_hint": "Guided mode limits the tools for weaker local models. With a cloud API, switch to Auto or Open for fuller answers."
+            "guided_hint": "Guided mode limits the tools for weaker local models. With a cloud API, switch to Auto or Open for fuller answers.",
+            "connection_unset": "No endpoint",
+            "allow_writes": "Allow write actions"
         },
         "tools": {
             "favorite_local": "Update local favorites",
@@ -981,7 +983,8 @@
                 "sendFeedback": "Send Feedback",
                 "reportIssue": "Report Issue on GitHub",
                 "openDevtools": "Open DevTools",
-                "supportVrcx": "Support VRCX-0"
+                "supportVrcx": "Support VRCX-0",
+                "qqGroup": "QQ Group"
             }
         }
     },
@@ -1050,7 +1053,8 @@
                 "hide_value": "Hide {value}",
                 "show_value": "Show {value}"
             }
-        }
+        },
+        "qq_group": "QQ Group"
     },
     "dashboard": {
         "default_name": "Dashboard",
@@ -1219,6 +1223,11 @@
         "toggle_favorite": "Add / remove favorite"
     },
     "privacy_lock": {
+        "startup_error": {
+            "title": "Couldn't verify the privacy lock",
+            "description": "The interface started, but the local backend failed to initialize or connect. It remains covered to protect your privacy. Retry or check the startup terminal for errors.",
+            "retry": "Retry connection"
+        },
         "locked_title": "Locked",
         "field": {
             "password": "Lock password",
@@ -1369,7 +1378,7 @@
                 "display_icon_text": "Icon + Text",
                 "display_icon_only": "Icon Only",
                 "tab_layout": "Tabs",
-                "layout_hint": "Drag to reorder. Friends and Groups are built in — add favorite groups as your own tabs.",
+                "layout_hint": "Drag to reorder. Friends, Tracked users and Groups are built in — add favorite groups as your own tabs.",
                 "system_badge": "Built-in",
                 "world_badge": "World",
                 "always_visible": "Always visible",
@@ -1433,10 +1442,15 @@
         }
     },
     "tracked_nonfriends": {
+        "count": "Tracked users: {count}",
         "title": "Tracked users",
         "filter": "Filter tracked users",
         "add_user": "Track user",
         "remove_user": "Stop tracking user",
+        "confirm_remove": {
+            "title": "Stop tracking this user?",
+            "description": "Profile data will no longer be collected for this non-friend."
+        },
         "empty": "No tracked users",
         "load_error": "Could not load tracked users",
         "mutation_error": "Could not update tracked users"
@@ -1864,7 +1878,8 @@
             "clear_results_tooltip": "Clear Search Results",
             "user": {
                 "header": "User",
-                "sort_by_last_logged_in": "Sort by last sign-in"
+                "sort_by_last_logged_in": "Sort by last sign-in",
+                "search_by_bio": "Search by bio"
             },
             "world": {
                 "header": "World",
@@ -2371,6 +2386,10 @@
                     "find_friend": "Find a friend",
                     "open_profile": "Open profile",
                     "hide_from_graph": "Hide from graph",
+                    "track_user": "Track this user for mutual graph fetching",
+                    "untrack_user": "Stop tracking this user",
+                    "show_non_friends": "Show non-friends in the graph",
+                    "hide_non_friends": "Hide non-friends from the graph",
                     "clear_filters": "Clear filters"
                 },
                 "prompt": {
@@ -2395,6 +2414,26 @@
                     "stat_links": "Links",
                     "stat_hidden": "Hidden"
                 },
+                "tracked": {
+                    "title": "Tracked non-friends",
+                    "help": "Tracked users are included in the next full graph fetch. Select a non-friend node and use its tracking button to add it.",
+                    "empty": "No non-friends are being tracked.",
+                    "add": "Track this user for mutual graph fetching",
+                    "remove": "Stop tracking this user",
+                    "user_id": "VRChat user ID",
+                    "verify": "Verify",
+                    "verified_as": "Verified as {name}. Add this user to the tracked nodes?",
+                    "verify_error": "Could not find that VRChat user. Check the ID and try again."
+                },
+                "manual": {
+                    "title": "Manual relationships",
+                    "help": "These links are your own annotations. They are kept separate from VRChat API data and historical links.",
+                    "user_a": "Choose first user",
+                    "user_b": "Choose second user",
+                    "add": "Add manual relationship",
+                    "remove": "Remove manual relationship",
+                    "empty": "No manual relationships have been added."
+                },
                 "context_menu": {
                     "last_fetched": "Last fetched"
                 },
@@ -2413,6 +2452,12 @@
                     "hollow_means_unknown": "Hollow dot = mutuals not shared",
                     "cross_edges": "Bright lines connect different circles",
                     "cross_edges_only": "Mute links inside circles",
+                    "edge_current": "VRChat API: current mutual connection",
+                    "edge_manual": "Manual relationship",
+                    "edge_historical": "Historical connection from OLD table",
+                    "edge_label_api": "API",
+                    "edge_label_manual": "Manual",
+                    "edge_label_old": "OLD",
                     "coverage": "Fetched",
                     "coverage_value": "{fetched}/{total} friends",
                     "coverage_unavailable": "Not shared",
@@ -2453,6 +2498,16 @@
             },
             "relationship_timeline": {
                 "header": "Relationship Timeline",
+                "top_users": "Top users",
+                "show_others": "Show others",
+                "current_friends_only": "Current friends only",
+                "days_per_unit": "days/unit",
+                "granularity": "Days per unit",
+                "description": "Share of recorded time spent in the same instance, grouped into time buckets.",
+                "chart_aria_label": "Relationship share over time stacked area chart",
+                "no_data": "No relationship history found",
+                "sign_in_required": "Sign in to view relationship history.",
+                "load_failed": "Relationship history failed to load. Try refreshing.",
                 "friend": "Friend",
                 "range_days": "Range (days)",
                 "total_overlap": "Total Overlap",
@@ -2493,7 +2548,8 @@
             },
             "toast": {
                 "failed_to_fetch_mutual_friends_graph": "Failed to fetch mutual-friends graph",
-                "failed_to_refresh_selected_mutuals": "Failed to refresh selected mutuals"
+                "failed_to_refresh_selected_mutuals": "Failed to refresh selected mutuals",
+                "failed_to_save_mutual_graph_settings": "Failed to save mutual graph settings"
             },
             "modal": {
                 "refresh_non_friend_mutuals": "Refresh non-friend mutuals",
@@ -2595,7 +2651,8 @@
                 "registry_backup": "VRChat Registry Backup",
                 "registry_backup_description": "Create or restore a VRChat registry backup",
                 "llm_endpoints": "AI Connections",
-                "llm_endpoints_description": "AI connections for Social AI and translation"
+                "llm_endpoints_description": "AI connections for Social AI and translation",
+                "info_completion": "Enhanced information fetching"
             },
             "vrchat_log": {
                 "title": "VRChat Log Viewer",
@@ -2733,7 +2790,8 @@
             "label": {
                 "inventory_bundle_consumed": "Bundle opened",
                 "fps": "fps",
-                "frames": "frames"
+                "frames": "frames",
+                "prev": "Prev"
             },
             "action": {
                 "preview": "Preview",
@@ -2987,7 +3045,8 @@
                 "no_models_detected": "No models detected",
                 "detect_failed": "Failed to detect models",
                 "deleted": "Endpoint deleted",
-                "delete_failed": "Failed to delete endpoint"
+                "delete_failed": "Failed to delete endpoint",
+                "models_placeholder": "Search detected models, or type one and press Enter"
             },
             "filter_placeholder": "Filter tools",
             "filter_empty": "No tools match",
@@ -3121,6 +3180,9 @@
                     "system": "System",
                     "session": "Session"
                 }
+            },
+            "error": {
+                "dropped_screenshot_path_is_not_available": "Couldn't read the dropped file. Try selecting the screenshot again."
             }
         },
         "profile": {
@@ -3304,7 +3366,12 @@
                         "starting": "Starting",
                         "running": "Running",
                         "stopping": "Stopping"
-                    }
+                    },
+                    "client_config": "Client config",
+                    "client_config_description": "Claude Code: a one-time terminal command. Generic (HTTP): JSON config for a direct connection. Generic (mcp-remote): JSON config via a Node.js proxy for clients without native HTTP; needs Node.js in PATH. With LAN enabled, configs use `YOUR-LAN-IP` — replace it with this computer's local IP.",
+                    "copy_mcp_remote": "Generic (mcp-remote)",
+                    "copy_generic": "Generic (HTTP)",
+                    "copied": "{target} config copied"
                 },
                 "integration_api": {
                     "header": "Integration API",
@@ -3993,7 +4060,8 @@
                 "failed_to_save_proxy_settings": "Failed to save proxy settings",
                 "failed_to_crop_existing_prints": "Failed to crop existing prints",
                 "failed_to_save_translation_settings": "Failed to save translation settings",
-                "failed_to_save_feed_filters": "Failed to save feed filters"
+                "failed_to_save_feed_filters": "Failed to save feed filters",
+                "failed_to_fetch_translation_models": "Failed to fetch translation models"
             },
             "modal": {
                 "crop_existing_prints": "Crop Existing Prints",
@@ -4368,7 +4436,8 @@
                 "disable_override": "Disable custom CSS",
                 "clear_override": "Clear custom CSS",
                 "contribute": "Create and submit theme",
-                "contribute_tooltip": "View theme authoring and submission instructions on GitHub."
+                "contribute_tooltip": "View theme authoring and submission instructions on GitHub.",
+                "update_enable": "Update"
             },
             "browse": {
                 "empty": "No community themes are listed in the catalog yet."
@@ -4782,7 +4851,10 @@
                 "unfriend": "Unfriend",
                 "edit_note_memo": "Edit Note and Local Note",
                 "edit_profile": "Edit Profile",
-                "vrchat_account": "VRChat Account"
+                "vrchat_account": "VRChat Account",
+                "edit_profile_details": "Edit Profile Details",
+                "edit_profile_media": "Edit Banner and Icon",
+                "report_hacking": "Report for Hacking"
             },
             "group_invite": {
                 "select_group": "Select a group",
@@ -4837,10 +4909,13 @@
                 "represented_group": "Represented Group",
                 "bio": "Bio",
                 "bio_history": "Bio History",
+                "bio_history_error": "Could not load Bio history.",
                 "status_distribution": "Status Distribution",
                 "refresh_status_distribution": "Refresh status distribution",
-                "status_distribution_hint": "Load observed status history to estimate time by status.",
+                "status_distribution_hint": "Loads when Activity opens. Use refresh to reload.",
                 "no_status_distribution": "No observed status history.",
+                "status_distribution_error": "Could not load status history; existing results may be outdated.",
+                "status_distribution_scope": "Only confirmed online intervals in recorded data are counted. Unobserved time is excluded, and older records may be limited by the query cap.",
                 "status": {
                     "join_me": "Join Me",
                     "active": "Active",
@@ -4927,6 +5002,7 @@
             "mutual_friends": {
                 "header": "Mutual Friends",
                 "undisclosed_friend": "Undisclosed Mutual Friend",
+                "last_successful_check": "Last successful check",
                 "sorting": {
                     "alphabetical": "Alphabetical",
                     "last_active": "Last Active",
@@ -5075,7 +5151,9 @@
             "description": {
                 "update_your_social_status_and_status_description": "Update your social status and status message",
                 "status_description": "Status message",
-                "clear_status_description": "Clear status message"
+                "clear_status_description": "Clear status message",
+                "edit_profile_details": "Edit Profile Details",
+                "update_your_profile_details": "Edit the profile details shown on your card."
             },
             "toast": {
                 "memo_saved": "Local note saved",
@@ -5126,7 +5204,8 @@
                 "leave_group": "Leave group",
                 "leave": "Leave",
                 "leave_selected_groups": "Leave selected groups",
-                "unfriend_user": "Unfriend user?"
+                "unfriend_user": "Unfriend user?",
+                "report_hacking": "Report hacking?"
             },
             "dynamic": {
                 "status_presets_are_limited_to_value": "Status presets are limited to {value}",
@@ -5200,6 +5279,12 @@
                 "muteChat_on": "You won't see {name}'s chatbox messages in VRChat.",
                 "muteChat_off": "You'll see {name}'s chatbox messages in VRChat again.",
                 "unfriend": "{name} will be removed from your friends list. To be friends again, one of you will need to send a new friend request."
+            },
+            "status_distribution": {
+                "bucket_scale": "Time bucket size",
+                "days_per_unit": "days/unit",
+                "insufficient_self_samples": "Insufficient recorded game-online intervals and status samples",
+                "self_scope": "Only recorded game-online intervals are counted, not all web or account online time."
             }
         },
         "world": {
@@ -6128,11 +6213,13 @@
             }
         },
         "edit_invite_message": {
-            "save": "Save"
+            "save": "Save",
+            "header": "Edit Message Template"
         },
         "edit_send_invite_message": {
             "description": "1-hour edit cooldown.",
-            "send": "Send"
+            "send": "Send",
+            "header": "Edit and Send Message Template"
         },
         "export_friends_list": {
             "header": "Export Friends List",
@@ -6371,7 +6458,16 @@
             "world_album_count": "{count} worlds",
             "people_album_count": "{count} people",
             "empty_albums": "Nothing to group yet",
-            "empty_albums_description": "Screenshots taken while VRCX-0 is running record the world and who was there."
+            "empty_albums_description": "Screenshots taken while VRCX-0 is running record the world and who was there.",
+            "search_type_placeholder": "Search Type",
+            "search_types": {
+                "player_name": "User Name",
+                "player_id": "User ID",
+                "world_name": "World Name",
+                "world_id": "World ID"
+            },
+            "clear_search": "Clear search",
+            "search_in": "Search {scope}"
         },
         "set_avatar_styles": {
             "header": "Set Avatar Styles",
@@ -6446,11 +6542,15 @@
                 "prompt_optional": "Prompt (Optional)",
                 "prompt_optional_description": "Optional system prompt. Must include the {targetLang} variable.",
                 "reasoning_effort": "Reasoning effort",
-                "reasoning_effort_provider_default": "Provider default"
+                "reasoning_effort_provider_default": "Provider default",
+                "connection": "LLM Endpoint",
+                "connection_description": "Only OpenAI-compatible endpoints are supported.",
+                "connection_placeholder": "Select an endpoint"
             },
             "deepl": {
                 "api_key": "DeepL API Key"
-            }
+            },
+            "msg_fill_endpoint_model": "Select an endpoint and enter a model name"
         },
         "shared_feed_filters": {
             "notification": "Notification Filters",
@@ -6570,7 +6670,8 @@
                 "BlockedOnPlayerLeft": "Blocked Player Left",
                 "MutedOnPlayerJoined": "Muted Player Joined",
                 "MutedOnPlayerLeft": "Muted Player Left",
-                "VideoPlay": "Video Play"
+                "VideoPlay": "Video Play",
+                "RelationshipRecommendation": "Possible friendship"
             },
             "favorite_groups": {
                 "menu_label": "Favorite groups",
@@ -6889,7 +6990,8 @@
             "versions": "Versions",
             "toast_title": "Updated to {value}",
             "toast_description": "Review what changed in this version.",
-            "view_changes": "View changes"
+            "view_changes": "View changes",
+            "latest_release": "Latest release"
         },
         "open_source": {
             "header": "Third-Party Notices",
@@ -7088,6 +7190,9 @@
             "failed_to_load": "Couldn't load purchase history",
             "empty_purchases": "No purchases yet",
             "empty_transactions": "No Credits activity yet"
+        },
+        "edit_send_invite_response_message": {
+            "description": "1-hour edit cooldown."
         }
     },
     "confirm": {
@@ -7440,7 +7545,12 @@
         "blocked_player_joined": "Blocked user has joined",
         "blocked_player_left": "Blocked user has left",
         "muted_player_joined": "Muted user has joined",
-        "muted_player_left": "Muted user has left"
+        "muted_player_left": "Muted user has left",
+        "blocked": "has blocked you",
+        "unblocked": "has unblocked you",
+        "muted": "has muted you",
+        "unmuted": "has unmuted you",
+        "relationship_recommendation": "{nameA} ↔ {nameB}: perhaps friends ({score})"
     },
     "location": {
         "offline": "Offline",
@@ -7526,7 +7636,10 @@
         },
         "profile": {
             "invite_messages": {
-                "cool_down": "Cooldown"
+                "cool_down": "Cooldown",
+                "slot": "Slot",
+                "message": "Message",
+                "action": "Action"
             }
         },
         "import": {
@@ -8077,6 +8190,122 @@
             "description": "Clear it? Automatic re-login after a disconnect will stop working.",
             "clear": "Clear",
             "cleared": "Saved password cleared"
+        }
+    },
+    "enhanced_info_fetch": {
+        "hourly_title": "Periodic refresh",
+        "hourly_description": "Runs at startup, hourly, or on Refresh now. In parallel: /users status/name + /profile Bio collection, and local relationship suggestions; no relationship graph scan.",
+        "collection_title": "Profile collection",
+        "relationship_title": "Relationship suggestions",
+        "hourly_disabled": "Automatic periodic refresh disabled; Refresh now remains available",
+        "hourly_status": {
+            "idle": "Idle",
+            "fetching": "Refreshing",
+            "relationships": "Profiles collected; computing suggestions",
+            "paused": "Collection paused",
+            "completed": "Completed",
+            "cancelled": "Cancelled",
+            "error": "Refresh failed",
+            "partial": "Profiles complete; relationship engine unavailable"
+        },
+        "collection_status": {
+            "idle": "Pending",
+            "running": "Collecting",
+            "completed": "Collection complete",
+            "paused": "Waiting to retry",
+            "cancelled": "Cancelled",
+            "error": "Collection failed"
+        },
+        "roster_counts": "Friends: {friends} · Explicitly tracked non-friends: {tracked}",
+        "relationship_progress": "Relationship suggestion progress",
+        "suggestions": "Generated suggestions: {count}",
+        "relationship_status": {
+            "waiting": "Pending",
+            "running": "Computing suggestions",
+            "completed": "Suggestions completed",
+            "unavailable": "Relationship engine unavailable; this task did not run",
+            "error": "Relationship calculation failed",
+            "cancelled": "Cancelled"
+        },
+        "automatic_enabled": "Automatic enhanced fetching enabled",
+        "automatic_disabled": "Automatic enhanced fetching disabled; native baseline maintenance and manual fetching remain available",
+        "automatic_unknown": "Automatic fetching preference unavailable",
+        "job_status": "Native status: {status} · Cadence {seconds}s · Failures {failures}",
+        "job_times": "Last started: {started} · Last finished: {finished}",
+        "schedule_error": "Could not read native scheduling; deadline hidden until the next successful poll",
+        "scheduled": "Native-reported next time: {time} · {countdown} remaining",
+        "schedule_unavailable": "Native scheduler has not exposed its next deadline; countdown unavailable",
+        "system_tools": "System tools",
+        "tools_description": "Inspect enhanced fetching, manually fetch friends and tracked users, and compute relationship suggestions.",
+        "description": "Current account: {account}. One periodic refresh with two parallel tasks.",
+        "overview": "Run overview",
+        "results": "This run",
+        "progress": "Per-person fetching progress",
+        "processed": "Processed {processed} / {total} people",
+        "source": "Triggered by: {source}",
+        "target": "Current target: {target}",
+        "pause_reason": "Paused: {reason}",
+        "next_run": "Next run/retry: {time}",
+        "next_run_unknown": "Next run is not yet scheduled",
+        "results_note": "Processed people are not successful fetches. Bio and status updates count confirmed saved changes only; incomplete fields are shown separately and categories may overlap.",
+        "error_detail": "Run error: {error}",
+        "request_error": "The operation failed. Please try again.",
+        "background_hint": "Closing keeps the task running in the background. Reopen it from the status bar; only explicit cancellation stops this run.",
+        "run": "Refresh now",
+        "cancel": "Cancel this run",
+        "close": "Close",
+        "status_tooltip": "{phase} · Successful {succeeded} · Failed {failed} · Incomplete {incomplete}. Click for details.",
+        "setting_label": "Automatic enhanced information fetching",
+        "setting_description": "Automatically fetch friends and tracked users after startup, reconnect and hourly reconciliation. Disabling does not affect manual fetching or existing group/favorite maintenance.",
+        "setting_error": "Could not read or save the automatic fetching preference.",
+        "phase": {
+            "idle": "Idle",
+            "fetching": "Collecting profiles and computing suggestions",
+            "relationships": "Profiles collected; computing suggestions",
+            "paused": "Paused, waiting to retry",
+            "completed": "Completed",
+            "cancelled": "Cancelled",
+            "error": "Run failed"
+        },
+        "sources": {
+            "startup": "Startup",
+            "reconnect": "Reconnect",
+            "periodic": "Periodic reconciliation",
+            "manual": "Manual",
+            "profile": "On-demand profile"
+        },
+        "counts": {
+            "succeeded": "Successfully fetched people",
+            "unchanged": "Unchanged people",
+            "failed": "Failed people",
+            "incomplete": "People with incomplete fields",
+            "bioUpdated": "Saved Bio updates",
+            "statusUpdated": "Saved status updates"
+        }
+    },
+    "jirai": {
+        "two_person_relationship": {
+            "select_player_a": "Select player A / enter a usr_ ID and press Enter",
+            "select_player_b": "Select player B / enter a usr_ ID and press Enter"
+        },
+        "relationship_recommendations": {
+            "title": "Perhaps friends",
+            "local_only": "Calculated from local records only, without fetching the entire relationship graph. Scores are circumstantial evidence, not confirmed friendships.",
+            "computing": "Calculating…",
+            "compute": "Calculate suggestions",
+            "confirmed": "Confirmed",
+            "confirm": "Confirm",
+            "ignore": "Ignore this run",
+            "evidence": "Evidence and score",
+            "overlay_setting": "Show possible friendship reminders on instance arrival",
+            "overlay_help": "Only shown for live arrivals while both people are present. Each pair is shown once per continuous shared stay; leaving allows a later reminder."
+        },
+        "relationship_evidence": {
+            "observed_peak": "Peak players observed in local logs",
+            "unknown": "Unknown",
+            "unknown_order": "Arrival order unknown (nearby records do not prove arriving together)",
+            "leftPlayer": "The left player appears later in the records",
+            "rightPlayer": "The right player appears later in the records"
         }
     }
 }

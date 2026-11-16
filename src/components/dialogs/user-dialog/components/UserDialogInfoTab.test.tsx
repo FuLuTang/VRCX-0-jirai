@@ -24,12 +24,33 @@ import {
 } from './UserDialogInfoTab';
 
 const mocks = vi.hoisted(() => ({
-    queryFeedUserHistory: vi.fn()
+    queryFeedUserHistory: vi.fn(),
+    querySelfBioHistory: vi.fn()
+}));
+
+vi.mock('@/platform/tauri/bindings', () => ({
+    commands: { appSelfBioHistoryQuery: mocks.querySelfBioHistory }
 }));
 
 vi.mock('@/repositories/feedRepository', () => ({
-    default: { queryFeedUserHistory: mocks.queryFeedUserHistory }
+    default: {
+        queryFeed: mocks.queryFeedUserHistory,
+        queryFeedPage: mocks.queryFeedUserHistory
+    }
 }));
+
+vi.mock('@/lib/echarts', () => ({
+    echarts: {
+        init: () => ({ setOption: vi.fn(), resize: vi.fn(), dispose: vi.fn() })
+    }
+}));
+vi.stubGlobal(
+    'ResizeObserver',
+    class {
+        observe() {}
+        disconnect() {}
+    }
+);
 
 vi.mock('@/state/runtimeStore', () => ({
     useRuntimeStore: (
@@ -45,12 +66,23 @@ vi.mock('react-i18next', async (importOriginal) => ({
     })
 }));
 
-afterEach(cleanup);
+afterEach(() => {
+    cleanup();
+    mocks.queryFeedUserHistory.mockReset();
+    mocks.querySelfBioHistory.mockReset();
+});
 
 describe('UserDialogStatusDistributionPanel', () => {
     it('loads only the displayed user history on request', async () => {
         const user = userEvent.setup();
         mocks.queryFeedUserHistory.mockResolvedValue([
+            {
+                rowId: 2,
+                type: 'Online',
+                created_at: '2026-01-01T00:00:00Z',
+                userId: 'usr_target',
+                displayName: 'Target'
+            },
             {
                 rowId: 1,
                 type: 'Status',
@@ -61,7 +93,9 @@ describe('UserDialogStatusDistributionPanel', () => {
             }
         ]);
         render(
-            <UserDialogStatusDistributionPanel profile={{ id: 'usr_target' }} />
+            <UserDialogStatusDistributionPanel
+                profile={{ id: 'usr_target', state: 'online' }}
+            />
         );
 
         expect(mocks.queryFeedUserHistory).not.toHaveBeenCalled();
@@ -73,12 +107,38 @@ describe('UserDialogStatusDistributionPanel', () => {
 
         expect(mocks.queryFeedUserHistory).toHaveBeenCalledWith({
             userId: 'usr_owner',
-            targetUserId: 'usr_target',
-            types: ['Status', 'Online', 'Offline']
+            scopedUserIds: ['usr_target'],
+            filters: ['Status', 'Online', 'Offline'],
+            maxEntries: 1000,
+            cursor: null
         });
         expect(
             await screen.findByText('dialog.user.info.status.active')
         ).toBeTruthy();
+        expect(
+            screen.getByText('dialog.user.info.status_distribution_scope')
+        ).toBeTruthy();
+    });
+
+    it('shows query failure separately from an empty history', async () => {
+        const user = userEvent.setup();
+        mocks.queryFeedUserHistory.mockRejectedValue(
+            new Error('database unavailable')
+        );
+        render(
+            <UserDialogStatusDistributionPanel profile={{ id: 'usr_target' }} />
+        );
+        await user.click(
+            screen.getByRole('button', {
+                name: 'dialog.user.info.refresh_status_distribution'
+            })
+        );
+        expect((await screen.findByRole('alert')).textContent).toBe(
+            'dialog.user.info.status_distribution_error'
+        );
+        expect(
+            screen.queryByText('dialog.user.info.no_status_distribution')
+        ).toBeNull();
     });
 });
 
@@ -334,15 +394,17 @@ describe('UserDialogActivitySummaryPanel', () => {
 describe('UserDialogBioPanel', () => {
     it('offers bio editing only when an edit handler is provided', () => {
         const onEditBio = vi.fn();
+        mocks.queryFeedUserHistory.mockResolvedValue([]);
         const { rerender } = render(
             <UserDialogBioPanel
                 profile={{ id: 'usr_test', bio: 'hello' }}
                 bioLinks={[]}
+                isCurrentUser={false}
             />
         );
         expect(
             screen.queryByRole('button', {
-                name: 'dialog.user.actions.edit_profile'
+                name: 'dialog.user.actions.edit_profile_details'
             })
         ).toBeNull();
 
@@ -350,14 +412,98 @@ describe('UserDialogBioPanel', () => {
             <UserDialogBioPanel
                 profile={{ id: 'usr_self', bio: 'hello' }}
                 bioLinks={[]}
+                isCurrentUser={true}
                 onEditBio={onEditBio}
             />
         );
         fireEvent.click(
             screen.getByRole('button', {
-                name: 'dialog.user.actions.edit_profile'
+                name: 'dialog.user.actions.edit_profile_details'
             })
         );
         expect(onEditBio).toHaveBeenCalledOnce();
+    });
+
+    it('loads self Bio history and selects real change groups through the current-owner log query', async () => {
+        mocks.querySelfBioHistory.mockResolvedValue([
+            {
+                type: 'Bio',
+                userId: 'usr_owner',
+                bio: 'current',
+                previousBio: 'previous',
+                created_at: '2026-01-03T00:00:00Z'
+            },
+            {
+                type: 'Bio',
+                userId: 'usr_owner',
+                bio: 'previous',
+                previousBio: 'original',
+                created_at: '2026-01-01T00:00:00Z'
+            }
+        ]);
+        render(
+            <UserDialogBioPanel
+                profile={{ id: 'usr_owner', bio: 'current' }}
+                bioLinks={[]}
+                isCurrentUser={true}
+            />
+        );
+        expect(await screen.findByText('current')).toBeTruthy();
+        expect(mocks.querySelfBioHistory).toHaveBeenCalledWith({
+            expectedOwnerUserId: 'usr_owner'
+        });
+        expect(mocks.queryFeedUserHistory).not.toHaveBeenCalled();
+        const slider = screen.getByRole('slider', {
+            name: 'dialog.user.info.bio_history'
+        });
+        fireEvent.change(slider, { target: { value: '0' } });
+        expect(screen.getByText('original')).toBeTruthy();
+    });
+
+    it('keeps friend Bio history in the observing account Feed', async () => {
+        mocks.queryFeedUserHistory.mockResolvedValue([]);
+        render(
+            <UserDialogBioPanel
+                profile={{ id: 'usr_friend', bio: 'friend bio' }}
+                bioLinks={[]}
+                isCurrentUser={false}
+            />
+        );
+        await act(async () => {});
+        expect(mocks.queryFeedUserHistory).toHaveBeenCalledWith({
+            userId: 'usr_owner',
+            scopedUserIds: ['usr_friend'],
+            filters: ['Bio'],
+            maxEntries: 50
+        });
+        expect(mocks.querySelfBioHistory).not.toHaveBeenCalled();
+    });
+
+    it('does not query any account when a self profile id disagrees with the authenticated owner', async () => {
+        render(
+            <UserDialogBioPanel
+                profile={{ id: 'usr_stale', bio: 'stale profile' }}
+                bioLinks={[]}
+                isCurrentUser={true}
+            />
+        );
+        await act(async () => {});
+        expect(mocks.querySelfBioHistory).not.toHaveBeenCalled();
+        expect(mocks.queryFeedUserHistory).not.toHaveBeenCalled();
+    });
+
+    it('shows a history error instead of treating a failed query as an empty history', async () => {
+        mocks.querySelfBioHistory.mockRejectedValue(
+            new Error('database unavailable')
+        );
+        render(
+            <UserDialogBioPanel
+                profile={{ id: 'usr_owner', bio: 'current' }}
+                bioLinks={[]}
+                isCurrentUser={true}
+            />
+        );
+
+        expect(await screen.findByRole('alert')).toBeTruthy();
     });
 });

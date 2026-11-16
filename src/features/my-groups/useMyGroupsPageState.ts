@@ -57,6 +57,9 @@ export function useMyGroupsPageState() {
     const autoJoinGroupCertification = usePreferencesStore(
         (state) => state.autoJoinGroupCertification
     );
+    const preferencesHydrated = usePreferencesStore(
+        (state) => state.preferencesHydrated
+    );
     const registryPrefs = useRuntimeStore(
         (state) => state.hostCapabilities.registryPrefs
     );
@@ -77,6 +80,8 @@ export function useMyGroupsPageState() {
     const [orderSaving, setOrderSaving] = useState(false);
     const { openSections, toggleSection } = useMyGroupsSectionPreferences();
     const loadSequenceRef = useRef(0);
+    const currentUserIdRef = useRef(currentUserId);
+    currentUserIdRef.current = currentUserId;
     const autoJoinAttemptedUserIdsRef = useRef(new Set<string>());
     const orderRefreshSequenceRef = useRef(0);
     const sortManuallyChangedRef = useRef(false);
@@ -105,7 +110,10 @@ export function useMyGroupsPageState() {
                     userId: currentUserId,
                     force
                 });
-                if (loadSequenceRef.current !== sequence) {
+                if (
+                    loadSequenceRef.current !== sequence ||
+                    currentUserIdRef.current !== currentUserId
+                ) {
                     return;
                 }
                 setGroups(rows);
@@ -114,6 +122,7 @@ export function useMyGroupsPageState() {
                 const defaultGroupId =
                     'grp_44b87c7b-00a6-4ef1-9980-0eddf3c7f06d';
                 const shouldAutoJoin =
+                    preferencesHydrated &&
                     autoJoinGroupCertification &&
                     !rows.some(
                         (group) => groupIdForRow(group) === defaultGroupId
@@ -123,14 +132,23 @@ export function useMyGroupsPageState() {
                     autoJoinAttemptedUserIdsRef.current.add(currentUserId);
                     void groupProfileRepository
                         .joinGroup({ groupId: defaultGroupId })
-                        .then(() =>
-                            groupProfileRepository.getUserGroups({
+                        .then(() => {
+                            if (
+                                currentUserIdRef.current !== currentUserId ||
+                                loadSequenceRef.current !== sequence
+                            )
+                                return null;
+                            return groupProfileRepository.getUserGroups({
                                 userId: currentUserId,
                                 force: true
-                            })
-                        )
+                            });
+                        })
                         .then((refreshedRows) => {
-                            if (loadSequenceRef.current === sequence) {
+                            if (
+                                refreshedRows &&
+                                loadSequenceRef.current === sequence &&
+                                currentUserIdRef.current === currentUserId
+                            ) {
                                 setGroups(refreshedRows);
                             }
                         })
@@ -139,7 +157,10 @@ export function useMyGroupsPageState() {
                         });
                 }
             } catch (loadError) {
-                if (loadSequenceRef.current !== sequence) {
+                if (
+                    loadSequenceRef.current !== sequence ||
+                    currentUserIdRef.current !== currentUserId
+                ) {
                     return;
                 }
                 setError(
@@ -151,13 +172,16 @@ export function useMyGroupsPageState() {
                 setStatus('error');
             }
         },
-        [autoJoinGroupCertification, currentUserId, t]
+        [autoJoinGroupCertification, currentUserId, preferencesHydrated, t]
     );
 
     const groupsRevision = useMyGroupsRevisionStore((state) => state.revision);
 
     useEffect(() => {
         void load(groupsRevision > 0);
+        return () => {
+            loadSequenceRef.current += 1;
+        };
     }, [load, groupsRevision]);
 
     useEffect(() => {

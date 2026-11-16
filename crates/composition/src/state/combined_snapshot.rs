@@ -1,7 +1,7 @@
 use serde::Serialize;
 
 use vrcx_0_application::auth::AuthenticatedRuntimePhaseSnapshot;
-use vrcx_0_application_core::BackendRuntimeSnapshot;
+use vrcx_0_application_core::{BackendRuntimeSnapshot, RuntimeBackgroundJobSnapshot};
 use vrcx_0_application_realtime::FriendLocationTime;
 
 use super::{AuthenticatedSessionProjection, RuntimeHostState};
@@ -13,6 +13,7 @@ pub struct BackendRuntimeCombinedSnapshot {
     pub authenticated_runtime_phase: AuthenticatedRuntimePhaseSnapshot,
     pub authenticated_session: AuthenticatedSessionProjection,
     pub friend_location_times: Vec<FriendLocationTime>,
+    pub background_jobs: Vec<RuntimeBackgroundJobSnapshot>,
 }
 
 impl RuntimeHostState {
@@ -22,6 +23,7 @@ impl RuntimeHostState {
             authenticated_runtime_phase: self.authenticated_runtime.snapshot(),
             authenticated_session: self.authenticated_session_projection(),
             friend_location_times: self.runtime_context.instance_dwell.snapshot(),
+            background_jobs: self.runtime_context.background_jobs.snapshot(),
         }
     }
 }

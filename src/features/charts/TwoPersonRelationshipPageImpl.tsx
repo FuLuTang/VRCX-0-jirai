@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Location } from '@/components/Location';
 import { formatDateTime, timeToText } from '@/lib/dateTime';
+import { commands } from '@/platform/tauri/bindings';
 import feedRepository from '@/repositories/feedRepository';
 import { openWorldDialog } from '@/services/dialogService';
 import { parseLocation } from '@/shared/utils/location';
@@ -29,20 +30,30 @@ import { Switch } from '@/ui/shadcn/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/shadcn/tooltip';
 
 import { RelationshipUserPicker } from './components/RelationshipUserPicker';
+import {
+    observedJoinOrder,
+    observedPeakPlayerCount
+} from './relationship-recommendations/relationshipEvidence';
 import { buildRelationshipSessions } from './relationshipHistory';
 
-const THREE_MINUTES_MS = 3 * 60 * 1000;
-
-function buildFriendOptions(friendsById) {
-    return Object.values(friendsById || {})
-        .map((friend) => ({
-            id: String(friend?.id || friend?.userId || '').trim(),
+function buildFriendOptions(friendsById, trackedEntries) {
+    const options = new Map();
+    for (const friend of [
+        ...Object.values(friendsById || {}),
+        ...trackedEntries
+    ]) {
+        const id = String(friend?.id || friend?.userId || '').trim();
+        if (!id || options.has(id)) continue;
+        options.set(id, {
+            id,
             label:
                 String(friend?.displayName || friend?.username || '').trim() ||
-                String(friend?.id || friend?.userId || '').trim()
-        }))
-        .filter((friend) => friend.id)
-        .sort((left, right) => left.label.localeCompare(right.label));
+                id
+        });
+    }
+    return [...options.values()].sort((left, right) =>
+        left.label.localeCompare(right.label)
+    );
 }
 
 function buildSessions(rows, userId, label) {
@@ -146,16 +157,10 @@ function groupOverlapsByLocation(overlapRows, selfSessions) {
 
     const results = [];
     for (const item of grouped.values()) {
-        const startDiffMs = Math.abs(
-            item.firstLeftJoinMs - item.firstRightJoinMs
+        const initiator = observedJoinOrder(
+            item.firstLeftJoinMs,
+            item.firstRightJoinMs
         );
-        let initiator = 'mutual';
-        if (startDiffMs > THREE_MINUTES_MS) {
-            initiator =
-                item.firstLeftJoinMs > item.firstRightJoinMs
-                    ? 'leftPlayer'
-                    : 'rightPlayer';
-        }
 
         const selfPresent = isSelfPresent(
             selfSessionsByLocation,
@@ -196,13 +201,17 @@ export function TwoPersonRelationshipPage() {
     const { t } = useTranslation();
     const currentUserId = useRuntimeStore((state) => state.auth.currentUserId);
     const friendsById = useFriendRosterStore((state) => state.friendsById);
-    const friendOptions = useMemo(
-        () => buildFriendOptions(friendsById),
-        [friendsById]
-    );
     const trackedEntries = useTrackedNonfriendsStore((state) => state.entries);
     const trackedAccountId = useTrackedNonfriendsStore(
         (state) => state.currentUserId
+    );
+    const friendOptions = useMemo(
+        () =>
+            buildFriendOptions(
+                friendsById,
+                trackedAccountId === currentUserId ? trackedEntries : []
+            ),
+        [friendsById, trackedEntries, trackedAccountId, currentUserId]
     );
     const trackedLoadStatus = useTrackedNonfriendsStore(
         (state) => state.loadStatus
@@ -230,12 +239,12 @@ export function TwoPersonRelationshipPage() {
 
     const [leftUserId, setLeftUserId] = useState('');
     const [rightUserId, setRightUserId] = useState('');
-    const [defaultsInitialized, setDefaultsInitialized] = useState(false);
     const [status, setStatus] = useState('idle');
     const [detail, setDetail] = useState('');
     const [overlapRows, setOverlapRows] = useState([]);
     const [selfSessions, setSelfSessions] = useState([]);
     const [showSelfPresence, setShowSelfPresence] = useState(false);
+    const [peakCounts, setPeakCounts] = useState(new Map());
 
     useEffect(() => {
         if (
@@ -252,19 +261,49 @@ export function TwoPersonRelationshipPage() {
     ]);
 
     useEffect(() => {
-        if (defaultsInitialized || !friendOptions.length) return;
-        if (!leftUserId) {
-            setLeftUserId(friendOptions[0].id);
-        }
-        if (!rightUserId) {
-            const selectedLeftId = leftUserId || friendOptions[0].id;
-            const fallbackRight = friendOptions.find(
-                (friend) => friend.id !== selectedLeftId
+        let active = true;
+        setPeakCounts(new Map());
+        const locations = [...new Set(overlapRows.map((row) => row.location))];
+        void (async () => {
+            const counts = new Map();
+            for (const location of locations) {
+                if (
+                    !active ||
+                    useRuntimeStore.getState().auth.currentUserId !==
+                        currentUserId
+                )
+                    return;
+                const result = await commands.appGameLogQuery({
+                    kind: 'playersFromInstanceRows',
+                    params: { location }
+                });
+                if (result.kind === 'playersFromInstanceRows')
+                    counts.set(location, observedPeakPlayerCount(result.value));
+            }
+            if (
+                active &&
+                useRuntimeStore.getState().auth.currentUserId === currentUserId
+            )
+                setPeakCounts(counts);
+        })().catch(() => {
+            /* Missing log evidence stays unknown. */
+        });
+        return () => {
+            active = false;
+        };
+    }, [currentUserId, overlapRows]);
+
+    useEffect(() => {
+        const nextLeft =
+            leftUserId ||
+            friendOptions.find((friend) => friend.id !== rightUserId)?.id ||
+            '';
+        if (!leftUserId) setLeftUserId(nextLeft);
+        if (!rightUserId)
+            setRightUserId(
+                friendOptions.find((friend) => friend.id !== nextLeft)?.id || ''
             );
-            if (fallbackRight) setRightUserId(fallbackRight.id);
-        }
-        setDefaultsInitialized(true);
-    }, [defaultsInitialized, friendOptions, leftUserId, rightUserId]);
+    }, [friendOptions, leftUserId, rightUserId]);
 
     useEffect(() => {
         let active = true;
@@ -617,6 +656,23 @@ export function TwoPersonRelationshipPage() {
                                     <div className="min-w-0 flex-1">
                                         <Location location={item.location} />
                                         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                                            <span className="text-muted-foreground text-xs">
+                                                {t(
+                                                    'jirai.relationship_evidence.observed_peak',
+                                                    {
+                                                        defaultValue:
+                                                            '本地记录峰值人数'
+                                                    }
+                                                )}
+                                                :{' '}
+                                                {peakCounts.get(
+                                                    item.location
+                                                ) ??
+                                                    t(
+                                                        'jirai.relationship_evidence.unknown',
+                                                        { defaultValue: '未知' }
+                                                    )}
+                                            </span>
                                             {item.instanceCreatorId ? (
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>
@@ -706,8 +762,21 @@ export function TwoPersonRelationshipPage() {
                                                 }
                                             >
                                                 {t(
-                                                    'view.charts.two_person_relationship.initiator_' +
-                                                        item.initiator
+                                                    'jirai.relationship_evidence.' +
+                                                        (item.initiator ===
+                                                        'unknown'
+                                                            ? 'unknown_order'
+                                                            : item.initiator),
+                                                    {
+                                                        defaultValue:
+                                                            item.initiator ===
+                                                            'unknown'
+                                                                ? '进入先后未知（近时记录不等于共同进入）'
+                                                                : item.initiator ===
+                                                                    'leftPlayer'
+                                                                  ? '左侧玩家较晚出现于记录'
+                                                                  : '右侧玩家较晚出现于记录'
+                                                    }
                                                 )}
                                             </span>
                                         </div>

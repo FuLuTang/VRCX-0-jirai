@@ -4,10 +4,15 @@ import {
     ExternalLinkIcon,
     HistoryIcon,
     PencilIcon,
-    RefreshCwIcon,
     SparklesIcon
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+    useEffect,
+    useMemo,
+    useState,
+    type PointerEvent as ReactPointerEvent,
+    type ReactNode
+} from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { formatCredits } from '@/components/economy/economyDisplay';
@@ -33,7 +38,7 @@ import type { EntityRecord } from '@/domain/entities/shared';
 import type { UserProfileEntity } from '@/domain/entities/user';
 import { formatDateTime } from '@/lib/dateTime';
 import { cn } from '@/lib/utils';
-import type { FeedRowOutput } from '@/platform/tauri/bindings';
+import { commands, type FeedRowOutput } from '@/platform/tauri/bindings';
 import feedRepository from '@/repositories/feedRepository';
 import {
     convertFileUrlToImageUrl,
@@ -42,7 +47,7 @@ import {
 import type { UserDialogPreviousInstance } from '@/services/userDialogSessionCacheService';
 import type { UserDialogRelationshipEvent } from '@/services/userDialogSessionCacheService';
 import { parseLocation } from '@/shared/utils/location';
-import { buildLineDiff, replaceBioSymbols } from '@/shared/utils/string';
+import { replaceBioSymbols } from '@/shared/utils/string';
 import { useAssistantChatStore } from '@/state/assistantChatStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
 import { HintTooltip } from '@/ui/hint-tooltip';
@@ -65,9 +70,11 @@ import { Spinner } from '@/ui/shadcn/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/shadcn/tooltip';
 
 import { EntityDialogTabContent } from '../../EntityDialogScaffold';
+import { buildInlineBioDiff, groupBioHistoryRows } from '../bioHistory';
 import { formatStatsDuration } from '../userDialogRows';
 import { EntityList } from '../UserDialogViewParts';
-import { buildStatusDistribution } from './statusDistribution';
+
+export { UserDialogStatusDistribution as UserDialogStatusDistributionPanel } from './UserDialogStatusDistribution';
 
 type OpenGroupDialog =
     (typeof import('@/services/dialogService'))['openGroupDialog'];
@@ -127,6 +134,7 @@ export type UserDialogNotesSectionProps = {
 export type UserDialogBioSectionProps = {
     profile: UserProfileEntity;
     bioLinks: string[];
+    isCurrentUser: boolean;
     onEditBio?: () => void;
 };
 
@@ -646,30 +654,49 @@ function UserDialogProfileLinksPanel({
 export function UserDialogBioPanel({
     profile,
     bioLinks,
+    isCurrentUser,
     onEditBio
 }: UserDialogBioSectionProps) {
     const { i18n, t } = useTranslation();
-    const editLabel = t('dialog.user.actions.edit_profile');
+    const editLabel = t('dialog.user.actions.edit_profile_details');
     const currentUserId = useRuntimeStore((state) => state.auth.currentUserId);
-    const [showHistory, setShowHistory] = useState(false);
+    const [showHistory, setShowHistory] = useState(true);
     const [historyRows, setHistoryRows] = useState<FeedRowOutput[]>([]);
     const [selectedHistoryIndex, setSelectedHistoryIndex] = useState(0);
     const [historyLoading, setHistoryLoading] = useState(false);
+    const [historyError, setHistoryError] = useState(false);
+    const [showHistoryTooltip, setShowHistoryTooltip] = useState(false);
 
     useEffect(() => {
-        if (!showHistory || !currentUserId || !profile.id) {
+        if (!showHistory) {
+            return;
+        }
+
+        if (!currentUserId || !profile.id) {
+            setHistoryRows([]);
+            setSelectedHistoryIndex(0);
+            setHistoryLoading(false);
             return;
         }
 
         let active = true;
         setHistoryLoading(true);
-        feedRepository
-            .queryFeed({
-                userId: currentUserId,
-                scopedUserIds: [profile.id],
-                filters: ['Bio'],
-                maxEntries: 50
-            })
+        setHistoryError(false);
+        setHistoryRows([]);
+        setSelectedHistoryIndex(0);
+        const historyQuery = isCurrentUser
+            ? currentUserId === profile.id
+                ? commands.appSelfBioHistoryQuery({
+                      expectedOwnerUserId: currentUserId
+                  })
+                : Promise.resolve([])
+            : feedRepository.queryFeed({
+                  userId: currentUserId,
+                  scopedUserIds: [profile.id],
+                  filters: ['Bio'],
+                  maxEntries: 50
+              });
+        historyQuery
             .then((rows) => {
                 if (!active) {
                     return;
@@ -689,6 +716,7 @@ export function UserDialogBioPanel({
             .catch(() => {
                 if (active) {
                     setHistoryRows([]);
+                    setHistoryError(true);
                 }
             })
             .finally(() => {
@@ -700,18 +728,55 @@ export function UserDialogBioPanel({
         return () => {
             active = false;
         };
-    }, [currentUserId, profile.id, showHistory]);
+    }, [currentUserId, isCurrentUser, profile.id, showHistory]);
 
-    const selectedHistory = historyRows[selectedHistoryIndex] || null;
+    const historyGroups = useMemo(
+        () => groupBioHistoryRows(historyRows),
+        [historyRows]
+    );
+    const selectedHistory = historyGroups[selectedHistoryIndex] || null;
     const selectedBioDiff = useMemo(
         () =>
-            buildLineDiff(
-                replaceBioSymbols(selectedHistory?.previousBio || ''),
-                replaceBioSymbols(selectedHistory?.bio || '')
+            buildInlineBioDiff(
+                selectedHistory?.previousBio,
+                selectedHistory?.bio
             ),
         [selectedHistory]
     );
+    const selectedHistoryDateLabel = selectedHistory
+        ? `${formatLocalizedActivityDate(
+              selectedHistory.earliest.created_at,
+              i18n.resolvedLanguage || i18n.language
+          )}${
+              selectedHistory.count > 1
+                  ? ` – ${formatLocalizedActivityDate(
+                        selectedHistory.latest.created_at,
+                        i18n.resolvedLanguage || i18n.language
+                    )}`
+                  : ''
+          }`
+        : '';
+    const oldestHistoryDate = historyGroups.at(-1)?.earliest.created_at;
+    const newestHistoryDate = historyGroups[0]?.latest.created_at;
+    const sliderValue = historyGroups.length - 1 - selectedHistoryIndex;
+    const sliderPercent =
+        historyGroups.length > 1
+            ? (sliderValue / (historyGroups.length - 1)) * 100
+            : 0;
 
+    function updateHistoryTooltipFromPointer(
+        event: ReactPointerEvent<HTMLInputElement>
+    ) {
+        const bounds = event.currentTarget.getBoundingClientRect();
+        const thumbRadius = 8;
+        const thumbCenter =
+            thumbRadius +
+            (sliderPercent / 100) * Math.max(0, bounds.width - thumbRadius * 2);
+        setShowHistoryTooltip(
+            Math.abs(event.clientX - bounds.left - thumbCenter) <=
+                thumbRadius + 5
+        );
+    }
     return (
         <TranslatableText
             source={replaceBioSymbols(profile.bio)}
@@ -761,52 +826,96 @@ export function UserDialogBioPanel({
                     <div className="min-w-0">
                         {showHistory ? (
                             <div className="flex min-w-0 flex-col gap-2">
-                                {historyRows.length > 1 ? (
-                                    <select
-                                        className="border-input bg-background h-8 rounded-md border px-2 text-xs"
-                                        value={selectedHistoryIndex}
-                                        onChange={(event) =>
-                                            setSelectedHistoryIndex(
-                                                Number(event.target.value)
-                                            )
-                                        }
-                                    >
-                                        {historyRows.map((row, index) => (
-                                            <option
-                                                key={row.rowId || index}
-                                                value={index}
-                                            >
-                                                {formatLocalizedActivityDate(
-                                                    row.created_at,
-                                                    i18n.resolvedLanguage ||
-                                                        i18n.language
+                                {historyGroups.length > 1 ? (
+                                    <div className="flex min-w-0 items-center gap-2">
+                                        <span className="text-muted-foreground max-w-[42%] min-w-0 shrink truncate text-xs">
+                                            {formatLocalizedActivityDate(
+                                                oldestHistoryDate,
+                                                i18n.resolvedLanguage ||
+                                                    i18n.language
+                                            )}
+                                        </span>
+                                        <div className="relative min-w-16 flex-1 py-3">
+                                            {showHistoryTooltip ? (
+                                                <span
+                                                    className="bg-popover text-popover-foreground border-border pointer-events-none absolute top-0 z-10 -translate-x-1/2 -translate-y-full rounded-md border px-2 py-1 text-xs whitespace-nowrap shadow-md"
+                                                    style={{
+                                                        left: `${sliderPercent}%`
+                                                    }}
+                                                >
+                                                    {selectedHistoryDateLabel}
+                                                </span>
+                                            ) : null}
+                                            <input
+                                                type="range"
+                                                min={0}
+                                                max={historyGroups.length - 1}
+                                                value={sliderValue}
+                                                aria-label={t(
+                                                    'dialog.user.info.bio_history'
                                                 )}
-                                            </option>
-                                        ))}
-                                    </select>
+                                                className="accent-primary min-w-16 flex-1"
+                                                onPointerMove={
+                                                    updateHistoryTooltipFromPointer
+                                                }
+                                                onPointerDown={() =>
+                                                    setShowHistoryTooltip(true)
+                                                }
+                                                onPointerUp={
+                                                    updateHistoryTooltipFromPointer
+                                                }
+                                                onPointerLeave={() =>
+                                                    setShowHistoryTooltip(false)
+                                                }
+                                                onFocus={() =>
+                                                    setShowHistoryTooltip(true)
+                                                }
+                                                onBlur={() =>
+                                                    setShowHistoryTooltip(false)
+                                                }
+                                                onChange={(event) =>
+                                                    setSelectedHistoryIndex(
+                                                        historyGroups.length -
+                                                            1 -
+                                                            Number(
+                                                                event.target
+                                                                    .value
+                                                            )
+                                                    )
+                                                }
+                                            />
+                                        </div>
+                                        <span className="text-muted-foreground max-w-[42%] min-w-0 shrink truncate text-xs">
+                                            {formatLocalizedActivityDate(
+                                                newestHistoryDate,
+                                                i18n.resolvedLanguage ||
+                                                    i18n.language
+                                            )}
+                                        </span>
+                                    </div>
                                 ) : null}
                                 {selectedHistory ? (
-                                    <pre className="bg-muted/40 h-52 overflow-auto rounded-md p-3 text-xs whitespace-pre-wrap">
-                                        {selectedBioDiff.map((line, index) => (
-                                            <div
-                                                key={`${line.type}:${index}`}
-                                                className={cn(
-                                                    line.type === 'add'
-                                                        ? 'text-emerald-600'
-                                                        : line.type === 'remove'
-                                                          ? 'text-rose-600'
-                                                          : ''
-                                                )}
-                                            >
-                                                {line.type === 'add'
-                                                    ? '+ '
-                                                    : line.type === 'remove'
-                                                      ? '- '
-                                                      : '  '}
-                                                {line.text}
-                                            </div>
-                                        ))}
-                                    </pre>
+                                    <TextScroll className="h-52 min-w-0">
+                                        <pre className="m-0 font-sans text-xs leading-5 whitespace-pre-wrap">
+                                            {selectedBioDiff.map(
+                                                (segment, index) => (
+                                                    <span
+                                                        key={`${segment.type}:${index}`}
+                                                        className={cn(
+                                                            segment.type ===
+                                                                'add' &&
+                                                                'rounded-sm bg-emerald-500/15 px-0.5 text-emerald-700 dark:text-emerald-400',
+                                                            segment.type ===
+                                                                'remove' &&
+                                                                'rounded-sm bg-rose-500/15 px-0.5 text-rose-700 line-through dark:text-rose-400'
+                                                        )}
+                                                    >
+                                                        {segment.text}
+                                                    </span>
+                                                )
+                                            )}
+                                        </pre>
+                                    </TextScroll>
                                 ) : (
                                     <TextScroll className="h-52 min-w-0">
                                         {text}
@@ -817,6 +926,16 @@ export function UserDialogBioPanel({
                                         <Spinner className="size-3" />
                                         {t('browse_history.loading')}
                                     </div>
+                                ) : null}
+                                {historyError ? (
+                                    <p
+                                        role="alert"
+                                        className="text-destructive text-xs"
+                                    >
+                                        {t(
+                                            'dialog.user.info.bio_history_error'
+                                        )}
+                                    </p>
                                 ) : null}
                             </div>
                         ) : (
@@ -856,113 +975,6 @@ export function UserDialogBioPanel({
                 </InfoPanel>
             )}
         </TranslatableText>
-    );
-}
-
-export function UserDialogStatusDistributionPanel({
-    profile
-}: {
-    profile: UserProfileEntity;
-}) {
-    const { t } = useTranslation();
-    const currentUserId = useRuntimeStore((state) => state.auth.currentUserId);
-    const [rows, setRows] = useState<FeedRowOutput[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [loaded, setLoaded] = useState(false);
-    const requestId = useRef(0);
-
-    const load = () => {
-        if (!currentUserId || !profile.id) {
-            return;
-        }
-        const activeRequestId = requestId.current + 1;
-        requestId.current = activeRequestId;
-        setLoading(true);
-        feedRepository
-            .queryFeedUserHistory({
-                userId: currentUserId,
-                targetUserId: profile.id,
-                types: ['Status', 'Online', 'Offline']
-            })
-            .then((nextRows) => {
-                if (requestId.current === activeRequestId) {
-                    setRows(nextRows);
-                }
-            })
-            .catch(() => {
-                if (requestId.current === activeRequestId) {
-                    setRows([]);
-                }
-            })
-            .finally(() => {
-                if (requestId.current === activeRequestId) {
-                    setLoading(false);
-                    setLoaded(true);
-                }
-            });
-    };
-
-    useEffect(() => {
-        requestId.current += 1;
-        setRows([]);
-        setLoaded(false);
-        setLoading(false);
-    }, [currentUserId, profile.id]);
-
-    const targetUserId = profile.id || '';
-    const distribution = useMemo(
-        () => buildStatusDistribution(rows, targetUserId),
-        [rows, targetUserId]
-    );
-
-    return (
-        <InfoPanel
-            title={t('dialog.user.info.status_distribution')}
-            action={
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    disabled={!currentUserId || !profile.id || loading}
-                    aria-label={t(
-                        'dialog.user.info.refresh_status_distribution'
-                    )}
-                    title={t('dialog.user.info.refresh_status_distribution')}
-                    onClick={load}
-                >
-                    {loading ? (
-                        <Spinner className="size-3" />
-                    ) : (
-                        <RefreshCwIcon />
-                    )}
-                </Button>
-            }
-        >
-            {!loaded && !loading ? (
-                <p className="text-muted-foreground text-xs">
-                    {t('dialog.user.info.status_distribution_hint')}
-                </p>
-            ) : null}
-            {loaded && !distribution.length ? (
-                <p className="text-muted-foreground text-xs">
-                    {t('dialog.user.info.no_status_distribution')}
-                </p>
-            ) : null}
-            {distribution.length ? (
-                <InfoStatGrid className="sm:grid-cols-1">
-                    {distribution.map((entry) => (
-                        <InfoStat
-                            key={entry.status}
-                            label={t(
-                                `dialog.user.info.status.${entry.status.replace(' ', '_')}`
-                            )}
-                            value={formatStatsDuration(entry.seconds)}
-                            subtle
-                        />
-                    ))}
-                </InfoStatGrid>
-            ) : null}
-        </InfoPanel>
     );
 }
 
@@ -1222,6 +1234,7 @@ export function UserDialogInfoTab({
                     <UserDialogBioPanel
                         profile={profile}
                         bioLinks={bioLinks}
+                        isCurrentUser={bioSection.isCurrentUser}
                         onEditBio={onEditBio}
                     />
                 </div>
@@ -1241,7 +1254,6 @@ export function UserDialogInfoTab({
                             profileLinksSection.visibleHomeLocationTarget
                         }
                     />
-                    <UserDialogStatusDistributionPanel profile={profile} />
                     <UserDialogActivitySummaryPanel
                         friendedAt={activitySummarySection.friendedAt}
                         relationshipHistory={

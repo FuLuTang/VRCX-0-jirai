@@ -334,7 +334,7 @@ describe('preferenceSnapshotLoader', () => {
         );
     });
 
-    it('loads the developer group preference enabled by default and respects opt-out', async () => {
+    it('defaults developer-group auto-join on and preserves explicit opt-out', async () => {
         mocks.getBool.mockImplementation((key: string, fallback = false) =>
             Promise.resolve(
                 key === 'VRCX_autoJoinGroupCertification'

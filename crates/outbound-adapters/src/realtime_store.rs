@@ -49,6 +49,15 @@ impl GameLogLookup for PersistenceRealtimeStore {
             _ => 0,
         })
     }
+    fn friend_location_history(
+        &self,
+        owner: &OwnerId,
+        locations: &std::collections::HashMap<String, String>,
+    ) -> crate::Result<std::collections::HashMap<String, (String, i64)>> {
+        Ok(vrcx_0_persistence::realtime::friend_location_history(
+            &self.db, owner, locations,
+        )?)
+    }
     fn lookup_game_log_world_name(&self, world_id: &str) -> crate::Result<String> {
         Ok(vrcx_0_persistence::realtime::lookup_game_log_world_name(
             &self.db, world_id,

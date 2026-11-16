@@ -97,6 +97,7 @@ fn response(data: &str) -> VrchatResponse {
     VrchatResponse {
         status: 200,
         data: data.into(),
+        retry_after: None,
     }
 }
 
@@ -187,12 +188,14 @@ impl FavoriteRemote for TestFavoriteRemote {
                 return Ok(VrchatResponse {
                     status: 404,
                     data: r#"{"error":{"message":"not found"}}"#.into(),
+                    retry_after: None,
                 });
             }
             if world_id.contains("unreachable") {
                 return Ok(VrchatResponse {
                     status: 500,
                     data: r#"{"error":{"message":"boom"}}"#.into(),
+                    retry_after: None,
                 });
             }
             Ok(response(&format!(r#"{{"id":"{world_id}"}}"#)))

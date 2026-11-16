@@ -45,6 +45,7 @@ impl CurrentUserMutationPort for FakePort {
             Ok(VrchatResponse {
                 status: self.response_status,
                 data: "{}".to_string(),
+                retry_after: None,
             })
         })
     }

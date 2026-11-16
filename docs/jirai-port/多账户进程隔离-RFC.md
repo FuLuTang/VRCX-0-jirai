@@ -19,21 +19,21 @@
 
 ## 2. 现有代码证据
 
-| 事实 | 证据与影响 |
-| --- | --- |
-| runtime 是单一 profile 组装 | `/home/fulutang/Documents/Github/VRCX-0-jirai/crates/composition/src/state/runtime_host_state.rs:99-132` 的 `RuntimeHostState` 同时持有单个 storage、db、web、realtime、authenticated runtime 和 profile lock。单进程 session factory 将牵动全部单例上下文。 |
-| HeadlessData 可作为 worker 基础 | 同文件 `:135-143` 显示 HeadlessData 禁止 encrypted writes；后续实现必须把它作为登录/密钥持久化的显式产品边界，而不能假设 manager 可代传凭据。 |
-| data-dir 已提供 profile 隔离基础 | `/home/fulutang/Documents/Github/VRCX-0-jirai/crates/platform/src/app_paths.rs:99-142` 支持 `--data-dir` 并验证目录；每 worker 用独立目录即可隔离 DB/config/cache/lock。 |
-| 多完整 GUI 在 Windows 不可作为方案 | `/home/fulutang/Documents/Github/VRCX-0-jirai/src-tauri/src/single_instance_gate.rs:14,77-102` 的 mutex 固定为 `Local\\VRCX-0.App.SingleInstanceGuard`；`/home/fulutang/Documents/Github/VRCX-0-jirai/src-tauri/src/app.rs:177-218` 在解析 data-dir 前就执行 guard，并注册 Tauri single-instance。 |
-| 旧 V4 是反例而非移植源 | `/home/fulutang/Documents/Github/VRCX-jirai/src/services/accountHub.js`、`/home/fulutang/Documents/Github/VRCX-jirai/src/services/accountSession.js`、`/home/fulutang/Documents/Github/VRCX-jirai/src/services/aggregatedView.js` 和 `/home/fulutang/Documents/Github/VRCX-jirai/docs/MULTI_ACCOUNT_V4_DETAIL_DESIGN.md` 均以同进程全局状态/DB prefix 交换为核心，与本 RFC 冲突。 |
+| 事实                               | 证据与影响                                                                                                                                                                                                                                                                                                                                                                        |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| runtime 是单一 profile 组装        | `/home/fulutang/Documents/Github/VRCX-0-jirai/crates/composition/src/state/runtime_host_state.rs:99-132` 的 `RuntimeHostState` 同时持有单个 storage、db、web、realtime、authenticated runtime 和 profile lock。单进程 session factory 将牵动全部单例上下文。                                                                                                                      |
+| HeadlessData 可作为 worker 基础    | 同文件 `:135-143` 显示 HeadlessData 禁止 encrypted writes；后续实现必须把它作为登录/密钥持久化的显式产品边界，而不能假设 manager 可代传凭据。                                                                                                                                                                                                                                     |
+| data-dir 已提供 profile 隔离基础   | `/home/fulutang/Documents/Github/VRCX-0-jirai/crates/platform/src/app_paths.rs:99-142` 支持 `--data-dir` 并验证目录；每 worker 用独立目录即可隔离 DB/config/cache/lock。                                                                                                                                                                                                          |
+| 多完整 GUI 在 Windows 不可作为方案 | `/home/fulutang/Documents/Github/VRCX-0-jirai/src-tauri/src/single_instance_gate.rs:14,77-102` 的 mutex 固定为 `Local\\VRCX-0.App.SingleInstanceGuard`；`/home/fulutang/Documents/Github/VRCX-0-jirai/src-tauri/src/app.rs:177-218` 在解析 data-dir 前就执行 guard，并注册 Tauri single-instance。                                                                                |
+| 旧 V4 是反例而非移植源             | `/home/fulutang/Documents/Github/VRCX-jirai/src/services/accountHub.js`、`/home/fulutang/Documents/Github/VRCX-jirai/src/services/accountSession.js`、`/home/fulutang/Documents/Github/VRCX-jirai/src/services/aggregatedView.js` 和 `/home/fulutang/Documents/Github/VRCX-jirai/docs/MULTI_ACCOUNT_V4_DETAIL_DESIGN.md` 均以同进程全局状态/DB prefix 交换为核心，与本 RFC 冲突。 |
 
 ## 3. 路线比较
 
-| 路线 | 结论 | 原因 |
-| --- | --- | --- |
-| A：单进程 Rust session factory | 拒绝 | 必须把 auth scope、WebClient、DB、realtime、后台任务、投影和崩溃域全部从单例化改为多实例；上游冲突和组合测试面最大。 |
-| B：多个完整 GUI + `--data-dir` | 仅手工调试可用 | data-dir 能隔离 profile，但 Windows 现有 mutex 会阻断；即使绕过也会复制 tray、通知、更新、deep link、overlay 和生命周期。 |
-| C：manager + HeadlessData workers + IPC | 推荐 | worker 内部继续遵守上游单会话语义；各账号隔离；manager 只聚合裁剪投影，并独占 OS 集成。 |
+| 路线                                    | 结论           | 原因                                                                                                                      |
+| --------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| A：单进程 Rust session factory          | 拒绝           | 必须把 auth scope、WebClient、DB、realtime、后台任务、投影和崩溃域全部从单例化改为多实例；上游冲突和组合测试面最大。      |
+| B：多个完整 GUI + `--data-dir`          | 仅手工调试可用 | data-dir 能隔离 profile，但 Windows 现有 mutex 会阻断；即使绕过也会复制 tray、通知、更新、deep link、overlay 和生命周期。 |
+| C：manager + HeadlessData workers + IPC | 推荐           | worker 内部继续遵守上游单会话语义；各账号隔离；manager 只聚合裁剪投影，并独占 OS 集成。                                   |
 
 `venv` 不适用：它只隔离 Python 解释器/依赖，不能隔离本 Rust/Tauri 二进制的 profile、SQLite、cookie、mutex、file lock、WebSocket、tray/通知或进程崩溃域。
 
@@ -103,12 +103,12 @@ manager 不打开 worker SQLite，也不依赖 worker 内部 schema。它消费 
 
 ## 7. MVP 验收矩阵与非目标
 
-| 用例 | 必须观察到 |
-| --- | --- |
-| 两号登录 | 两个不同 PID/opaque id/data-dir，独立 DB/config；manager 未读取凭据。 |
-| 独立 WebSocket | 两路 Health/realtime 和带 workerId 的 delta；停止 A 不影响 B。 |
-| 退出/重启 | 无 orphan、不双启；单 worker crash 独立退避并从 snapshot 恢复。 |
-| OS 去重 | 只有 manager 有窗口/tray/通知；worker 无原生 OS 集成。 |
-| IPC 负测 | 跨用户/随机 client、旧 generation、超大或未知消息被拒绝且无秘密泄露。 |
+| 用例           | 必须观察到                                                            |
+| -------------- | --------------------------------------------------------------------- |
+| 两号登录       | 两个不同 PID/opaque id/data-dir，独立 DB/config；manager 未读取凭据。 |
+| 独立 WebSocket | 两路 Health/realtime 和带 workerId 的 delta；停止 A 不影响 B。        |
+| 退出/重启      | 无 orphan、不双启；单 worker crash 独立退避并从 snapshot 恢复。       |
+| OS 去重        | 只有 manager 有窗口/tray/通知；worker 无原生 OS 集成。                |
+| IPC 负测       | 跨用户/随机 client、旧 generation、超大或未知消息被拒绝且无秘密泄露。 |
 
 在上述 MVP 验收前，不做：全量页面聚合、跨账号可变操作、首次登录/secret migration 自动化、自动升级/跨账号迁移、V4 热切换移植或多个完整 GUI。

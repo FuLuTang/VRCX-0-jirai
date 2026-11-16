@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { CommitSlider } from '@/components/mutual-friends/CommitSlider';
 import { formatDateFilter } from '@/lib/dateTime';
 import { MUTUAL_GRAPH_MIN_DEGREE_LIMITS } from '@/lib/mutual-friends/mutualFriendsFilters';
+import { buildMutualFriendsGraphTheme } from '@/lib/mutual-friends/mutualFriendsPalette';
 import type {
     MutualFriendCommunity,
     MutualFriendsCoverage,
@@ -19,6 +20,7 @@ export function MutualFriendsLegend({
     crossCommunityOnly,
     focusedCommunity,
     isolatedCounts,
+    isDarkMode,
     minDegree,
     onMinDegreeChange,
     onToggleCrossCommunityOnly,
@@ -30,6 +32,7 @@ export function MutualFriendsLegend({
     crossCommunityOnly: boolean;
     focusedCommunity: number | null;
     isolatedCounts: MutualFriendsIsolatedCounts;
+    isDarkMode: boolean;
     minDegree: number;
     onMinDegreeChange: (value: number) => void;
     onToggleCrossCommunityOnly: () => void;
@@ -37,6 +40,7 @@ export function MutualFriendsLegend({
     unknownCount: number;
 }) {
     const { t } = useTranslation();
+    const graphTheme = buildMutualFriendsGraphTheme(isDarkMode);
     const namedCommunities = communities.filter(
         (community) => community.isNamed
     );
@@ -45,7 +49,7 @@ export function MutualFriendsLegend({
     ).length;
 
     return (
-        <MutualFriendsSurface className="animate-in fade-in-0 slide-in-from-bottom-2 pointer-events-auto absolute bottom-3 left-3 z-10 w-64 p-3 duration-200 ease-out">
+        <MutualFriendsSurface className="animate-in fade-in-0 slide-in-from-bottom-2 pointer-events-auto absolute bottom-3 left-3 z-10 max-h-[calc(100dvh-1.5rem)] w-64 overflow-y-auto overscroll-contain p-3 duration-200 ease-out">
             <div className="flex items-baseline justify-between">
                 <span className="text-foreground text-xs font-medium">
                     {t('view.charts.mutual_friend.legend.circles')}
@@ -117,18 +121,6 @@ export function MutualFriendsLegend({
                         )}
                     </li>
                 ) : null}
-                <li
-                    className="flex items-center gap-2"
-                    aria-label="Manual relationship edge"
-                >
-                    <span
-                        className="flex w-4 shrink-0 items-center justify-center"
-                        aria-hidden="true"
-                    >
-                        <span className="h-0.5 w-3.5 rounded-full bg-green-600 dark:bg-green-400" />
-                    </span>
-                    <span>Manual relationship</span>
-                </li>
                 <li>
                     <Tooltip>
                         <TooltipTrigger
@@ -146,7 +138,13 @@ export function MutualFriendsLegend({
                                     )}
                                 >
                                     <span className="flex w-4 shrink-0 items-center justify-center">
-                                        <span className="bg-muted-foreground/80 h-px w-3.5" />
+                                        <span
+                                            className="h-px w-3.5"
+                                            style={{
+                                                backgroundColor:
+                                                    graphTheme.edgeCrossColor
+                                            }}
+                                        />
                                     </span>
                                     <span className="min-w-0 flex-1">
                                         {t(
@@ -162,6 +160,55 @@ export function MutualFriendsLegend({
                             )}
                         </TooltipContent>
                     </Tooltip>
+                </li>
+            </ul>
+
+            <div className="bg-border my-2.5 h-px" />
+
+            <ul className="text-muted-foreground grid grid-cols-2 gap-x-2 gap-y-1 text-xs">
+                <li
+                    className="flex min-w-0 items-center gap-1.5"
+                    title={t('view.charts.mutual_friend.legend.edge_current')}
+                >
+                    <span
+                        className="h-0.5 w-4 shrink-0 rounded-full"
+                        style={{ backgroundColor: graphTheme.edgeColor }}
+                    />
+                    <span className="truncate">
+                        {t('view.charts.mutual_friend.legend.edge_label_api')}
+                    </span>
+                </li>
+                <li
+                    className="flex min-w-0 items-center gap-1.5"
+                    title={t('view.charts.mutual_friend.legend.edge_manual')}
+                >
+                    <span
+                        className="h-0.5 w-4 shrink-0 rounded-full"
+                        style={{
+                            backgroundColor: graphTheme.edgeManualColor
+                        }}
+                    />
+                    <span className="truncate">
+                        {t(
+                            'view.charts.mutual_friend.legend.edge_label_manual'
+                        )}
+                    </span>
+                </li>
+                <li
+                    className="flex min-w-0 items-center gap-1.5"
+                    title={t(
+                        'view.charts.mutual_friend.legend.edge_historical'
+                    )}
+                >
+                    <span
+                        className="h-0.5 w-4 shrink-0 rounded-full"
+                        style={{
+                            backgroundColor: graphTheme.edgeHistoricalColor
+                        }}
+                    />
+                    <span className="truncate">
+                        {t('view.charts.mutual_friend.legend.edge_label_old')}
+                    </span>
                 </li>
             </ul>
 

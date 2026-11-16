@@ -1,5 +1,4 @@
 import type { FriendRecord } from '@/domain/friends/types';
-import type { ManualRelation } from '@/repositories/manualRelationsRepository';
 
 import {
     isValidMutualFriendId,
@@ -8,8 +7,10 @@ import {
 import type {
     MutualFriendGraph,
     MutualFriendLink,
+    MutualFriendManualLink,
     MutualFriendMeta,
     MutualFriendNode,
+    MutualFriendTrackedUser,
     MutualFriendsCoverage,
     MutualFriendSnapshot
 } from './mutualFriendsTypes';
@@ -45,7 +46,7 @@ export function buildMutualFriendsCoverage(
         if (metadata.optedOut) {
             coverage.unavailableCount += 1;
         }
-        if (!metadata.lastFetchedAt) {
+        if (metadata.optedOut || !metadata.lastFetchedAt) {
             continue;
         }
         coverage.fetchedCount += 1;
@@ -63,12 +64,18 @@ export function buildMutualFriendsBaseGraph(
     snapshot: MutualFriendSnapshot | null | undefined,
     meta: MutualFriendMeta | null | undefined,
     friendLabelsById: Readonly<Record<string, string>> | null | undefined,
-    excludedFriendIds: readonly string[] = []
+    excludedFriendIds: readonly string[] = [],
+    historicalLinks: ReadonlyMap<string, string> | null | undefined = null,
+    trackedUsers: readonly MutualFriendTrackedUser[] = [],
+    manualLinks: readonly MutualFriendManualLink[] = []
 ): MutualFriendGraph {
     const nodeMap = new Map<string, MutualFriendNode>();
     const totalCountById = new Map<string, number>();
     const edgeMap = new Map<string, MutualFriendLink>();
     const metaMap = meta instanceof Map ? meta : new Map();
+    const trackedById = new Map(
+        trackedUsers.map((user) => [user.userId, user])
+    );
     const excluded = new Set(
         excludedFriendIds.map(normalizeMutualFriendId).filter(Boolean)
     );
@@ -88,7 +95,10 @@ export function buildMutualFriendsBaseGraph(
         const metadata = metaMap.get(normalizedId);
         const node: MutualFriendNode = {
             id: normalizedId,
-            label: friendLabelsById?.[normalizedId] || normalizedId,
+            label:
+                friendLabelsById?.[normalizedId] ||
+                trackedById.get(normalizedId)?.displayName ||
+                normalizedId,
             lastFetchedAt: metadata?.lastFetchedAt ?? null,
             optedOut: Boolean(metadata?.optedOut),
             degree: 0,
@@ -99,6 +109,28 @@ export function buildMutualFriendsBaseGraph(
         }
         nodeMap.set(normalizedId, node);
         return node;
+    }
+
+    historicalLinks?.forEach((date, key) => {
+        const [friendId, mutualId] = key.split('__');
+        if (!friendId || !mutualId) {
+            return;
+        }
+        const source = ensureNode(friendId);
+        const target = ensureNode(mutualId);
+        if (!source || !target || source.id === target.id) {
+            return;
+        }
+        edgeMap.set([source.id, target.id].sort().join('__'), {
+            source: source.id,
+            target: target.id,
+            historical: true,
+            lastObservedAt: date || undefined
+        });
+    });
+
+    for (const user of trackedUsers) {
+        ensureNode(user.userId);
     }
 
     if (snapshot instanceof Map) {
@@ -112,11 +144,33 @@ export function buildMutualFriendsBaseGraph(
                 if (!target || target.id === source.id) {
                     continue;
                 }
-                edgeMap.set([source.id, target.id].sort().join('__'), {
+                const edgeKey = [source.id, target.id].sort().join('__');
+                const existing = edgeMap.get(edgeKey);
+                edgeMap.set(edgeKey, {
                     source: source.id,
-                    target: target.id
+                    target: target.id,
+                    ...existing,
+                    ...(meta?.get(friendId)?.optedOut
+                        ? { historical: true }
+                        : { current: true })
                 });
             }
+        });
+    }
+
+    for (const relation of manualLinks) {
+        const source = ensureNode(relation.userIdA);
+        const target = ensureNode(relation.userIdB);
+        if (!source || !target || source.id === target.id) {
+            continue;
+        }
+        const edgeKey = [source.id, target.id].sort().join('__');
+        const existing = edgeMap.get(edgeKey);
+        edgeMap.set(edgeKey, {
+            source: source.id,
+            target: target.id,
+            ...existing,
+            manual: true
         });
     }
 
@@ -133,89 +187,6 @@ export function buildMutualFriendsBaseGraph(
 
     for (const node of nodeMap.values()) {
         node.mutualCount = totalCountById.get(node.id) ?? node.degree;
-    }
-
-    return {
-        nodes: Array.from(nodeMap.values()).sort(
-            (left, right) => right.degree - left.degree
-        ),
-        links: Array.from(edgeMap.values())
-    };
-}
-
-/**
- * Derive a display-only graph overlay from persisted manual relations. This
- * deliberately clones the observed graph and never alters the mutual snapshot
- * or its metadata/counts.
- */
-export function overlayManualRelations(
-    observedGraph: MutualFriendGraph,
-    relations: readonly ManualRelation[] | null | undefined,
-    friendLabelsById: Readonly<Record<string, string>> | null | undefined,
-    excludedFriendIds: readonly string[] = []
-): MutualFriendGraph {
-    const excluded = new Set(
-        excludedFriendIds.map(normalizeMutualFriendId).filter(Boolean)
-    );
-    const nodeMap = new Map<string, MutualFriendNode>();
-    const edgeMap = new Map<string, MutualFriendLink>();
-
-    for (const node of observedGraph.nodes) {
-        nodeMap.set(node.id, { ...node, degree: 0 });
-    }
-    for (const link of observedGraph.links) {
-        const key = [link.source, link.target].sort().join('__');
-        edgeMap.set(key, { ...link });
-    }
-
-    function ensureManualNode(id: string) {
-        const normalizedId = normalizeMutualFriendId(id);
-        if (
-            !isValidMutualFriendId(normalizedId) ||
-            excluded.has(normalizedId)
-        ) {
-            return null;
-        }
-        const existing = nodeMap.get(normalizedId);
-        if (existing) {
-            return existing;
-        }
-        const node: MutualFriendNode = {
-            id: normalizedId,
-            label: friendLabelsById?.[normalizedId] || normalizedId,
-            lastFetchedAt: null,
-            optedOut: false,
-            degree: 0,
-            mutualCount: 0
-        };
-        nodeMap.set(normalizedId, node);
-        return node;
-    }
-
-    for (const relation of relations ?? []) {
-        const source = ensureManualNode(relation.userIdA);
-        const target = ensureManualNode(relation.userIdB);
-        if (!source || !target || source.id === target.id) {
-            continue;
-        }
-        const [sourceId, targetId] = [source.id, target.id].sort();
-        edgeMap.set(`${sourceId}__${targetId}`, {
-            source: sourceId,
-            target: targetId,
-            kind: 'manual',
-            addedAt: relation.addedAt
-        });
-    }
-
-    for (const edge of edgeMap.values()) {
-        const source = nodeMap.get(edge.source);
-        const target = nodeMap.get(edge.target);
-        if (source) {
-            source.degree += 1;
-        }
-        if (target) {
-            target.degree += 1;
-        }
     }
 
     return {

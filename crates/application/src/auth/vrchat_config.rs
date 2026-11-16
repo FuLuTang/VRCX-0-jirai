@@ -81,6 +81,7 @@ mod tests {
                 Ok(VrchatResponse {
                     status: 200,
                     data: "fresh".into(),
+                    retry_after: None,
                 })
             })
         }
@@ -91,6 +92,7 @@ mod tests {
         let port = Arc::new(RecordingPort::new(Some(VrchatResponse {
             status: 200,
             data: "cached".into(),
+            retry_after: None,
         })));
         let runtime = VrchatConfigRuntime::new("https://api.example/api/1".into(), port.clone());
 

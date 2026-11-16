@@ -1,3 +1,5 @@
+import { mixGraphColors } from './mutualFriendsSigmaColors';
+
 const DARK_COMMUNITY_PALETTE = [
     '#7c8cf8',
     '#5ec98d',
@@ -33,6 +35,7 @@ export interface MutualFriendsGraphTheme {
     backgroundColor: string;
     edgeColor: string;
     edgeCrossColor: string;
+    edgeHistoricalColor: string;
     edgeManualColor: string;
     edgeActiveColor: string;
     labelColor: string;
@@ -83,13 +86,20 @@ export function buildMutualFriendsGraphTheme(
     isDarkMode: boolean,
     container: HTMLElement | null = null
 ): MutualFriendsGraphTheme {
+    const backgroundColor = isDarkMode ? '#0a0a0a' : '#ffffff';
+    const edgeColor = isDarkMode ? '#64748b' : '#94a3b8';
     return {
         communityPalette: mutualFriendsCommunityPalette(isDarkMode),
         neutralCommunityColor: mutualFriendsNeutralCommunityColor(isDarkMode),
-        backgroundColor: isDarkMode ? '#0a0a0a' : '#ffffff',
-        edgeColor: isDarkMode ? '#242c37' : '#dfe4ea',
-        edgeCrossColor: isDarkMode ? '#4d5f78' : '#a3b0c2',
-        edgeManualColor: isDarkMode ? '#4ade80' : '#15803d',
+        backgroundColor,
+        edgeColor,
+        edgeCrossColor: mixGraphColors(
+            edgeColor,
+            isDarkMode ? '#ffffff' : '#1f2937',
+            0.32
+        ),
+        edgeHistoricalColor: mixGraphColors(edgeColor, backgroundColor, 0.62),
+        edgeManualColor: isDarkMode ? '#22c55e' : '#15803d',
         edgeActiveColor: isDarkMode ? '#8fa3bd' : '#64748b',
         labelColor: isDarkMode ? '#e2e8f0' : '#111827',
         hoverCardBackground: readCssColor(

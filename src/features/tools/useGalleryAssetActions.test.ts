@@ -64,7 +64,14 @@ function createActions(overrides: Partial<GalleryAssetActionDeps> = {}) {
             getFileList: vi.fn(),
             getPrints: vi.fn()
         },
-        parseEmojiUploadSettings: vi.fn(),
+        parseEmojiUploadSettings: vi.fn((_name, settings) => ({
+            isAnimated: false,
+            animationStyle: 'Stop',
+            fps: 15,
+            frames: 4,
+            loopPingPong: false,
+            ...settings
+        })),
         readFileAsBase64: vi.fn().mockResolvedValue('base64-body'),
         setAssets: vi.fn(),
         setCropRequest: vi.fn(),
@@ -160,6 +167,79 @@ describe('canUploadGalleryTarget', () => {
         (tab) => {
             expect(canUploadGalleryTarget(tab, false)).toBe(false);
             expect(canUploadGalleryTarget(tab, true)).toBe(true);
+        }
+    );
+
+    it.each<GalleryUploadTarget>([
+        'gallery',
+        'icons',
+        'emojis',
+        'stickers',
+        'prints'
+    ])('prepares a dropped File for the selected %s target', (tab) => {
+        const file = new File(['image'], 'dropped.png', { type: 'image/png' });
+        const { actions, setCropRequest } = createActions({
+            uploadTargetRef: { current: 'gallery' },
+            UPLOAD_ASPECT_RATIOS: { icons: 1, prints: 16 / 9 }
+        });
+
+        actions.prepareUploadFile(file, tab);
+
+        expect(setCropRequest).toHaveBeenCalledWith(
+            expect.objectContaining({
+                file,
+                tab,
+                aspectRatio: tab === 'prints' ? 16 / 9 : 1
+            })
+        );
+    });
+
+    it.each<GalleryUploadTarget>(['gallery', 'icons'])(
+        'prepares a dropped %s image without VRC+',
+        (tab) => {
+            const { actions, setCropRequest, toast } = createActions({
+                isVrcPlusSupporter: false
+            });
+            const file = new File(['image'], 'drop.png', { type: 'image/png' });
+
+            actions.prepareUploadFile(file, tab);
+
+            expect(setCropRequest).toHaveBeenCalledWith(
+                expect.objectContaining({ file, tab })
+            );
+            expect(toast.error).not.toHaveBeenCalled();
+        }
+    );
+
+    it.each<GalleryUploadTarget>(['prints', 'emojis', 'stickers'])(
+        'prepares a dropped %s with a VRC+ warning but blocks actual upload',
+        async (tab) => {
+            const { actions, setCropRequest, toast, uploadAssetImage } =
+                createActions({ isVrcPlusSupporter: false });
+            const file = new File(['image'], 'drop.png', { type: 'image/png' });
+
+            actions.prepareUploadFile(file, tab);
+
+            expect(setCropRequest).toHaveBeenCalledWith(
+                expect.objectContaining({ file, tab })
+            );
+            expect(toast.error).toHaveBeenCalledWith(
+                expect.objectContaining({ title: 'message.vrcplus.required' })
+            );
+            expect(uploadAssetImage).not.toHaveBeenCalled();
+
+            const prepared = createActions({
+                isVrcPlusSupporter: false,
+                cropRequest: setCropRequest.mock.calls[0][0]
+            });
+            await prepared.actions.confirmCroppedUpload(
+                new Blob(['image'], { type: 'image/png' })
+            );
+
+            expect(prepared.uploadAssetImage).not.toHaveBeenCalled();
+            expect(prepared.toast.error).toHaveBeenCalledWith(
+                expect.objectContaining({ title: 'message.vrcplus.required' })
+            );
         }
     );
 });

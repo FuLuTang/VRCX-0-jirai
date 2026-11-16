@@ -62,6 +62,7 @@ activity_kinds! {
     BlockedOnPlayerLeft => "BlockedOnPlayerLeft",
     MutedOnPlayerJoined => "MutedOnPlayerJoined",
     MutedOnPlayerLeft => "MutedOnPlayerLeft",
+    RelationshipRecommendation => "RelationshipRecommendation",
     VideoPlay => "VideoPlay",
 }
 

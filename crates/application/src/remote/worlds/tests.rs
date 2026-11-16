@@ -35,6 +35,7 @@ impl WorldRemotePort for RecordingPort {
             Ok(VrchatResponse {
                 status: 200,
                 data: r#"{"id":"wrld_test"}"#.into(),
+                retry_after: None,
             })
         })
     }

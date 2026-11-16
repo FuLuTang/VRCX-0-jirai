@@ -12,11 +12,12 @@ use crate::state::AppState;
 #[specta::specta]
 pub fn app__tracked_nonfriends_list(
     state: State<'_, AppState>,
+    expected_owner_user_id: String,
 ) -> Result<Vec<TrackedNonFriendOutput>, AppError> {
     state
         .runtime_host()
         .local_data()
-        .tracked_nonfriends_list()
+        .tracked_nonfriends_list(expected_owner_user_id)
         .map_err(AppError::from)
 }
 
@@ -24,12 +25,13 @@ pub fn app__tracked_nonfriends_list(
 #[specta::specta]
 pub fn app__tracked_nonfriends_add(
     state: State<'_, AppState>,
+    expected_owner_user_id: String,
     input: TrackedNonFriendAddInput,
 ) -> Result<bool, AppError> {
     state
         .runtime_host()
         .local_data()
-        .tracked_nonfriends_add(input)
+        .tracked_nonfriends_add(expected_owner_user_id, input)
         .map_err(AppError::from)
 }
 
@@ -37,12 +39,13 @@ pub fn app__tracked_nonfriends_add(
 #[specta::specta]
 pub fn app__tracked_nonfriends_remove(
     state: State<'_, AppState>,
+    expected_owner_user_id: String,
     user_id: String,
 ) -> Result<bool, AppError> {
     state
         .runtime_host()
         .local_data()
-        .tracked_nonfriends_remove(user_id)
+        .tracked_nonfriends_remove(expected_owner_user_id, user_id)
         .map_err(AppError::from)
 }
 
@@ -50,12 +53,13 @@ pub fn app__tracked_nonfriends_remove(
 #[specta::specta]
 pub fn app__tracked_nonfriends_is_tracked(
     state: State<'_, AppState>,
+    expected_owner_user_id: String,
     user_id: String,
 ) -> Result<bool, AppError> {
     state
         .runtime_host()
         .local_data()
-        .tracked_nonfriends_is_tracked(user_id)
+        .tracked_nonfriends_is_tracked(expected_owner_user_id, user_id)
         .map_err(AppError::from)
 }
 
@@ -63,11 +67,12 @@ pub fn app__tracked_nonfriends_is_tracked(
 #[specta::specta]
 pub fn app__tracked_nonfriends_update_name(
     state: State<'_, AppState>,
+    expected_owner_user_id: String,
     input: TrackedNonFriendUpdateNameInput,
 ) -> Result<bool, AppError> {
     state
         .runtime_host()
         .local_data()
-        .tracked_nonfriends_update_name(input)
+        .tracked_nonfriends_update_name(expected_owner_user_id, input)
         .map_err(AppError::from)
 }

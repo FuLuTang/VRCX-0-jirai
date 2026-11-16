@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
+vi.mock('@/platform/tauri/bindings', () => ({ commands: {} }));
+
 import {
     createStartupOnlineBackfillExecutor,
     startupOnlineBackfillExecutor
@@ -213,22 +215,23 @@ describe('startup online backfill executor', () => {
             .fn()
             .mockResolvedValue({ inserted: true });
         const executor = createStartupOnlineBackfillExecutor({
+            isAccountCurrent: () => true,
             getRoster: () =>
                 readyRoster({
                     first: {
                         id: 'usr_online',
                         displayName: 'Online',
-                        state: 'online'
+                        $presence: { kind: 'online' }
                     },
                     duplicate: {
                         id: 'usr_online',
                         displayName: 'Online',
-                        state: 'online'
+                        $presence: { kind: 'online' }
                     },
                     offline: {
                         id: 'usr_offline',
                         displayName: 'Offline',
-                        state: 'offline'
+                        $presence: { kind: 'offline' }
                     },
                     unknown: {
                         id: 'usr_unknown',
@@ -246,6 +249,7 @@ describe('startup online backfill executor', () => {
 
         expect(insertObservedOnline).toHaveBeenCalledTimes(1);
         expect(insertObservedOnline).toHaveBeenCalledWith({
+            expectedOwnerUserId: 'usr_current',
             targetUserId: 'usr_online',
             displayName: 'Online'
         });
@@ -257,7 +261,8 @@ describe('startup online backfill executor', () => {
                 alreadyOnline: 0,
                 skippedOffline: 1,
                 skippedUnavailableState: 1,
-                skippedDuplicate: 1
+                skippedDuplicate: 1,
+                failed: 0
             }
         });
     });
@@ -269,10 +274,11 @@ describe('startup online backfill executor', () => {
             return { inserted: true };
         });
         const executor = createStartupOnlineBackfillExecutor({
+            isAccountCurrent: () => true,
             getRoster: () =>
                 readyRoster({
-                    first: { id: 'usr_first', state: 'online' },
-                    second: { id: 'usr_second', state: 'online' }
+                    first: { id: 'usr_first', $presence: { kind: 'online' } },
+                    second: { id: 'usr_second', $presence: { kind: 'online' } }
                 }),
             insertObservedOnline
         });
@@ -281,5 +287,78 @@ describe('startup online backfill executor', () => {
             executor({ ...context, signal: controller.signal })
         ).rejects.toMatchObject({ name: 'AbortError' });
         expect(insertObservedOnline).toHaveBeenCalledTimes(1);
+    });
+
+    it('uses confirmed presence and continues after a failed friend', async () => {
+        const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const insertObservedOnline = vi
+            .fn()
+            .mockRejectedValueOnce(new Error('stale friend'))
+            .mockResolvedValueOnce({ inserted: true });
+        const executor = createStartupOnlineBackfillExecutor({
+            isAccountCurrent: () => true,
+            getRoster: () =>
+                readyRoster({
+                    first: { id: 'usr_first', $presence: { kind: 'online' } },
+                    second: {
+                        id: 'usr_second',
+                        $presence: { kind: 'online' },
+                        state: 'offline'
+                    },
+                    pending: {
+                        id: 'usr_pending',
+                        $presence: { kind: 'pendingOffline' },
+                        state: 'online'
+                    },
+                    active: {
+                        id: 'usr_active',
+                        $presence: { kind: 'active' },
+                        state: 'online'
+                    },
+                    legacy: { id: 'usr_legacy', state: 'online' }
+                }),
+            insertObservedOnline
+        });
+        try {
+            await expect(
+                executor({ ...context, signal: new AbortController().signal })
+            ).resolves.toMatchObject({
+                status: 'completed',
+                result: {
+                    inserted: 1,
+                    failed: 1,
+                    skippedOffline: 2,
+                    skippedUnavailableState: 1
+                }
+            });
+            expect(
+                insertObservedOnline.mock.calls.map(
+                    ([input]) => input.targetUserId
+                )
+            ).toEqual(['usr_first', 'usr_second']);
+        } finally {
+            warning.mockRestore();
+        }
+    });
+
+    it('stops backfill when the current account changes', async () => {
+        let current = true;
+        const insertObservedOnline = vi.fn(async () => {
+            current = false;
+            return { inserted: true };
+        });
+        const executor = createStartupOnlineBackfillExecutor({
+            isAccountCurrent: () => current,
+            getRoster: () =>
+                readyRoster({
+                    first: { id: 'usr_first', $presence: { kind: 'online' } },
+                    second: { id: 'usr_second', $presence: { kind: 'online' } }
+                }),
+            insertObservedOnline
+        });
+        await expect(
+            executor({ ...context, signal: new AbortController().signal })
+        ).resolves.toMatchObject({ status: 'skipped' });
+        expect(insertObservedOnline).toHaveBeenCalledOnce();
     });
 });

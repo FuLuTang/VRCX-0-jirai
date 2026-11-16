@@ -1,9 +1,11 @@
+import { presenceOf } from '@/domain/friends/presence';
 import type { FriendRosterState } from '@/domain/friends/types';
 import startupOnlineBackfillRepository, {
     type StartupOnlineBackfillInsert,
     type StartupOnlineBackfillInsertResult
 } from '@/repositories/startupOnlineBackfillRepository';
 import { useFriendRosterStore } from '@/state/friendRosterStore';
+import { useRuntimeStore } from '@/state/runtimeStore';
 
 import type {
     SyncWorkflowActionContext,
@@ -21,10 +23,12 @@ export type StartupOnlineBackfillResult = {
     skippedOffline: number;
     skippedUnavailableState: number;
     skippedDuplicate: number;
+    failed: number;
 };
 
 type StartupOnlineBackfillDependencies = {
     getRoster: () => FriendRosterState;
+    isAccountCurrent: (accountId: string) => boolean;
     insertObservedOnline: (
         input: StartupOnlineBackfillInsert
     ) => Promise<StartupOnlineBackfillInsertResult>;
@@ -92,22 +96,23 @@ export function createStartupOnlineBackfillExecutor(
             alreadyOnline: 0,
             skippedOffline: 0,
             skippedUnavailableState: 0,
-            skippedDuplicate: 0
+            skippedDuplicate: 0,
+            failed: 0
         };
         const processedTargetUserIds = new Set<string>();
 
         for (const [friendKey, friend] of Object.entries(roster.friendsById)) {
             throwIfAborted(context.signal);
+            if (!dependencies.isAccountCurrent(ownerUserId)) {
+                return unavailableRosterOutcome(context);
+            }
             const targetUserId = normalized(friend?.id || friendKey);
-            const state = normalized(friend?.state).toLowerCase();
-            if (
-                !targetUserId ||
-                !['online', 'active', 'offline'].includes(state)
-            ) {
+            const presence = presenceOf(friend);
+            if (!targetUserId || !presence) {
                 result.skippedUnavailableState += 1;
                 continue;
             }
-            if (state !== 'online') {
+            if (presence.kind !== 'online') {
                 result.skippedOffline += 1;
                 continue;
             }
@@ -118,15 +123,31 @@ export function createStartupOnlineBackfillExecutor(
             processedTargetUserIds.add(targetUserId);
 
             result.onlineFriendsProcessed += 1;
-            const output = await dependencies.insertObservedOnline({
+            const insertInput = {
+                expectedOwnerUserId: ownerUserId,
                 targetUserId,
                 displayName: normalized(friend.displayName) || targetUserId
-            });
-            throwIfAborted(context.signal);
-            if (output.inserted) {
-                result.inserted += 1;
-            } else {
-                result.alreadyOnline += 1;
+            };
+            try {
+                const output =
+                    await dependencies.insertObservedOnline(insertInput);
+                throwIfAborted(context.signal);
+                if (output.inserted) {
+                    result.inserted += 1;
+                } else {
+                    result.alreadyOnline += 1;
+                }
+            } catch (error) {
+                throwIfAborted(context.signal);
+                if (!dependencies.isAccountCurrent(ownerUserId)) {
+                    return unavailableRosterOutcome(context);
+                }
+                result.failed += 1;
+                console.warn(
+                    'Startup online backfill target failed:',
+                    targetUserId,
+                    error
+                );
             }
         }
 
@@ -137,6 +158,9 @@ export function createStartupOnlineBackfillExecutor(
 export const startupOnlineBackfillExecutor =
     createStartupOnlineBackfillExecutor({
         getRoster: () => useFriendRosterStore.getState(),
+        isAccountCurrent: (accountId) =>
+            useRuntimeStore.getState().auth.currentUserId === accountId &&
+            useFriendRosterStore.getState().currentUserId === accountId,
         insertObservedOnline: (input) =>
             startupOnlineBackfillRepository.insertObservedOnline(input)
     });

@@ -417,6 +417,7 @@ mod tests {
         VrchatResponse {
             status,
             data: data.to_string(),
+            retry_after: None,
         }
     }
 

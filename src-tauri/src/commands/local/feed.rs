@@ -9,8 +9,8 @@ use vrcx_0_contracts::feed::{
     FeedSearchQueryInput,
 };
 use vrcx_0_contracts::jirai::{
-    ProfileFeedReconcileInput, ProfileFeedReconcileOutput, StartupOnlineBackfillInput,
-    StartupOnlineBackfillOutput,
+    ProfileFeedReconcileInput, ProfileFeedReconcileOutput, SelfBioHistoryInput,
+    SelfStatusHistoryInput, StartupOnlineBackfillInput, StartupOnlineBackfillOutput,
 };
 
 use crate::commands::blocking::run_blocking;
@@ -67,6 +67,32 @@ pub async fn app__profile_feed_reconcile(
         local_data.profile_feed_reconcile(input)
     })
     .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__self_status_history_query(
+    state: State<'_, AppState>,
+    input: SelfStatusHistoryInput,
+) -> Result<Vec<FeedRowOutput>, AppError> {
+    let local_data = state.runtime_host().local_data().clone();
+    tauri::async_runtime::spawn_blocking(move || local_data.self_status_history(input))
+        .await
+        .map_err(|error| AppError::Custom(format!("self status history query: {error}")))?
+        .map_err(AppError::from)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__self_bio_history_query(
+    state: State<'_, AppState>,
+    input: SelfBioHistoryInput,
+) -> Result<Vec<FeedRowOutput>, AppError> {
+    let local_data = state.runtime_host().local_data().clone();
+    tauri::async_runtime::spawn_blocking(move || local_data.self_bio_history(input))
+        .await
+        .map_err(|error| AppError::Custom(format!("self Bio history query: {error}")))?
+        .map_err(AppError::from)
 }
 
 #[tauri::command]

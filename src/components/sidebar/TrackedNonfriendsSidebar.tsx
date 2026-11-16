@@ -1,7 +1,10 @@
 import { PlusIcon, Trash2Icon } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useKnownUserFacts } from '@/lib/useKnownUser';
+import { openUserDialog } from '@/services/dialogService';
+import { useModalStore } from '@/state/modalStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
 import { useTrackedNonfriendsStore } from '@/state/trackedNonfriendsStore';
 import { Button } from '@/ui/shadcn/button';
@@ -13,6 +16,7 @@ export function TrackedNonfriendsSidebar({
     filterQuery?: string;
 }) {
     const { t } = useTranslation();
+    const confirm = useModalStore((state) => state.confirm);
     const accountId = useRuntimeStore(
         (state) => state.auth.currentUserId || ''
     );
@@ -26,6 +30,15 @@ export function TrackedNonfriendsSidebar({
     const reset = useTrackedNonfriendsStore((state) => state.reset);
     const add = useTrackedNonfriendsStore((state) => state.add);
     const remove = useTrackedNonfriendsStore((state) => state.remove);
+    const updateName = useTrackedNonfriendsStore((state) => state.updateName);
+    const trackedUserIds = useMemo(
+        () =>
+            currentUserId === accountId && accountId
+                ? entries.map((entry) => entry.userId)
+                : [],
+        [accountId, currentUserId, entries]
+    );
+    const knownUsers = useKnownUserFacts(trackedUserIds);
     const [userId, setUserId] = useState('');
 
     useEffect(() => {
@@ -36,16 +49,41 @@ export function TrackedNonfriendsSidebar({
         }
     }, [accountId, load, reset]);
 
+    useEffect(() => {
+        if (!accountId || currentUserId !== accountId) return;
+        for (const entry of entries) {
+            const name = knownUsers[entry.userId]?.displayName?.trim();
+            if (name && name !== entry.displayName) {
+                void updateName(accountId, entry.userId, name).catch(
+                    (error) => {
+                        console.warn(
+                            'Failed to persist tracked user name:',
+                            error
+                        );
+                    }
+                );
+            }
+        }
+    }, [accountId, currentUserId, entries, knownUsers, updateName]);
+
     const query = filterQuery.trim().toLowerCase();
     const visibleEntries =
         currentUserId === accountId && accountId
-            ? entries.filter((entry) =>
-                  !query
-                      ? true
-                      : `${entry.displayName} ${entry.userId}`
-                            .toLowerCase()
-                            .includes(query)
-              )
+            ? entries
+                  .map((entry) => ({
+                      ...entry,
+                      displayName:
+                          knownUsers[entry.userId]?.displayName?.trim() ||
+                          entry.displayName ||
+                          entry.userId
+                  }))
+                  .filter((entry) =>
+                      !query
+                          ? true
+                          : `${entry.displayName} ${entry.userId}`
+                                .toLowerCase()
+                                .includes(query)
+                  )
             : [];
 
     async function addEntry() {
@@ -58,8 +96,29 @@ export function TrackedNonfriendsSidebar({
         }
     }
 
+    async function removeEntry(targetUserId: string) {
+        const result = await confirm({
+            title: t('tracked_nonfriends.confirm_remove.title'),
+            description: t('tracked_nonfriends.confirm_remove.description'),
+            confirmText: t('common.actions.delete'),
+            cancelText: t('common.actions.cancel'),
+            destructive: true
+        });
+        if (result.ok) {
+            await remove(accountId, targetUserId);
+        }
+    }
+
     return (
         <section className="flex h-full min-h-0 flex-col gap-2 px-1 pb-1">
+            <p className="text-muted-foreground px-2 text-xs" role="status">
+                {t('tracked_nonfriends.count', {
+                    count:
+                        currentUserId === accountId && accountId
+                            ? entries.length
+                            : 0
+                })}
+            </p>
             <div className="flex gap-1">
                 <Input
                     value={userId}
@@ -100,16 +159,27 @@ export function TrackedNonfriendsSidebar({
                 {visibleEntries.map((entry) => (
                     <div
                         key={entry.userId}
-                        className="hover:bg-accent flex items-center gap-2 rounded px-2 py-1.5"
+                        className="group hover:bg-accent flex items-center gap-2 rounded px-2 py-1.5"
                     >
-                        <span className="min-w-0 flex-1 truncate text-sm">
+                        <button
+                            type="button"
+                            className="focus-visible:outline-ring min-w-0 flex-1 truncate rounded text-left text-sm focus-visible:outline-2"
+                            title={entry.userId}
+                            onClick={() =>
+                                openUserDialog({
+                                    userId: entry.userId,
+                                    title: entry.displayName || entry.userId
+                                })
+                            }
+                        >
                             {entry.displayName || entry.userId}
-                        </span>
+                        </button>
                         <Button
                             size="icon-xs"
                             variant="ghost"
+                            className="opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
                             aria-label={t('tracked_nonfriends.remove_user')}
-                            onClick={() => void remove(accountId, entry.userId)}
+                            onClick={() => void removeEntry(entry.userId)}
                         >
                             <Trash2Icon />
                         </Button>

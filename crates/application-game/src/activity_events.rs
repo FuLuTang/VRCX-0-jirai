@@ -8,6 +8,8 @@ use crate::game_log::video::VideoInput;
 use crate::game_log::{GameLogAvatarChange, GameLogIngestOutput};
 use crate::PlayerModeration;
 
+pub(crate) mod relationship_recommendations;
+
 pub(crate) fn game_log_activity_events<F, M>(
     output: &GameLogIngestOutput,
     mut include_join_leave: F,

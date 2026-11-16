@@ -284,7 +284,13 @@ impl super::PrintRemote for TestPrintAdapter {
             .cloned()
             .unwrap_or_else(|| json!([]))
             .to_string();
-        Box::pin(async move { Ok(VrchatResponse { status: 200, data }) })
+        Box::pin(async move {
+            Ok(VrchatResponse {
+                status: 200,
+                data,
+                retry_after: None,
+            })
+        })
     }
 
     fn delete_print<'a>(
@@ -297,6 +303,7 @@ impl super::PrintRemote for TestPrintAdapter {
             Ok(VrchatResponse {
                 status: 200,
                 data: "{}".into(),
+                retry_after: None,
             })
         })
     }

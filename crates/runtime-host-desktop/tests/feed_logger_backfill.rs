@@ -533,11 +533,13 @@ impl WebClientPort for BusyThenWorldApi {
             VrchatResponse {
                 status: 429,
                 data: json!({ "error": { "message": "Too many requests" } }).to_string(),
+                retry_after: None,
             }
         } else {
             VrchatResponse {
                 status: 200,
                 data: self.world.to_string(),
+                retry_after: None,
             }
         })
     }

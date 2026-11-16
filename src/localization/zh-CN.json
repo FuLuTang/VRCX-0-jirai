@@ -1,4 +1,18 @@
 {
+    "tracked_nonfriends": {
+        "title": "已追踪陌生人",
+        "filter": "筛选已追踪陌生人",
+        "count": "已追踪：{count} 人",
+        "add_user": "追踪玩家",
+        "remove_user": "停止追踪",
+        "confirm_remove": {
+            "title": "停止追踪这名玩家？",
+            "description": "停止追踪后，将不再为这名非好友补充资料。"
+        },
+        "empty": "没有符合条件的已追踪陌生人",
+        "load_error": "无法加载已追踪陌生人",
+        "mutation_error": "无法更新已追踪陌生人"
+    },
     "empty_state": {
         "dashboard_title": "搭建你的仪表板",
         "dashboard_description": "把常看的页面加进来，之后就能在一个地方快速查看重要信息。",
@@ -72,9 +86,9 @@
         "context_rules_description": "添加规则，根据所在房间、世界或身边好友自动调整状态。"
     },
     "workflow": {
-        "title": "账户同步任务",
+        "title": "增强型信息抓取",
         "tools_description": "运行可用的账户同步任务并查看被跳过的依赖。",
-        "description": "任务将对当前账户运行：{{account}}。",
+        "description": "任务将对当前账户运行：{account}。",
         "action_list": "同步任务",
         "account_unavailable": "没有当前账户",
         "ready": "已准备好运行新的任务流程。",
@@ -83,7 +97,7 @@
         "cancel_current": "取消当前任务",
         "progress_bar": "任务流程进度",
         "skip_reason": "跳过原因",
-        "summary": "进度 {{progress}}/{{total}} · 完成 {{completed}} · 跳过 {{skipped}} · 错误 {{error}} · 进行中 {{running}}",
+        "summary": "进度 {progress}/{total} · 完成 {completed} · 跳过 {skipped} · 错误 {error} · 进行中 {running}",
         "status": {
             "completed": "已完成",
             "skipped": "已跳过",
@@ -272,7 +286,9 @@
             "scope_default": "以下设置对之后的新对话生效",
             "more_settings": "更多 AI 设置",
             "guided_badge": "引导模式",
-            "guided_hint": "引导模式会限制可用工具，适合本地弱模型。使用云端 API 时，切回自动或开放能得到更完整的回答。"
+            "guided_hint": "引导模式会限制可用工具，适合本地弱模型。使用云端 API 时，切回自动或开放能得到更完整的回答。",
+            "connection_unset": "无端点",
+            "allow_writes": "允许写入操作"
         },
         "tools": {
             "favorite_local": "更新本地收藏",
@@ -980,7 +996,8 @@
                 "sendFeedback": "发送反馈",
                 "reportIssue": "在 GitHub 报告问题",
                 "openDevtools": "打开 DevTools",
-                "supportVrcx": "支持 VRCX-0"
+                "supportVrcx": "支持 VRCX-0",
+                "qqGroup": "QQ群"
             }
         }
     },
@@ -1049,7 +1066,8 @@
                 "hide_value": "隐藏 {value}",
                 "show_value": "显示 {value}"
             }
-        }
+        },
+        "qq_group": "QQ群"
     },
     "dashboard": {
         "default_name": "仪表板",
@@ -1218,6 +1236,11 @@
         "toggle_favorite": "收藏／取消收藏"
     },
     "privacy_lock": {
+        "startup_error": {
+            "title": "无法确认隐私锁状态",
+            "description": "应用界面已启动，但与本地后端的初始化或连接失败。为保护隐私，界面仍保持遮挡；请重试，或检查启动终端中的错误。",
+            "retry": "重新连接"
+        },
         "locked_title": "已锁定",
         "field": {
             "password": "锁定密码",
@@ -1362,7 +1385,7 @@
                 "display_mode": "标签显示",
                 "subtitle": "重新排列侧边栏标签，或用收藏分组创建新标签。",
                 "display_hint": "标签在侧边栏中的显示方式。",
-                "layout_hint": "拖动可重新排序。好友和群组为内置标签，也可以把收藏分组添加为自定义标签。",
+                "layout_hint": "拖动可重新排序。好友、已追踪陌生人和群组房间为内置标签，也可以把收藏分组添加为自定义标签。",
                 "system_badge": "内置",
                 "world_badge": "世界",
                 "always_visible": "始终显示",
@@ -1850,7 +1873,8 @@
             "clear_results_tooltip": "清除搜索结果",
             "user": {
                 "header": "玩家",
-                "sort_by_last_logged_in": "按最后登录时间排序"
+                "sort_by_last_logged_in": "按最后登录时间排序",
+                "search_by_bio": "同时搜索简介信息"
             },
             "world": {
                 "header": "世界",
@@ -2352,6 +2376,10 @@
                     "find_friend": "查找好友",
                     "open_profile": "查看资料",
                     "hide_from_graph": "从关系图中隐藏",
+                    "track_user": "将此用户加入关系图追踪",
+                    "untrack_user": "停止追踪此用户",
+                    "show_non_friends": "在关系图中显示非好友",
+                    "hide_non_friends": "在关系图中隐藏非好友",
                     "clear_filters": "清除筛选"
                 },
                 "prompt": {
@@ -2376,6 +2404,26 @@
                     "stat_links": "连接",
                     "stat_hidden": "已隐藏"
                 },
+                "tracked": {
+                    "title": "追踪的非好友",
+                    "help": "追踪对象会加入下一次完整拉取。选中一位非好友节点，再点击节点卡片上的追踪按钮即可添加。",
+                    "empty": "当前没有追踪非好友。",
+                    "add": "将此用户加入关系图追踪",
+                    "remove": "停止追踪此用户",
+                    "user_id": "VRChat 用户 ID",
+                    "verify": "验证",
+                    "verified_as": "已验证为{name}。将此用户加入追踪节点？",
+                    "verify_error": "未找到该 VRChat 用户，请检查 ID 后重试。"
+                },
+                "manual": {
+                    "title": "手动关系",
+                    "help": "这些连线是你自己的标注，与 VRChat API 数据和旧表历史连线分别保存。",
+                    "user_a": "选择第一位用户",
+                    "user_b": "选择第二位用户",
+                    "add": "添加手动关系",
+                    "remove": "删除手动关系",
+                    "empty": "还没有添加手动关系。"
+                },
                 "context_menu": {
                     "last_fetched": "最后获取时间"
                 },
@@ -2394,6 +2442,12 @@
                     "hollow_means_unknown": "空心点 = 对方未公开共同好友",
                     "cross_edges": "较亮的线 = 跨圈子连接",
                     "cross_edges_only": "压暗圈子内部的连线",
+                    "edge_current": "VRChat API：当前共同关系",
+                    "edge_manual": "手动标注的关系",
+                    "edge_historical": "OLD 表中的历史关系",
+                    "edge_label_api": "API",
+                    "edge_label_manual": "手动",
+                    "edge_label_old": "OLD",
                     "coverage": "已获取",
                     "coverage_value": "{fetched}/{total} 位好友",
                     "coverage_unavailable": "未公开",
@@ -2434,6 +2488,16 @@
             },
             "relationship_timeline": {
                 "header": "关系时间轴",
+                "top_users": "用户数量",
+                "show_others": "显示其他用户",
+                "current_friends_only": "仅显示当前好友",
+                "days_per_unit": "天/单位",
+                "granularity": "每单位天数",
+                "description": "按时间单位展示各用户在同一房间内的记录时长占比。",
+                "chart_aria_label": "关系时长占比堆叠面积图",
+                "no_data": "没有找到关系历史记录",
+                "sign_in_required": "登录后才能查看关系历史。",
+                "load_failed": "关系历史加载失败，请尝试刷新。",
                 "friend": "好友",
                 "range_days": "范围（天）",
                 "total_overlap": "总共处时长",
@@ -2473,8 +2537,9 @@
                 "the_local_mutual_friends_snapshot_is_empty_use_start_fetch_to_build_the_graph_cache": "还没有共同好友数据，请点击“开始获取”加载。"
             },
             "toast": {
-                "failed_to_fetch_mutual_friends_graph": "获取共同好友关系图失败",
-                "failed_to_refresh_selected_mutuals": "刷新所选共同好友失败"
+                "failed_to_fetch_mutual_friends_graph": "获取共同好友图谱失败",
+                "failed_to_refresh_selected_mutuals": "刷新所选共同好友失败",
+                "failed_to_save_mutual_graph_settings": "保存关系图设置失败"
             },
             "modal": {
                 "refresh_non_friend_mutuals": "刷新非好友的共同好友",
@@ -2576,7 +2641,8 @@
                 "registry_backup": "VRChat 设置数据备份工具",
                 "registry_backup_description": "创建或恢复 VRChat 的设置备份",
                 "llm_endpoints": "AI 连接",
-                "llm_endpoints_description": "AI 助手和翻译使用的 AI 连接"
+                "llm_endpoints_description": "AI 助手和翻译使用的 AI 连接",
+                "info_completion": "增强型信息抓取"
             },
             "vrchat_log": {
                 "title": "VRChat 日志查看器",
@@ -2714,7 +2780,8 @@
             "label": {
                 "inventory_bundle_consumed": "已使用库存礼包",
                 "fps": "fps",
-                "frames": "帧"
+                "frames": "帧",
+                "prev": "上一个"
             },
             "action": {
                 "preview": "预览",
@@ -2967,7 +3034,8 @@
                 "no_models_detected": "未检测到模型",
                 "detect_failed": "检测模型失败",
                 "deleted": "端点已删除",
-                "delete_failed": "删除端点失败"
+                "delete_failed": "删除端点失败",
+                "models_placeholder": "搜索已检测到的模型，或输入后按回车添加"
             },
             "filter_placeholder": "筛选工具",
             "filter_empty": "没有匹配的工具",
@@ -3101,6 +3169,9 @@
                     "system": "系统",
                     "session": "游戏时长"
                 }
+            },
+            "error": {
+                "dropped_screenshot_path_is_not_available": "无法读取拖入的文件，请重新选择截图。"
             }
         },
         "profile": {
@@ -3284,7 +3355,12 @@
                         "starting": "启动中",
                         "running": "运行中",
                         "stopping": "停止中"
-                    }
+                    },
+                    "client_config": "客户端配置",
+                    "client_config_description": "Claude Code：执行一次终端命令即可。通用（HTTP）：用于直连的 JSON 配置。通用（mcp-remote）：通过 Node.js 代理连接的 JSON 配置，适用于不支持原生 HTTP 的客户端，需要 PATH 中有 Node.js。开启局域网连接后，配置中会使用 `YOUR-LAN-IP`，请替换为本机的局域网 IP。",
+                    "copy_mcp_remote": "mcp-remote 方式",
+                    "copy_generic": "HTTP 方式",
+                    "copied": "已复制 {target} 配置"
                 },
                 "integration_api": {
                     "header": "应用集成 API",
@@ -3973,7 +4049,8 @@
                 "failed_to_save_proxy_settings": "保存代理设置失败",
                 "failed_to_crop_existing_prints": "裁剪已有拍立得失败",
                 "failed_to_save_translation_settings": "保存翻译设置失败",
-                "failed_to_save_feed_filters": "保存动态筛选器设置失败"
+                "failed_to_save_feed_filters": "保存动态筛选器设置失败",
+                "failed_to_fetch_translation_models": "获取翻译模型失败"
             },
             "modal": {
                 "crop_existing_prints": "裁剪现有拍立得",
@@ -4348,7 +4425,8 @@
                 "disable_override": "禁用自定义 CSS",
                 "clear_override": "清空自定义 CSS",
                 "contribute": "制作并提交主题",
-                "contribute_tooltip": "在 GitHub 查看主题制作和提交说明。"
+                "contribute_tooltip": "在 GitHub 查看主题制作和提交说明。",
+                "update_enable": "更新"
             },
             "browse": {
                 "empty": "目录中还没有社区主题。"
@@ -4758,7 +4836,10 @@
                 "unfriend": "删除好友",
                 "edit_note_memo": "编辑线上备注与本地备注",
                 "edit_profile": "编辑个人资料",
-                "vrchat_account": "VRChat 账号"
+                "vrchat_account": "VRChat 账号",
+                "edit_profile_details": "编辑个人资料",
+                "edit_profile_media": "编辑横幅和头像",
+                "report_hacking": "举报此玩家盗模/开挂"
             },
             "group_invite": {
                 "description": "选择要邀请 {value} 加入的群组。",
@@ -4813,10 +4894,13 @@
                 "represented_group": "展示群组",
                 "bio": "个人简介",
                 "bio_history": "个人简介历史",
+                "bio_history_error": "读取个人简介历史失败。",
                 "status_distribution": "状态分布",
                 "refresh_status_distribution": "刷新状态分布",
-                "status_distribution_hint": "加载已记录的状态历史，估算各状态持续时间。",
+                "status_distribution_hint": "打开活动记录时自动加载；也可点刷新按钮重新读取。",
                 "no_status_distribution": "没有已记录的状态历史。",
+                "status_distribution_error": "读取状态历史失败；已有结果可能不是最新的。",
+                "status_distribution_scope": "仅统计记录中可确认在线的时段；未观测时段不计入，较早记录可能受查询上限影响。",
                 "status": {
                     "join_me": "跟我来",
                     "active": "在线",
@@ -4903,6 +4987,7 @@
             "mutual_friends": {
                 "header": "共同好友",
                 "undisclosed_friend": "未公开的共同好友",
+                "last_successful_check": "最近一次成功检查",
                 "sorting": {
                     "alphabetical": "字母顺序",
                     "last_active": "最后活跃",
@@ -5051,7 +5136,9 @@
             "description": {
                 "update_your_social_status_and_status_description": "更新你的社交状态和签名",
                 "status_description": "签名",
-                "clear_status_description": "清除签名"
+                "clear_status_description": "清除签名",
+                "edit_profile_details": "编辑个人资料",
+                "update_your_profile_details": "编辑你的个人资料。"
             },
             "toast": {
                 "memo_saved": "本地备注已保存",
@@ -5102,7 +5189,8 @@
                 "leave_group": "退出群组",
                 "leave": "退出",
                 "leave_selected_groups": "退出所选群组",
-                "unfriend_user": "确定要移除好友吗？"
+                "unfriend_user": "确定要移除好友吗？",
+                "report_hacking": "确定要举报此玩家 盗模/开挂 吗？"
             },
             "dynamic": {
                 "status_presets_are_limited_to_value": "状态预设最多 {value} 个",
@@ -5176,6 +5264,12 @@
                 "muteChat_on": "你在 VRChat 中将看不到 {name} 的聊天气泡。",
                 "muteChat_off": "你在 VRChat 中将重新看到 {name} 的聊天气泡。",
                 "unfriend": "{name} 将从你的好友列表中移除。之后想重新成为好友，需要一方重新发送好友申请。"
+            },
+            "status_distribution": {
+                "bucket_scale": "时间分桶大小",
+                "days_per_unit": "天/单位",
+                "insufficient_self_samples": "有记录的游戏在线区间与灯色样本不足",
+                "self_scope": "仅统计有记录的游戏在线区间，不代表网页或账号的全部在线时长。"
             }
         },
         "world": {
@@ -6103,11 +6197,13 @@
             }
         },
         "edit_invite_message": {
-            "save": "保存"
+            "save": "保存",
+            "header": "编辑消息模板"
         },
         "edit_send_invite_message": {
             "description": "编辑冷却时间：一小时",
-            "send": "发送"
+            "send": "发送",
+            "header": "编辑并发送邀请消息"
         },
         "export_friends_list": {
             "header": "导出好友列表",
@@ -6346,7 +6442,16 @@
             "world_album_count": "{count} 个世界",
             "people_album_count": "{count} 人",
             "empty_albums": "还没有可归类的截图",
-            "empty_albums_description": "VRCX-0 运行时拍下的截图会记下所在世界和同框的人。"
+            "empty_albums_description": "VRCX-0 运行时拍下的截图会记下所在世界和同框的人。",
+            "search_type_placeholder": "搜索类型",
+            "search_types": {
+                "player_name": "玩家名称",
+                "player_id": "玩家 ID",
+                "world_name": "世界名称",
+                "world_id": "世界 ID"
+            },
+            "clear_search": "清除搜索",
+            "search_in": "搜索{scope}"
         },
         "set_avatar_styles": {
             "header": "设置模型风格",
@@ -6421,11 +6526,15 @@
                 "prompt_optional": "提示词（可选）",
                 "prompt_optional_description": "可选的系统提示词，必须包含变量 {targetLang}。",
                 "reasoning_effort": "推理强度",
-                "reasoning_effort_provider_default": "服务商默认"
+                "reasoning_effort_provider_default": "服务商默认",
+                "connection": "LLM 端点",
+                "connection_description": "仅支持 OpenAI 兼容端点。",
+                "connection_placeholder": "选择一个端点"
             },
             "deepl": {
                 "api_key": "DeepL API 密钥"
-            }
+            },
+            "msg_fill_endpoint_model": "请填写端点和模型"
         },
         "shared_feed_filters": {
             "notification": "通知筛选器",
@@ -6545,7 +6654,8 @@
                 "BlockedOnPlayerLeft": "已屏蔽玩家离开",
                 "MutedOnPlayerJoined": "已静音玩家加入",
                 "MutedOnPlayerLeft": "已静音玩家离开",
-                "VideoPlay": "视频播放"
+                "VideoPlay": "视频播放",
+                "RelationshipRecommendation": "或许是好友"
             },
             "favorite_groups": {
                 "menu_label": "收藏分组",
@@ -6864,7 +6974,8 @@
             "versions": "版本",
             "toast_title": "已更新到 {value}",
             "toast_description": "查看这个版本的更新内容。",
-            "view_changes": "查看更新内容"
+            "view_changes": "查看更新内容",
+            "latest_release": "最新版本"
         },
         "open_source": {
             "header": "第三方声明",
@@ -7063,6 +7174,9 @@
             "failed_to_load": "无法加载购买记录",
             "empty_purchases": "还没有购买记录",
             "empty_transactions": "还没有点数流水"
+        },
+        "edit_send_invite_response_message": {
+            "description": "编辑冷却时间：一小时"
         }
     },
     "confirm": {
@@ -7415,7 +7529,12 @@
         "blocked_player_joined": "被你屏蔽的用户加入了房间",
         "blocked_player_left": "被你屏蔽的用户离开了房间",
         "muted_player_joined": "被你静音的用户加入了房间",
-        "muted_player_left": "被你静音的用户离开了房间"
+        "muted_player_left": "被你静音的用户离开了房间",
+        "blocked": "屏蔽了你",
+        "unblocked": "取消了对你的屏蔽",
+        "muted": "屏蔽了你的语音",
+        "unmuted": "取消了对你的语音屏蔽",
+        "relationship_recommendation": "{nameA} ↔ {nameB}：或许是好友（{score}）"
     },
     "location": {
         "offline": "离线",
@@ -7501,7 +7620,10 @@
         },
         "profile": {
             "invite_messages": {
-                "cool_down": "编辑冷却"
+                "cool_down": "编辑冷却",
+                "slot": "字段",
+                "message": "消息",
+                "action": "操作"
             }
         },
         "import": {
@@ -8052,6 +8174,122 @@
             "description": "要清除吗？清除后掉线将不再自动重新登录。",
             "clear": "清除",
             "cleared": "已清除保存的密码"
+        }
+    },
+    "enhanced_info_fetch": {
+        "hourly_title": "周期刷新",
+        "hourly_description": "启动、每小时或“立即刷新”触发同一流程；并行采集 /users 状态与名称、/profile Bio，以及计算本地关系建议，不扫描关系网。",
+        "collection_title": "资料采集",
+        "relationship_title": "关系建议",
+        "hourly_disabled": "自动周期刷新已禁用，仍可立即刷新",
+        "hourly_status": {
+            "idle": "待机",
+            "fetching": "刷新中",
+            "relationships": "资料已采集，建议计算中",
+            "paused": "资料采集已暂停",
+            "completed": "已完成",
+            "cancelled": "已取消",
+            "error": "刷新出错",
+            "partial": "资料已采集，关系引擎不可用"
+        },
+        "collection_status": {
+            "idle": "待执行",
+            "running": "采集中",
+            "completed": "采集完成",
+            "paused": "等待重试",
+            "cancelled": "已取消",
+            "error": "采集出错"
+        },
+        "roster_counts": "好友：{friends} 人 · 显式追踪非好友：{tracked} 人",
+        "relationship_progress": "关系建议计算进度",
+        "suggestions": "已生成建议：{count} 条",
+        "relationship_status": {
+            "waiting": "待执行",
+            "running": "正在计算关系建议",
+            "completed": "关系建议计算完成",
+            "unavailable": "关系引擎未接入，本任务未执行",
+            "error": "关系建议计算出错",
+            "cancelled": "已取消"
+        },
+        "automatic_enabled": "自动增强抓取已开启",
+        "automatic_disabled": "自动增强抓取已禁用；原生基线维护与手动抓取不受影响",
+        "automatic_unknown": "自动抓取设置暂不可读取",
+        "job_status": "原生状态：{status} · 周期 {seconds} 秒 · 失败 {failures} 次",
+        "job_times": "上次启动：{started} · 上次结束：{finished}",
+        "schedule_error": "读取原生调度失败，隐藏截止时间直到下次读取成功",
+        "scheduled": "原生报告的下次时间：{time} · 剩余 {countdown}",
+        "schedule_unavailable": "原生调度器未发布下次截止时间，无法显示倒计时",
+        "system_tools": "系统工具",
+        "tools_description": "查看增强抓取进度，手动抓取好友与追踪对象的资料并计算关系建议。",
+        "description": "当前账号：{account}。一套周期刷新，两项并行任务。",
+        "overview": "运行概况",
+        "results": "本轮结果",
+        "progress": "逐人抓取进度",
+        "processed": "已处理 {processed} / {total} 人",
+        "source": "触发来源：{source}",
+        "target": "当前对象：{target}",
+        "pause_reason": "暂停原因：{reason}",
+        "next_run": "下次运行/重试：{time}",
+        "next_run_unknown": "下次运行时间尚未安排",
+        "results_note": "处理人数不代表成功人数。Bio 与状态更新仅统计确认落盘的变更；缺字段单独显示，结果类别可能重叠。",
+        "error_detail": "运行错误：{error}",
+        "request_error": "操作失败，请稍后重试。",
+        "background_hint": "关闭弹窗后后台继续运行，可从状态栏重开。仅显式取消才停止本轮任务。",
+        "run": "立即刷新",
+        "cancel": "取消本轮",
+        "close": "关闭",
+        "status_tooltip": "{phase} · 成功 {succeeded} · 失败 {failed} · 缺字段 {incomplete}。点击查看详情。",
+        "setting_label": "自动增强型信息抓取",
+        "setting_description": "启动、重连与小时级对账后自动补采好友和追踪对象。关闭不影响手动抓取或原有群组、收藏维护。",
+        "setting_error": "无法读取或保存自动抓取设置。",
+        "phase": {
+            "idle": "待机",
+            "fetching": "资料采集与建议计算中",
+            "relationships": "资料已采集，关系建议计算中",
+            "paused": "已暂停，等待重试",
+            "completed": "已完成",
+            "cancelled": "已取消",
+            "error": "运行出错"
+        },
+        "sources": {
+            "startup": "启动",
+            "reconnect": "重连",
+            "periodic": "定时对账",
+            "manual": "手动",
+            "profile": "资料页按需"
+        },
+        "counts": {
+            "succeeded": "成功抓取人数",
+            "unchanged": "无变化人数",
+            "failed": "失败人数",
+            "incomplete": "缺字段人数",
+            "bioUpdated": "已落盘 Bio 更新",
+            "statusUpdated": "已落盘状态更新"
+        }
+    },
+    "jirai": {
+        "two_person_relationship": {
+            "select_player_a": "选择玩家 A / 输入 usr_ ID 后回车",
+            "select_player_b": "选择玩家 B / 输入 usr_ ID 后回车"
+        },
+        "relationship_recommendations": {
+            "title": "或许是好友",
+            "local_only": "仅根据本地记录计算，不抓取完整关系网。分数是推测证据，并非好友确认。",
+            "computing": "计算中…",
+            "compute": "计算建议",
+            "confirmed": "已确认",
+            "confirm": "确认",
+            "ignore": "本次忽略",
+            "evidence": "证据与分数",
+            "overlay_setting": "进房时提醒「或许是好友」",
+            "overlay_help": "仅真实进入实例且双方同时在场时显示。连续同房只提醒一次，离开后再次同房可重触发。"
+        },
+        "relationship_evidence": {
+            "observed_peak": "本地记录峰值人数",
+            "unknown": "未知",
+            "unknown_order": "进入先后未知（近时记录不等于共同进入）",
+            "leftPlayer": "左侧玩家较晚出现于记录",
+            "rightPlayer": "右侧玩家较晚出现于记录"
         }
     }
 }

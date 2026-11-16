@@ -42,6 +42,11 @@ pub trait FavoriteBaselineStore: Send + Sync {
 
 pub trait GameLogLookup: Send + Sync {
     fn lookup_game_log_world_name(&self, world_id: &str) -> Result<String>;
+    fn friend_location_history(
+        &self,
+        owner: &OwnerId,
+        locations: &std::collections::HashMap<String, String>,
+    ) -> Result<std::collections::HashMap<String, (String, i64)>>;
     fn game_log_join_count(
         &self,
         owner: &OwnerId,

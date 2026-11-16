@@ -17,6 +17,7 @@ use vrcx_0_application_core::{
     TaskSupervisor, WorldCache,
 };
 
+pub use activity_events::relationship_recommendations::RelationshipRecommendationPair;
 pub use background_capabilities::chatbox;
 pub use background_capabilities::{
     build_background_discord_presence_command, build_background_presence_facts,

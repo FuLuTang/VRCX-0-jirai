@@ -58,25 +58,33 @@ describe('relationship history', () => {
         ]);
     });
 
-    it('splits session duration across UTC days but counts one join', () => {
+    it('assigns full duration to the event UTC day and counts distinct rooms once', () => {
         const sessions = buildRelationshipSessions([
             feedRow({
                 created_at: '2026-01-02T01:00:00.000Z',
-                time: 2 * 60 * 60 * 1000
+                time: 2 * 60 * 60 * 1000,
+                previousLocation: 'wrld_one:instance'
+            }),
+            feedRow({
+                created_at: '2026-01-02T05:00:00.000Z',
+                time: 30 * 60 * 1000,
+                previousLocation: 'wrld_one:instance'
+            }),
+            feedRow({
+                created_at: '2026-01-02T08:00:00.000Z',
+                time: 30 * 60 * 1000,
+                previousLocation: 'wrld_two:instance'
             })
         ]);
-        const daily = buildRelationshipDailyValues(sessions).sort(
-            (left, right) => left.day - right.day
-        );
+        const daily = buildRelationshipDailyValues(sessions);
 
         expect(daily).toEqual([
             expect.objectContaining({
-                totalTime: 60 * 60 * 1000,
-                joinCount: 1
-            }),
-            expect.objectContaining({
-                totalTime: 60 * 60 * 1000,
-                joinCount: 0
+                day: Math.floor(
+                    Date.parse('2026-01-02T00:00:00Z') / 86_400_000
+                ),
+                totalTime: 3 * 60 * 60 * 1000,
+                joinCount: 2
             })
         ]);
     });

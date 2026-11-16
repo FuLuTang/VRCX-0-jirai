@@ -14,12 +14,17 @@ function normalize(value: string): string {
 async function insertObservedOnline(
     input: StartupOnlineBackfillInsert
 ): Promise<StartupOnlineBackfillInsertResult> {
+    const expectedOwnerUserId = normalize(input.expectedOwnerUserId);
+    if (!expectedOwnerUserId) {
+        throw new Error('Startup online backfill requires an account.');
+    }
     const targetUserId = normalize(input.targetUserId);
     if (!targetUserId) {
         throw new Error('Startup online backfill requires a target user.');
     }
 
     return commands.appStartupOnlineBackfillInsert({
+        expectedOwnerUserId,
         targetUserId,
         displayName: String(input.displayName || '').trim() || targetUserId
     });

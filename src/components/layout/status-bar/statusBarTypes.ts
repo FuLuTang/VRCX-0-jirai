@@ -8,13 +8,18 @@ export type StatusBarVisibilityKey =
     | 'proxy'
     | 'ws'
     | 'instanceQueue'
+    | 'mutualGraph'
+    | 'profileInfoSync'
     | 'nowPlaying'
     | 'uptime'
     | 'zoom'
     | 'clocks'
     | 'servers';
 
-export type StatusBarVisibility = Record<StatusBarVisibilityKey, boolean>;
+export type StatusBarVisibility = Record<
+    Exclude<StatusBarVisibilityKey, 'profileInfoSync'>,
+    boolean
+> & { profileInfoSync?: boolean };
 
 export type StatusBarClock = {
     offset: number;

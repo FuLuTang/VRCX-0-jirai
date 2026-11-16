@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
+vi.mock('@/platform/tauri/bindings', () => ({ commands: {} }));
+
 import { createTrackedNonfriendsRefreshExecutor } from './trackedNonfriendsRefreshExecutor';
 
 const context = {
@@ -38,6 +40,7 @@ describe('tracked nonfriend refresh executor', () => {
         const executor = createTrackedNonfriendsRefreshExecutor({
             getEntries: () => entries,
             load: async () => {},
+            isAccountCurrent: () => true,
             isTracked: (userId) => tracked.has(userId),
             updateName: vi.fn(async () => true),
             getUserProfile,
@@ -50,7 +53,8 @@ describe('tracked nonfriend refresh executor', () => {
         expect(getUserProfile).toHaveBeenCalledWith({
             userId: 'usr_first',
             force: true,
-            isFriend: false
+            isFriend: false,
+            signal: expect.any(AbortSignal)
         });
         expect(wait).toHaveBeenCalledTimes(1);
         expect(outcome).toEqual({
@@ -66,6 +70,7 @@ describe('tracked nonfriend refresh executor', () => {
         const executor = createTrackedNonfriendsRefreshExecutor({
             getEntries: () => entries,
             load: async () => {},
+            isAccountCurrent: () => true,
             isTracked: () => true,
             updateName: vi.fn(async () => true),
             getUserProfile: vi.fn(
@@ -90,6 +95,7 @@ describe('tracked nonfriend refresh executor', () => {
         const executor = createTrackedNonfriendsRefreshExecutor({
             getEntries: () => entries,
             load: async () => {},
+            isAccountCurrent: () => true,
             isTracked: () => true,
             updateName: vi.fn(async () => true),
             getUserProfile,
@@ -100,5 +106,28 @@ describe('tracked nonfriend refresh executor', () => {
             executor({ ...context, signal: controller.signal })
         ).rejects.toMatchObject({ name: 'AbortError' });
         expect(getUserProfile).toHaveBeenCalledTimes(1);
+    });
+
+    it('stops refreshing after an account switch', async () => {
+        let current = true;
+        const getUserProfile = vi.fn(async () => {
+            current = false;
+            return { displayName: 'First' } as never;
+        });
+        const updateName = vi.fn(async () => true);
+        const executor = createTrackedNonfriendsRefreshExecutor({
+            getEntries: () => entries,
+            load: async () => {},
+            isAccountCurrent: () => current,
+            isTracked: () => true,
+            updateName,
+            getUserProfile,
+            wait: async () => {}
+        });
+        await expect(executor(context)).resolves.toMatchObject({
+            status: 'skipped'
+        });
+        expect(getUserProfile).toHaveBeenCalledOnce();
+        expect(updateName).not.toHaveBeenCalled();
     });
 });

@@ -16,6 +16,7 @@ import {
 } from './ConnectionSegments';
 import { DesktopWidgetToggle } from './DesktopWidgetToggle';
 import { DoNotDisturbMenu } from './DoNotDisturbMenu';
+import { EnhancedInfoFetchStatus } from './EnhancedInfoFetchStatus';
 import { GameIsolationToggle } from './GameIsolationToggle';
 import {
     InstanceQueueSegment,
@@ -108,6 +109,9 @@ export const StatusBarFooter = forwardRef<HTMLElement, StatusBarFooterProps>(
                         <DataDirMigrationSegment />
                         <ProfileBackupSegment />
                         <WorldCollectionImportSegment />
+                        {visibility.profileInfoSync !== false ? (
+                            <EnhancedInfoFetchStatus />
+                        ) : null}
                         <FriendProfileLoadSegment />
                         <MutualGraphSegment />
                         {visibility.clocks ? (

@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/platform/tauri/bindings', () => ({ commands: {} }));
 
 import type { AuthenticatedRuntimePhaseSnapshot } from '@/platform/tauri/bindings';
 import { useFavoriteStore } from '@/state/favoriteStore';
@@ -9,7 +11,9 @@ import { useSessionStore } from '@/state/sessionStore';
 import {
     applyAuthenticatedRuntimePhaseSnapshot,
     handleAuthenticatedRuntimeRealtimeStatus,
-    resetAuthenticatedRuntimeMirror
+    registerAuthenticatedRuntimeOnlineBackfill,
+    resetAuthenticatedRuntimeMirror,
+    subscribeAuthenticatedRuntimeEnhancedBaseline
 } from './authenticatedRuntimeService';
 
 function phaseSnapshot(
@@ -108,8 +112,11 @@ function phaseSnapshot(
 }
 
 describe('authenticatedRuntimeService', () => {
+    afterEach(() => vi.unstubAllGlobals());
+
     beforeEach(() => {
         resetAuthenticatedRuntimeMirror();
+        registerAuthenticatedRuntimeOnlineBackfill(null);
         useRuntimeStore.getState().resetRuntimeState();
         useSessionStore.getState().resetSessionState();
         useFriendRosterStore.getState().resetRoster();
@@ -158,6 +165,48 @@ describe('authenticatedRuntimeService', () => {
             useFriendRosterStore.getState().friendsById.usr_friend?.displayName
         ).toBe('Friend');
         expect(useFavoriteStore.getState().currentUserId).toBe('usr_self');
+    });
+
+    it('starts online backfill for each new complete friend baseline', () => {
+        vi.stubGlobal('window', {});
+        const backfill = vi.fn().mockResolvedValue(undefined);
+        registerAuthenticatedRuntimeOnlineBackfill(backfill);
+
+        applyAuthenticatedRuntimePhaseSnapshot(phaseSnapshot());
+        applyAuthenticatedRuntimePhaseSnapshot(phaseSnapshot());
+        expect(backfill).toHaveBeenCalledTimes(1);
+        expect(backfill).toHaveBeenCalledWith(
+            'usr_self',
+            expect.any(AbortSignal)
+        );
+
+        applyAuthenticatedRuntimePhaseSnapshot(
+            phaseSnapshot({ friendBaselineRevision: 2 })
+        );
+        expect(backfill).toHaveBeenCalledTimes(2);
+    });
+
+    it('notifies enhanced collection only for a newly completed baseline revision', () => {
+        const listener = vi.fn();
+        const unsubscribe =
+            subscribeAuthenticatedRuntimeEnhancedBaseline(listener);
+        try {
+            applyAuthenticatedRuntimePhaseSnapshot(phaseSnapshot());
+            applyAuthenticatedRuntimePhaseSnapshot(phaseSnapshot());
+            expect(listener).toHaveBeenCalledTimes(1);
+            expect(listener).toHaveBeenLastCalledWith('usr_self', 'startup');
+            applyAuthenticatedRuntimePhaseSnapshot(
+                phaseSnapshot({ friendBaselineRevision: 2 })
+            );
+            expect(listener).toHaveBeenCalledTimes(2);
+            expect(listener).toHaveBeenLastCalledWith('usr_self', 'periodic');
+            applyAuthenticatedRuntimePhaseSnapshot(
+                phaseSnapshot({ runId: 8, friendBaselineRevision: 1 })
+            );
+            expect(listener).toHaveBeenLastCalledWith('usr_self', 'reconnect');
+        } finally {
+            unsubscribe();
+        }
     });
 
     it('applies a newer friend baseline revision within the same runtime run', () => {

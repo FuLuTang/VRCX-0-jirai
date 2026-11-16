@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     buildMutualFriendsBaseGraph,
-    buildMutualFriendsCoverage,
-    overlayManualRelations
+    buildMutualFriendsCoverage
 } from './mutualFriendsGraphData';
 import { MUTUAL_GRAPH_EMPTY_USER_ID } from './mutualFriendsSettings';
 
@@ -70,7 +69,9 @@ describe('mutualFriendsGraphData', () => {
         );
 
         expect(graph.nodes.map((node) => node.id)).toEqual(['usr_a', 'usr_b']);
-        expect(graph.links).toEqual([{ source: 'usr_a', target: 'usr_b' }]);
+        expect(graph.links).toEqual([
+            { source: 'usr_a', target: 'usr_b', current: true }
+        ]);
     });
 
     it('still renders cached relationships when optional metadata is missing', () => {
@@ -86,60 +87,102 @@ describe('mutualFriendsGraphData', () => {
             ['usr_a', 'usr_a', 1],
             ['usr_b', 'usr_b', 1]
         ]);
-        expect(graph.links).toEqual([{ source: 'usr_a', target: 'usr_b' }]);
+        expect(graph.links).toEqual([
+            { source: 'usr_a', target: 'usr_b', current: true }
+        ]);
     });
 
-    it('derives green manual edges without mutating the observed snapshot graph', () => {
-        const snapshot = new Map([['usr_a', ['usr_b']]]);
-        const observedGraph = buildMutualFriendsBaseGraph(snapshot, new Map(), {
-            usr_a: 'Ava',
-            usr_b: 'Bea',
-            usr_c: 'Cora'
-        });
-        const observedBefore = structuredClone(observedGraph);
-
-        const overlaidGraph = overlayManualRelations(
-            observedGraph,
-            [
-                {
-                    userIdA: 'usr_a',
-                    userIdB: 'usr_b',
-                    relationType: 'friend',
-                    addedAt: '2026-09-03T10:00:00.000Z'
-                },
-                {
-                    userIdA: 'usr_c',
-                    userIdB: 'usr_a',
-                    relationType: 'friend',
-                    addedAt: '2026-09-04T10:00:00.000Z'
-                }
-            ],
-            { usr_a: 'Ava', usr_b: 'Bea', usr_c: 'Cora' }
+    it('shows legacy edges as historical and lets the current snapshot take precedence', () => {
+        const graph = buildMutualFriendsBaseGraph(
+            new Map([['usr_a', ['usr_c']]]),
+            null,
+            null,
+            [],
+            new Map([
+                [['usr_a', 'usr_b'].sort().join('__'), '2024-01-02'],
+                [['usr_a', 'usr_c'].sort().join('__'), '2024-02-03']
+            ])
         );
 
-        expect(observedGraph).toEqual(observedBefore);
-        expect(snapshot).toEqual(new Map([['usr_a', ['usr_b']]]));
-        expect(observedGraph.links).toEqual([
-            { source: 'usr_a', target: 'usr_b' }
+        expect(graph.links).toEqual([
+            {
+                source: 'usr_a',
+                target: 'usr_b',
+                historical: true,
+                lastObservedAt: '2024-01-02'
+            },
+            {
+                source: 'usr_a',
+                target: 'usr_c',
+                current: true,
+                historical: true,
+                lastObservedAt: '2024-02-03'
+            }
         ]);
-        expect(overlaidGraph.links).toContainEqual({
-            source: 'usr_a',
-            target: 'usr_b',
-            kind: 'manual',
-            addedAt: '2026-09-03T10:00:00.000Z'
-        });
-        expect(overlaidGraph.links).toContainEqual({
-            source: 'usr_a',
-            target: 'usr_c',
-            kind: 'manual',
-            addedAt: '2026-09-04T10:00:00.000Z'
-        });
+    });
+
+    it('keeps tracked users visible and marks manual-only and overlapping edge sources', () => {
+        const graph = buildMutualFriendsBaseGraph(
+            new Map([['usr_api', ['usr_mix']]]),
+            null,
+            null,
+            [],
+            new Map([
+                [['usr_old', 'usr_mix'].sort().join('__'), '2024-01-01'],
+                [['usr_api', 'usr_mix'].sort().join('__'), '2024-01-02']
+            ]),
+            [
+                {
+                    userId: 'usr_tracked',
+                    displayName: 'Tracked name',
+                    addedAt: '2026-01-01'
+                }
+            ],
+            [
+                {
+                    userIdA: 'usr_api',
+                    userIdB: 'usr_mix',
+                    relationType: 'friend',
+                    addedAt: '2026-01-02'
+                },
+                {
+                    userIdA: 'usr_manual',
+                    userIdB: 'usr_tracked',
+                    relationType: 'friend',
+                    addedAt: '2026-01-03'
+                },
+                {
+                    userIdA: 'usr_old',
+                    userIdB: 'usr_mix',
+                    relationType: 'friend',
+                    addedAt: '2026-01-04'
+                }
+            ]
+        );
+
         expect(
-            overlaidGraph.nodes.find((node) => node.id === 'usr_c')
-        ).toMatchObject({
-            label: 'Cora',
-            degree: 1,
-            mutualCount: 0
+            graph.nodes.find((node) => node.id === 'usr_tracked')?.label
+        ).toBe('Tracked name');
+        expect(graph.nodes.map((node) => node.id)).toContain('usr_manual');
+        expect(graph.links).toContainEqual({
+            source: 'usr_api',
+            target: 'usr_mix',
+            current: true,
+            manual: true,
+            historical: true,
+            lastObservedAt: '2024-01-02'
+        });
+        expect(graph.links).toContainEqual({
+            source: 'usr_manual',
+            target: 'usr_tracked',
+            manual: true
+        });
+        expect(graph.links).toContainEqual({
+            source: 'usr_mix',
+            target: 'usr_old',
+            manual: true,
+            historical: true,
+            lastObservedAt: '2024-01-01'
         });
     });
 });
@@ -175,9 +218,9 @@ describe('buildMutualFriendsCoverage', () => {
             ])
         ).toEqual({
             friendCount: 4,
-            fetchedCount: 2,
+            fetchedCount: 1,
             unavailableCount: 1,
-            lastFetchedAt: '2026-09-03T10:00:00.000Z'
+            lastFetchedAt: '2026-09-01T10:00:00.000Z'
         });
     });
 

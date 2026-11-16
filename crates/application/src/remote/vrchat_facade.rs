@@ -1,7 +1,10 @@
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 use serde_json::Value;
-use vrcx_0_application_core::{RequestPacer, Result, RuntimeAuthScope};
+use vrcx_0_application_core::{
+    RequestPacer, Result, RuntimeAuthScope, RuntimeAuthScopeSnapshot,
+};
 use vrcx_0_application_realtime::RealtimeHostRuntime;
 use vrcx_0_contracts::vrchat_api::{VrchatRequest, VrchatResponse, VrchatScope};
 use vrcx_0_core::json::RawJson;
@@ -66,7 +69,8 @@ use super::instance_lists::{
 use super::VrchatApiRuntime;
 use crate::media::{prepare_media_upload_request, MediaUploadPreprocessor};
 use crate::social::{
-    ensure_print_deletable, observe_profile_response, PrintFavoritesStore, ProfileBioStore,
+    ensure_print_deletable, observe_profile_response, PrintFavoritesStore, ProfileBioOutcome,
+    ProfileBioStore,
 };
 
 pub struct AvatarListByUserQuery {
@@ -85,6 +89,7 @@ pub struct VrchatRemoteFacade {
     profile_bio: Arc<dyn ProfileBioStore>,
     realtime: Arc<RealtimeHostRuntime>,
     auth_scope: RuntimeAuthScope,
+    profile_requests: ProfileRequestBroker,
 }
 
 impl VrchatRemoteFacade {
@@ -103,6 +108,7 @@ impl VrchatRemoteFacade {
             profile_bio,
             realtime,
             auth_scope,
+            profile_requests: ProfileRequestBroker::default(),
         }
     }
 
@@ -148,18 +154,74 @@ impl VrchatRemoteFacade {
     }
 
     pub async fn user_profile(&self, user_id: String, as_self: bool) -> Result<VrchatResponse> {
+        let expected = self.auth_scope.snapshot();
         let (user_id, request) =
             profile_get_input(VRCHAT_API_DEFAULT_ENDPOINT.into(), user_id, as_self)?;
-        let response = self
-            .execute(
-                "app__vrchat_user_profile_get",
-                format!("Getting profile for user {user_id}."),
-                request,
-                VrchatScope::Vrchat,
-            )
-            .await?;
-        self.observe_profile_bio(&response);
-        Ok(response)
+        let facade = self.clone();
+        let request_id = user_id.clone();
+        let kind = if as_self { "self-profile" } else { "profile" };
+        self.profile_requests
+            .request(&expected, kind, &request_id, async move {
+                let mut response = facade
+                    .execute(
+                        "app__vrchat_user_profile_get",
+                        format!("Getting profile for user {user_id}."),
+                        request,
+                        VrchatScope::Vrchat,
+                    )
+                    .await?;
+                facade.annotate_bio_receipt(&mut response, &expected);
+                Ok(response)
+            })
+            .await
+    }
+
+    /// Observe a dialog (`users/{id}`) payload. Upstream records the public Bio
+    /// only from `/profile`; a `users/{id}` bio can be stale, so the only native
+    /// observation kept here is the owner's own Bio history. The dialog user's
+    /// status/description reconciliation is issued by the renderer through
+    /// `app__profile_feed_reconcile`, and the `$jiraiStatusUpdated` receipt comes
+    /// from the realtime user-query path that produced this response.
+    pub fn observe_dialog_user(
+        &self,
+        response: &mut VrchatResponse,
+        scope: &RuntimeAuthScopeSnapshot,
+    ) {
+        if !(200..300).contains(&response.status)
+            || !self.auth_scope.snapshot().generation_matches(scope)
+        {
+            return;
+        }
+        let Ok(json) = serde_json::from_str::<Value>(&response.data) else {
+            return;
+        };
+        if json.get("id").and_then(Value::as_str) != Some(scope.current_user_id.as_str()) {
+            return;
+        }
+        let owner = OwnerId::new(scope.current_user_id.clone());
+        if let Err(error) = observe_profile_response(
+            self.profile_bio.as_ref(),
+            &self.realtime,
+            &owner,
+            response,
+            &now_iso(),
+        ) {
+            tracing::warn!(error = %error, "failed to observe a dialog profile");
+        }
+    }
+
+    pub async fn share_user_request<F>(
+        &self,
+        scope: &RuntimeAuthScopeSnapshot,
+        user_id: &str,
+        fetch: F,
+    ) -> Result<VrchatResponse>
+    where
+        F: std::future::Future<Output = Result<VrchatResponse>> + Send + 'static,
+    {
+        self.profile_requests
+            .request(scope, "user", user_id, fetch)
+            .await
     }
 
     pub async fn licensed_avatars(&self, n: i32, offset: i32) -> Result<VrchatResponse> {
@@ -1259,16 +1321,150 @@ impl VrchatRemoteFacade {
         self.api.execute(command, detail, request, scope).await
     }
 
-    fn observe_profile_bio(&self, response: &VrchatResponse) {
-        let owner = OwnerId::new(self.auth_scope.snapshot().current_user_id);
-        if let Err(error) = observe_profile_response(
+    /// Observe the public Bio of a `/profile` response and annotate the receipt
+    /// the renderer reads as `$jiraiBioUpdated`.
+    fn annotate_bio_receipt(
+        &self,
+        response: &mut VrchatResponse,
+        expected: &RuntimeAuthScopeSnapshot,
+    ) {
+        if !(200..300).contains(&response.status)
+            || !self.auth_scope.snapshot().generation_matches(expected)
+        {
+            return;
+        }
+        let owner = OwnerId::new(expected.current_user_id.clone());
+        let outcome = match observe_profile_response(
             self.profile_bio.as_ref(),
             &self.realtime,
             &owner,
             response,
             &now_iso(),
         ) {
-            tracing::warn!(error = %error, "failed to observe a profile bio");
+            Ok(outcome) => outcome,
+            Err(error) => {
+                tracing::warn!(error = %error, "failed to observe a profile bio");
+                return;
+            }
+        };
+        let Ok(mut json) = serde_json::from_str::<Value>(&response.data) else {
+            return;
+        };
+        let Some(object) = json.as_object_mut() else {
+            return;
+        };
+        object.insert(
+            "$jiraiBioUpdated".into(),
+            Value::Bool(matches!(outcome, Some(ProfileBioOutcome::Changed))),
+        );
+        if let Ok(data) = serde_json::to_string(&json) {
+            response.data = data;
         }
+    }
+}
+
+type SharedProfileRequestResult =
+    std::result::Result<VrchatResponse, Arc<vrcx_0_application_core::Error>>;
+type SharedProfileRequestSender =
+    tokio::sync::watch::Sender<Option<SharedProfileRequestResult>>;
+
+/// Coalesces concurrent profile requests that target the same account scope and
+/// user, so one network round trip feeds every joined caller and each of them
+/// receives the same committed-change receipt. Only pending requests live here;
+/// there is no completed-result reuse.
+#[derive(Clone, Default)]
+struct ProfileRequestBroker {
+    pending: Arc<Mutex<HashMap<String, SharedProfileRequestSender>>>,
+}
+
+impl ProfileRequestBroker {
+    async fn request<F>(
+        &self,
+        scope: &RuntimeAuthScopeSnapshot,
+        kind: &str,
+        user_id: &str,
+        fetch: F,
+    ) -> Result<VrchatResponse>
+    where
+        F: std::future::Future<Output = Result<VrchatResponse>> + Send + 'static,
+    {
+        let key = format!(
+            "{}:{}:{}:{kind}:{user_id}",
+            scope.generation, scope.current_user_id, scope.endpoint
+        );
+        let (mut receiver, sender) = {
+            let mut requests = self
+                .pending
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
+            if let Some(sender) = requests.get(&key) {
+                (sender.subscribe(), None)
+            } else {
+                let (sender, receiver) = tokio::sync::watch::channel(None);
+                requests.insert(key.clone(), sender.clone());
+                (receiver, Some(sender))
+            }
+        };
+        if let Some(sender) = sender {
+            let requests = Arc::clone(&self.pending);
+            tokio::spawn(async move {
+                let result = fetch.await.map_err(Arc::new);
+                requests
+                    .lock()
+                    .unwrap_or_else(|error| error.into_inner())
+                    .remove(&key);
+                sender.send_replace(Some(result));
+            });
+        }
+        loop {
+            let result = receiver.borrow_and_update().clone();
+            if let Some(result) = result {
+                return result.map_err(copy_profile_request_error);
+            }
+            if receiver.changed().await.is_err() {
+                return Err(vrcx_0_application_core::Error::Custom(
+                    "Profile request broker stopped.".into(),
+                ));
+            }
+        }
+    }
+}
+
+fn copy_profile_request_error(
+    error: Arc<vrcx_0_application_core::Error>,
+) -> vrcx_0_application_core::Error {
+    use vrcx_0_application_core::Error;
+    match Arc::try_unwrap(error) {
+        Ok(error) => error,
+        Err(error) => match error.as_ref() {
+            Error::Database(message) => Error::Database(message.clone()),
+            Error::Sqlite { message, category } => Error::Sqlite {
+                message: message.clone(),
+                category: *category,
+            },
+            Error::Io(error) => Error::Io(
+                error
+                    .raw_os_error()
+                    .map(std::io::Error::from_raw_os_error)
+                    .unwrap_or_else(|| std::io::Error::new(error.kind(), error.to_string())),
+            ),
+            Error::Json(error) => Error::Json(serde_json::Error::io(std::io::Error::other(
+                error.to_string(),
+            ))),
+            Error::UpdateArtifactInvalid(message) => Error::UpdateArtifactInvalid(message.clone()),
+            Error::PersistenceInvalidData(message) => {
+                Error::PersistenceInvalidData(message.clone())
+            }
+            Error::RegistryPolicyInvalid(message) => Error::RegistryPolicyInvalid(message.clone()),
+            Error::WebClient(message) => Error::WebClient(message.clone()),
+            Error::VrchatApi {
+                status_code,
+                message,
+            } => Error::VrchatApi {
+                status_code: *status_code,
+                message: message.clone(),
+            },
+            Error::Custom(message) => Error::Custom(message.clone()),
+        },
     }
 }

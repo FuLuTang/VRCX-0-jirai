@@ -200,6 +200,7 @@ export function useUserActivityPanelController({
                     ownerUserId: currentUserId ?? '',
                     rangeDays,
                     dayLabels,
+                    isSelf: userId === currentUserId,
                     forceRefresh
                 }
             );

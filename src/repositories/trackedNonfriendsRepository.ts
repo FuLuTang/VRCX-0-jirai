@@ -19,33 +19,65 @@ function requireUserId(userId: string): string {
     return normalized;
 }
 
-async function list(): Promise<TrackedNonfriend[]> {
-    return commands.appTrackedNonfriendsList();
+function requireOwnerUserId(ownerUserId: string): string {
+    const normalized = normalizeUserId(ownerUserId);
+    if (!normalized) {
+        throw new Error('Tracked non-friends requires an account.');
+    }
+    return normalized;
 }
 
-async function add(input: TrackedNonFriendAddInput): Promise<boolean> {
+async function list(expectedOwnerUserId: string): Promise<TrackedNonfriend[]> {
+    return commands.appTrackedNonfriendsList(
+        requireOwnerUserId(expectedOwnerUserId)
+    );
+}
+
+async function add(
+    expectedOwnerUserId: string,
+    input: TrackedNonFriendAddInput
+): Promise<boolean> {
     const userId = requireUserId(input.userId);
-    return commands.appTrackedNonfriendsAdd({
-        userId,
-        displayName: input.displayName?.trim() || ''
-    });
+    return commands.appTrackedNonfriendsAdd(
+        requireOwnerUserId(expectedOwnerUserId),
+        {
+            userId,
+            displayName: input.displayName?.trim() || ''
+        }
+    );
 }
 
-async function remove(userId: string): Promise<boolean> {
-    return commands.appTrackedNonfriendsRemove(requireUserId(userId));
+async function remove(
+    expectedOwnerUserId: string,
+    userId: string
+): Promise<boolean> {
+    return commands.appTrackedNonfriendsRemove(
+        requireOwnerUserId(expectedOwnerUserId),
+        requireUserId(userId)
+    );
 }
 
-async function isTracked(userId: string): Promise<boolean> {
-    return commands.appTrackedNonfriendsIsTracked(requireUserId(userId));
+async function isTracked(
+    expectedOwnerUserId: string,
+    userId: string
+): Promise<boolean> {
+    return commands.appTrackedNonfriendsIsTracked(
+        requireOwnerUserId(expectedOwnerUserId),
+        requireUserId(userId)
+    );
 }
 
 async function updateName(
+    expectedOwnerUserId: string,
     input: TrackedNonFriendUpdateNameInput
 ): Promise<boolean> {
-    return commands.appTrackedNonfriendsUpdateName({
-        userId: requireUserId(input.userId),
-        displayName: input.displayName?.trim() || ''
-    });
+    return commands.appTrackedNonfriendsUpdateName(
+        requireOwnerUserId(expectedOwnerUserId),
+        {
+            userId: requireUserId(input.userId),
+            displayName: input.displayName?.trim() || ''
+        }
+    );
 }
 
 export default { list, add, remove, isTracked, updateName };

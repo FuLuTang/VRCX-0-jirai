@@ -155,6 +155,7 @@ mod tests {
         VrchatResponse {
             status,
             data: data.into(),
+            retry_after: None,
         }
     }
 

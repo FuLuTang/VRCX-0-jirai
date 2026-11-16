@@ -25,23 +25,52 @@ let friendStepKey = '';
 let favoritesStepKey = '';
 let pendingRealtimeStatus: RealtimeWsStatusPayload | null = null;
 let startupOnlineBackfillController: AbortController | null = null;
-let profileFetchController: AbortController | null = null;
-let profileFetchAccountId = '';
+let startupOnlineBackfillHandler:
+    | ((accountId: string, signal: AbortSignal) => Promise<unknown>)
+    | null = null;
+
+type EnhancedBaselineSource = 'startup' | 'reconnect' | 'periodic';
+const enhancedBaselineListeners = new Set<
+    (accountId: string, source: EnhancedBaselineSource) => void
+>();
+export function subscribeAuthenticatedRuntimeEnhancedBaseline(
+    listener: (accountId: string, source: EnhancedBaselineSource) => void
+): () => void {
+    enhancedBaselineListeners.add(listener);
+    if (
+        latestSnapshot &&
+        matchesCurrentSession(latestSnapshot) &&
+        appliedFriendBaselineKey
+    )
+        listener(latestSnapshot.userId, 'startup');
+    return () => enhancedBaselineListeners.delete(listener);
+}
+function notifyEnhancedBaseline(
+    accountId: string,
+    source: EnhancedBaselineSource
+): void {
+    for (const listener of enhancedBaselineListeners)
+        listener(accountId, source);
+}
+
+export function registerAuthenticatedRuntimeOnlineBackfill(
+    handler:
+        | ((accountId: string, signal: AbortSignal) => Promise<unknown>)
+        | null
+): void {
+    startupOnlineBackfillHandler = handler;
+}
 
 function startStartupOnlineBackfill(accountId: string): void {
     // The authenticated-runtime mirror is also exercised by Node tests and
     // non-WebView tooling. Only a Tauri WebView can execute this native write.
-    if (typeof window === 'undefined') {
+    if (typeof window === 'undefined' || !startupOnlineBackfillHandler) {
         return;
     }
     startupOnlineBackfillController?.abort();
     const controller = new AbortController();
     startupOnlineBackfillController = controller;
-    void startupOnlineBackfillExecutor({
-        accountId,
-        signal: controller.signal,
-        translate: (key) => key
-    })
+    void startupOnlineBackfillHandler(accountId, controller.signal)
         .catch((error: unknown) => {
             if (!controller.signal.aborted) {
                 console.warn('Startup online backfill failed:', error);
@@ -50,30 +79,6 @@ function startStartupOnlineBackfill(accountId: string): void {
         .finally(() => {
             if (startupOnlineBackfillController === controller) {
                 startupOnlineBackfillController = null;
-            }
-        });
-}
-
-function startProfileFetch(accountId: string): void {
-    if (typeof window === 'undefined') return;
-    if (profileFetchController && profileFetchAccountId === accountId) return;
-    profileFetchController?.abort();
-    const controller = new AbortController();
-    profileFetchController = controller;
-    profileFetchAccountId = accountId;
-    void profileFetchExecutor({
-        accountId,
-        signal: controller.signal,
-        translate: (key) => key
-    })
-        .catch((error: unknown) => {
-            if (!controller.signal.aborted)
-                console.warn('Profile fetch failed:', error);
-        })
-        .finally(() => {
-            if (profileFetchController === controller) {
-                profileFetchController = null;
-                profileFetchAccountId = '';
             }
         });
 }
@@ -161,11 +166,16 @@ function applyFriendStep(snapshot: AuthenticatedRuntimePhaseSnapshot): void {
     // This starts task 05 once per baseline revision; a replacement baseline
     // aborts the prior loop before it can process more friends.
     startStartupOnlineBackfill(snapshot.userId);
-    startProfileFetch(snapshot.userId);
     if (output?.friendLogChanged) {
         signalFriendLogChanged();
     }
+    const source = !appliedFriendBaselineKey
+        ? 'startup'
+        : appliedFriendBaselineKey.split(':')[0] !== String(snapshot.runId)
+          ? 'reconnect'
+          : 'periodic';
     appliedFriendBaselineKey = baselineKey;
+    notifyEnhancedBaseline(snapshot.userId, source);
 }
 
 function applyFavoritesStep(snapshot: AuthenticatedRuntimePhaseSnapshot): void {
@@ -361,13 +371,19 @@ function applyRealtimeStatus(
             sessionStore.setTransportStatus('pipeline-connecting');
             break;
         case 'connected':
-            startProfileFetch(snapshot.userId);
+            const wasConnected = runtimeStore.transport.websocketConnected;
             runtimeStore.setTransportState({
                 websocketConnected: true,
                 websocketDomain,
                 lastConnectedAt: at
             });
             sessionStore.setTransportStatus('pipeline-connected');
+            if (
+                !wasConnected &&
+                appliedFriendBaselineKey &&
+                snapshot.friends.status === 'ready'
+            )
+                notifyEnhancedBaseline(snapshot.userId, 'reconnect');
             break;
         case 'error':
         case 'authFailure':
@@ -433,9 +449,6 @@ export function currentRealtimeTransportGeneration(): number | null {
 export function resetAuthenticatedRuntimeMirror(): void {
     startupOnlineBackfillController?.abort();
     startupOnlineBackfillController = null;
-    profileFetchController?.abort();
-    profileFetchController = null;
-    profileFetchAccountId = '';
     latestSnapshot = null;
     appliedFriendBaselineKey = '';
     appliedFavoritesRunId = 0;

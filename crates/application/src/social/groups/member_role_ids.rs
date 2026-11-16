@@ -154,7 +154,11 @@ mod tests {
                 self.max_in_flight.fetch_max(in_flight, Ordering::SeqCst);
                 tokio::time::sleep(Duration::from_millis(100)).await;
                 self.in_flight.fetch_sub(1, Ordering::SeqCst);
-                response.map(|(status, data)| VrchatResponse { status, data })
+                response.map(|(status, data)| VrchatResponse {
+                    status,
+                    data,
+                    retry_after: None,
+                })
             })
         }
     }

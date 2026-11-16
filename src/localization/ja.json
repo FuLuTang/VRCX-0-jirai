@@ -7291,7 +7291,12 @@
         "blocked_player_joined": "ブロックしたユーザーが参加しました",
         "blocked_player_left": "ブロックしたユーザーが退出しました",
         "muted_player_joined": "ミュートしたユーザーが参加しました",
-        "muted_player_left": "ミュートしたユーザーが退出しました"
+        "muted_player_left": "ミュートしたユーザーが退出しました",
+        "blocked": "にブロックされました",
+        "unblocked": "によるブロックが解除されました",
+        "muted": "にミュートされました",
+        "unmuted": "によるミュートが解除されました",
+        "relationship_recommendation": "{nameA} ↔ {nameB}：フレンドの可能性（{score}）"
     },
     "location": {
         "offline": "オフライン",

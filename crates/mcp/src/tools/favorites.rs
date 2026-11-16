@@ -852,6 +852,7 @@ mod favorite_kind_tests {
                 vrchat_api::VrchatResponse {
                     status,
                     data: "{}".into(),
+                    retry_after: None,
                 },
             );
 
