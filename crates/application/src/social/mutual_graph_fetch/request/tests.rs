@@ -9,6 +9,7 @@ use vrcx_0_contracts::vrchat_api::VrchatResponse;
 use super::*;
 use crate::remote::VrchatRequestFuture;
 use crate::social::MutualGraphStore;
+use crate::social::mutual_graph_fetch::MutualGraphObservationInput;
 
 #[derive(Debug, PartialEq)]
 struct GraphCommit {

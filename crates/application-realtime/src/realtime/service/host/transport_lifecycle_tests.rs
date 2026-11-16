@@ -8,7 +8,7 @@ use vrcx_0_application_core::HostSessionGameProcessStatus as GameProcessStatus;
 use vrcx_0_contracts::{InstanceRosterMember, InstanceRosterSnapshot};
 use vrcx_0_core::friends::{FriendBaselineEntry, FriendBaselinePresence, FriendRecord};
 use crate::FriendLocationTimeSource;
-use crate::social_baseline::FriendStatusVerdicts;
+use crate::social_baseline::service::FriendStatusVerdicts;
 use vrcx_0_core::presence::PresenceView;
 use vrcx_0_core::OwnerId;
 
