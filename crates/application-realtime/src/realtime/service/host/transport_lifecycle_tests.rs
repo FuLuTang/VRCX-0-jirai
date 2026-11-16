@@ -7,6 +7,8 @@ use crate::realtime::{RealtimeSessionContext, RealtimeTransportLifecycleEvent};
 use vrcx_0_application_core::HostSessionGameProcessStatus as GameProcessStatus;
 use vrcx_0_contracts::{InstanceRosterMember, InstanceRosterSnapshot};
 use vrcx_0_core::friends::{FriendBaselineEntry, FriendBaselinePresence, FriendRecord};
+use crate::FriendLocationTimeSource;
+use crate::FriendStatusVerdicts;
 use vrcx_0_core::presence::PresenceView;
 use vrcx_0_core::OwnerId;
 
@@ -867,7 +869,7 @@ fn startup_baseline_restores_remote_arrival_and_repeated_baselines_keep_it() -> 
     assert_eq!(runtime.runtime().deps.instance_dwell.snapshot(), restored);
     assert_eq!(
         restored[0].source,
-        vrcx_0_application_core::FriendLocationTimeSource::Realtime
+        FriendLocationTimeSource::Realtime
     );
     assert!(runtime
         .take_events_for_test()
@@ -880,9 +882,13 @@ fn startup_baseline_restores_remote_arrival_and_repeated_baselines_keep_it() -> 
     // subsequent periodic baseline brings the friend back to the old room.
     let mut moved = online_friend_roster();
     moved.get_mut("usr_friend").unwrap().presence.location = "wrld_other:456".into();
-    runtime
-        .runtime()
-        .sync_friend_snapshot(session.clone(), Some(transport.generation), moved)?;
+    let watermark = runtime.runtime().capture_friend_baseline_watermark()?;
+    runtime.runtime().sync_friend_snapshot_with_watermark(
+        session.clone(),
+        watermark,
+        moved,
+        FriendStatusVerdicts::default(),
+    )?;
     seed_online_friend(&runtime, &session, transport.generation)?;
     assert_ne!(
         runtime.runtime().deps.instance_dwell.snapshot()[0].since_ms,

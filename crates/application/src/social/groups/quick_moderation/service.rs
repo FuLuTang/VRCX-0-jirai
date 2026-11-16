@@ -566,6 +566,7 @@ mod tests {
                 Ok(vrcx_0_contracts::vrchat_api::VrchatResponse {
                     status: 200,
                     data: "{}".into(),
+                    retry_after: None,
                 })
             })
         }
