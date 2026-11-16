@@ -146,7 +146,7 @@ impl RealtimeHostRuntime {
                     true,
                     has_status
                         && persisted
-                        && !self.feed_persistence_disabled.load(Ordering::Relaxed),
+                        && !self.feed.persistence_disabled(),
                 )
             }
             RealtimeFriendApplyResult::MissingBaseline | RealtimeFriendApplyResult::Ignored => {

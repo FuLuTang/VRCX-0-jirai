@@ -132,6 +132,8 @@ beforeEach(() => {
         friendsTotal: 7,
         trackedTotal: 3,
         relationshipStatus: 'waiting',
+        relationshipProgress: null,
+        relationshipSuggestions: null,
         relationshipError: null
     };
 });

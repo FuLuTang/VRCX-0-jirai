@@ -55,7 +55,8 @@ impl RealtimeHostRuntime {
         if !location_history_candidates.is_empty() {
             match self
                 .deps
-                .store
+                .stores
+                .game_log
                 .friend_location_history(owner_user_id, &location_history_candidates)
             {
                 Ok(history) => {

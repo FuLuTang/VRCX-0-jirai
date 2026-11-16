@@ -27,57 +27,52 @@ function requireOwnerUserId(ownerUserId: string): string {
     return normalized;
 }
 
+// The owner scope is enforced natively: every command below resolves the
+// current authenticated owner inside the runtime host, so the renderer must not
+// pass one. `expectedOwnerUserId` stays in the signature only so callers keep a
+// single place to assert they are acting on the account they think they are.
 async function list(expectedOwnerUserId: string): Promise<TrackedNonfriend[]> {
-    return commands.appTrackedNonfriendsList(
-        requireOwnerUserId(expectedOwnerUserId)
-    );
+    requireOwnerUserId(expectedOwnerUserId);
+    return commands.appTrackedNonfriendsList();
 }
 
 async function add(
     expectedOwnerUserId: string,
     input: TrackedNonFriendAddInput
 ): Promise<boolean> {
+    requireOwnerUserId(expectedOwnerUserId);
     const userId = requireUserId(input.userId);
-    return commands.appTrackedNonfriendsAdd(
-        requireOwnerUserId(expectedOwnerUserId),
-        {
-            userId,
-            displayName: input.displayName?.trim() || ''
-        }
-    );
+    return commands.appTrackedNonfriendsAdd({
+        userId,
+        displayName: input.displayName?.trim() || ''
+    });
 }
 
 async function remove(
     expectedOwnerUserId: string,
     userId: string
 ): Promise<boolean> {
-    return commands.appTrackedNonfriendsRemove(
-        requireOwnerUserId(expectedOwnerUserId),
-        requireUserId(userId)
-    );
+    requireOwnerUserId(expectedOwnerUserId);
+    return commands.appTrackedNonfriendsRemove(requireUserId(userId));
 }
 
 async function isTracked(
     expectedOwnerUserId: string,
     userId: string
 ): Promise<boolean> {
-    return commands.appTrackedNonfriendsIsTracked(
-        requireOwnerUserId(expectedOwnerUserId),
-        requireUserId(userId)
-    );
+    requireOwnerUserId(expectedOwnerUserId);
+    return commands.appTrackedNonfriendsIsTracked(requireUserId(userId));
 }
 
 async function updateName(
     expectedOwnerUserId: string,
     input: TrackedNonFriendUpdateNameInput
 ): Promise<boolean> {
-    return commands.appTrackedNonfriendsUpdateName(
-        requireOwnerUserId(expectedOwnerUserId),
-        {
-            userId: requireUserId(input.userId),
-            displayName: input.displayName?.trim() || ''
-        }
-    );
+    requireOwnerUserId(expectedOwnerUserId);
+    return commands.appTrackedNonfriendsUpdateName({
+        userId: requireUserId(input.userId),
+        displayName: input.displayName?.trim() || ''
+    });
 }
 
 export default { list, add, remove, isTracked, updateName };

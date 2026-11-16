@@ -260,7 +260,7 @@ impl RealtimeFriendsRuntime {
                 }
                 None => {
                     let phase = Phase::initial(&evidence.claim, now_ms, false);
-                    if let vrcx_0_application_core::FriendPlace::Present { location, .. } =
+                    if let crate::instance_dwell::FriendPlace::Present { location, .. } =
                         dwell_place(&phase)
                     {
                         location_history_candidates.insert(user_id.clone(), location);
@@ -374,7 +374,7 @@ impl RealtimeFriendsRuntime {
         let mut state = self.lock_state();
         let instance_dwell = Arc::clone(&state.instance_dwell);
         let roster = state.roster.as_mut()?;
-        if roster.current_user_id != owner.as_str() || roster.generation != generation {
+        if roster.session.user_id != owner.as_str() || roster.generation != generation {
             return None;
         }
         let mut confirmed = HashMap::new();
