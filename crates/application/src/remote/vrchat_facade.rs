@@ -160,8 +160,11 @@ impl VrchatRemoteFacade {
         let facade = self.clone();
         let request_id = user_id.clone();
         let kind = if as_self { "self-profile" } else { "profile" };
+        // The broker borrows the scope for keying; the task owns its own copy so
+        // it can stamp the Bio receipt without moving the borrowed value.
+        let request_scope = expected.clone();
         self.profile_requests
-            .request(&expected, kind, &request_id, async move {
+            .request(&request_scope, kind, &request_id, async move {
                 let mut response = facade
                     .execute(
                         "app__vrchat_user_profile_get",
