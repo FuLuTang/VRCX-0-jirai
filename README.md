@@ -149,6 +149,10 @@ status.
 The historical README's statements about upstream disagreement and community
 sentiment are not software features and are not reproduced here.
 
+## Planned features
+
+- **Interaction initiative with a selected friend** (not implemented): Compare whether you or a chosen friend more often initiates contact, using available interaction history (such as invites and instance joins), and flag cases where the evidence is insufficient.
+
 ## Install
 
 Grab the file for your platform from the [latest release](https://github.com/Map1en/VRCX-0/releases/latest):
