@@ -783,6 +783,19 @@
         "filter": {
             "label": "필터",
             "label_count": "필터 ({count})"
+        },
+        "spoken_language": {
+            "ase": "미국 수어",
+            "asf": "호주 수어",
+            "bfi": "영국 수어",
+            "cmn": "표준 중국어",
+            "dse": "네덜란드 수어",
+            "fsl": "프랑스 수어",
+            "gsg": "독일 수어",
+            "jsl": "일본 수어",
+            "kvk": "한국 수어",
+            "nzs": "뉴질랜드 수어",
+            "tws": "조주어"
         }
     },
     "economy": {
@@ -1295,7 +1308,7 @@
             "view_more": "더 많이 보기",
             "mark_all_read": "모두 읽음으로 표시",
             "marking_all_read": "읽음으로 표시하는 중…",
-            "mark_read_failed": "읽음으로 표시하지 못했습니다",
+            "mark_read_failed": "VRChat에 동기화하지 못함",
             "mark_as_read": "읽음으로 표시",
             "more_actions": "추가 작업",
             "join_now": "지금 참가",
@@ -2026,9 +2039,9 @@
                 "accept": "수락",
                 "invite": "초대",
                 "decline": "거절",
+                "ignore": "무시",
                 "delete_log": "알림 삭제",
-                "decline_with_message": "메시지로 거절",
-                "ignore_locally": "로컬에서만 무시"
+                "decline_with_message": "메시지로 거절"
             },
             "filters": {
                 "requestInvite": "참가 요청",
@@ -2108,14 +2121,18 @@
                 "search_emoji": "이모지 검색",
                 "send": "보내기"
             },
+            "action_scope": {
+                "vrchat": "VRChat에서 실행",
+                "local": "VRCX-0 로컬 데이터만 변경"
+            },
             "success": {
                 "friend_request_accepted": "친구 요청이 수락되었습니다.",
                 "notification_declined": "거절했습니다.",
+                "friend_request_ignored": "친구 요청을 무시했습니다",
                 "invite_response_sent": "답장을 보냈습니다.",
                 "boop_sent": "콕찌르기를 보냈습니다",
                 "notification_response_sent": "응답을 보냈습니다.",
-                "notification_log_entry_deleted": "알림을 기록에서 삭제했습니다.",
-                "notification_ignored_locally": "로컬에서 무시했습니다."
+                "notification_log_entry_deleted": "알림을 기록에서 삭제했습니다."
             },
             "error": {
                 "cannot_invite_no_current_vrchat_location_is_available": "초대할 수 없습니다. 지금 인스턴스에 있지 않습니다.",
@@ -4144,21 +4161,24 @@
                 "failed_to_delete_notification": "알림을 삭제하지 못했습니다.",
                 "failed_to_accept_friend_request": "친구 요청을 수락하지 못했습니다.",
                 "failed_to_decline_notification": "알림을 거절하지 못했습니다.",
-                "failed_to_ignore_notification": "알림을 무시하지 못했습니다.",
                 "failed_to_send_invite": "초대장을 보내지 못했습니다.",
                 "invite_response_photo_sent": "사진으로 답장했습니다.",
                 "invite_response_sent": "답장을 보냈습니다.",
-                "failed_to_send_notification_response": "작업을 완료하지 못했습니다."
+                "failed_to_send_notification_response": "작업을 완료하지 못했습니다.",
+                "marked_read_locally_only": "여기서는 읽음으로 표시했지만 VRChat에 동기화하지 못했습니다"
             },
             "modal": {
                 "delete_notification_log_entry": "알림을 삭제할까요?",
                 "delete_the_local_value_log_entry": "이 {value} 알림을 기록에서 삭제할까요?",
                 "accept_friend_request": "친구 요청 수락",
                 "decline_notification": "알림 거절",
+                "ignore_friend_request": "친구 요청 무시",
                 "decline": "거절",
+                "ignore": "무시",
                 "send_invite": "초대장 보내기",
                 "accept_friend_request_consequence": "상대가 친구 목록에 추가됩니다.",
                 "decline_notification_consequence": "이 알림은 VRChat에서 삭제됩니다.",
+                "ignore_friend_request_consequence": "VRChat에서 무시된 친구 요청으로 이동합니다.",
                 "send_invite_consequence": "초대는 지금 있는 인스턴스로 보내집니다."
             },
             "dynamic": {
@@ -4266,7 +4286,10 @@
             "accent": {
                 "header": "강조 색상",
                 "custom": "사용자 지정",
-                "hex_label": "16진수 색상"
+                "hex_label": "16진수 색상",
+                "override_theme": "테마 강조 색상 덮어쓰기",
+                "provided_by_theme": "커뮤니티 테마 “{{name}}”의 색상 사용 중",
+                "override_hint": "테마 색상과 어울리지 않을 수 있습니다"
             },
             "custom_css": {
                 "status_on": "켜짐",
@@ -5066,7 +5089,6 @@
                 "closed": "닫힘",
                 "public_count": "공개 {count}",
                 "private_count": "비공개 {count}",
-                "capacity_count": "인원 제한 {count} (최대 {max})",
                 "pin_to_sidebar": "사이드바에 고정",
                 "pinned_to_sidebar": "사이드바에 고정했습니다.",
                 "pin_to_sidebar_failed": "사이드바에 고정하지 못했습니다.",
@@ -7637,7 +7659,7 @@
         "vrc_notification_center": {
             "toast": {
                 "failed_to_mark_notifications_as_seen": "알림을 읽음으로 표시하지 못했습니다.",
-                "mark_all_seen_partially_failed": "일부 알림을 읽음으로 표시하지 못했습니다",
+                "mark_all_seen_partially_failed": "모두 읽음으로 표시했지만 일부는 VRChat에 동기화하지 못했습니다",
                 "failed_to_accept_friend_request": "친구 요청을 수락하지 못했습니다.",
                 "failed_to_decline_notification": "알림을 거절하지 못했습니다.",
                 "failed_to_send_invite": "초대장을 보내지 못했습니다.",

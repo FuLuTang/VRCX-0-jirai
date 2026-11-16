@@ -784,6 +784,19 @@
         "filter": {
             "label": "Filter",
             "label_count": "Filter ({count})"
+        },
+        "spoken_language": {
+            "ase": "Amerikanische Gebärdensprache",
+            "asf": "Auslan (Australische Gebärdensprache)",
+            "bfi": "Britische Gebärdensprache",
+            "cmn": "Mandarin",
+            "dse": "Niederländische Gebärdensprache",
+            "fsl": "Französische Gebärdensprache",
+            "gsg": "Deutsche Gebärdensprache",
+            "jsl": "Japanische Gebärdensprache",
+            "kvk": "Koreanische Gebärdensprache",
+            "nzs": "Neuseeländische Gebärdensprache",
+            "tws": "Teochew"
         }
     },
     "economy": {
@@ -1361,7 +1374,7 @@
             "view_more": "Mehr anzeigen",
             "mark_all_read": "Alle als gelesen markieren",
             "marking_all_read": "Wird als gelesen markiert…",
-            "mark_read_failed": "Konnte nicht als gelesen markiert werden",
+            "mark_read_failed": "Nicht mit VRChat synchronisiert",
             "mark_as_read": "Als gelesen markieren",
             "more_actions": "Weitere Aktionen",
             "join_now": "Jetzt beitreten",
@@ -2095,9 +2108,9 @@
                 "accept": "Annehmen",
                 "invite": "Einladen",
                 "decline": "Ablehnen",
+                "ignore": "Ignorieren",
                 "delete_log": "Benachrichtigung löschen",
-                "decline_with_message": "Mit Nachricht ablehnen",
-                "ignore_locally": "Lokal ignorieren"
+                "decline_with_message": "Mit Nachricht ablehnen"
             },
             "filters": {
                 "requestInvite": "Einladung anfragen",
@@ -2177,14 +2190,18 @@
                 "search_emoji": "Emoji suchen",
                 "send": "Senden"
             },
+            "action_scope": {
+                "vrchat": "Wird in VRChat ausgeführt",
+                "local": "Ändert nur die lokalen Daten von VRCX-0"
+            },
             "success": {
                 "friend_request_accepted": "Freundschaftsanfrage angenommen",
                 "notification_declined": "Benachrichtigung abgelehnt",
+                "friend_request_ignored": "Freundschaftsanfrage ignoriert",
                 "invite_response_sent": "Antwort gesendet",
                 "boop_sent": "Boop gesendet",
                 "notification_response_sent": "Erledigt",
-                "notification_log_entry_deleted": "Benachrichtigung aus dem Verlauf entfernt",
-                "notification_ignored_locally": "Lokal ignoriert"
+                "notification_log_entry_deleted": "Benachrichtigung aus dem Verlauf entfernt"
             },
             "error": {
                 "cannot_invite_no_current_vrchat_location_is_available": "Einladen nicht möglich: kein aktueller VRChat-Standort verfügbar",
@@ -4214,21 +4231,24 @@
                 "failed_to_delete_notification": "Benachrichtigung konnte nicht gelöscht werden",
                 "failed_to_accept_friend_request": "Freundschaftsanfrage konnte nicht angenommen werden",
                 "failed_to_decline_notification": "Benachrichtigung konnte nicht abgelehnt werden",
-                "failed_to_ignore_notification": "Benachrichtigung konnte nicht ignoriert werden",
                 "failed_to_send_invite": "Einladung konnte nicht gesendet werden",
                 "invite_response_photo_sent": "Antwort mit Foto gesendet",
                 "invite_response_sent": "Antwort gesendet",
-                "failed_to_send_notification_response": "Aktion konnte nicht abgeschlossen werden"
+                "failed_to_send_notification_response": "Aktion konnte nicht abgeschlossen werden",
+                "marked_read_locally_only": "Hier als gelesen markiert, aber nicht mit VRChat synchronisiert"
             },
             "modal": {
                 "delete_notification_log_entry": "Benachrichtigung entfernen?",
                 "delete_the_local_value_log_entry": "Diese {value}-Benachrichtigung aus dem Verlauf entfernen?",
                 "accept_friend_request": "Freundschaftsanfrage annehmen",
                 "decline_notification": "Benachrichtigung ablehnen",
+                "ignore_friend_request": "Freundschaftsanfrage ignorieren",
                 "decline": "Ablehnen",
+                "ignore": "Ignorieren",
                 "send_invite": "Einladung senden",
                 "accept_friend_request_consequence": "Die Person wird zu deiner Freundesliste hinzugefügt.",
                 "decline_notification_consequence": "Die Benachrichtigung wird bei VRChat entfernt.",
+                "ignore_friend_request_consequence": "Sie wird in VRChat zu den ignorierten Freundschaftsanfragen verschoben.",
                 "send_invite_consequence": "Die Einladung geht an die Instanz, in der du gerade bist."
             },
             "dynamic": {
@@ -4336,7 +4356,10 @@
             "accent": {
                 "header": "Akzentfarbe",
                 "custom": "Benutzerdefiniert",
-                "hex_label": "Hex-Farbwert"
+                "hex_label": "Hex-Farbwert",
+                "override_theme": "Theme-Akzent überschreiben",
+                "provided_by_theme": "Vom Community-Theme „{{name}}“ vorgegeben",
+                "override_hint": "Deine Akzentfarbe passt eventuell nicht zum Theme"
             },
             "custom_css": {
                 "status_on": "An",
@@ -5140,7 +5163,6 @@
                 "closed": "Geschlossen",
                 "public_count": "Öffentlich {count}",
                 "private_count": "Privat {count}",
-                "capacity_count": "Kapazität {count} ({max})",
                 "pin_to_sidebar": "An Seitenleiste anheften",
                 "pinned_to_sidebar": "An die Seitenleiste angeheftet",
                 "pin_to_sidebar_failed": "Anheften an die Seitenleiste fehlgeschlagen",
@@ -7641,7 +7663,7 @@
         "vrc_notification_center": {
             "toast": {
                 "failed_to_mark_notifications_as_seen": "Benachrichtigungen konnten nicht als gesehen markiert werden",
-                "mark_all_seen_partially_failed": "Einige Benachrichtigungen konnten nicht als gelesen markiert werden",
+                "mark_all_seen_partially_failed": "Alles hier als gelesen markiert, einiges ließ sich nicht mit VRChat synchronisieren",
                 "failed_to_accept_friend_request": "Freundschaftsanfrage konnte nicht angenommen werden",
                 "failed_to_decline_notification": "Benachrichtigung konnte nicht abgelehnt werden",
                 "failed_to_send_invite": "Einladung konnte nicht gesendet werden",
