@@ -720,7 +720,7 @@ impl GameLogProcessor {
         if let Ok(mut cache) = self.recommendations.lock() {
             let enabled = self
                 .deps
-                .store
+                .config
                 .get_bool("relationshipRecommendationOverlayEnabled", true)
                 .unwrap_or(true);
             events.extend(cache.live_candidates(

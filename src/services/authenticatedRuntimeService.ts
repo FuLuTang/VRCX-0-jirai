@@ -5,7 +5,7 @@ import type {
 } from '@/platform/tauri/bindings';
 import { profileFetchExecutor } from '@/services/profileFetchExecutor';
 import '@/services/trackedNonfriendsRefreshExecutor';
-import { startupOnlineBackfillExecutor } from '@/services/startupOnlineBackfillExecutor';
+import '@/services/startupOnlineBackfillExecutor';
 import { normalizeVrchatEndpointKey } from '@/shared/vrchatEndpoint';
 import { useFavoriteStore } from '@/state/favoriteStore';
 import { useFriendRosterStore } from '@/state/friendRosterStore';
