@@ -3,7 +3,7 @@ import type {
     RealtimeWsStatusPayload,
     RuntimeVrchatAuthFailurePayload
 } from '@/platform/tauri/bindings';
-import { profileFetchExecutor } from '@/services/profileFetchExecutor';
+import '@/services/profileFetchExecutor';
 import '@/services/trackedNonfriendsRefreshExecutor';
 import '@/services/startupOnlineBackfillExecutor';
 import { normalizeVrchatEndpointKey } from '@/shared/vrchatEndpoint';

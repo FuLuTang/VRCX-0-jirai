@@ -220,7 +220,7 @@ impl WebClient {
             .inner
             .execute_with_retry_after(request)
             .await
-            .map_err(crate::map_web_client_error)?;
+            .map_err(crate::Error::from)?;
         if let Some(context) = field_log_context {
             crate::user_api_field_log::record(self.db.db_path(), context, status, &data).await;
         }
