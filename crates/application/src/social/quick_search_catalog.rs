@@ -87,6 +87,7 @@ pub enum QuickSearchMatchedField {
     Name,
     Memo,
     Note,
+    Bio,
 }
 
 #[derive(Clone, Debug, Serialize, specta::Type)]
@@ -104,6 +105,7 @@ pub struct QuickSearchResult {
     pub note: String,
     pub matched_field: QuickSearchMatchedField,
     pub user_colour: String,
+    pub bio: String,
 }
 
 #[derive(Clone, Debug, Serialize, specta::Type)]
@@ -169,6 +171,54 @@ pub enum QuickSearchRemoteSource {
 pub trait QuickSearchDetailStore: Send + Sync {
     fn user_memos(&self) -> Result<Vec<(String, String)>>;
     fn user_notes(&self, owner: OwnerId) -> Result<Vec<(String, String)>>;
+    /// Latest recorded profile bio per user for the given account (`profile_bio`).
+    fn user_bios(&self, owner: OwnerId) -> Result<Vec<(String, String)>>;
+}
+
+/// Per-user detail text used by friend matching (memo / note / bio), plus the
+/// number of detail sources that failed to load.
+#[derive(Debug, Default)]
+struct FriendDetails {
+    memos: HashMap<String, String>,
+    notes: HashMap<String, String>,
+    bios: HashMap<String, String>,
+    failures: usize,
+}
+
+fn load_friend_details(
+    store: &dyn QuickSearchDetailStore,
+    current_user_id: &str,
+    can_search_details: bool,
+) -> FriendDetails {
+    let mut details = FriendDetails::default();
+    if !can_search_details {
+        return details;
+    }
+    details.memos = match store.user_memos() {
+        Ok(rows) => rows.into_iter().collect(),
+        Err(error) => {
+            details.failures += 1;
+            tracing::debug!(error = %error, "quick search user memos failed");
+            HashMap::new()
+        }
+    };
+    details.notes = match store.user_notes(OwnerId::new(current_user_id.to_string())) {
+        Ok(rows) => rows.into_iter().collect(),
+        Err(error) => {
+            details.failures += 1;
+            tracing::debug!(error = %error, "quick search user notes failed");
+            HashMap::new()
+        }
+    };
+    details.bios = match store.user_bios(OwnerId::new(current_user_id.to_string())) {
+        Ok(rows) => rows.into_iter().collect(),
+        Err(error) => {
+            details.failures += 1;
+            tracing::debug!(error = %error, "quick search user bios failed");
+            HashMap::new()
+        }
+    };
+    details
 }
 
 pub struct QuickSearchSources {
@@ -237,41 +287,22 @@ impl QuickSearchRuntime {
             "Searching the quick search sources.",
         );
 
-        let mut failures = 0;
         let can_search_details = query.chars().count() >= DETAIL_QUERY_MIN_LENGTH;
-        let (memo_by_user_id, note_by_user_id) = if can_search_details {
-            let memos = match self.inner.detail_store.user_memos() {
-                Ok(rows) => rows.into_iter().collect::<HashMap<_, _>>(),
-                Err(error) => {
-                    failures += 1;
-                    tracing::debug!(error = %error, "quick search user memos failed");
-                    HashMap::new()
-                }
-            };
-            let notes = match self
-                .inner
-                .detail_store
-                .user_notes(OwnerId::new(scope.current_user_id.clone()))
-            {
-                Ok(rows) => rows.into_iter().collect::<HashMap<_, _>>(),
-                Err(error) => {
-                    failures += 1;
-                    tracing::debug!(error = %error, "quick search user notes failed");
-                    HashMap::new()
-                }
-            };
-            (memos, notes)
-        } else {
-            (HashMap::new(), HashMap::new())
-        };
+        let details = load_friend_details(
+            self.inner.detail_store.as_ref(),
+            &scope.current_user_id,
+            can_search_details,
+        );
+        let mut failures = details.failures;
 
         let friends = friend_snapshot
             .filter(|snapshot| friend_snapshot_matches_scope(snapshot, &scope))
             .map(|snapshot| {
                 search_friends(
                     snapshot.friends_by_id.into_values(),
-                    &memo_by_user_id,
-                    &note_by_user_id,
+                    &details.memos,
+                    &details.notes,
+                    &details.bios,
                     &query,
                 )
             })
@@ -622,6 +653,7 @@ fn search_friends(
     friends: impl IntoIterator<Item = FriendRecord>,
     memo_by_user_id: &HashMap<String, String>,
     note_by_user_id: &HashMap<String, String>,
+    bio_by_user_id: &HashMap<String, String>,
     query: &str,
 ) -> Vec<QuickSearchResult> {
     let can_search_details = query.chars().count() >= DETAIL_QUERY_MIN_LENGTH;
@@ -637,6 +669,10 @@ fn search_friends(
                 .get(&friend.id)
                 .map(String::as_str)
                 .unwrap_or_default();
+            let bio = bio_by_user_id
+                .get(&friend.id)
+                .map(String::as_str)
+                .unwrap_or_default();
             let normalized_name = normalize_search_text(&name);
             let matched_field = if normalized_name.contains(query) {
                 QuickSearchMatchedField::Name
@@ -644,6 +680,8 @@ fn search_friends(
                 QuickSearchMatchedField::Memo
             } else if can_search_details && normalize_search_text(note).contains(query) {
                 QuickSearchMatchedField::Note
+            } else if can_search_details && normalize_search_text(bio).contains(query) {
+                QuickSearchMatchedField::Bio
             } else {
                 return None;
             };
@@ -654,6 +692,7 @@ fn search_friends(
                 name,
                 memo,
                 note,
+                bio,
                 matched_field,
             ))
         })
@@ -664,8 +703,8 @@ fn search_friends(
     matches
         .into_iter()
         .take(RESULT_LIMIT)
-        .map(|(_, _, friend, name, memo, note, matched_field)| {
-            friend_result(friend, name, memo, note, matched_field)
+        .map(|(_, _, friend, name, memo, note, bio, matched_field)| {
+            friend_result(friend, name, memo, note, bio, matched_field)
         })
         .collect()
 }
@@ -675,6 +714,7 @@ fn friend_result(
     name: String,
     memo: &str,
     note: &str,
+    bio: &str,
     matched_field: QuickSearchMatchedField,
 ) -> QuickSearchResult {
     let user_colour = friend
@@ -697,6 +737,7 @@ fn friend_result(
         note: note.trim().to_string(),
         matched_field,
         user_colour,
+        bio: bio.trim().to_string(),
     }
 }
 
@@ -719,6 +760,7 @@ fn local_world_result(row: WorldSummaryOutput) -> QuickSearchResult {
         note: String::new(),
         matched_field: QuickSearchMatchedField::Name,
         user_colour: String::new(),
+        bio: String::new(),
     }
 }
 
@@ -857,6 +899,7 @@ fn candidate_result(row: &QuickSearchCandidate) -> QuickSearchResult {
         note: String::new(),
         matched_field: QuickSearchMatchedField::Name,
         user_colour: String::new(),
+        bio: String::new(),
     }
 }
 
@@ -970,6 +1013,7 @@ mod tests {
             "Friend".into(),
             "",
             "",
+            "",
             QuickSearchMatchedField::Name,
         );
 
@@ -1033,7 +1077,13 @@ mod tests {
             display_name: candidate.name.as_str().into(),
             ..FriendRecord::default()
         });
-        let friend_results = search_friends(friends, &HashMap::new(), &HashMap::new(), "alpha");
+        let friend_results = search_friends(
+            friends,
+            &HashMap::new(),
+            &HashMap::new(),
+            &HashMap::new(),
+            "alpha",
+        );
         assert_eq!(
             friend_results
                 .iter()
@@ -1056,9 +1106,10 @@ mod tests {
         let memos = HashMap::from([("usr_1".into(), "x-ray".into())]);
         let notes = HashMap::from([("usr_1".into(), "yellow".into())]);
 
-        assert!(search_friends([friend.clone()], &memos, &notes, "x").is_empty());
+        let bios = HashMap::new();
+        assert!(search_friends([friend.clone()], &memos, &notes, &bios, "x").is_empty());
         assert_eq!(
-            search_friends([friend], &memos, &notes, "x-")[0].matched_field,
+            search_friends([friend], &memos, &notes, &bios, "x-")[0].matched_field,
             QuickSearchMatchedField::Memo
         );
     }
@@ -1092,5 +1143,265 @@ mod tests {
 
         assert_eq!(projected.id, "wrld_1");
         assert_eq!(projected.seed_data["id"], json!("wrld_1"));
+    }
+
+    fn friend(id: &str, name: &str) -> FriendRecord {
+        FriendRecord {
+            id: id.into(),
+            display_name: name.into(),
+            ..FriendRecord::default()
+        }
+    }
+
+    fn map(rows: &[(&str, &str)]) -> HashMap<String, String> {
+        rows.iter()
+            .map(|(id, value)| ((*id).to_string(), (*value).to_string()))
+            .collect()
+    }
+
+    // A14-1
+    #[test]
+    fn bio_only_match_returns_friend_with_bio_matched_field() {
+        let bios = map(&[("usr_1", "Loves Kyoto tea houses")]);
+        let results = search_friends(
+            [friend("usr_1", "Alpha")],
+            &HashMap::new(),
+            &HashMap::new(),
+            &bios,
+            "kyoto",
+        );
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].id, "usr_1");
+        assert_eq!(results[0].matched_field, QuickSearchMatchedField::Bio);
+        assert_eq!(results[0].bio, "Loves Kyoto tea houses");
+    }
+
+    // A14-2
+    #[test]
+    fn name_beats_memo_note_and_bio_and_each_friend_appears_once() {
+        let memos = map(&[("usr_1", "kyoto memo"), ("usr_2", "kyoto memo")]);
+        let notes = map(&[
+            ("usr_1", "kyoto note"),
+            ("usr_2", "kyoto note"),
+            ("usr_3", "kyoto note"),
+        ]);
+        let bios = map(&[
+            ("usr_1", "kyoto bio"),
+            ("usr_2", "kyoto bio"),
+            ("usr_3", "kyoto bio"),
+            ("usr_4", "kyoto bio"),
+        ]);
+        let results = search_friends(
+            [
+                friend("usr_1", "Kyoto Fan"),
+                friend("usr_2", "Beta"),
+                friend("usr_3", "Gamma"),
+                friend("usr_4", "Delta"),
+            ],
+            &memos,
+            &notes,
+            &bios,
+            "kyoto",
+        );
+        let fields = results
+            .iter()
+            .map(|row| (row.id.as_str(), row.matched_field))
+            .collect::<HashMap<_, _>>();
+        assert_eq!(results.len(), 4);
+        assert_eq!(fields["usr_1"], QuickSearchMatchedField::Name);
+        assert_eq!(fields["usr_2"], QuickSearchMatchedField::Memo);
+        assert_eq!(fields["usr_3"], QuickSearchMatchedField::Note);
+        assert_eq!(fields["usr_4"], QuickSearchMatchedField::Bio);
+    }
+
+    // A14-3
+    #[test]
+    fn single_character_query_does_not_search_bio() {
+        let bios = map(&[("usr_1", "q")]);
+        assert!(search_friends(
+            [friend("usr_1", "Alpha")],
+            &HashMap::new(),
+            &HashMap::new(),
+            &bios,
+            "q",
+        )
+        .is_empty());
+        assert_eq!(
+            search_friends(
+                [friend("usr_1", "Alpha")],
+                &HashMap::new(),
+                &HashMap::new(),
+                &map(&[("usr_1", "qq")]),
+                "qq",
+            )[0]
+            .matched_field,
+            QuickSearchMatchedField::Bio
+        );
+    }
+
+    // A14-4: only friends from the friend snapshot are searched; bios of
+    // non-friends present in the bio table never produce results.
+    #[test]
+    fn non_friend_bio_matches_are_ignored() {
+        let bios = map(&[("usr_stranger", "kyoto"), ("usr_1", "nothing here")]);
+        assert!(search_friends(
+            [friend("usr_1", "Alpha")],
+            &HashMap::new(),
+            &HashMap::new(),
+            &bios,
+            "kyoto",
+        )
+        .is_empty());
+    }
+
+    // A14-6
+    #[test]
+    fn percent_and_underscore_are_literal_characters_in_bio_matching() {
+        let bios = map(&[
+            ("usr_pct", "100% real"),
+            ("usr_plain", "100 real"),
+            ("usr_us", "snake_case fan"),
+            ("usr_nous", "snakeXcase fan"),
+        ]);
+        let friends = || {
+            [
+                friend("usr_pct", "A"),
+                friend("usr_plain", "B"),
+                friend("usr_us", "C"),
+                friend("usr_nous", "D"),
+            ]
+        };
+        let pct = search_friends(friends(), &HashMap::new(), &HashMap::new(), &bios, "0%");
+        assert_eq!(
+            pct.iter().map(|r| r.id.as_str()).collect::<Vec<_>>(),
+            ["usr_pct"]
+        );
+        let us = search_friends(friends(), &HashMap::new(), &HashMap::new(), &bios, "e_c");
+        assert_eq!(
+            us.iter().map(|r| r.id.as_str()).collect::<Vec<_>>(),
+            ["usr_us"]
+        );
+        let wildcard = search_friends(friends(), &HashMap::new(), &HashMap::new(), &bios, "%%");
+        assert!(wildcard.is_empty());
+    }
+
+    // A14-7
+    #[test]
+    fn bio_matches_share_the_friend_result_limit() {
+        let friends = (0..12)
+            .map(|index| friend(&format!("usr_{index:02}"), &format!("Friend {index:02}")))
+            .collect::<Vec<_>>();
+        let bios = friends
+            .iter()
+            .map(|row| (row.id.clone(), "shared kyoto bio".to_string()))
+            .collect::<HashMap<_, _>>();
+        let results = search_friends(friends, &HashMap::new(), &HashMap::new(), &bios, "kyoto");
+        assert_eq!(results.len(), RESULT_LIMIT);
+        assert!(results
+            .iter()
+            .all(|row| row.matched_field == QuickSearchMatchedField::Bio));
+        assert_eq!(results[0].name, "Friend 00");
+    }
+
+    #[test]
+    fn bio_matching_is_case_and_width_insensitive() {
+        let bios = map(&[("usr_1", "ＫＹＯＴＯ Lover")]);
+        let results = search_friends(
+            [friend("usr_1", "Alpha")],
+            &HashMap::new(),
+            &HashMap::new(),
+            &bios,
+            "kyoto",
+        );
+        assert_eq!(results[0].matched_field, QuickSearchMatchedField::Bio);
+    }
+
+    struct FakeDetailStore {
+        fail_memos: bool,
+        fail_notes: bool,
+        fail_bios: bool,
+        seen_bio_owner: Mutex<Option<String>>,
+    }
+
+    impl FakeDetailStore {
+        fn new(fail_memos: bool, fail_notes: bool, fail_bios: bool) -> Self {
+            Self {
+                fail_memos,
+                fail_notes,
+                fail_bios,
+                seen_bio_owner: Mutex::new(None),
+            }
+        }
+    }
+
+    impl QuickSearchDetailStore for FakeDetailStore {
+        fn user_memos(&self) -> Result<Vec<(String, String)>> {
+            if self.fail_memos {
+                return Err(Error::Custom("memo failure".into()));
+            }
+            Ok(vec![("usr_1".into(), "memo text".into())])
+        }
+
+        fn user_notes(&self, _owner: OwnerId) -> Result<Vec<(String, String)>> {
+            if self.fail_notes {
+                return Err(Error::Custom("note failure".into()));
+            }
+            Ok(vec![("usr_2".into(), "note text".into())])
+        }
+
+        fn user_bios(&self, owner: OwnerId) -> Result<Vec<(String, String)>> {
+            *self.seen_bio_owner.lock().unwrap() = Some(owner.as_str().to_string());
+            if self.fail_bios {
+                return Err(Error::Custom("bio failure".into()));
+            }
+            Ok(vec![("usr_3".into(), "bio text".into())])
+        }
+    }
+
+    // A14-9
+    #[test]
+    fn bio_load_failure_is_counted_and_other_details_still_load() {
+        let store = FakeDetailStore::new(false, false, true);
+        let details = load_friend_details(&store, "usr_me", true);
+        assert_eq!(details.failures, 1);
+        assert_eq!(details.memos["usr_1"], "memo text");
+        assert_eq!(details.notes["usr_2"], "note text");
+        assert!(details.bios.is_empty());
+        assert_eq!(
+            store.seen_bio_owner.lock().unwrap().as_deref(),
+            Some("usr_me")
+        );
+
+        let results = search_friends(
+            [friend("usr_1", "Alpha"), friend("usr_2", "Beta")],
+            &details.memos,
+            &details.notes,
+            &details.bios,
+            "text",
+        );
+        assert_eq!(results.len(), 2);
+    }
+
+    #[test]
+    fn detail_loading_is_skipped_for_short_queries_and_counts_every_failure() {
+        let store = FakeDetailStore::new(true, true, true);
+        let skipped = load_friend_details(&store, "usr_me", false);
+        assert_eq!(skipped.failures, 0);
+        assert!(store.seen_bio_owner.lock().unwrap().is_none());
+
+        let all_failed = load_friend_details(&store, "usr_me", true);
+        assert_eq!(all_failed.failures, 3);
+
+        let ok = load_friend_details(&FakeDetailStore::new(false, false, false), "usr_me", true);
+        assert_eq!(ok.failures, 0);
+        assert_eq!(ok.bios["usr_3"], "bio text");
+    }
+
+    #[test]
+    fn matched_field_bio_serializes_as_camel_case_bio() {
+        assert_eq!(
+            serde_json::to_value(QuickSearchMatchedField::Bio).unwrap(),
+            json!("bio")
+        );
     }
 }
