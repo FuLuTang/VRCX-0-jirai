@@ -17,9 +17,9 @@
 
 | 状态 | 数量 | 功能编号 |
 | --- | --- | --- |
-| ✅ 完成 | **11** | 1、2、3、3b、4、5、6、8、9、11、**16** |
-| ⚠️ 部分 | **2** | 10、14 |
-| ❌ 未完成 | **3** | 7、12（仅「历史清理」）、13 |
+| ✅ 完成 | ~~**11**~~ **13**（MIMI） | 1、2、3、3b、4、5、6、8、9、11、**16**；**MIMI 新增：14、7（与 jirai 一致：入口隐藏）** |
+| ⚠️ 部分 | ~~**2**~~ **1** | 10（**冻结**） |
+| ❌ 未完成 | ~~**3**~~ **2** | 12（仅「历史清理」，**冻结**）、13 |
 | ➖ 不适用 | **1** | 15 |
 | 合计 | **17** | |
 
@@ -66,8 +66,8 @@
 
 | # | 功能 | 已有什么 | 缺什么 | 性质 |
 | --- | --- | --- | --- | --- |
-| 10 | 假记录注入 | Rust 命令 `app__game_log_entries_add`（`commands/local/game_log.rs:36`）、`GameLogWriteKind`（含 `External`/`Event`）、前端写入封装（`gameLogPersistenceRepository.ts:75 addGameLogEntries`、`:183 addGamelogEventToDatabase`、`:187 addGamelogExternalToDatabase`） | **无任何 UI 调用方**（除封装自身与 `bindings.ts:228` 外零引用）；无 PreviousInstances 入口；无来源模型（无 `provenance`/`source`/`isFake`） | **有意暂缓且有设计门槛**：`docs/jirai-port/reports/合成历史记录.md` 结论「暂不实现」，要求先建完整性契约——专用命令 + `provenance=manual_synthetic`、仅当前所有者可建/删、查询显式选择是否含合成行且默认分析路径排除、确认对话框/可见标记/审计时间戳。backlog `:198` 亦列「暂缓：手动插入实例进出记录」 |
-| 14 | 快速搜索 Bio 检索 | Feed 页内 bio 检索（`crates/persistence/src/feed/query.rs:300`，含 `previous_bio`；入口 `:460 feed_search_query`，前端 `feedRepository.ts:137`） | ① 全局快速搜索目录 `quick_search_catalog.rs:111-121` 仅 **7 类**（friends/own_avatars/favorite_avatars/own_worlds/favorite_worlds/own_groups/joined_groups），**无 bio**；② 语义不同：jirai `searchBiosByContent` 用 `MAX(id) GROUP BY user_id` 只匹配**每人最新一条**，VRCX-0 查历史行，会让同一人重复出现 | **产品暂缓**：`README.zh-CN.md:122` 与 backlog `:95-105`「用户 2026-10-02 决定暂不优化搜索，移出近期计划」；backlog `:99` 还纠正了此前「遍历全部旧版本 Bio」的误读 |
+| 10 | 假记录注入（**冻结**） | Rust 命令 `app__game_log_entries_add`（`commands/local/game_log.rs:36`）、`GameLogWriteKind`（含 `External`/`Event`）、前端写入封装（`gameLogPersistenceRepository.ts:75 addGameLogEntries`、`:183 addGamelogEventToDatabase`、`:187 addGamelogExternalToDatabase`） | **无任何 UI 调用方**（除封装自身与 `bindings.ts:228` 外零引用）；无 PreviousInstances 入口；无来源模型（无 `provenance`/`source`/`isFake`） | **有意暂缓且有设计门槛**：`docs/jirai-port/reports/合成历史记录.md` 结论「暂不实现」，要求先建完整性契约——专用命令 + `provenance=manual_synthetic`、仅当前所有者可建/删、查询显式选择是否含合成行且默认分析路径排除、确认对话框/可见标记/审计时间戳。backlog `:198` 亦列「暂缓：手动插入实例进出记录」 |
+| 14 | 快速搜索 Bio 检索 **→ MIMI 完成** | Feed 页内 bio 检索（`crates/persistence/src/feed/query.rs:300`，含 `previous_bio`；入口 `:460 feed_search_query`，前端 `feedRepository.ts:137`） | ① 全局快速搜索目录 `quick_search_catalog.rs:111-121` 仅 **7 类**（friends/own_avatars/favorite_avatars/own_worlds/favorite_worlds/own_groups/joined_groups），**无 bio**；② 语义不同：jirai `searchBiosByContent` 用 `MAX(id) GROUP BY user_id` 只匹配**每人最新一条**，VRCX-0 查历史行，会让同一人重复出现 | **产品暂缓**：`README.zh-CN.md:122` 与 backlog `:95-105`「用户 2026-10-02 决定暂不优化搜索，移出近期计划」；backlog `:99` 还纠正了此前「遍历全部旧版本 Bio」的误读 |
 
 ---
 
@@ -75,8 +75,8 @@
 
 | # | 功能 | 核查结果 | 性质 / 备注 |
 | --- | --- | --- | --- |
-| 7 | 自动跟随好友 | `src/`、`crates/`、`src-tauri/` 下 `autoFollow`/`auto_follow`/`tryOpenInstance`/`followFriend` **零命中**（仅 `docs/` 提及）；只有手动动作 `src/components/instances/useInstanceActionBarController.ts:270 launchInstance` | **有意不做**：jirai 作者 `3a5c269e`（2026-04-04「隐藏"自动跟随"按钮」）主动隐藏了入口；backlog `:198` 标「暂缓」；`docs/jirai-port/执行任务/11-自动跟随好友实例.md` 保留设计参考 |
-| 12 | Bio 清空突发清理 | **历史清理：无**（`bioClear`/`suspiciousBio`/`clearBurst`/`bio_clear` 零命中；唯一 `suspicious` 是好友基线漂移 `crates/application-realtime/src/social_baseline/service/friends/baseline.rs:123`，同名不同义）。**写入预防：有**——前端缺字段即省略（`enhancedProfileFetchExecutor.ts:263`）、Rust `input.bio: Option<String>` 且 `bio_updated`（`realtime/jirai.rs:186`）仅 `Some` 才触发，测试 `realtime/jirai/tests.rs:225` 断言 `bio: None` → `!bio_updated` | **未被盘点**：`README.zh-CN.md:85` 盘点截止 `c8b8f744`（2026-05-20），而 #12 本体 `198e07f8` 是 2026-09-27，在其之后。**移植价值**：仅「迁入 jirai 旧库、需清历史污染」场景才需要，新写入无需再做 |
+| 7 | 自动跟随好友 **→ MIMI 完成（与 jirai 一致：入口隐藏）** | `src/`、`crates/`、`src-tauri/` 下 `autoFollow`/`auto_follow`/`tryOpenInstance`/`followFriend` **零命中**（仅 `docs/` 提及）；只有手动动作 `src/components/instances/useInstanceActionBarController.ts:270 launchInstance` | **有意不做**：jirai 作者 `3a5c269e`（2026-04-04「隐藏"自动跟随"按钮」）主动隐藏了入口；backlog `:198` 标「暂缓」；`docs/jirai-port/执行任务/11-自动跟随好友实例.md` 保留设计参考 |
+| 12 | Bio 清空突发清理（**冻结**） | **历史清理：无**（`bioClear`/`suspiciousBio`/`clearBurst`/`bio_clear` 零命中；唯一 `suspicious` 是好友基线漂移 `crates/application-realtime/src/social_baseline/service/friends/baseline.rs:123`，同名不同义）。**写入预防：有**——前端缺字段即省略（`enhancedProfileFetchExecutor.ts:263`）、Rust `input.bio: Option<String>` 且 `bio_updated`（`realtime/jirai.rs:186`）仅 `Some` 才触发，测试 `realtime/jirai/tests.rs:225` 断言 `bio: None` → `!bio_updated` | **未被盘点**：`README.zh-CN.md:85` 盘点截止 `c8b8f744`（2026-05-20），而 #12 本体 `198e07f8` 是 2026-09-27，在其之后。**移植价值**：仅「迁入 jirai 旧库、需清历史污染」场景才需要，新写入无需再做 |
 | 13 | 多账户 V4 | `accountHub`/`aggregatedView`/`AccountSession` 在 `src/`、`crates/`、`src-tauri/` 零命中；只有「已保存账号 + 切换」（`accountSwitchService.ts`、`AccountSwitcherPopover.tsx`、`features/auth/components/SavedAccountsCard.tsx`） | **已有产品决策：不做**。`docs/jirai-port/多账户进程隔离-RFC.md:3`「仅 RFC，不实现」、`:28` 把旧 V4 定性为「反例而非移植源」；jirai 侧 `accountHub.js` 另有 9 处 `require()` 在 ESM 里会失败并被吞掉，`setPrimary` 链路可能从未跑通 |
 
 ---
@@ -153,3 +153,5 @@
 > **2026-11-18T04:43Z 补充：VRCX-0-jirai 侧基线冻结在 pc114514 的 `ea3142a47`**（`C:\Users\tangh\Documents\GitHub\VRCX-0-jirai`，`main`）。本清单的计数（11 / 2 / 3 / 1）就是对这个提交的判定；以后的进展写成相对它的增量。决议见 `reports/2026-11-18T0053Z-rust-rewrite-roadmap/README.md` 第 1.0b 节。
 
 > **2026-11-18T15:29Z 补充（路径修订 6）：#6、#10、#12 冻结。**#10、#12 的判定（部分 / 未完成）不变，但不再推进；#10 在 `ea3142a47` 上已有的写入管道列入冻结清单，不得改动。本轮只推进 #14、#7（#13 只做 R0 只读调研）。依据见 `reports/2026-11-18T0053Z-rust-rewrite-roadmap/完善计划.md` 修订 6。
+
+> **2026-11-18T20:50Z 回写（MIMI 交付，`reports/2026-11-18T2050Z-mimi-delivery/README.md`）**：在分支 `MIMI`（相对冻结基线 `ea3142a47` 的增量）上，**#14 快速搜索 Bio → 完成**（全局快速搜索好友结果按 `profile_bio` 当前 Bio 匹配，第 4 级 名字 > 备注 > 笔记 > Bio，≥2 字符，共享 8 条上限；结果行显示 Bio）；**#7 自动跟随 → 完成（与 jirai 一致：入口隐藏）**（Rust 状态机 + 事件，前端执行 attach / 退出并桌面重启；对话框挂全局 Host，无可见入口）。#10、#12 **冻结**（判定不变，不推进）；#13 不做。计数：**完成 13 / 部分 1（#10 冻结）/ 未完成 2（#12 冻结、#13）/ 不适用 1**。已完成 11 项的行未改动（冻结清单守卫 G-1 输出 0 行）。真机表现见同目录《人工实机测试文档.md》，未在本轮验证。
