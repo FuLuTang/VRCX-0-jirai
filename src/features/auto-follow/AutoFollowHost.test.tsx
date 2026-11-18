@@ -18,7 +18,8 @@ const mocks = vi.hoisted(() => ({
     unsubscribe: vi.fn(),
     startAutoFollow: vi.fn(),
     stopAutoFollow: vi.fn(),
-    handleAutoFollowTriggered: vi.fn()
+    handleAutoFollowTriggered: vi.fn(),
+    refreshAutoFollowStatus: vi.fn()
 }));
 
 vi.mock('react-i18next', async (importOriginal) => {
@@ -37,7 +38,8 @@ vi.mock('@/services/runtime-event-bridge/subscription', () => ({
 vi.mock('./autoFollowService', () => ({
     startAutoFollow: mocks.startAutoFollow,
     stopAutoFollow: mocks.stopAutoFollow,
-    handleAutoFollowTriggered: mocks.handleAutoFollowTriggered
+    handleAutoFollowTriggered: mocks.handleAutoFollowTriggered,
+    refreshAutoFollowStatus: mocks.refreshAutoFollowStatus
 }));
 vi.mock('@/components/Location', () => ({
     Location: ({ location }: { location?: string }) => (
@@ -45,7 +47,7 @@ vi.mock('@/components/Location', () => ({
     )
 }));
 
-import { AutoFollowHost } from './AutoFollowHost';
+import { AutoFollowHost, installAutoFollowDevHandle } from './AutoFollowHost';
 import { openAutoFollowDialog, useAutoFollowStore } from './autoFollowStore';
 
 const INSTANCE = 'wrld_00000000-0000-0000-0000-000000000001:12345~region(jp)';
@@ -70,6 +72,11 @@ describe('AutoFollowHost (#7)', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mocks.subscribe.mockResolvedValue(mocks.unsubscribe);
+        mocks.refreshAutoFollowStatus.mockResolvedValue({
+            active: false,
+            targetUserId: null,
+            targetDisplayName: null
+        });
         useAutoFollowStore.setState({
             open: false,
             status: {
@@ -142,6 +149,28 @@ describe('AutoFollowHost (#7)', () => {
             'Name usr_join'
         );
         expect(useAutoFollowStore.getState().open).toBe(false);
+    });
+
+    it('refreshes the Rust status whenever the dialog opens', async () => {
+        render(<AutoFollowHost />);
+        expect(mocks.refreshAutoFollowStatus).not.toHaveBeenCalled();
+        act(() => openAutoFollowDialog());
+        await act(async () => {});
+        expect(mocks.refreshAutoFollowStatus).toHaveBeenCalledTimes(1);
+    });
+
+    it('installs the console handle only in development builds (A7-17)', () => {
+        const prod: Record<string, unknown> = {};
+        installAutoFollowDevHandle(prod, false)();
+        expect(prod).toEqual({});
+
+        const dev: Record<string, unknown> = {};
+        const dispose = installAutoFollowDevHandle(dev, true);
+        const handle = dev.__VRCX_JIRAI_AUTO_FOLLOW__ as { open(): void };
+        act(() => handle.open());
+        expect(useAutoFollowStore.getState().open).toBe(true);
+        dispose();
+        expect(dev).toEqual({});
     });
 
     it('shows the empty text when nobody is eligible', () => {
