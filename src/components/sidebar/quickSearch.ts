@@ -18,6 +18,7 @@ export type QuickSearchResult = Pick<
     seedData?: Record<string, unknown> | null;
     memo?: string;
     note?: string;
+    bio?: string;
     matchedField?: BackendQuickSearchResult['matchedField'];
     userColour?: string;
 };
