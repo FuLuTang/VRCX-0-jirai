@@ -1,0 +1,12 @@
+diff --git a/src/services/database/feed.js b/src/services/database/feed.js
+--- a/src/services/database/feed.js
++++ b/src/services/database/feed.js
+@@ -172,8 +172,6 @@
+         );
+     },
+ 
+-    addAvatarToDatabase(entry) {
+-        sqliteService.executeNonQuery(
+     async addAvatarToDatabase(entry) {
+         const rowId = await sqliteService.executeInsert(
+             `INSERT OR IGNORE INTO ${dbVars.userPrefix}_feed_avatar (created_at, user_id, display_name, owner_id, avatar_name, current_avatar_image_url, current_avatar_thumbnail_image_url, previous_current_avatar_image_url, previous_current_avatar_thumbnail_image_url) VALUES (@created_at, @user_id, @display_name, @owner_id, @avatar_name, @current_avatar_image_url, @current_avatar_thumbnail_image_url, @previous_current_avatar_image_url, @previous_current_avatar_thumbnail_image_url)`,
