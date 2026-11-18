@@ -23,11 +23,11 @@ use vrcx_0_application_game::{
     GameClientEvent, GameLogPersistenceFallbackPayload, GameLogProjection, GameLogSideEffectEvent,
     RuntimeGameLogEventPayload, RuntimeWorkerErrorPayload,
 };
+use vrcx_0_application_realtime::AutoFollowTriggered;
 use vrcx_0_application_realtime::{
-    AutoFollowTriggered, FriendProjection, RealtimeCurrentUserProjection,
-    RealtimeEconomyBalancePayload, RealtimeEntryCorrection, RealtimeFeedProjection,
-    RealtimeInstanceClosedProjection, RealtimeInstanceQueueProjection,
-    RealtimeNotificationProjection, RealtimeUserProjection,
+    FriendProjection, RealtimeCurrentUserProjection, RealtimeEconomyBalancePayload,
+    RealtimeEntryCorrection, RealtimeFeedProjection, RealtimeInstanceClosedProjection,
+    RealtimeInstanceQueueProjection, RealtimeNotificationProjection, RealtimeUserProjection,
 };
 use vrcx_0_assistant::{
     AssistantApprovalRequestEvent, AssistantChoiceRequestEvent, AssistantDeltaEvent,
