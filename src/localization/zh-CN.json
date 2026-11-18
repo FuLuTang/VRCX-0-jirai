@@ -8312,6 +8312,16 @@
             "unknown_order": "进入先后未知（近时记录不等于共同进入）",
             "leftPlayer": "左侧玩家较晚出现于记录",
             "rightPlayer": "右侧玩家较晚出现于记录"
+        },
+        "auto_follow": {
+            "title": "自动跟随",
+            "description": "请选择一个目前在线且是蓝灯或绿灯（Join Me / Online）的好友进行跟随。",
+            "empty": "没有符合条件的好友在线",
+            "started": "自动跟随已启动: {name}",
+            "switching": "自动跟随: {name} 切换了房间，准备加入...",
+            "stopped": "自动跟随已停止",
+            "current_target": "跟随中: {name}",
+            "stop": "停止跟随"
         }
     }
 }

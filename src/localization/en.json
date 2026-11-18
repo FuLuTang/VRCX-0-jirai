@@ -8328,6 +8328,16 @@
             "unknown_order": "Arrival order unknown (nearby records do not prove arriving together)",
             "leftPlayer": "The left player appears later in the records",
             "rightPlayer": "The right player appears later in the records"
+        },
+        "auto_follow": {
+            "title": "Auto Follow",
+            "description": "Choose a friend who is currently online with a blue or green status (Join Me / Online) to follow.",
+            "empty": "No eligible friends are online",
+            "started": "Auto follow started: {name}",
+            "switching": "Auto follow: {name} switched instances, preparing to join...",
+            "stopped": "Auto follow stopped",
+            "current_target": "Following: {name}",
+            "stop": "Stop following"
         }
     }
 }

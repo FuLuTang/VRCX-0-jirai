@@ -11,6 +11,7 @@ import { PreviousInstancesDialogHost } from '@/components/hosts/PreviousInstance
 import { SystemDialogsHost } from '@/components/hosts/SystemDialogsHost';
 import { ToolsDialogsHost } from '@/components/hosts/ToolsDialogsHost';
 import { AssistantDialogHost } from '@/features/assistant/AssistantDialogHost';
+import { AutoFollowHost } from '@/features/auto-follow/AutoFollowHost';
 import { VrcNotificationCenterHost } from '@/features/notifications/VrcNotificationCenterHost';
 import { PrivacyLockDialogHost } from '@/features/privacy-lock/PrivacyLockDialogHost';
 import { PrivacyLockOverlay } from '@/features/privacy-lock/PrivacyLockOverlay';
@@ -34,6 +35,7 @@ export function GlobalHosts() {
             <SystemDialogsHost />
             <ToolsDialogsHost />
             <AssistantDialogHost />
+            <AutoFollowHost />
             <PrivacyLockDialogHost />
             <PrivacyLockOverlay />
         </>
