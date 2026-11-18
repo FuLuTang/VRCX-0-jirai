@@ -87,14 +87,14 @@ Rust：`crates/application-realtime/src/auto_follow.rs` 的 `auto_follow::tests`
 
 ### 3.3 守卫 G-1…G-6（交付提交上实测）
 
-| 守卫 | 命令 / 证据                                                                                                                                     | 结果     |
-| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| G-1  | `xargs -a 冻结清单.txt git diff --name-only ea3142a47 HEAD --`                                                                                  | **0 行** |
-| G-2  | pc `TEST_EXIT=0`（3642 通过 / 0 失败 / 6 忽略）；本机 `npx vitest run` 744 个文件 / 4318 个测试全部通过（`VT_EXIT=0`）；冻结测试文件未改（G-1） | 真       |
-| G-3  | `git diff --name-only ea3142a47 HEAD -- crates/persistence/src/migrations.rs`                                                                   | **0 行** |
-| G-4  | `git diff --name-only ea3142a47 HEAD -- crates/persistence/src/{social_aggregates,activity_page,game_log}`                                      | **0 行** |
-| G-5  | `bindings_export.rs`、`contracts/jirai.rs`、`bindings.ts`：删除行 0；13 个 `src/localization/*.json`：基线 key 值改变 0                         | 真       |
-| G-6  | pc `ARCH_EXIT=0`；`src-tauri/tests/backend_architecture.rs` diff 0 行                                                                           | 真       |
+| 守卫 | 命令 / 证据                                                                                                                                                                                                                                                                                       | 结果     |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| G-1  | `xargs -a 冻结清单.txt git diff --name-only ea3142a47 HEAD --`                                                                                                                                                                                                                                    | **0 行** |
+| G-2  | pc `TEST_EXIT=0`（3642 通过 / 0 失败 / 6 忽略）；本机 `npx vitest run` 744 个文件 / 4318 个测试全部通过（`VT_EXIT=0`）；冻结测试文件未改（G-1）                                                                                                                                                   | 真       |
+| G-3  | `git diff --name-only ea3142a47 HEAD -- crates/persistence/src/migrations.rs`                                                                                                                                                                                                                     | **0 行** |
+| G-4  | `git diff --name-only ea3142a47 HEAD -- crates/persistence/src/{social_aggregates,activity_page,game_log}`                                                                                                                                                                                        | **0 行** |
+| G-5  | `bindings_export.rs`、`contracts/jirai.rs`：相对基线删除行 0；`bindings.ts`（整文件生成）：唯一的 `-` 行是计划 14.4 规定的 `QuickSearchMatchedField` 联合类型扩为 `"name" \| "memo" \| "note" \| "bio"`，其余基线类型与命令签名不变（只新增）；13 个 `src/localization/*.json`：基线 key 值改变 0 | 真       |
+| G-6  | pc `ARCH_EXIT=0`；`src-tauri/tests/backend_architecture.rs` diff 0 行                                                                                                                                                                                                                             | 真       |
 
 ## 4. 退出码
 
