@@ -35,3 +35,10 @@ pub fn app__start_game_from_path(
         .runtime_host()
         .start_game_from_path(path, launch_arguments)?)
 }
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn app__quit_game() -> Result<i32, AppError> {
+    require_host_capability_supported(HostCapability::GameLaunch)?;
+    Ok(game_launch::quit_game())
+}

@@ -16,8 +16,8 @@ use vrcx_0_application_game::{
     RuntimeSnapshot, RuntimeSnapshotStore,
 };
 use vrcx_0_application_realtime::{
-    FriendProjection, FriendProjectionObserver, RealtimeHostRuntime,
-    RealtimeNotificationProjectionObserverRegistry,
+    AutoFollowMode, AutoFollowRuntime, FriendProjection, FriendProjectionObserver,
+    RealtimeHostRuntime, RealtimeNotificationProjectionObserverRegistry,
 };
 use vrcx_0_core::files::extract_file_id;
 use vrcx_0_core::friends::StateBucket;
@@ -79,6 +79,7 @@ pub struct DesktopRuntimeServices {
     game_log_snapshot: RuntimeSnapshotStore,
     now_playing: NowPlayingStore,
     chatbox: Arc<ChatboxRuntime>,
+    auto_follow: Arc<AutoFollowRuntime>,
 }
 
 impl DesktopRuntimeServices {
@@ -167,6 +168,7 @@ impl DesktopRuntimeServices {
             game_log_snapshot: RuntimeSnapshotStore::default(),
             now_playing: NowPlayingStore::default(),
             chatbox,
+            auto_follow: Arc::new(AutoFollowRuntime::new()),
         })
     }
 
@@ -251,6 +253,10 @@ impl DesktopRuntimeServices {
         Arc::clone(&self.chatbox)
     }
 
+    pub fn auto_follow(&self) -> Arc<AutoFollowRuntime> {
+        Arc::clone(&self.auto_follow)
+    }
+
     pub fn event_bus(&self) -> RuntimeEventBus {
         self.event_bus.clone()
     }
@@ -310,9 +316,35 @@ impl GameLogSideEffectObserver for DesktopRuntimeServices {
     }
 }
 
+impl DesktopRuntimeServices {
+    fn observe_auto_follow(&self, projection: &FriendProjection) {
+        let triggered = self.auto_follow.observe_projection(
+            projection,
+            || self.game_log_snapshot.snapshot().location.clone(),
+            || AutoFollowMode {
+                is_game_no_vr: self
+                    .config
+                    .get_bool(vrcx_0_application_game::IS_GAME_NO_VR_CONFIG_KEY, false)
+                    .unwrap_or(false),
+                is_steamvr_running: self.session.snapshot().is_steamvr_running,
+            },
+        );
+        if let Some(triggered) = triggered {
+            tracing::info!(
+                user_id = %triggered.user_id,
+                location = %triggered.location,
+                action = ?triggered.action,
+                "auto follow triggered"
+            );
+            self.event_bus.emit(triggered);
+        }
+    }
+}
+
 impl FriendProjectionObserver for DesktopRuntimeServices {
     fn on_friend_projection(&self, projection: &FriendProjection) {
         self.prefetch_online_friend_avatars(projection);
+        self.observe_auto_follow(projection);
     }
 }
 
