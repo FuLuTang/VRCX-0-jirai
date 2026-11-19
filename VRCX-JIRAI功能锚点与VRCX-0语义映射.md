@@ -279,7 +279,7 @@ VRCX-jirai 把新功能挂到上游既有的一批注册点上。下表是"锚�
 
 | 分类 | 条目 | 数量 |
 | --- | --- | --- |
-| 高等价（代码+入口接通+有测试） | 1、2、3、3b、4、5、6、8、9、11、16；**MIMI：14、7（入口隐藏，与 jirai 一致）** | ~~**11**~~ **13** |
+| 高等价（代码+入口接通+有测试） | 1、2、3、3b、4、5、6、8、9、11、16；**MIMI：14、7（入口隐藏，与 jirai 一致）、17（快速搜索近期对象与前缀）** | ~~**11**~~ ~~**13**~~ **14** |
 | 中（半截） | ~~14~~（MIMI 已完成） | ~~**1**~~ **0** |
 | 低（管道在、入口缺） | 10（**冻结**） | **1** |
 | 无 | ~~7~~、12（清理，**冻结**）、13 | ~~**3**~~ **2** |
@@ -567,3 +567,5 @@ jirai 相对分叉点改动 145 个文件，上游本次改动 53 个文件，**
 > **2026-11-18T04:43Z 补充：VRCX-0-jirai 侧基线冻结在 pc114514 的 `ea3142a47`**（`C:\Users\tangh\Documents\GitHub\VRCX-0-jirai`，`main`）。本文 VRCX-0 侧的文件与行号取证于同一提交，无需重做；它们**不适用于**本机旧工作目录 `3200bc3c7`。决议见 `reports/2026-11-18T0053Z-rust-rewrite-roadmap/README.md` 第 1.0b 节。
 
 > **2026-11-18T20:50Z 回写（MIMI 交付，`reports/2026-11-18T2050Z-mimi-delivery/README.md`）**：在分支 `MIMI`（相对冻结基线 `ea3142a47` 的增量）上，**#14 快速搜索 Bio → 完成**（全局快速搜索好友结果按 `profile_bio` 当前 Bio 匹配，第 4 级 名字 > 备注 > 笔记 > Bio，≥2 字符，共享 8 条上限；结果行显示 Bio）；**#7 自动跟随 → 完成（与 jirai 一致：入口隐藏）**（Rust 状态机 + 事件，前端执行 attach / 退出并桌面重启；对话框挂全局 Host，无可见入口）。#10、#12 **冻结**（判定不变，不推进）；#13 不做。计数：**完成 13 / 部分 1（#10 冻结）/ 未完成 2（#12 冻结、#13）/ 不适用 1**。已完成 11 项的行未改动（冻结清单守卫 G-1 输出 0 行）。真机表现见同目录《人工实机测试文档.md》，未在本轮验证。
+
+> **2026-11-19T01:05Z 回写（MIMI 历史遗留修复与遗漏补齐，`reports/2026-11-19T0105Z-mimi-legacy-fix-delivery/README.md`）**：依据仓库根目录《历史遗留修复与遗漏补齐.md》补齐 M1–M4（M5 忽略）。① **#3b** 补齐子入口「打开玩家资料时弹推测关联询问」（M1，修复队列 R04 落地）；② **#6** 补齐子行为「Feed 页 Bio / 状态 diff 按 CJK 字切分」（M2）；#3b、#6 仍为完成，计数不变。③ **新增 #17「快速搜索近期对象与前缀」→ 完成**（M3：空查询显示最近遇到 / 最近去过，按账号隔离；M4：`!` `@` `#` 前缀）。映射：#17 = jirai `e8e862da`/`30ba80f6`（近期对象）+ `bda7ddad`/`1dc272ce`/`0fc3eb8f`（前缀）→ VRCX-0 `crates/persistence/src/quick_search_recent.rs`、`crates/application/src/social/quick_search_catalog.rs`（`recent` / `query_prefixed`）、`src/components/sidebar/QuickSearchDialog.tsx`；#3b 询问 = jirai `392365f0` → `useUserRelationshipRecommendationPrompt` 经 `RelationshipRecommendationPromptHost`；#6 Feed diff = jirai `295614b3` → `FeedDifferenceHtml.ts`。计数 **完成 14 / 部分 1（#10 冻结）/ 未完成 2（#12 冻结、#13）/ 不适用 1**（合计 18 项）。已完成项的既有行未改，只追加。真机表现见同报告目录《人工实机测试文档.md》。

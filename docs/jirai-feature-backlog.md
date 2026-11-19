@@ -92,7 +92,9 @@ UTC 分桶堆叠占比图、缩放、数字时长、日期提示与亮暗主题�
 
 参考：`VRCX-jirai/src/stores/manualRelations.js::computeSuggestions/ignoreSuggestion/addManualRelation`（候选及处置）、`VRCX-jirai/src/coordinators/gameLogCoordinator.js`（进房提示触发）；当前接点 `VRCX-0-jirai/crates/application-game/src/activity_events/relationship_recommendations.rs::live_candidates`、`VRCX-0-jirai/crates/application-activity/src/router/runtime.rs`（通知路由）、`VRCX-0-jirai/crates/persistence/src/mutual_graph.rs::mutual_graph_manual_link_set`。
 
-### 4. 快捷搜索的近期对象／本地 Bio 匹配 — 暂缓（用户选择）
+### 4. 快捷搜索的近期对象／本地 Bio 匹配 — 暂缓（用户选择）→ **2026-11-19 已解除暂缓并补齐（MIMI）**
+
+> **2026-11-19 已决定并补齐**：本地最新 Bio 匹配已作为 #14 完成（`profile_bio`，MIMI `4896f0bf1`）；近期对象作为 #17 完成——空查询显示最近遇到的非好友（≤8）与最近去过的世界（≤10），**按当前账号隔离**、按 `user_id` / `world_id` 去重，输入时按名字过滤；另补 `!` `@` `#` 前缀。新增只读模块 `crates/persistence/src/quick_search_recent.rs`，未改任何既有 `gamelog_*` 查询。交付报告 `reports/2026-11-19T0105Z-mimi-legacy-fix-delivery/README.md`。以下为原文。
 
 旧版这里是 Ctrl+K 快捷搜索的两种补充：空查询时从游戏日志显示最近遇到的非好友、最近去过的世界；输入关键词时用数据库保存的 Bio 补充当前好友匹配。最近对象由 Copilot 的 `e8e862da` 引入，`30ba80f6` 后续修正；本地 Bio 匹配由 FuLu糖福禄的 `a94824c2` 引入。
 
