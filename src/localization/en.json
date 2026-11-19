@@ -1456,7 +1456,9 @@
         "search_prefixes": "Prefixes",
         "search_prefix_friends": "Friends only (! alone lists all)",
         "search_prefix_worlds": "Worlds only (@ alone lists all)",
-        "search_prefix_groups": "Groups only (# alone lists all)"
+        "search_prefix_groups": "Groups only (# alone lists all)",
+        "search_recently_met": "Recently Met",
+        "search_recently_joined": "Recently Joined Worlds"
     },
     "tracked_nonfriends": {
         "count": "Tracked users: {count}",

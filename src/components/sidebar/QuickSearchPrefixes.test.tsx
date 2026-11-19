@@ -9,7 +9,11 @@ import type { QuickSearchResult, QuickSearchState } from './quickSearch';
 
 const mocks = vi.hoisted(() => ({
     results: null as unknown as QuickSearchState,
-    lastQuery: ''
+    lastQuery: '',
+    recent: {
+        metUsers: [] as QuickSearchResult[],
+        joinedWorlds: [] as QuickSearchResult[]
+    }
 }));
 
 class ResizeObserverMock {
@@ -88,6 +92,9 @@ vi.mock('./quick-search/useQuickSearchHistory', () => ({
         remember: vi.fn()
     })
 }));
+vi.mock('./quick-search/useQuickSearchRecent', () => ({
+    useQuickSearchRecent: () => mocks.recent
+}));
 vi.mock('./quick-search/useQuickSearchResults', () => ({
     useQuickSearchResults: ({
         normalizedQuery
@@ -156,7 +163,9 @@ const GROUPS = {
     joinedGroups: 'group-side_panel.search_joined_groups',
     nav: 'group-nav',
     settings: 'group-settings',
-    recent: 'group-side_panel.search_recent'
+    recent: 'group-side_panel.search_recent',
+    recentlyMet: 'group-side_panel.search_recently_met',
+    recentlyJoined: 'group-side_panel.search_recently_joined'
 } as const;
 
 function Harness({ initial }: { initial: string }) {
@@ -186,6 +195,10 @@ function visibleGroups(query: string) {
 describe('QuickSearchDialog prefixes (M4, #17)', () => {
     beforeEach(() => {
         mocks.results = everyCategory();
+        mocks.recent = {
+            metUsers: [row('usr_met', 'friend')],
+            joinedWorlds: [row('wrld_joined', 'world')]
+        };
     });
 
     afterEach(() => {
@@ -217,12 +230,18 @@ describe('QuickSearchDialog prefixes (M4, #17)', () => {
             'ownGroups',
             'joinedGroups',
             'nav',
-            'settings'
+            'settings',
+            'recentlyMet',
+            'recentlyJoined'
         ]);
     });
 
     it('lists the three prefixes in the empty-search overview', () => {
-        expect(visibleGroups('')).toEqual(['recent']);
+        expect(visibleGroups('')).toEqual([
+            'recent',
+            'recentlyMet',
+            'recentlyJoined'
+        ]);
         expect(screen.getByText('side_panel.search_prefixes')).toBeTruthy();
         for (const key of [
             'side_panel.search_prefix_friends',
@@ -245,5 +264,56 @@ describe('QuickSearchDialog prefixes (M4, #17)', () => {
         });
         expect(screen.getByTestId(GROUPS.ownWorlds)).toBeTruthy();
         expect(screen.getByTestId(GROUPS.friends)).toBeTruthy();
+    });
+});
+
+describe('QuickSearchDialog recent groups (M3, #17)', () => {
+    beforeEach(() => {
+        mocks.results = everyCategory();
+        mocks.recent = {
+            metUsers: [row('usr_met', 'friend')],
+            joinedWorlds: [row('wrld_joined', 'world')]
+        };
+    });
+
+    afterEach(() => {
+        cleanup();
+    });
+
+    // A17-1, A17-2
+    it('shows recently met and recently joined on the empty search', () => {
+        const groups = visibleGroups('');
+        expect(groups).toContain('recentlyMet');
+        expect(groups).toContain('recentlyJoined');
+    });
+
+    // A17-4 (the hook filters; the dialog shows what it returns)
+    it('keeps the recent groups visible next to search results', () => {
+        expect(visibleGroups('alpha')).toContain('recentlyMet');
+    });
+
+    it('hides the recent groups in prefix mode', () => {
+        const groups = visibleGroups('!a');
+        expect(groups).toEqual(['friends']);
+    });
+
+    it('shows recent matches even when no other category matches', () => {
+        mocks.results = {
+            ...everyCategory(),
+            friends: [],
+            ownAvatars: [],
+            favoriteAvatars: [],
+            ownWorlds: [],
+            favoriteWorlds: [],
+            ownGroups: [],
+            joinedGroups: []
+        };
+        render(
+            <MemoryRouter>
+                <Harness initial="zzz-only-recent" />
+            </MemoryRouter>
+        );
+        expect(screen.getByTestId(GROUPS.recentlyMet)).toBeTruthy();
+        expect(screen.queryByText('side_panel.search_no_results')).toBeNull();
     });
 });

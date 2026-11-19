@@ -29,6 +29,8 @@ const FAVORITE_PAGE_SIZE: i32 = 300;
 const MAX_PAGES_PER_SOURCE: usize = 50;
 const RESULT_LIMIT: usize = 8;
 const DETAIL_QUERY_MIN_LENGTH: usize = 2;
+const RECENT_MET_USERS_LIMIT: usize = 8;
+const RECENT_JOINED_WORLDS_LIMIT: usize = 10;
 const REMOTE_WORKING_SET_TTL: Duration = Duration::from_secs(60);
 const PARTIAL_REMOTE_WORKING_SET_TTL: Duration = Duration::from_secs(2);
 
@@ -46,6 +48,7 @@ struct QuickSearchRuntimeInner {
     diagnostics: RuntimeDiagnostics,
     sync: RuntimeSyncEngine,
     world_cache: Arc<WorldCache>,
+    recent_store: Option<Arc<dyn QuickSearchRecentStore>>,
     remote_working_set: Mutex<Option<CachedRemoteWorkingSet>>,
     remote_load_gate: tokio::sync::Mutex<()>,
     remote_revision: AtomicU64,
@@ -221,11 +224,52 @@ fn load_friend_details(
     details
 }
 
+/// A player the account recently met (`gamelog_join_leave`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct QuickSearchRecentUserRow {
+    pub user_id: String,
+    pub display_name: String,
+}
+
+/// A world the account recently joined (`gamelog_location`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct QuickSearchRecentWorldRow {
+    pub world_id: String,
+    pub world_name: String,
+    pub location: String,
+}
+
+/// Read-only recent sources for the empty quick search (#17), isolated by account.
+pub trait QuickSearchRecentStore: Send + Sync {
+    fn recent_met_users(
+        &self,
+        owner: OwnerId,
+        limit: usize,
+    ) -> Result<Vec<QuickSearchRecentUserRow>>;
+    fn recent_joined_worlds(
+        &self,
+        owner: OwnerId,
+        limit: usize,
+    ) -> Result<Vec<QuickSearchRecentWorldRow>>;
+}
+
+#[derive(Clone, Debug, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct QuickSearchRecentOutput {
+    pub status: QuickSearchQueryStatus,
+    pub detail: String,
+    /// Recently met non-friends, newest first (at most 8).
+    pub met_users: Vec<QuickSearchResult>,
+    /// Recently joined worlds, newest first (at most 10).
+    pub joined_worlds: Vec<QuickSearchResult>,
+}
+
 pub struct QuickSearchSources {
     detail_store: Arc<dyn QuickSearchDetailStore>,
     avatar_store: Arc<dyn MyAvatarsStore>,
     avatar_remote: Arc<dyn AvatarRemote>,
     world_cache: Arc<WorldCache>,
+    recent_store: Option<Arc<dyn QuickSearchRecentStore>>,
 }
 
 impl QuickSearchSources {
@@ -240,7 +284,13 @@ impl QuickSearchSources {
             avatar_store,
             avatar_remote,
             world_cache,
+            recent_store: None,
         }
+    }
+
+    pub fn with_recent_store(mut self, recent_store: Arc<dyn QuickSearchRecentStore>) -> Self {
+        self.recent_store = Some(recent_store);
+        self
     }
 }
 
@@ -262,6 +312,7 @@ impl QuickSearchRuntime {
                 diagnostics,
                 sync,
                 world_cache: sources.world_cache,
+                recent_store: sources.recent_store,
                 remote_working_set: Mutex::new(None),
                 remote_load_gate: tokio::sync::Mutex::new(()),
                 remote_revision: AtomicU64::new(0),
@@ -519,6 +570,26 @@ impl QuickSearchRuntime {
             message,
             0,
         );
+        Ok(output)
+    }
+
+    /// Recently met non-friends and recently joined worlds for the empty quick
+    /// search (jirai quickSearch loadRecentItems). Each source fails on its own.
+    pub fn recent(
+        &self,
+        friend_snapshot: Option<RealtimeFriendSnapshot>,
+    ) -> Result<QuickSearchRecentOutput> {
+        let scope = GATE.require_active(&self.inner.auth_scope)?;
+        let friend_ids = friend_snapshot
+            .filter(|snapshot| friend_snapshot_matches_scope(snapshot, &scope))
+            .map(|snapshot| snapshot.friends_by_id.into_keys().collect::<HashSet<_>>())
+            .unwrap_or_default();
+        let output = build_recent_output(
+            self.inner.recent_store.as_deref(),
+            &scope.current_user_id,
+            &friend_ids,
+        );
+        GATE.ensure_matches(&self.inner.auth_scope, &scope)?;
         Ok(output)
     }
 
@@ -1031,6 +1102,119 @@ fn search_candidates_limited(
         .take(limit.unwrap_or(usize::MAX))
         .map(|(_, _, row)| candidate_result(row))
         .collect()
+}
+
+fn build_recent_output(
+    store: Option<&dyn QuickSearchRecentStore>,
+    current_user_id: &str,
+    friend_ids: &HashSet<String>,
+) -> QuickSearchRecentOutput {
+    let mut failures = 0;
+    let (met_users, joined_worlds) = match store {
+        Some(store) => {
+            let owner = || OwnerId::new(current_user_id.to_string());
+            // Over-fetch so that removing friends (and the account itself) still leaves up to 8 rows.
+            let met_users = match store
+                .recent_met_users(owner(), RECENT_MET_USERS_LIMIT + friend_ids.len() + 1)
+            {
+                Ok(rows) => rows
+                    .into_iter()
+                    .filter(|row| {
+                        !row.user_id.is_empty()
+                            && row.user_id != current_user_id
+                            && !friend_ids.contains(&row.user_id)
+                    })
+                    .take(RECENT_MET_USERS_LIMIT)
+                    .map(recent_user_result)
+                    .collect(),
+                Err(error) => {
+                    failures += 1;
+                    tracing::debug!(error = %error, "quick search recent users failed");
+                    Vec::new()
+                }
+            };
+            let joined_worlds =
+                match store.recent_joined_worlds(owner(), RECENT_JOINED_WORLDS_LIMIT) {
+                    Ok(rows) => rows
+                        .into_iter()
+                        .filter(|row| !row.world_id.is_empty())
+                        .take(RECENT_JOINED_WORLDS_LIMIT)
+                        .map(recent_world_result)
+                        .collect(),
+                    Err(error) => {
+                        failures += 1;
+                        tracing::debug!(error = %error, "quick search recent worlds failed");
+                        Vec::new()
+                    }
+                };
+            (met_users, joined_worlds)
+        }
+        None => (Vec::new(), Vec::new()),
+    };
+    QuickSearchRecentOutput {
+        status: if failures > 0 {
+            QuickSearchQueryStatus::Partial
+        } else {
+            QuickSearchQueryStatus::Ready
+        },
+        detail: if failures > 0 {
+            format!("{failures} recent source(s) failed to load.")
+        } else {
+            String::new()
+        },
+        met_users,
+        joined_worlds,
+    }
+}
+
+fn recent_user_result(row: QuickSearchRecentUserRow) -> QuickSearchResult {
+    let name = if row.display_name.trim().is_empty() {
+        row.user_id.clone()
+    } else {
+        row.display_name.trim().to_string()
+    };
+    QuickSearchResult {
+        id: row.user_id.clone(),
+        entity_type: QuickSearchEntityType::Friend,
+        source: "recentlyMet".into(),
+        name: name.clone(),
+        subtitle: String::new(),
+        image_url: String::new(),
+        seed_data: Some(RawJson::from(
+            serde_json::json!({ "id": row.user_id, "displayName": name }),
+        )),
+        memo: String::new(),
+        note: String::new(),
+        matched_field: QuickSearchMatchedField::Name,
+        user_colour: String::new(),
+        bio: String::new(),
+    }
+}
+
+fn recent_world_result(row: QuickSearchRecentWorldRow) -> QuickSearchResult {
+    let name = if row.world_name.trim().is_empty() {
+        row.world_id.clone()
+    } else {
+        row.world_name.trim().to_string()
+    };
+    QuickSearchResult {
+        id: row.world_id.clone(),
+        entity_type: QuickSearchEntityType::World,
+        source: "recentlyJoined".into(),
+        name: name.clone(),
+        subtitle: String::new(),
+        image_url: String::new(),
+        seed_data: Some(RawJson::from(serde_json::json!({
+            "id": row.world_id,
+            "name": name,
+            "location": row.location,
+        }))),
+        memo: String::new(),
+        note: String::new(),
+        matched_field: QuickSearchMatchedField::Name,
+        user_colour: String::new(),
+        bio: String::new(),
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1986,5 +2170,178 @@ mod tests {
             .len(),
             RESULT_LIMIT
         );
+    }
+
+    struct FakeRecentStore {
+        users: Result<Vec<(&'static str, &'static str)>>,
+        worlds: Result<Vec<(&'static str, &'static str)>>,
+        seen: Mutex<Vec<(String, usize)>>,
+    }
+
+    impl FakeRecentStore {
+        fn ok(
+            users: Vec<(&'static str, &'static str)>,
+            worlds: Vec<(&'static str, &'static str)>,
+        ) -> Self {
+            Self {
+                users: Ok(users),
+                worlds: Ok(worlds),
+                seen: Mutex::new(Vec::new()),
+            }
+        }
+    }
+
+    fn clone_result<T: Clone>(value: &Result<Vec<T>>) -> Result<Vec<T>> {
+        match value {
+            Ok(rows) => Ok(rows.clone()),
+            Err(_) => Err(Error::Custom("recent failure".into())),
+        }
+    }
+
+    impl QuickSearchRecentStore for FakeRecentStore {
+        fn recent_met_users(
+            &self,
+            owner: OwnerId,
+            limit: usize,
+        ) -> Result<Vec<QuickSearchRecentUserRow>> {
+            self.seen
+                .lock()
+                .unwrap()
+                .push((owner.as_str().to_string(), limit));
+            Ok(clone_result(&self.users)?
+                .into_iter()
+                .take(limit)
+                .map(|(user_id, display_name)| QuickSearchRecentUserRow {
+                    user_id: user_id.into(),
+                    display_name: display_name.into(),
+                })
+                .collect())
+        }
+
+        fn recent_joined_worlds(
+            &self,
+            owner: OwnerId,
+            limit: usize,
+        ) -> Result<Vec<QuickSearchRecentWorldRow>> {
+            self.seen
+                .lock()
+                .unwrap()
+                .push((owner.as_str().to_string(), limit));
+            Ok(clone_result(&self.worlds)?
+                .into_iter()
+                .take(limit)
+                .map(|(world_id, world_name)| QuickSearchRecentWorldRow {
+                    world_id: world_id.into(),
+                    world_name: world_name.into(),
+                    location: format!("{world_id}:1"),
+                })
+                .collect())
+        }
+    }
+
+    fn friend_set(ids: &[&str]) -> HashSet<String> {
+        ids.iter().map(|id| (*id).to_string()).collect()
+    }
+
+    // A17-1
+    #[test]
+    fn recent_met_users_exclude_friends_and_self_and_keep_eight() {
+        let users = vec![
+            ("usr_friend", "Friend"),
+            ("usr_me", "Me"),
+            ("usr_01", "One"),
+            ("usr_02", ""),
+            ("usr_03", "Three"),
+            ("usr_04", "Four"),
+            ("usr_05", "Five"),
+            ("usr_06", "Six"),
+            ("usr_07", "Seven"),
+            ("usr_08", "Eight"),
+            ("usr_09", "Nine"),
+        ];
+        let store = FakeRecentStore::ok(users, Vec::new());
+        let output = build_recent_output(Some(&store), "usr_me", &friend_set(&["usr_friend"]));
+        assert_eq!(
+            ids(&output.met_users),
+            ["usr_01", "usr_02", "usr_03", "usr_04", "usr_05", "usr_06", "usr_07", "usr_08"]
+        );
+        assert_eq!(
+            output.met_users[1].name, "usr_02",
+            "blank names fall back to the id"
+        );
+        assert!(output
+            .met_users
+            .iter()
+            .all(|row| row.entity_type == QuickSearchEntityType::Friend
+                && row.source == "recentlyMet"));
+        assert_eq!(store.seen.lock().unwrap()[0], ("usr_me".to_string(), 10));
+        assert!(matches!(output.status, QuickSearchQueryStatus::Ready));
+    }
+
+    // A17-2
+    #[test]
+    fn recent_joined_worlds_keep_store_order_and_ten() {
+        let worlds = (0..12)
+            .map(|index| {
+                let id: &'static str = Box::leak(format!("wrld_{index:02}").into_boxed_str());
+                (id, "World")
+            })
+            .collect();
+        let store = FakeRecentStore::ok(Vec::new(), worlds);
+        let output = build_recent_output(Some(&store), "usr_me", &HashSet::new());
+        assert_eq!(output.joined_worlds.len(), 10);
+        assert_eq!(output.joined_worlds[0].id, "wrld_00");
+        assert_eq!(
+            output.joined_worlds[0].entity_type,
+            QuickSearchEntityType::World
+        );
+        assert_eq!(
+            output.joined_worlds[0]
+                .seed_data
+                .as_ref()
+                .map(|seed| serde_json::to_value(seed).unwrap()["location"].clone()),
+            Some(serde_json::json!("wrld_00:1"))
+        );
+    }
+
+    // A17-3: the store is always asked for the current account only.
+    #[test]
+    fn recent_sources_are_requested_for_the_current_account() {
+        let store = FakeRecentStore::ok(vec![("usr_a", "A")], vec![("wrld_a", "A")]);
+        build_recent_output(Some(&store), "usr_current", &HashSet::new());
+        let seen = store.seen.lock().unwrap();
+        assert_eq!(seen.len(), 2);
+        assert!(seen.iter().all(|(owner, _)| owner == "usr_current"));
+    }
+
+    // A17-5
+    #[test]
+    fn one_failing_recent_source_does_not_hide_the_other() {
+        let users_fail = FakeRecentStore {
+            users: Err(Error::Custom("users".into())),
+            worlds: Ok(vec![("wrld_a", "A")]),
+            seen: Mutex::new(Vec::new()),
+        };
+        let output = build_recent_output(Some(&users_fail), "usr_me", &HashSet::new());
+        assert!(output.met_users.is_empty());
+        assert_eq!(ids(&output.joined_worlds), ["wrld_a"]);
+        assert!(matches!(output.status, QuickSearchQueryStatus::Partial));
+        assert_eq!(output.detail, "1 recent source(s) failed to load.");
+
+        let worlds_fail = FakeRecentStore {
+            users: Ok(vec![("usr_a", "A")]),
+            worlds: Err(Error::Custom("worlds".into())),
+            seen: Mutex::new(Vec::new()),
+        };
+        let output = build_recent_output(Some(&worlds_fail), "usr_me", &HashSet::new());
+        assert_eq!(ids(&output.met_users), ["usr_a"]);
+        assert!(output.joined_worlds.is_empty());
+    }
+
+    #[test]
+    fn recent_without_a_store_is_empty_and_ready() {
+        let output = build_recent_output(None, "usr_me", &HashSet::new());
+        assert!(output.met_users.is_empty() && output.joined_worlds.is_empty());
+        assert!(matches!(output.status, QuickSearchQueryStatus::Ready));
     }
 }

@@ -13,9 +13,9 @@ use vrcx_0_composition::RuntimeHostState;
 use vrcx_0_outbound_adapters::{
     CachedWorldNameResolver, CachedWorldResponseProjection, LocalAvatarApplicationAdapter,
     LocalMediaUploadAdapter, LocalModerationSyncStore, LocalNotificationWebhookTransport,
-    LocalPrintAdapter, LocalProfileBioStore, LocalQuickSearchDetailStore, PersistenceRealtimeStore,
-    VrchatApiRemote, VrchatAvatarRemote, VrchatCurrentUserMutationRemote, VrchatFavoriteRemote,
-    VrchatRequestAdapter, VrchatWorldRemote,
+    LocalPrintAdapter, LocalProfileBioStore, LocalQuickSearchDetailStore,
+    LocalQuickSearchRecentStore, PersistenceRealtimeStore, VrchatApiRemote, VrchatAvatarRemote,
+    VrchatCurrentUserMutationRemote, VrchatFavoriteRemote, VrchatRequestAdapter, VrchatWorldRemote,
 };
 
 use crate::avatar::DesktopAvatarRuntime;
@@ -195,7 +195,10 @@ pub(crate) fn build_remote_runtimes(
                 context.sync().clone(),
             )),
             Arc::clone(context.world_cache()),
-        ),
+        )
+        .with_recent_store(Arc::new(LocalQuickSearchRecentStore::new(Arc::clone(
+            runtime.database(),
+        )))),
         Arc::new(VrchatRequestAdapter::new(Arc::clone(runtime.web_client()))),
         context.auth_scope().clone(),
         context.diagnostics().clone(),

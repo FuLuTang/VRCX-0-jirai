@@ -45,6 +45,7 @@ import {
 import { useClipboardDirectAccess } from './quick-search/useClipboardDirectAccess';
 import { useDirectAccessCandidate } from './quick-search/useDirectAccessCandidate';
 import { useQuickSearchHistory } from './quick-search/useQuickSearchHistory';
+import { useQuickSearchRecent } from './quick-search/useQuickSearchRecent';
 import { useQuickSearchResults } from './quick-search/useQuickSearchResults';
 import { useQuickSearchSelectResult } from './quick-search/useQuickSearchSelectResult';
 import {
@@ -133,6 +134,15 @@ export function QuickSearchDialog({
         currentUserId,
         open
     });
+    const allRecent = useQuickSearchRecent({
+        currentEndpoint,
+        currentUserId,
+        normalizedQuery,
+        open
+    });
+    // #17: recent groups show on the empty search and filter with the query;
+    // prefix mode (! @ #) hides them.
+    const recent = prefixMode ? { metUsers: [], joinedWorlds: [] } : allRecent;
 
     const hasResults =
         canDirectAccess ||
@@ -144,7 +154,9 @@ export function QuickSearchDialog({
         results.ownWorlds.length ||
         results.favoriteWorlds.length ||
         results.ownGroups.length ||
-        results.joinedGroups.length;
+        results.joinedGroups.length ||
+        recent.metUsers.length ||
+        recent.joinedWorlds.length;
 
     const selectResult = useQuickSearchSelectResult({
         onOpenChange,
@@ -231,6 +243,22 @@ export function QuickSearchDialog({
                                 items={history.items}
                                 onSelect={selectResult}
                             />
+                        ) : null}
+                        {showSearchOverview ? (
+                            <>
+                                <ResultGroup
+                                    title={t('side_panel.search_recently_met')}
+                                    items={recent.metUsers}
+                                    onSelect={selectResult}
+                                />
+                                <ResultGroup
+                                    title={t(
+                                        'side_panel.search_recently_joined'
+                                    )}
+                                    items={recent.joinedWorlds}
+                                    onSelect={selectResult}
+                                />
+                            </>
                         ) : null}
                         {showSearchOverview ? (
                             <CommandGroup
@@ -435,6 +463,18 @@ export function QuickSearchDialog({
                                 <ResultGroup
                                     title={t('side_panel.search_joined_groups')}
                                     items={results.joinedGroups}
+                                    onSelect={selectResult}
+                                />
+                                <ResultGroup
+                                    title={t('side_panel.search_recently_met')}
+                                    items={recent.metUsers}
+                                    onSelect={selectResult}
+                                />
+                                <ResultGroup
+                                    title={t(
+                                        'side_panel.search_recently_joined'
+                                    )}
+                                    items={recent.joinedWorlds}
                                     onSelect={selectResult}
                                 />
                                 <SettingsResultGroup

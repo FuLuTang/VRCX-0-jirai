@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 
 use tauri::State;
+use vrcx_0_application::social::QuickSearchRecentOutput;
 use vrcx_0_application::social::{QuickSearchQueryInput, QuickSearchQueryOutput};
 
 use crate::{error::AppError, state::AppState};
@@ -21,4 +22,12 @@ pub fn app__quick_search_working_set_invalidate(
 ) -> Result<(), AppError> {
     state.runtime_host().invalidate_quick_search_working_set();
     Ok(())
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn app__quick_search_recent(
+    state: State<'_, AppState>,
+) -> Result<QuickSearchRecentOutput, AppError> {
+    Ok(state.runtime_host().quick_search_recent()?)
 }
