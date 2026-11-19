@@ -1463,7 +1463,11 @@
         },
         "empty": {
             "no_authenticated_user_snapshot_is_available": "登录后才能刷新好友"
-        }
+        },
+        "search_prefixes": "前缀",
+        "search_prefix_friends": "只搜好友（仅输入 ! 列出全部）",
+        "search_prefix_worlds": "只搜世界（仅输入 @ 列出全部）",
+        "search_prefix_groups": "只搜群组（仅输入 # 列出全部）"
     },
     "support_vrcx": {
         "title": "支持 VRCX-0",

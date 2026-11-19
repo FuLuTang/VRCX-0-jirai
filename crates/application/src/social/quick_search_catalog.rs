@@ -280,6 +280,11 @@ impl QuickSearchRuntime {
         if query.is_empty() {
             return Ok(QuickSearchQueryOutput::empty());
         }
+        if let Some((prefix, rest)) = split_query_prefix(&query) {
+            return self
+                .query_prefixed(command, &scope, prefix, rest, friend_snapshot)
+                .await;
+        }
 
         self.inner.diagnostics.record_command(
             command,
@@ -398,6 +403,120 @@ impl QuickSearchRuntime {
             } else {
                 "Quick search completed.".into()
             },
+            0,
+        );
+        Ok(output)
+    }
+
+    /// `!` friends only, `@` worlds only, `#` groups only (jirai quickSearchWorker
+    /// shortcuts). Worlds and groups search from one character; a bare prefix lists
+    /// everything in that category without the per-group limit.
+    async fn query_prefixed(
+        &self,
+        command: &str,
+        scope: &RuntimeAuthScopeSnapshot,
+        prefix: QuickSearchPrefix,
+        rest: &str,
+        friend_snapshot: Option<RealtimeFriendSnapshot>,
+    ) -> Result<QuickSearchQueryOutput> {
+        self.inner.diagnostics.record_command(
+            command,
+            RuntimeOperationStatus::Running,
+            "Searching the quick search sources.",
+        );
+        let mut failures = 0;
+        let mut friends = Vec::new();
+        let mut details = FriendDetails::default();
+        let mut remote = None;
+        let mut local_worlds = Vec::new();
+        match prefix {
+            QuickSearchPrefix::Friends => {
+                details = load_friend_details(
+                    self.inner.detail_store.as_ref(),
+                    &scope.current_user_id,
+                    rest.chars().count() >= DETAIL_QUERY_MIN_LENGTH,
+                );
+                failures += details.failures;
+                friends = friend_snapshot
+                    .filter(|snapshot| friend_snapshot_matches_scope(snapshot, scope))
+                    .map(|snapshot| snapshot.friends_by_id.into_values().collect())
+                    .unwrap_or_default();
+            }
+            QuickSearchPrefix::Worlds | QuickSearchPrefix::Groups => {
+                let catalog = self.remote_catalog(scope).await?;
+                failures += catalog.failures;
+                remote = Some(catalog);
+                if prefix == QuickSearchPrefix::Worlds && !rest.is_empty() {
+                    match self.inner.world_cache.search_summaries(rest, 16) {
+                        Ok(rows) => {
+                            local_worlds = rows
+                                .into_iter()
+                                .take(RESULT_LIMIT)
+                                .map(local_world_result)
+                                .collect();
+                        }
+                        Err(error) => {
+                            failures += 1;
+                            tracing::debug!(error = %error, "quick search local worlds failed");
+                        }
+                    }
+                }
+            }
+        }
+        let output = build_prefixed_output(
+            prefix,
+            rest,
+            PrefixedSources {
+                friends,
+                details: &details,
+                remote: remote.as_deref(),
+                local_worlds,
+                current_user_id: &scope.current_user_id,
+            },
+        );
+        self.finish_query(command, scope, output, failures)
+    }
+
+    fn finish_query(
+        &self,
+        command: &str,
+        scope: &RuntimeAuthScopeSnapshot,
+        mut output: QuickSearchQueryOutput,
+        failures: usize,
+    ) -> Result<QuickSearchQueryOutput> {
+        GATE.ensure_matches(&self.inner.auth_scope, scope)?;
+        let partial = failures > 0;
+        output.status = if partial {
+            QuickSearchQueryStatus::Partial
+        } else {
+            QuickSearchQueryStatus::Ready
+        };
+        output.detail = if partial {
+            format!("{failures} search source(s) failed to load.")
+        } else {
+            String::new()
+        };
+        let status = if partial {
+            RuntimeOperationStatus::Partial
+        } else {
+            RuntimeOperationStatus::Ok
+        };
+        let message = if partial {
+            output.detail.clone()
+        } else {
+            "Quick search completed.".to_string()
+        };
+        self.inner
+            .diagnostics
+            .record_command(command, status, message.clone());
+        self.inner.sync.record(
+            "quickSearch",
+            if partial {
+                RuntimeOperationStatus::Partial
+            } else {
+                RuntimeOperationStatus::Ready
+            },
+            message,
             0,
         );
         Ok(output)
@@ -656,6 +775,25 @@ fn search_friends(
     bio_by_user_id: &HashMap<String, String>,
     query: &str,
 ) -> Vec<QuickSearchResult> {
+    search_friends_limited(
+        friends,
+        memo_by_user_id,
+        note_by_user_id,
+        bio_by_user_id,
+        query,
+        Some(RESULT_LIMIT),
+    )
+}
+
+/// `limit: None` keeps every match (bare `!` lists all friends, as jirai does).
+fn search_friends_limited(
+    friends: impl IntoIterator<Item = FriendRecord>,
+    memo_by_user_id: &HashMap<String, String>,
+    note_by_user_id: &HashMap<String, String>,
+    bio_by_user_id: &HashMap<String, String>,
+    query: &str,
+    limit: Option<usize>,
+) -> Vec<QuickSearchResult> {
     let can_search_details = query.chars().count() >= DETAIL_QUERY_MIN_LENGTH;
     let mut matches = friends
         .into_iter()
@@ -702,7 +840,7 @@ fn search_friends(
     });
     matches
         .into_iter()
-        .take(RESULT_LIMIT)
+        .take(limit.unwrap_or(usize::MAX))
         .map(|(_, _, friend, name, memo, note, bio, matched_field)| {
             friend_result(friend, name, memo, note, bio, matched_field)
         })
@@ -864,6 +1002,15 @@ fn search_candidates(
     query: &str,
     exclude_ids: &HashSet<String>,
 ) -> Vec<QuickSearchResult> {
+    search_candidates_limited(candidates, query, exclude_ids, Some(RESULT_LIMIT))
+}
+
+fn search_candidates_limited(
+    candidates: &[QuickSearchCandidate],
+    query: &str,
+    exclude_ids: &HashSet<String>,
+    limit: Option<usize>,
+) -> Vec<QuickSearchResult> {
     let mut matches = candidates
         .iter()
         .filter(|row| !exclude_ids.contains(&row.id))
@@ -881,9 +1028,107 @@ fn search_candidates(
     });
     matches
         .into_iter()
-        .take(RESULT_LIMIT)
+        .take(limit.unwrap_or(usize::MAX))
         .map(|(_, _, row)| candidate_result(row))
         .collect()
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum QuickSearchPrefix {
+    /// `!`: friends only.
+    Friends,
+    /// `@`: worlds only.
+    Worlds,
+    /// `#`: groups only.
+    Groups,
+}
+
+/// Split a normalized query into its category prefix and the remaining query.
+/// Queries without a prefix return `None` and keep the unprefixed behaviour.
+fn split_query_prefix(query: &str) -> Option<(QuickSearchPrefix, &str)> {
+    let mut chars = query.chars();
+    let prefix = match chars.next()? {
+        '!' => QuickSearchPrefix::Friends,
+        '@' => QuickSearchPrefix::Worlds,
+        '#' => QuickSearchPrefix::Groups,
+        _ => return None,
+    };
+    Some((prefix, chars.as_str()))
+}
+
+/// A bare prefix lists the whole category (no per-group limit, as in jirai).
+fn prefixed_result_limit(rest: &str) -> Option<usize> {
+    if rest.is_empty() {
+        None
+    } else {
+        Some(RESULT_LIMIT)
+    }
+}
+
+struct PrefixedSources<'a> {
+    friends: Vec<FriendRecord>,
+    details: &'a FriendDetails,
+    remote: Option<&'a QuickSearchRemoteCatalog>,
+    local_worlds: Vec<QuickSearchResult>,
+    current_user_id: &'a str,
+}
+
+fn build_prefixed_output(
+    prefix: QuickSearchPrefix,
+    rest: &str,
+    sources: PrefixedSources<'_>,
+) -> QuickSearchQueryOutput {
+    let limit = prefixed_result_limit(rest);
+    let mut output = QuickSearchQueryOutput::empty();
+    match prefix {
+        QuickSearchPrefix::Friends => {
+            output.friends = search_friends_limited(
+                sources.friends,
+                &sources.details.memos,
+                &sources.details.notes,
+                &sources.details.bios,
+                rest,
+                limit,
+            );
+        }
+        QuickSearchPrefix::Worlds => {
+            let Some(remote) = sources.remote else {
+                return output;
+            };
+            output.own_worlds =
+                search_candidates_limited(&remote.own_worlds, rest, &HashSet::new(), limit);
+            let own_world_ids = remote
+                .own_worlds
+                .iter()
+                .map(|row| row.id.clone())
+                .collect::<HashSet<_>>();
+            output.favorite_worlds =
+                search_candidates_limited(&remote.favorite_worlds, rest, &own_world_ids, limit);
+            if !rest.is_empty() {
+                merge_results(&mut output.favorite_worlds, sources.local_worlds);
+            }
+        }
+        QuickSearchPrefix::Groups => {
+            let Some(remote) = sources.remote else {
+                return output;
+            };
+            let own_groups = remote
+                .groups
+                .iter()
+                .filter(|row| row.owner_id == sources.current_user_id)
+                .cloned()
+                .collect::<Vec<_>>();
+            let own_group_ids = own_groups
+                .iter()
+                .map(|row| row.id.clone())
+                .collect::<HashSet<_>>();
+            output.own_groups =
+                search_candidates_limited(&own_groups, rest, &HashSet::new(), limit);
+            output.joined_groups =
+                search_candidates_limited(&remote.groups, rest, &own_group_ids, limit);
+        }
+    }
+    output
 }
 
 fn candidate_result(row: &QuickSearchCandidate) -> QuickSearchResult {
@@ -1402,6 +1647,344 @@ mod tests {
         assert_eq!(
             serde_json::to_value(QuickSearchMatchedField::Bio).unwrap(),
             json!("bio")
+        );
+    }
+
+    fn owned(
+        id: &str,
+        name: &str,
+        entity_type: QuickSearchEntityType,
+        owner: &str,
+    ) -> QuickSearchCandidate {
+        QuickSearchCandidate {
+            entity_type,
+            owner_id: owner.into(),
+            ..candidate(id, name)
+        }
+    }
+
+    fn prefixed_catalog() -> QuickSearchRemoteCatalog {
+        QuickSearchRemoteCatalog {
+            own_avatars: vec![owned(
+                "avtr_1",
+                "Alpha Avatar",
+                QuickSearchEntityType::Avatar,
+                "usr_me",
+            )],
+            favorite_avatars: vec![owned(
+                "avtr_2",
+                "Avatar Fav",
+                QuickSearchEntityType::Avatar,
+                "usr_x",
+            )],
+            own_worlds: vec![
+                owned(
+                    "wrld_own",
+                    "Alpha World",
+                    QuickSearchEntityType::World,
+                    "usr_me",
+                ),
+                owned(
+                    "wrld_own2",
+                    "Beta World",
+                    QuickSearchEntityType::World,
+                    "usr_me",
+                ),
+            ],
+            favorite_worlds: (0..12)
+                .map(|index| {
+                    owned(
+                        &format!("wrld_fav_{index:02}"),
+                        &format!("Fav World {index:02}"),
+                        QuickSearchEntityType::World,
+                        "usr_x",
+                    )
+                })
+                .chain([owned(
+                    "wrld_own",
+                    "Alpha World",
+                    QuickSearchEntityType::World,
+                    "usr_me",
+                )])
+                .collect(),
+            groups: vec![
+                owned(
+                    "grp_own",
+                    "Alpha Group",
+                    QuickSearchEntityType::Group,
+                    "usr_me",
+                ),
+                owned(
+                    "grp_joined",
+                    "Joined Group",
+                    QuickSearchEntityType::Group,
+                    "usr_x",
+                ),
+                owned("grp_z", "Zeta Club", QuickSearchEntityType::Group, "usr_y"),
+            ],
+            failures: 0,
+        }
+    }
+
+    fn prefixed(
+        prefix: QuickSearchPrefix,
+        rest: &str,
+        friends: Vec<FriendRecord>,
+        details: &FriendDetails,
+        remote: Option<&QuickSearchRemoteCatalog>,
+    ) -> QuickSearchQueryOutput {
+        build_prefixed_output(
+            prefix,
+            rest,
+            PrefixedSources {
+                friends,
+                details,
+                remote,
+                local_worlds: Vec::new(),
+                current_user_id: "usr_me",
+            },
+        )
+    }
+
+    fn ids(rows: &[QuickSearchResult]) -> Vec<&str> {
+        rows.iter().map(|row| row.id.as_str()).collect()
+    }
+
+    fn only_friends(output: &QuickSearchQueryOutput) -> bool {
+        output.own_avatars.is_empty()
+            && output.favorite_avatars.is_empty()
+            && output.own_worlds.is_empty()
+            && output.favorite_worlds.is_empty()
+            && output.own_groups.is_empty()
+            && output.joined_groups.is_empty()
+    }
+
+    #[test]
+    fn query_prefixes_are_parsed_from_the_first_character_only() {
+        assert_eq!(
+            split_query_prefix("!"),
+            Some((QuickSearchPrefix::Friends, ""))
+        );
+        assert_eq!(
+            split_query_prefix("!al"),
+            Some((QuickSearchPrefix::Friends, "al"))
+        );
+        assert_eq!(
+            split_query_prefix("@a"),
+            Some((QuickSearchPrefix::Worlds, "a"))
+        );
+        assert_eq!(
+            split_query_prefix("#grp"),
+            Some((QuickSearchPrefix::Groups, "grp"))
+        );
+        assert_eq!(
+            split_query_prefix(&normalize_search_text("  ! Al ")),
+            Some((QuickSearchPrefix::Friends, "al"))
+        );
+        // A17-11: anything else keeps the unprefixed flow.
+        for query in ["alpha", "a!b", "a@b", "a#b", "wrld_x", "usr_1", "x"] {
+            assert_eq!(split_query_prefix(query), None, "{query}");
+        }
+    }
+
+    // A17-7
+    #[test]
+    fn bang_prefix_returns_only_friends_and_bare_bang_lists_all() {
+        let friends = (0..12)
+            .map(|index| friend(&format!("usr_{index:02}"), &format!("Friend {index:02}")))
+            .collect::<Vec<_>>();
+        let details = FriendDetails::default();
+        let all = prefixed(
+            QuickSearchPrefix::Friends,
+            "",
+            friends.clone(),
+            &details,
+            None,
+        );
+        assert_eq!(
+            all.friends.len(),
+            12,
+            "bare ! is not capped at RESULT_LIMIT"
+        );
+        assert!(only_friends(&all));
+
+        let some = prefixed(
+            QuickSearchPrefix::Friends,
+            "friend",
+            friends,
+            &details,
+            None,
+        );
+        assert_eq!(some.friends.len(), RESULT_LIMIT);
+        assert!(only_friends(&some));
+    }
+
+    // A17-7
+    #[test]
+    fn bang_prefix_matches_details_only_from_two_characters() {
+        let details = FriendDetails {
+            memos: map(&[("usr_1", "x-ray memo")]),
+            notes: HashMap::new(),
+            bios: map(&[("usr_2", "xy bio")]),
+            failures: 0,
+        };
+        let friends = || {
+            vec![
+                friend("usr_1", "Alpha"),
+                friend("usr_2", "Beta"),
+                friend("usr_3", "Xeno"),
+            ]
+        };
+        let one = prefixed(QuickSearchPrefix::Friends, "x", friends(), &details, None);
+        assert_eq!(ids(&one.friends), ["usr_3"]);
+        assert_eq!(one.friends[0].matched_field, QuickSearchMatchedField::Name);
+
+        let two = prefixed(QuickSearchPrefix::Friends, "x-", friends(), &details, None);
+        assert_eq!(ids(&two.friends), ["usr_1"]);
+        assert_eq!(two.friends[0].matched_field, QuickSearchMatchedField::Memo);
+
+        let bio = prefixed(QuickSearchPrefix::Friends, "xy", friends(), &details, None);
+        assert_eq!(ids(&bio.friends), ["usr_2"]);
+        assert_eq!(bio.friends[0].matched_field, QuickSearchMatchedField::Bio);
+    }
+
+    // A17-8
+    #[test]
+    fn at_prefix_returns_only_worlds_from_one_character_and_bare_at_lists_all() {
+        let catalog = prefixed_catalog();
+        let details = FriendDetails::default();
+        let friends = vec![friend("usr_1", "Alpha friend")];
+
+        // One character is enough: "z" only appears in no world, "b" only in Beta.
+        let none = prefixed(
+            QuickSearchPrefix::Worlds,
+            "z",
+            friends.clone(),
+            &details,
+            Some(&catalog),
+        );
+        assert!(none.own_worlds.is_empty() && none.favorite_worlds.is_empty());
+        let one = prefixed(
+            QuickSearchPrefix::Worlds,
+            "b",
+            friends.clone(),
+            &details,
+            Some(&catalog),
+        );
+        assert!(one.friends.is_empty());
+        assert!(one.own_avatars.is_empty() && one.favorite_avatars.is_empty());
+        assert!(one.own_groups.is_empty() && one.joined_groups.is_empty());
+        assert_eq!(ids(&one.own_worlds), ["wrld_own2"]);
+
+        let all = prefixed(
+            QuickSearchPrefix::Worlds,
+            "",
+            friends,
+            &details,
+            Some(&catalog),
+        );
+        assert_eq!(ids(&all.own_worlds), ["wrld_own", "wrld_own2"]);
+        assert_eq!(
+            all.favorite_worlds.len(),
+            12,
+            "own world is not repeated, no limit"
+        );
+        assert!(!ids(&all.favorite_worlds).contains(&"wrld_own"));
+        assert!(all.friends.is_empty() && all.own_groups.is_empty());
+
+        let capped = prefixed(
+            QuickSearchPrefix::Worlds,
+            "fav",
+            Vec::new(),
+            &details,
+            Some(&catalog),
+        );
+        assert_eq!(capped.favorite_worlds.len(), RESULT_LIMIT);
+    }
+
+    #[test]
+    fn at_prefix_merges_local_worlds_only_for_a_real_query() {
+        let catalog = prefixed_catalog();
+        let details = FriendDetails::default();
+        let local = |id: &str| QuickSearchResult {
+            source: "local".into(),
+            ..candidate_result(&owned(id, "Local World", QuickSearchEntityType::World, ""))
+        };
+        let searched = build_prefixed_output(
+            QuickSearchPrefix::Worlds,
+            "beta",
+            PrefixedSources {
+                friends: Vec::new(),
+                details: &details,
+                remote: Some(&catalog),
+                local_worlds: vec![local("wrld_local")],
+                current_user_id: "usr_me",
+            },
+        );
+        assert_eq!(ids(&searched.own_worlds), ["wrld_own2"]);
+        assert_eq!(ids(&searched.favorite_worlds), ["wrld_local"]);
+    }
+
+    // A17-9
+    #[test]
+    fn hash_prefix_returns_only_groups_from_one_character_and_bare_hash_lists_all() {
+        let catalog = prefixed_catalog();
+        let details = FriendDetails::default();
+
+        let one = prefixed(
+            QuickSearchPrefix::Groups,
+            "z",
+            Vec::new(),
+            &details,
+            Some(&catalog),
+        );
+        assert_eq!(ids(&one.joined_groups), ["grp_z"]);
+        assert!(one.own_groups.is_empty());
+        assert!(
+            one.friends.is_empty() && one.own_worlds.is_empty() && one.favorite_worlds.is_empty()
+        );
+        assert!(one.own_avatars.is_empty() && one.favorite_avatars.is_empty());
+
+        let all = prefixed(
+            QuickSearchPrefix::Groups,
+            "",
+            Vec::new(),
+            &details,
+            Some(&catalog),
+        );
+        assert_eq!(ids(&all.own_groups), ["grp_own"]);
+        assert_eq!(ids(&all.joined_groups), ["grp_joined", "grp_z"]);
+    }
+
+    #[test]
+    fn prefixed_output_is_empty_when_the_remote_catalog_is_missing() {
+        let details = FriendDetails::default();
+        for prefix in [QuickSearchPrefix::Worlds, QuickSearchPrefix::Groups] {
+            let output = prefixed(prefix, "", vec![friend("usr_1", "A")], &details, None);
+            assert!(output.friends.is_empty() && output.own_worlds.is_empty());
+            assert!(output.own_groups.is_empty() && output.joined_groups.is_empty());
+        }
+    }
+
+    // A17-11: the unprefixed helpers keep the 8-result limit.
+    #[test]
+    fn unprefixed_helpers_keep_the_result_limit() {
+        let catalog = prefixed_catalog();
+        assert_eq!(
+            search_candidates(&catalog.favorite_worlds, "", &HashSet::new()).len(),
+            RESULT_LIMIT
+        );
+        let friends = (0..12).map(|index| friend(&format!("usr_{index:02}"), "Same"));
+        assert_eq!(
+            search_friends(
+                friends,
+                &HashMap::new(),
+                &HashMap::new(),
+                &HashMap::new(),
+                "same"
+            )
+            .len(),
+            RESULT_LIMIT
         );
     }
 }

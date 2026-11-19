@@ -9,6 +9,27 @@ const RESULT_LIMIT = 8;
 export const USER_QUERY_MIN_LENGTH = 1;
 const DETAIL_QUERY_MIN_LENGTH = 2;
 
+export type QuickSearchPrefixMode = 'friends' | 'worlds' | 'groups';
+
+/**
+ * Category prefixes (jirai quickSearchWorker): `!` friends, `@` worlds,
+ * `#` groups. The backend parses the same prefixes; the UI uses this to show
+ * only the matching groups. `rest` is the normalized query after the prefix.
+ */
+export function parseQuickSearchPrefix(
+    normalizedQuery: string
+): { mode: QuickSearchPrefixMode; rest: string } | null {
+    const mode =
+        normalizedQuery[0] === '!'
+            ? 'friends'
+            : normalizedQuery[0] === '@'
+              ? 'worlds'
+              : normalizedQuery[0] === '#'
+                ? 'groups'
+                : null;
+    return mode ? { mode, rest: normalizedQuery.slice(1) } : null;
+}
+
 export function normalizeSearchValue(value: string | null | undefined) {
     return (value ?? '').trim();
 }
@@ -100,9 +121,36 @@ export function mergeQuickSearchGroupInstances(
     normalizedQuery: string,
     groupInstances: readonly GroupInstanceRecord[]
 ): QuickSearchState {
+    const prefix = parseQuickSearchPrefix(normalizedQuery);
+    if (prefix) {
+        // `#` searches group instances from one character (bare `#` lists all);
+        // `!` and `@` never show groups.
+        return prefix.mode === 'groups'
+            ? mergeGroupInstanceRows(
+                  state,
+                  prefix.rest,
+                  groupInstances,
+                  prefix.rest ? RESULT_LIMIT : Number.POSITIVE_INFINITY
+              )
+            : state;
+    }
     if (normalizedQuery.length < DETAIL_QUERY_MIN_LENGTH) {
         return state;
     }
+    return mergeGroupInstanceRows(
+        state,
+        normalizedQuery,
+        groupInstances,
+        RESULT_LIMIT
+    );
+}
+
+function mergeGroupInstanceRows(
+    state: QuickSearchState,
+    normalizedQuery: string,
+    groupInstances: readonly GroupInstanceRecord[],
+    limit: number
+): QuickSearchState {
     const excludedIds = new Set(state.ownGroups.map((row) => row.id));
     const joinedById = new Map(
         state.joinedGroups.map((row) => [row.id, row] as const)
@@ -116,7 +164,8 @@ export function mergeQuickSearchGroupInstances(
         ...state,
         joinedGroups: filterQuickSearchResults(
             Array.from(joinedById.values()),
-            normalizedQuery
+            normalizedQuery,
+            limit
         )
     };
 }

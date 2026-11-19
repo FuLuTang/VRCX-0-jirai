@@ -7,7 +7,8 @@ import {
 import {
     filterQuickSearchResults,
     mergeQuickSearchGroupInstances,
-    normalizeSearchQuery
+    normalizeSearchQuery,
+    parseQuickSearchPrefix
 } from './quickSearchResultModel';
 
 function result(id: string, name: string): QuickSearchResult {
@@ -91,5 +92,67 @@ describe('quick search result model', () => {
             'grp_existing',
             'grp_instance'
         ]);
+    });
+
+    it('parses the ! @ # category prefixes (M4)', () => {
+        expect(parseQuickSearchPrefix('!')).toEqual({
+            mode: 'friends',
+            rest: ''
+        });
+        expect(parseQuickSearchPrefix('@wo')).toEqual({
+            mode: 'worlds',
+            rest: 'wo'
+        });
+        expect(parseQuickSearchPrefix('#g')).toEqual({
+            mode: 'groups',
+            rest: 'g'
+        });
+        for (const query of ['', 'alpha', 'a!b', 'a#b', 'usr_1']) {
+            expect(parseQuickSearchPrefix(query)).toBeNull();
+        }
+    });
+
+    it('merges group instances from one character in # mode and lists all for bare # (A17-9)', () => {
+        const instances = Array.from({ length: 10 }, (_, index) => ({
+            id: `inst_${index}`,
+            groupId: `grp_${index}`,
+            groupName: index === 0 ? 'Zeta' : `Group ${index}`
+        }));
+        const empty = createEmptyQuickSearchState('ready');
+
+        const one = mergeQuickSearchGroupInstances(empty, '#z', instances);
+        expect(one.joinedGroups.map((row) => row.id)).toEqual(['grp_0']);
+
+        const all = mergeQuickSearchGroupInstances(empty, '#', instances);
+        expect(all.joinedGroups).toHaveLength(10);
+    });
+
+    it('does not merge group instances in ! and @ modes', () => {
+        const instances = [
+            { id: 'inst', groupId: 'grp_1', groupName: 'Alpha' }
+        ];
+        const empty = createEmptyQuickSearchState('ready');
+        expect(
+            mergeQuickSearchGroupInstances(empty, '!alpha', instances)
+                .joinedGroups
+        ).toEqual([]);
+        expect(
+            mergeQuickSearchGroupInstances(empty, '@alpha', instances)
+                .joinedGroups
+        ).toEqual([]);
+    });
+
+    it('keeps the unprefixed two-character threshold (A17-11)', () => {
+        const instances = [
+            { id: 'inst', groupId: 'grp_1', groupName: 'Alpha' }
+        ];
+        const empty = createEmptyQuickSearchState('ready');
+        expect(
+            mergeQuickSearchGroupInstances(empty, 'a', instances).joinedGroups
+        ).toEqual([]);
+        expect(
+            mergeQuickSearchGroupInstances(empty, 'al', instances).joinedGroups
+                .length
+        ).toBe(1);
     });
 });

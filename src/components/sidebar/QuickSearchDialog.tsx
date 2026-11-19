@@ -39,6 +39,7 @@ import {
 import {
     normalizeSearchQuery,
     normalizeSearchValue,
+    parseQuickSearchPrefix,
     USER_QUERY_MIN_LENGTH
 } from './quick-search/quickSearchResultModel';
 import { useClipboardDirectAccess } from './quick-search/useClipboardDirectAccess';
@@ -84,29 +85,49 @@ export function QuickSearchDialog({
     );
     const navigate = useNavigate();
     const normalizedQuery = normalizeSearchQuery(query);
+    const prefixMode = parseQuickSearchPrefix(normalizedQuery)?.mode ?? null;
     const directAccessInput = normalizeSearchValue(query);
     const detectedDirectAccess = useDirectAccessCandidate(directAccessInput);
     const canDirectAccess =
-        detectedDirectAccess ||
-        Boolean(retryInput && directAccessInput === retryInput);
+        !prefixMode &&
+        (detectedDirectAccess ||
+            Boolean(retryInput && directAccessInput === retryInput));
     const dismissClipboard = useClipboardDirectAccess(
         open && !retryInput,
         clipboardSession,
         onDirectAccess
     );
     const showSearchOverview = normalizedQuery.length < USER_QUERY_MIN_LENGTH;
-    const navCommands = useNavCommands(normalizedQuery);
+    const allNavCommands = useNavCommands(normalizedQuery);
+    const navCommands = prefixMode ? [] : allNavCommands;
     const navShortcutPositions = useNavShortcutPositions(open);
     const settingsResults = useSettingsSearch(
-        normalizedQuery.length < SETTINGS_QUERY_MIN_LENGTH ? '' : query,
+        prefixMode || normalizedQuery.length < SETTINGS_QUERY_MIN_LENGTH
+            ? ''
+            : query,
         SETTINGS_RESULT_LIMIT
     );
-    const results = useQuickSearchResults({
+    const allResults = useQuickSearchResults({
         currentEndpoint,
         currentUserId,
         normalizedQuery,
         open
     });
+    // Prefix mode (! @ #) shows only the matching category.
+    const results = prefixMode
+        ? {
+              ...allResults,
+              friends: prefixMode === 'friends' ? allResults.friends : [],
+              ownAvatars: [],
+              favoriteAvatars: [],
+              ownWorlds: prefixMode === 'worlds' ? allResults.ownWorlds : [],
+              favoriteWorlds:
+                  prefixMode === 'worlds' ? allResults.favoriteWorlds : [],
+              ownGroups: prefixMode === 'groups' ? allResults.ownGroups : [],
+              joinedGroups:
+                  prefixMode === 'groups' ? allResults.joinedGroups : []
+          }
+        : allResults;
     const history = useQuickSearchHistory({
         currentEndpoint,
         currentUserId,
@@ -303,6 +324,46 @@ export function QuickSearchDialog({
                                         {t('side_panel.search_scope_joined')}
                                     </CommandShortcut>
                                 </CommandItem>
+                            </CommandGroup>
+                        ) : null}
+                        {showSearchOverview ? (
+                            <CommandGroup
+                                heading={t('side_panel.search_prefixes')}
+                            >
+                                {(
+                                    [
+                                        [
+                                            '!',
+                                            UsersIcon,
+                                            'search_prefix_friends'
+                                        ],
+                                        [
+                                            '@',
+                                            GlobeIcon,
+                                            'search_prefix_worlds'
+                                        ],
+                                        [
+                                            '#',
+                                            UsersRoundIcon,
+                                            'search_prefix_groups'
+                                        ]
+                                    ] as const
+                                ).map(([prefix, Icon, labelKey]) => (
+                                    <CommandItem
+                                        key={prefix}
+                                        value={`hint-prefix-${prefix}`}
+                                        disabled
+                                        className="gap-3 opacity-70"
+                                    >
+                                        <Icon />
+                                        <span className="min-w-0 flex-1 truncate">
+                                            {t(`side_panel.${labelKey}`)}
+                                        </span>
+                                        <CommandShortcut className="tracking-normal">
+                                            {prefix}
+                                        </CommandShortcut>
+                                    </CommandItem>
+                                ))}
                             </CommandGroup>
                         ) : hasResults ? (
                             <>
