@@ -14,6 +14,7 @@ import { dialogTargetKey } from '@/services/userDialogSessionCacheService';
 import { isRecord } from '@/shared/utils/record';
 import { useDialogStore } from '@/state/dialogStore';
 import { useFriendLocationTimeStore } from '@/state/friendLocationTimeStore';
+import { useUserDialogOpeningStore } from '@/state/userDialogOpeningStore';
 
 import { UserDialogContentDialogs } from './user-dialog/components/UserDialogContentDialogs';
 import {
@@ -268,6 +269,29 @@ export function UserDialogContent({
             });
         }
     }, [currentEndpoint, isCurrentUser, isFriend, profile]);
+    // #3b: publish this opening so the relationship prompt host can ask about
+    // one recommendation once the profile is loaded (jirai 392365f0; R04).
+    const profileReady =
+        loadStatus === 'ready' &&
+        Boolean(normalizedUserId) &&
+        profileUserId === normalizeUserId(normalizedUserId);
+    const publishUserDialogOpening = useUserDialogOpeningStore(
+        (state) => state.publishUserDialogOpening
+    );
+    const clearUserDialogOpening = useUserDialogOpeningStore(
+        (state) => state.clearUserDialogOpening
+    );
+    useEffect(() => {
+        publishUserDialogOpening({
+            userId: normalizedUserId,
+            openNonce,
+            ready: profileReady
+        });
+    }, [normalizedUserId, openNonce, profileReady, publishUserDialogOpening]);
+    useEffect(
+        () => () => clearUserDialogOpening(normalizedUserId, openNonce),
+        [clearUserDialogOpening, normalizedUserId, openNonce]
+    );
     const friendRequestState = resolveFriendRequestState(profile);
     const platform = resolvePlatformMeta(profile?.$platform);
     const PlatformIcon = platform.icon;
