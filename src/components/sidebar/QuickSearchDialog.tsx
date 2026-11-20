@@ -39,13 +39,11 @@ import {
 import {
     normalizeSearchQuery,
     normalizeSearchValue,
-    parseQuickSearchPrefix,
     USER_QUERY_MIN_LENGTH
 } from './quick-search/quickSearchResultModel';
 import { useClipboardDirectAccess } from './quick-search/useClipboardDirectAccess';
 import { useDirectAccessCandidate } from './quick-search/useDirectAccessCandidate';
 import { useQuickSearchHistory } from './quick-search/useQuickSearchHistory';
-import { useQuickSearchRecent } from './quick-search/useQuickSearchRecent';
 import { useQuickSearchResults } from './quick-search/useQuickSearchResults';
 import { useQuickSearchSelectResult } from './quick-search/useQuickSearchSelectResult';
 import {
@@ -86,63 +84,34 @@ export function QuickSearchDialog({
     );
     const navigate = useNavigate();
     const normalizedQuery = normalizeSearchQuery(query);
-    const prefixMode = parseQuickSearchPrefix(normalizedQuery)?.mode ?? null;
     const directAccessInput = normalizeSearchValue(query);
     const detectedDirectAccess = useDirectAccessCandidate(directAccessInput);
     const canDirectAccess =
-        !prefixMode &&
-        (detectedDirectAccess ||
-            Boolean(retryInput && directAccessInput === retryInput));
+        detectedDirectAccess ||
+        Boolean(retryInput && directAccessInput === retryInput);
     const dismissClipboard = useClipboardDirectAccess(
         open && !retryInput,
         clipboardSession,
         onDirectAccess
     );
     const showSearchOverview = normalizedQuery.length < USER_QUERY_MIN_LENGTH;
-    const allNavCommands = useNavCommands(normalizedQuery);
-    const navCommands = prefixMode ? [] : allNavCommands;
+    const navCommands = useNavCommands(normalizedQuery);
     const navShortcutPositions = useNavShortcutPositions(open);
     const settingsResults = useSettingsSearch(
-        prefixMode || normalizedQuery.length < SETTINGS_QUERY_MIN_LENGTH
-            ? ''
-            : query,
+        normalizedQuery.length < SETTINGS_QUERY_MIN_LENGTH ? '' : query,
         SETTINGS_RESULT_LIMIT
     );
-    const allResults = useQuickSearchResults({
+    const results = useQuickSearchResults({
         currentEndpoint,
         currentUserId,
         normalizedQuery,
         open
     });
-    // Prefix mode (! @ #) shows only the matching category.
-    const results = prefixMode
-        ? {
-              ...allResults,
-              friends: prefixMode === 'friends' ? allResults.friends : [],
-              ownAvatars: [],
-              favoriteAvatars: [],
-              ownWorlds: prefixMode === 'worlds' ? allResults.ownWorlds : [],
-              favoriteWorlds:
-                  prefixMode === 'worlds' ? allResults.favoriteWorlds : [],
-              ownGroups: prefixMode === 'groups' ? allResults.ownGroups : [],
-              joinedGroups:
-                  prefixMode === 'groups' ? allResults.joinedGroups : []
-          }
-        : allResults;
     const history = useQuickSearchHistory({
         currentEndpoint,
         currentUserId,
         open
     });
-    const allRecent = useQuickSearchRecent({
-        currentEndpoint,
-        currentUserId,
-        normalizedQuery,
-        open
-    });
-    // #17: recent groups show on the empty search and filter with the query;
-    // prefix mode (! @ #) hides them.
-    const recent = prefixMode ? { metUsers: [], joinedWorlds: [] } : allRecent;
 
     const hasResults =
         canDirectAccess ||
@@ -154,9 +123,7 @@ export function QuickSearchDialog({
         results.ownWorlds.length ||
         results.favoriteWorlds.length ||
         results.ownGroups.length ||
-        results.joinedGroups.length ||
-        recent.metUsers.length ||
-        recent.joinedWorlds.length;
+        results.joinedGroups.length;
 
     const selectResult = useQuickSearchSelectResult({
         onOpenChange,
@@ -243,22 +210,6 @@ export function QuickSearchDialog({
                                 items={history.items}
                                 onSelect={selectResult}
                             />
-                        ) : null}
-                        {showSearchOverview ? (
-                            <>
-                                <ResultGroup
-                                    title={t('side_panel.search_recently_met')}
-                                    items={recent.metUsers}
-                                    onSelect={selectResult}
-                                />
-                                <ResultGroup
-                                    title={t(
-                                        'side_panel.search_recently_joined'
-                                    )}
-                                    items={recent.joinedWorlds}
-                                    onSelect={selectResult}
-                                />
-                            </>
                         ) : null}
                         {showSearchOverview ? (
                             <CommandGroup
@@ -353,46 +304,6 @@ export function QuickSearchDialog({
                                     </CommandShortcut>
                                 </CommandItem>
                             </CommandGroup>
-                        ) : null}
-                        {showSearchOverview ? (
-                            <CommandGroup
-                                heading={t('side_panel.search_prefixes')}
-                            >
-                                {(
-                                    [
-                                        [
-                                            '!',
-                                            UsersIcon,
-                                            'search_prefix_friends'
-                                        ],
-                                        [
-                                            '@',
-                                            GlobeIcon,
-                                            'search_prefix_worlds'
-                                        ],
-                                        [
-                                            '#',
-                                            UsersRoundIcon,
-                                            'search_prefix_groups'
-                                        ]
-                                    ] as const
-                                ).map(([prefix, Icon, labelKey]) => (
-                                    <CommandItem
-                                        key={prefix}
-                                        value={`hint-prefix-${prefix}`}
-                                        disabled
-                                        className="gap-3 opacity-70"
-                                    >
-                                        <Icon />
-                                        <span className="min-w-0 flex-1 truncate">
-                                            {t(`side_panel.${labelKey}`)}
-                                        </span>
-                                        <CommandShortcut className="tracking-normal">
-                                            {prefix}
-                                        </CommandShortcut>
-                                    </CommandItem>
-                                ))}
-                            </CommandGroup>
                         ) : hasResults ? (
                             <>
                                 {canDirectAccess ? (
@@ -463,18 +374,6 @@ export function QuickSearchDialog({
                                 <ResultGroup
                                     title={t('side_panel.search_joined_groups')}
                                     items={results.joinedGroups}
-                                    onSelect={selectResult}
-                                />
-                                <ResultGroup
-                                    title={t('side_panel.search_recently_met')}
-                                    items={recent.metUsers}
-                                    onSelect={selectResult}
-                                />
-                                <ResultGroup
-                                    title={t(
-                                        'side_panel.search_recently_joined'
-                                    )}
-                                    items={recent.joinedWorlds}
                                     onSelect={selectResult}
                                 />
                                 <SettingsResultGroup

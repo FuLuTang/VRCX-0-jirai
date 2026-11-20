@@ -90,7 +90,6 @@ export const commands = {
 	appFriendLogNamesCancel: (requestId: string) => __TAURI_INVOKE<boolean>("app__friend_log_names_cancel", { requestId }),
 	appGroupCalendarSnapshotGet: (input: GroupCalendarInput) => __TAURI_INVOKE<GroupCalendarSnapshot>("app__group_calendar_snapshot_get", { input }),
 	appQuickSearchQuery: (input: QuickSearchQueryInput) => __TAURI_INVOKE<QuickSearchQueryOutput>("app__quick_search_query", { input }),
-	appQuickSearchRecent: () => __TAURI_INVOKE<QuickSearchRecentOutput>("app__quick_search_recent"),
 	appQuickSearchWorkingSetInvalidate: () => __TAURI_INVOKE<null>("app__quick_search_working_set_invalidate"),
 	appVrcStatusGet: () => __TAURI_INVOKE<VrcStatusSnapshot>("app__vrc_status_get"),
 	appVrcStatusRefresh: () => __TAURI_INVOKE<VrcStatusSnapshot>("app__vrc_status_refresh"),
@@ -4202,15 +4201,6 @@ export type QuickSearchQueryOutput = {
 };
 
 export type QuickSearchQueryStatus = "ready" | "partial";
-
-export type QuickSearchRecentOutput = {
-	status: QuickSearchQueryStatus,
-	detail: string,
-	/**  Recently met non-friends, newest first (at most 8). */
-	metUsers: QuickSearchResult[],
-	/**  Recently joined worlds, newest first (at most 10). */
-	joinedWorlds: QuickSearchResult[],
-};
 
 export type QuickSearchResult = {
 	id: string,

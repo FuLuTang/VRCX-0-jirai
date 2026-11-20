@@ -35,9 +35,7 @@ export type QuickSearchState = {
     joinedGroups: QuickSearchResult[];
 };
 
-export function normalizeResult(
-    result: BackendQuickSearchResult
-): QuickSearchResult {
+function normalizeResult(result: BackendQuickSearchResult): QuickSearchResult {
     return {
         ...result,
         imageUrl: convertFileUrlToImageUrl(result.imageUrl, 64),

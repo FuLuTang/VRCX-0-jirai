@@ -158,10 +158,6 @@ pub use quick_search_catalog::{
     QuickSearchQueryOutput, QuickSearchQueryStatus, QuickSearchResult, QuickSearchRuntime,
     QuickSearchSources,
 };
-pub use quick_search_catalog::{
-    QuickSearchRecentOutput, QuickSearchRecentStore, QuickSearchRecentUserRow,
-    QuickSearchRecentWorldRow,
-};
 pub use saved_group_favorites::{SavedGroupFavoritesPort, SavedGroupFavoritesRuntime};
 pub use social_baseline_refresh::{
     refresh_social_baseline, SocialBaselineFavoritesRefresh, SocialBaselineRefreshCore,

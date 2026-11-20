@@ -27,7 +27,6 @@ pub(crate) mod ownership;
 pub mod player_list;
 pub mod profile_backup;
 pub mod profile_bio;
-pub mod quick_search_recent;
 pub mod realtime;
 pub mod saved_group_favorites;
 pub mod screenshot_cache;

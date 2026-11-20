@@ -858,12 +858,6 @@ impl DesktopRuntimeHostState {
             .await?)
     }
 
-    pub fn quick_search_recent(
-        &self,
-    ) -> Result<vrcx_0_application::social::QuickSearchRecentOutput> {
-        Ok(self.quick_search.recent(self.friend_snapshot())?)
-    }
-
     pub fn invalidate_quick_search_working_set(&self) {
         self.quick_search.invalidate_remote_working_set();
     }

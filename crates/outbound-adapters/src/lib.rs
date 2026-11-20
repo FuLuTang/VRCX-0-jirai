@@ -103,7 +103,6 @@ pub use profile_bio::LocalProfileBioStore;
 pub use profile_database_upgrade::LocalDatabaseUpgradeStore;
 pub use proxy_connectivity::ProxyConnectivityAdapter;
 pub use quick_search::LocalQuickSearchDetailStore;
-pub use quick_search::LocalQuickSearchRecentStore;
 pub use realtime_remote_requests::VrchatRealtimeRemoteRequests;
 pub use realtime_store::PersistenceRealtimeStore;
 pub use realtime_transport::VrchatRealtimeTransport;
