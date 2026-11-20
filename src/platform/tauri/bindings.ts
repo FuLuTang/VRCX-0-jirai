@@ -25,7 +25,6 @@ export const commands = {
 	appIsGameRunning: () => __TAURI_INVOKE<boolean>("app__is_game_running"),
 	appStartGame: (launchArguments: string) => __TAURI_INVOKE<boolean>("app__start_game", { launchArguments }),
 	appStartGameFromPath: (path: string, launchArguments: string) => __TAURI_INVOKE<boolean>("app__start_game_from_path", { path, launchArguments }),
-	appQuitGame: () => __TAURI_INVOKE<number>("app__quit_game"),
 	appHostTtsVoices: () => __TAURI_INVOKE<TtsVoice[]>("app__host_tts_voices"),
 	appHostTtsSpeak: (text: string, voiceId: string | null, volume: number) => __TAURI_INVOKE<null>("app__host_tts_speak", { text, voiceId, volume }),
 	appCurrentUserRefresh: () => __TAURI_INVOKE<CurrentUserRefreshOutcome>("app__current_user_refresh"),
@@ -33,9 +32,6 @@ export const commands = {
 	appIngestUserFacts: (entries: JsonValue[]) => __TAURI_INVOKE<null>("app__ingest_user_facts", { entries }),
 	appFriendProfileLoadStart: () => __TAURI_INVOKE<FriendProfileLoadStatusPayload>("app__friend_profile_load_start"),
 	appFriendProfileLoadCancel: () => __TAURI_INVOKE<FriendProfileLoadStatusPayload>("app__friend_profile_load_cancel"),
-	appAutoFollowStart: (userId: string) => __TAURI_INVOKE<AutoFollowStatus>("app__auto_follow_start", { userId }),
-	appAutoFollowStop: () => __TAURI_INVOKE<AutoFollowStatus>("app__auto_follow_stop"),
-	appAutoFollowStatus: () => __TAURI_INVOKE<AutoFollowStatus>("app__auto_follow_status"),
 	appAncillaryRuntimeSnapshotGet: () => __TAURI_INVOKE<AncillaryRuntimeSnapshot>("app__ancillary_runtime_snapshot_get"),
 	appNotificationDoNotDisturbModeSet: (mode: NotificationDoNotDisturbMode) => __TAURI_INVOKE<NotificationDoNotDisturbSnapshot>("app__notification_do_not_disturb_mode_set", { mode }),
 	appGameIsolationSet: (enabled: boolean) => __TAURI_INVOKE<GameIsolationSnapshot>("app__game_isolation_set", { enabled }),
@@ -1235,25 +1231,6 @@ export type AuthorDetail = {
 	displayName?: string | null,
 };
 
-export type AutoFollowAction = 
-/**  Open the instance in the running game, falling back to a self invite. */
-"attach" | 
-/**  Quit the game and relaunch it in desktop mode into the instance. */
-"relaunchDesktop";
-
-export type AutoFollowStatus = {
-	active: boolean,
-	targetUserId: string | null,
-	targetDisplayName: string | null,
-};
-
-export type AutoFollowTriggered = {
-	userId: string,
-	displayName: string,
-	location: string,
-	action: AutoFollowAction,
-};
-
 export type AutoLoginOutcome = LoginSessionState | AutoLoginTerminalOutcome;
 
 export type AutoLoginStartInput = {
@@ -1423,7 +1400,6 @@ export type BackendRuntimeEventPayloadMap = {
 	chatboxConfig: ChatboxConfig,
 	privacyLockState: PrivacyLockSnapshot,
 	desktopWidgetState: DesktopWidgetSnapshot,
-	autoFollowTriggered: AutoFollowTriggered,
 };
 
 export type BackendRuntimeGameLogStatus = "idle" | "running" | "persisted" | "unavailable";

@@ -1325,39 +1325,6 @@ impl DesktopRuntimeHostState {
         self.runtime.realtime_runtime().friend_snapshot()
     }
 
-    pub fn auto_follow_start(
-        &self,
-        user_id: &str,
-    ) -> Result<vrcx_0_application_realtime::AutoFollowStatus> {
-        let user_id = user_id.trim();
-        let snapshot = self.friend_snapshot();
-        let friend = snapshot.as_ref().and_then(|snapshot| {
-            let record = snapshot.friends_by_id.get(user_id)?;
-            Some((record, snapshot.presence_by_id.get(user_id)))
-        });
-        let Some((record, presence)) = friend else {
-            return Err(vrcx_0_application_core::Error::Custom(format!(
-                "Auto follow target {user_id} is not a current friend."
-            ))
-            .into());
-        };
-        let current_location = presence
-            .map(|presence| vrcx_0_application_realtime::friend_presence_location(&presence.view));
-        Ok(self.desktop.services.auto_follow().start(
-            user_id,
-            &record.display_name_or_id(),
-            current_location.as_deref(),
-        ))
-    }
-
-    pub fn auto_follow_stop(&self) -> vrcx_0_application_realtime::AutoFollowStatus {
-        self.desktop.services.auto_follow().stop()
-    }
-
-    pub fn auto_follow_status(&self) -> vrcx_0_application_realtime::AutoFollowStatus {
-        self.desktop.services.auto_follow().status()
-    }
-
     pub fn vrc_status_snapshot(&self) -> VrcStatusSnapshot {
         self.runtime.desktop_assembly().vrc_status().snapshot()
     }

@@ -1,5 +1,4 @@
 pub mod assistant;
-pub mod auto_follow;
 pub mod background_image;
 pub mod background_mode;
 pub mod chatbox;

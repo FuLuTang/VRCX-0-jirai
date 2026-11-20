@@ -23,7 +23,6 @@ use vrcx_0_application_game::{
     GameClientEvent, GameLogPersistenceFallbackPayload, GameLogProjection, GameLogSideEffectEvent,
     RuntimeGameLogEventPayload, RuntimeWorkerErrorPayload,
 };
-use vrcx_0_application_realtime::AutoFollowTriggered;
 use vrcx_0_application_realtime::{
     FriendProjection, RealtimeCurrentUserProjection, RealtimeEconomyBalancePayload,
     RealtimeEntryCorrection, RealtimeFeedProjection, RealtimeInstanceClosedProjection,
@@ -103,7 +102,6 @@ struct BackendRuntimeEventPayloadMap {
     chatbox_config: vrcx_0_application_game::chatbox::ChatboxConfig,
     privacy_lock_state: PrivacyLockSnapshot,
     desktop_widget_state: vrcx_0_runtime_host_desktop::desktop_widget::DesktopWidgetSnapshot,
-    auto_follow_triggered: AutoFollowTriggered,
 }
 
 pub fn builder() -> Builder<tauri::Wry> {
@@ -160,7 +158,6 @@ pub fn builder() -> Builder<tauri::Wry> {
             commands::host::game::app__is_game_running,
             commands::host::game::app__start_game,
             commands::host::game::app__start_game_from_path,
-            commands::host::game::app__quit_game,
             commands::host::tts::app__host_tts_voices,
             commands::host::tts::app__host_tts_speak,
             commands::application::realtime::app__current_user_refresh,
@@ -168,9 +165,6 @@ pub fn builder() -> Builder<tauri::Wry> {
             commands::application::realtime::app__ingest_user_facts,
             commands::application::realtime::app__friend_profile_load_start,
             commands::application::realtime::app__friend_profile_load_cancel,
-            commands::application::auto_follow::app__auto_follow_start,
-            commands::application::auto_follow::app__auto_follow_stop,
-            commands::application::auto_follow::app__auto_follow_status,
             commands::application::lifecycle::app__ancillary_runtime_snapshot_get,
             commands::application::lifecycle::app__notification_do_not_disturb_mode_set,
             commands::application::lifecycle::app__game_isolation_set,

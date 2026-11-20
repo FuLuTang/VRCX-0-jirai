@@ -1,4 +1,3 @@
-mod auto_follow;
 mod instance_dwell;
 mod notification_observer;
 mod ports;
@@ -17,10 +16,6 @@ pub mod test_support {
     };
 }
 
-pub use auto_follow::{
-    decide_auto_follow, friend_presence_location, AutoFollowAction, AutoFollowMode,
-    AutoFollowRuntime, AutoFollowStatus, AutoFollowTriggered,
-};
 pub use instance_dwell::{
     FriendLocationTime, FriendLocationTimeSource, FriendPlace, InstanceDwellRegistry,
 };
