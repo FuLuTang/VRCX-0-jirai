@@ -4158,7 +4158,7 @@ export type QueryOrder = "ascending" | "descending";
 
 export type QuickSearchEntityType = "friend" | "avatar" | "world" | "group";
 
-export type QuickSearchMatchedField = "name" | "memo" | "note" | "bio";
+export type QuickSearchMatchedField = "name" | "memo" | "note";
 
 export type QuickSearchQueryInput = {
 	query: string,
@@ -4190,7 +4190,6 @@ export type QuickSearchResult = {
 	note: string,
 	matchedField: QuickSearchMatchedField,
 	userColour: string,
-	bio: string,
 };
 
 export type RawJson = JsonValue;

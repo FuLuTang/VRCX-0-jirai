@@ -47,7 +47,7 @@ function ResultRow({
 
     return (
         <CommandItem
-            value={[item.name, item.memo, item.note, item.bio, item.id]
+            value={[item.name, item.memo, item.note, item.id]
                 .filter(Boolean)
                 .join(' ')}
             className="gap-3"
@@ -87,14 +87,6 @@ function ResultRow({
                     {item.matchedField !== 'name' && item.note ? (
                         <span className="text-muted-foreground truncate text-xs">
                             {t('dialog.user.info.note')}: {item.note}
-                        </span>
-                    ) : null}
-                    {item.matchedField === 'bio' && item.bio ? (
-                        <span
-                            className="text-muted-foreground truncate text-xs"
-                            data-testid="quick-search-bio"
-                        >
-                            {t('dialog.user.info.bio')}: {item.bio}
                         </span>
                     ) : null}
                 </div>
