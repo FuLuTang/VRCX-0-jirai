@@ -8320,11 +8320,7 @@
             "ignore": "Ignore this run",
             "evidence": "Evidence and score",
             "overlay_setting": "Show possible friendship reminders on instance arrival",
-            "overlay_help": "Only shown for live arrivals while both people are present. Each pair is shown once per continuous shared stay; leaving allows a later reminder.",
-            "prompt_title": "Suggested relationship",
-            "prompt_question": "Do you think this player and {name} are friends?",
-            "prompt_yes": "They're friends",
-            "prompt_ignore": "Ignore"
+            "overlay_help": "Only shown for live arrivals while both people are present. Each pair is shown once per continuous shared stay; leaving allows a later reminder."
         },
         "relationship_evidence": {
             "observed_peak": "Peak players observed in local logs",

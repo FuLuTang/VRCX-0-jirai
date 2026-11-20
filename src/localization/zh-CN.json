@@ -8304,11 +8304,7 @@
             "ignore": "本次忽略",
             "evidence": "证据与分数",
             "overlay_setting": "进房时提醒「或许是好友」",
-            "overlay_help": "仅真实进入实例且双方同时在场时显示。连续同房只提醒一次，离开后再次同房可重触发。",
-            "prompt_title": "推测关联",
-            "prompt_question": "你觉得本玩家和 {name} 是好友吗？",
-            "prompt_yes": "是好友",
-            "prompt_ignore": "忽略"
+            "overlay_help": "仅真实进入实例且双方同时在场时显示。连续同房只提醒一次，离开后再次同房可重触发。"
         },
         "relationship_evidence": {
             "observed_peak": "本地记录峰值人数",
