@@ -368,6 +368,6 @@ flowchart TB
 
 ---
 
-> **2026-11-18T04:15Z 基线口径更新：现统一以 GitHub VRCX-jirai 主分支 `refs/heads/master` @ `c7eaf00e`（相对上游 VRCX 的差分 `d97327d8..c7eaf00e`）为唯一差分参考基线，`c8b8f744` 不再作为「历史对照」基线。决议见 `reports/2026-11-18T0053Z-rust-rewrite-roadmap/README.md` 第 1.0 节。**本图谱头部的 Jirai 基准与 merge-base 与该口径一致，内容无需改动。
+> **2026-11-18T04:15Z 基线口径更新：现统一以 GitHub VRCX-jirai 主分支 `refs/heads/master` @ `c7eaf00e`（相对上游 VRCX 的差分 `d97327d8..c7eaf00e`）为唯一差分参考基线，`c8b8f744` 不再作为「历史对照」基线。决议见 `docs/jirai-port/计划/Rust重写路线/README.md` 第 1.0 节。**本图谱头部的 Jirai 基准与 merge-base 与该口径一致，内容无需改动。
 
-> **2026-11-18T04:43Z 补充：VRCX-0-jirai 侧基线冻结在 pc114514 的 `ea3142a47`**（`C:\Users\tangh\Documents\GitHub\VRCX-0-jirai`，`main`）。本图谱里 VRCX-0 侧的现状描述取证于同一提交，无需改动。决议见 `reports/2026-11-18T0053Z-rust-rewrite-roadmap/README.md` 第 1.0b 节。
+> **2026-11-18T04:43Z 补充：VRCX-0-jirai 侧基线冻结在 pc114514 的 `ea3142a47`**（`C:\Users\tangh\Documents\GitHub\VRCX-0-jirai`，`main`）。本图谱里 VRCX-0 侧的现状描述取证于同一提交，无需改动。决议见 `docs/jirai-port/计划/Rust重写路线/README.md` 第 1.0b 节。

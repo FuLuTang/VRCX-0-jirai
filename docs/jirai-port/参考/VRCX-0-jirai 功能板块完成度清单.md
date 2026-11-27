@@ -129,7 +129,7 @@
 
 ## 七·补、后续（2026-11-18T00:53Z）
 
-本清单中「部分」与「未完成」共 5 项（#10、#14、#7、#12、#13）的 **Rust 重写开发路径**与 **jirai 基线决议**见 `reports/2026-11-18T0053Z-rust-rewrite-roadmap/README.md`。该路径对本清单有两处**补充性发现**（本清单正文未改）：
+本清单中「部分」与「未完成」共 5 项（#10、#14、#7、#12、#13）的 **Rust 重写开发路径**与 **jirai 基线决议**见 `docs/jirai-port/计划/Rust重写路线/README.md`。该路径对本清单有两处**补充性发现**（本清单正文未改）：
 
 1. **#10 的出处**：`c4f1a461`（2026-04-29）是 FuLu糖福禄本人的提交，标题含「refine relation recommendation logic」，上游 0 命中；它是为关系推荐服务的，而 VRCX-0 的推荐输入（`relationshipRecommendationData.ts:40-47`）同样读 GameLog 的 `OnPlayerLeft`，所以假记录一旦写入就会流进 #3b。
 2. **#14 可以零新增 SQL**：`profile_bio` 表每人一行，`profile_bio_list` 已存在，可直接接入 `QuickSearchDetailStore`（上文 #14「缺什么」里的「聚合最新 bio」问题因此消解）。
@@ -148,8 +148,8 @@
 
 ---
 
-> **2026-11-18T04:15Z 基线口径更新：现统一以 GitHub VRCX-jirai 主分支 `refs/heads/master` @ `c7eaf00e`（相对上游 VRCX 的差分 `d97327d8..c7eaf00e`）为唯一差分参考基线，`c8b8f744` 不再作为「历史对照」基线。决议见 `reports/2026-11-18T0053Z-rust-rewrite-roadmap/README.md` 第 1.0 节。**完成度计数（11 / 2 / 3 / 1）不受影响；#12 属于基线内的未完成项。
+> **2026-11-18T04:15Z 基线口径更新：现统一以 GitHub VRCX-jirai 主分支 `refs/heads/master` @ `c7eaf00e`（相对上游 VRCX 的差分 `d97327d8..c7eaf00e`）为唯一差分参考基线，`c8b8f744` 不再作为「历史对照」基线。决议见 `docs/jirai-port/计划/Rust重写路线/README.md` 第 1.0 节。**完成度计数（11 / 2 / 3 / 1）不受影响；#12 属于基线内的未完成项。
 
-> **2026-11-18T04:43Z 补充：VRCX-0-jirai 侧基线冻结在 pc114514 的 `ea3142a47`**（`C:\Users\tangh\Documents\GitHub\VRCX-0-jirai`，`main`）。本清单的计数（11 / 2 / 3 / 1）就是对这个提交的判定；以后的进展写成相对它的增量。决议见 `reports/2026-11-18T0053Z-rust-rewrite-roadmap/README.md` 第 1.0b 节。
+> **2026-11-18T04:43Z 补充：VRCX-0-jirai 侧基线冻结在 pc114514 的 `ea3142a47`**（`C:\Users\tangh\Documents\GitHub\VRCX-0-jirai`，`main`）。本清单的计数（11 / 2 / 3 / 1）就是对这个提交的判定；以后的进展写成相对它的增量。决议见 `docs/jirai-port/计划/Rust重写路线/README.md` 第 1.0b 节。
 
-> **2026-11-18T15:29Z 补充（路径修订 6）：#6、#10、#12 冻结。**#10、#12 的判定（部分 / 未完成）不变，但不再推进；#10 在 `ea3142a47` 上已有的写入管道列入冻结清单，不得改动。本轮只推进 #14、#7（#13 只做 R0 只读调研）。依据见 `reports/2026-11-18T0053Z-rust-rewrite-roadmap/完善计划.md` 修订 6。
+> **2026-11-18T15:29Z 补充（路径修订 6）：#6、#10、#12 冻结。**#10、#12 的判定（部分 / 未完成）不变，但不再推进；#10 在 `ea3142a47` 上已有的写入管道列入冻结清单，不得改动。本轮只推进 #14、#7（#13 只做 R0 只读调研）。依据见 `docs/jirai-port/计划/Rust重写路线/完善计划.md` 修订 6。

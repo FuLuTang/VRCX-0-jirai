@@ -496,7 +496,7 @@ jirai 相对分叉点改动 145 个文件，上游本次改动 53 个文件，**
 
 含义：「jirai 没跟进上游 `publicProfileRef`」不能笼统地说——**它只对被 GitHub 发布的 `c7eaf00e` 成立**。把 jirai 当蓝图时，若蓝图取自 pc114514 开发线，则 Bio 数据源一侧与 VRCX-0 同向；若取自 GitHub master，则 VRCX-0 比蓝图新。这是「以哪一版 jirai 为蓝图」没被钉死的一个具体后果。
 
-> **v3.1 更新（2026-11-18T00:53Z）**：此问题已有决议，见 `reports/2026-11-18T0053Z-rust-rewrite-roadmap/README.md` 第 1 节——**后续开发蓝图 = `c7eaf00e`；前期移植的历史对照 = `c8b8f744`（另一会话 `e7126849` 的结论，已被独立复核）；pc 开发线 `bd2f45f0` 不作蓝图**。本文第 2 节的 jirai 行号仍以 `c7eaf00e` 为准，与该决议一致。
+> **v3.1 更新（2026-11-18T00:53Z）**：此问题已有决议，见 `docs/jirai-port/计划/Rust重写路线/README.md` 第 1 节——**后续开发蓝图 = `c7eaf00e`；前期移植的历史对照 = `c8b8f744`（另一会话 `e7126849` 的结论，已被独立复核）；pc 开发线 `bd2f45f0` 不作蓝图**。本文第 2 节的 jirai 行号仍以 `c7eaf00e` 为准，与该决议一致。
 
 **文档里实际存在的唯一版本锚点**（v3 更正：此前记作「无任何版本约束」，不准确）：`README.zh-CN.md:85` 写明盘点范围「截至 `c8b8f744`」——即发布线内的提交 `c8b8f744`（2026-05-20，FuLuTang，「Update version from 2026.4.21 to 2026.5.20」）。`JIRAI_移植说明.md` 与 `docs/jirai-port/` 下计划文档中仍未发现对 jirai 提交的钉定。
 
@@ -562,6 +562,6 @@ jirai 相对分叉点改动 145 个文件，上游本次改动 53 个文件，**
 
 ---
 
-> **2026-11-18T04:15Z 基线口径更新：现统一以 GitHub VRCX-jirai 主分支 `refs/heads/master` @ `c7eaf00e`（相对上游 VRCX 的差分 `d97327d8..c7eaf00e`）为唯一差分参考基线，`c8b8f744` 不再作为「历史对照」基线。决议见 `reports/2026-11-18T0053Z-rust-rewrite-roadmap/README.md` 第 1.0 节。**本文 jirai 侧锚点本来就以 `c7eaf00e` 为准，无需重做；第 4 节「#12 不在盘点范围内」现应读作「旧盘点截止于 `c8b8f744` 所以漏了它」，#12 属于基线内的未完成项。
+> **2026-11-18T04:15Z 基线口径更新：现统一以 GitHub VRCX-jirai 主分支 `refs/heads/master` @ `c7eaf00e`（相对上游 VRCX 的差分 `d97327d8..c7eaf00e`）为唯一差分参考基线，`c8b8f744` 不再作为「历史对照」基线。决议见 `docs/jirai-port/计划/Rust重写路线/README.md` 第 1.0 节。**本文 jirai 侧锚点本来就以 `c7eaf00e` 为准，无需重做；第 4 节「#12 不在盘点范围内」现应读作「旧盘点截止于 `c8b8f744` 所以漏了它」，#12 属于基线内的未完成项。
 
-> **2026-11-18T04:43Z 补充：VRCX-0-jirai 侧基线冻结在 pc114514 的 `ea3142a47`**（`C:\Users\tangh\Documents\GitHub\VRCX-0-jirai`，`main`）。本文 VRCX-0 侧的文件与行号取证于同一提交，无需重做；它们**不适用于**本机旧工作目录 `3200bc3c7`。决议见 `reports/2026-11-18T0053Z-rust-rewrite-roadmap/README.md` 第 1.0b 节。
+> **2026-11-18T04:43Z 补充：VRCX-0-jirai 侧基线冻结在 pc114514 的 `ea3142a47`**（`C:\Users\tangh\Documents\GitHub\VRCX-0-jirai`，`main`）。本文 VRCX-0 侧的文件与行号取证于同一提交，无需重做；它们**不适用于**本机旧工作目录 `3200bc3c7`。决议见 `docs/jirai-port/计划/Rust重写路线/README.md` 第 1.0b 节。

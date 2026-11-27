@@ -29,3 +29,7 @@
 ---
 
 本地/ 目录存放个人机器与环境记录，不入库。
+
+## 已删除的文档
+
+> 参考/、计划/ 和总执行规划里提到的 `JIRAI_移植说明.md`、`docs/jirai-port/执行任务/`、`后续迁移计划.md`、`评审结论与迭代计划.md` 以及 `docs/jirai-port/reports/` 下的复杂功能报告已于 2026-11-27 删除，原文可用 `git show e6143d256:<路径>` 查看。`reports/2026-11-16T2308Z-merge/`、`reports/2026-11-18T0040Z-pc-vs-github-jirai-audit/` 等当时未入库的报告已永久删除。
