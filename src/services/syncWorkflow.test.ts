@@ -170,9 +170,7 @@ describe('createSyncWorkflowActions', () => {
         expect(actions.map((item) => item.id)).toEqual([
             'startup-online-backfill',
             'tracked-non-friends-sync',
-            'manual-relations-sync',
-            'automatic-profile-fetch',
-            'relationship-recommendations'
+            'automatic-profile-fetch'
         ]);
         expect(actions[0].run).toBe(startupOnlineBackfillExecutor);
         const trackedNonfriendsRefresh = vi.fn(async () => ({

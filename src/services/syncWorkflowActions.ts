@@ -79,22 +79,8 @@ type CreateSyncWorkflowActionsOptions = {
     profileFetch?: ProfileFetchExecutor;
 };
 
-function skippedAction(
-    id: string,
-    label: string,
-    skipReason: string
-): SyncWorkflowAction {
-    return {
-        id,
-        label,
-        status: 'pending',
-        run: async () => ({ status: 'skipped', skipReason }),
-        cancel: () => {}
-    };
-}
-
 /**
- * Defines the only supported account sync actions. Each invocation returns new
+ * Defines the only supported profile sync actions. Each invocation returns new
  * runtime action objects; callers must not reuse a prior run's action list.
  */
 export function createSyncWorkflowActions({
@@ -118,22 +104,12 @@ export function createSyncWorkflowActions({
             run: trackedNonfriendsRefresh,
             cancel: () => {}
         },
-        skippedAction(
-            'manual-relations-sync',
-            translate('workflow.actions.manual_relations_sync'),
-            translate('workflow.skip.manual_relations_dependency')
-        ),
         {
             id: 'automatic-profile-fetch',
             label: translate('workflow.actions.automatic_profile_fetch'),
             status: 'pending',
             run: profileFetch,
             cancel: () => {}
-        },
-        skippedAction(
-            'relationship-recommendations',
-            translate('workflow.actions.relationship_recommendations'),
-            translate('workflow.skip.relationship_recommendations_dependency')
-        )
+        }
     ];
 }

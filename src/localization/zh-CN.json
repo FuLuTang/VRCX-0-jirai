@@ -72,12 +72,11 @@
         "context_rules_description": "添加规则，根据所在房间、世界或身边好友自动调整状态。"
     },
     "workflow": {
-        "title": "账户同步任务",
-        "tools_description": "运行可用的账户同步任务并查看被跳过的依赖。",
+        "title": "资料同步",
+        "tools_description": "手动运行登录后会自动执行的 Online 补线、已跟踪非好友刷新和资料抓取，并查看进度。",
         "description": "任务将对当前账户运行：{{account}}。",
-        "action_list": "同步任务",
+        "action_list": "资料同步任务",
         "account_unavailable": "没有当前账户",
-        "ready": "已准备好运行新的任务流程。",
         "run": "运行任务流程",
         "running": "任务流程进行中",
         "cancel_current": "取消当前任务",
@@ -92,21 +91,21 @@
             "pending": "等待中"
         },
         "actions": {
-            "startup_online_backfill": "05 · 启动 Online 补线",
-            "tracked_non_friends_sync": "06 · 已跟踪非好友",
-            "manual_relations_sync": "07 · 手动关系",
-            "automatic_profile_fetch": "08 · 自动资料抓取",
-            "relationship_recommendations": "09 · 关系推荐"
+            "startup_online_backfill": "启动 Online 补线",
+            "tracked_non_friends_sync": "刷新已跟踪非好友",
+            "automatic_profile_fetch": "自动资料抓取"
         },
         "skip": {
             "not_implemented": "尚未实现。",
             "account_required": "需要当前账户才能运行此任务流程。",
             "cancelled_by_user": "已由用户取消。",
             "cancelled_before_execution": "在执行前已取消。",
-            "tracked_non_friends_dependency": "已跟踪非好友依赖尚不可用。",
-            "manual_relations_dependency": "手动关系依赖尚不可用。",
-            "automatic_profile_fetch_dependency": "自动资料抓取执行器尚不可用。",
-            "relationship_recommendations_dependency": "关系推荐依赖尚不可用。"
+            "profile_fetch_no_account": "需要当前账户才能抓取资料。",
+            "profile_fetch_empty": "当前账户还没有好友或被跟踪的用户，没有需要抓取的资料。",
+            "tracked_nonfriends_no_account": "需要当前账户才能刷新已跟踪非好友。",
+            "tracked_nonfriends_empty": "当前账户还没有已跟踪的非好友，无需刷新。",
+            "startup_online_backfill_no_account": "需要当前账户才能执行 Online 补线。",
+            "startup_online_backfill_unavailable": "好友列表还没有准备好，请稍后再运行。"
         }
     },
     "browse_history": {

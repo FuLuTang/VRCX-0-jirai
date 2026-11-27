@@ -72,12 +72,11 @@
         "context_rules_description": "Add a rule to change your status based on the instance, world, or friends around you."
     },
     "workflow": {
-        "title": "Account sync workflow",
-        "tools_description": "Run available account synchronization tasks and review skipped dependencies.",
+        "title": "Profile Sync",
+        "tools_description": "Manually run the Online backfill, tracked non-friend refresh and profile fetch that normally run after sign-in, and watch their progress.",
         "description": "Tasks run for the current account: {{account}}.",
-        "action_list": "Synchronization tasks",
+        "action_list": "Profile sync tasks",
         "account_unavailable": "No current account",
-        "ready": "Ready to run a new workflow.",
         "run": "Run workflow",
         "running": "Workflow running",
         "cancel_current": "Cancel current task",
@@ -92,21 +91,21 @@
             "pending": "Pending"
         },
         "actions": {
-            "startup_online_backfill": "05 · Startup online backfill",
-            "tracked_non_friends_sync": "06 · Tracked non-friends",
-            "manual_relations_sync": "07 · Manual relationships",
-            "automatic_profile_fetch": "08 · Automatic profile fetch",
-            "relationship_recommendations": "09 · Relationship recommendations"
+            "startup_online_backfill": "Startup Online backfill",
+            "tracked_non_friends_sync": "Refresh tracked non-friends",
+            "automatic_profile_fetch": "Automatic profile fetch"
         },
         "skip": {
             "not_implemented": "Not implemented.",
             "account_required": "A current account is required before this workflow can run.",
             "cancelled_by_user": "Cancelled by user.",
             "cancelled_before_execution": "Cancelled before execution.",
-            "tracked_non_friends_dependency": "The tracked non-friends dependency is not available.",
-            "manual_relations_dependency": "The manual relationships dependency is not available.",
-            "automatic_profile_fetch_dependency": "The automatic profile fetch executor is not available.",
-            "relationship_recommendations_dependency": "The relationship recommendations dependency is not available."
+            "profile_fetch_no_account": "A current account is required to fetch profiles.",
+            "profile_fetch_empty": "This account has no friends or tracked non-friends yet, so there are no profiles to fetch.",
+            "tracked_nonfriends_no_account": "A current account is required to refresh tracked non-friends.",
+            "tracked_nonfriends_empty": "This account has no tracked non-friends to refresh yet.",
+            "startup_online_backfill_no_account": "A current account is required to run the Online backfill.",
+            "startup_online_backfill_unavailable": "The friend list is not ready yet. Try again in a moment."
         }
     },
     "browse_history": {
