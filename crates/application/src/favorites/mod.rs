@@ -8,10 +8,11 @@ mod local_favorites;
 mod local_world_details;
 mod mutation_coordinator;
 mod remote_favorites;
+mod remote_move;
 #[cfg(test)]
 mod test_support;
 
-pub use vrcx_0_contracts::FavoriteRow;
+pub use vrcx_0_contracts::{FavoriteRow, LocalFavoriteGroup};
 
 pub use bulk_remove::{
     FavoriteBulkRemoveInput, FavoriteBulkRemoveItem, FavoriteBulkRemoveItemResult,
@@ -40,7 +41,7 @@ pub use favorite_transfer::{
 };
 pub use local_favorites::{
     get_local_favorite_snapshot, list_local_favorite_custom_order, list_local_favorites,
-    FavoriteMoveResult, FavoriteStore, LocalFavoriteGroupWrite, LocalFavoriteSnapshot,
+    FavoriteMoveResult, FavoriteStore, LocalFavoriteSnapshot,
 };
 pub use local_world_details::{
     refresh_local_world_details, LocalWorldDetailsRefreshOutput, LocalWorldDetailsRemote,
@@ -49,4 +50,9 @@ pub use mutation_coordinator::{FavoriteMutationCoordinator, FavoriteMutationRunt
 pub use remote_favorites::{
     FavoriteRemote, FavoriteRemoteAddInput, FavoriteRemoteCommand, FavoriteRemoteDeleteInput,
     FavoriteRemoteFuture, FavoriteRemoteGroupClearInput, FavoriteRemoteGroupSaveInput,
+};
+pub use remote_move::{
+    FavoriteRemoteEntry, FavoriteRemoteGroup, FavoriteRemoteGroupSummary, FavoriteRemoteListInput,
+    FavoriteRemoteListing, FavoriteRemoteMoveInput, FavoriteRemoteMoveItem,
+    FavoriteRemoteMoveOutput, FavoriteRemoteMoveStatus, FAVORITE_REMOTE_MOVE_MAX_ITEMS,
 };

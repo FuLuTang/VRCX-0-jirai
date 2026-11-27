@@ -1,4 +1,11 @@
-import type { Dispatch, SetStateAction } from 'react';
+import {
+    useCallback,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    type Dispatch,
+    type SetStateAction
+} from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { FriendRecord } from '@/domain/friends/types';
@@ -9,10 +16,10 @@ import {
 } from '@/services/dialogService';
 import { tryOpenLaunchLocation } from '@/services/directAccessService';
 import {
-    sendBoopToUser,
-    sendInviteToLocation,
-    sendRequestInviteToUser
-} from '@/services/inviteDeliveryService';
+    boopFriend,
+    requestInviteFromFriend
+} from '@/services/friendActionService';
+import { sendInviteToLocation } from '@/services/inviteDeliveryService';
 import { selfInviteToInstance } from '@/services/launchService';
 import { toast } from '@/services/toastService';
 import type { LocalInstanceActionGates } from '@/shared/utils/invite';
@@ -36,6 +43,45 @@ function getFriendActionLabel(friend: FriendRecord, fallback: string): string {
     return friend.displayName || normalizeString(friend.username) || fallback;
 }
 
+function openSectionWorld(section: FriendsLocationsSectionActionTarget) {
+    openWorldDialog({
+        worldId: resolveWorldDialogTarget(section),
+        title: section.title
+    });
+}
+
+function openWorldGroup(group: FriendsLocationsWorldGroup, name: string) {
+    openWorldDialog({
+        worldId: group.worldId,
+        title: name || undefined
+    });
+}
+
+function openSectionGroup(section: FriendsLocationsSectionActionTarget) {
+    openGroupDialog({
+        groupId: section.groupId,
+        title: undefined
+    });
+}
+
+function openFriendUser(friend: FriendRecord) {
+    openUserDialog({
+        userId: friend?.id,
+        title: getFriendActionLabel(friend, '') || undefined,
+        seedData: friend
+    });
+}
+
+function openFriendWorld(
+    target: FriendsLocationsSectionActionTarget,
+    location: FriendsLocationsLocationActionSummary
+) {
+    openWorldDialog({
+        worldId: resolveWorldDialogTarget(target),
+        title: normalizeString(location.label) || undefined
+    });
+}
+
 export function useFriendsLocationsActions({
     canInviteFromCurrentLocation,
     currentInviteLocation,
@@ -51,31 +97,48 @@ export function useFriendsLocationsActions({
 }) {
     const { t } = useTranslation();
     const confirm = useModalStore((state) => state.confirm);
-    const boopPrompt = useModalStore((state) => state.boopPrompt);
 
-    function toggleCollapsibleGroup(groupKey: string) {
-        setCollapsedGroups((current) => {
-            const next = new Set(current);
-            if (next.has(groupKey)) {
-                next.delete(groupKey);
-            } else {
-                next.add(groupKey);
+    const toggleCollapsibleGroup = useCallback(
+        (groupKey: string) => {
+            setCollapsedGroups((current) => {
+                const next = new Set(current);
+                if (next.has(groupKey)) {
+                    next.delete(groupKey);
+                } else {
+                    next.add(groupKey);
+                }
+                return next;
+            });
+        },
+        [setCollapsedGroups]
+    );
+
+    const joinableLocationsKey = Array.from(instanceActionGatesByLocation)
+        .filter(([, gates]) => gates.canJoin)
+        .map(([location]) => location)
+        .sort()
+        .join('\u0000');
+    const joinableLocations = useMemo(
+        () =>
+            new Set(
+                joinableLocationsKey ? joinableLocationsKey.split('\u0000') : []
+            ),
+        [joinableLocationsKey]
+    );
+    const canUseFriendLocation = useCallback(
+        (location: string) => {
+            const parsedLocation = parseLocation(location);
+            if (
+                !parsedLocation.isRealInstance ||
+                !parsedLocation.worldId ||
+                !parsedLocation.instanceId
+            ) {
+                return false;
             }
-            return next;
-        });
-    }
-
-    function canUseFriendLocation(location: string) {
-        const parsedLocation = parseLocation(location);
-        if (
-            !parsedLocation.isRealInstance ||
-            !parsedLocation.worldId ||
-            !parsedLocation.instanceId
-        ) {
-            return false;
-        }
-        return Boolean(instanceActionGatesByLocation.get(location)?.canJoin);
-    }
+            return joinableLocations.has(location);
+        },
+        [joinableLocations]
+    );
 
     async function launchFriendLocation(location: string) {
         const parsedLocation = parseLocation(location);
@@ -208,121 +271,58 @@ export function useFriendsLocationsActions({
         }
     }
 
-    async function requestFriendInvite(friend: FriendRecord) {
-        const friendId = normalizeString(friend?.id || friend?.userId);
-        if (!friendId || friendId === normalizeString(currentUserId)) {
-            return;
-        }
-        const result = await confirm({
-            title: t('view.friends.modal.request_invite'),
-            description: getFriendActionLabel(friend, 'this user'),
-            confirmText: t('view.friends.modal.request_invite_2'),
-            cancelText: t('common.actions.cancel')
-        });
-        if (!result.ok) {
-            return;
-        }
-        try {
-            await sendRequestInviteToUser({
-                receiverUserId: friendId
-            });
-            toast.add({
-                type: 'success',
-                title: t('view.friend_list.success.invite_request_sent')
-            });
-        } catch (error) {
-            toast.add({
-                type: 'error',
-                title:
-                    error instanceof Error
-                        ? error.message
-                        : t('view.friends.toast.failed_to_request_invite')
-            });
-        }
-    }
-
-    async function sendFriendBoop(friend: FriendRecord) {
-        const friendId = normalizeString(friend?.id || friend?.userId);
-        if (!friendId || friendId === normalizeString(currentUserId)) {
-            return;
-        }
-        try {
-            const result = await boopPrompt({
-                targetLabel: getFriendActionLabel(friend, friendId)
-            });
-            if (!result.ok) {
-                return;
-            }
-            await sendBoopToUser({
-                userId: friendId,
-                emoji: result.value ?? null
-            });
-            toast.add({
-                type: 'success',
-                title: t('view.friend_list.success.boop_sent')
-            });
-        } catch (error) {
-            toast.add({
-                type: 'error',
-                title:
-                    error instanceof Error
-                        ? error.message
-                        : t('view.friends.toast.failed_to_send_boop')
-            });
-        }
-    }
-
-    function openSectionWorld(section: FriendsLocationsSectionActionTarget) {
-        openWorldDialog({
-            worldId: resolveWorldDialogTarget(section),
-            title: section.title
+    function requestFriendInvite(friend: FriendRecord) {
+        return requestInviteFromFriend({
+            id: friend?.id || friend?.userId,
+            label: getFriendActionLabel(friend, 'this user')
         });
     }
 
-    function openWorldGroup(group: FriendsLocationsWorldGroup, name: string) {
-        openWorldDialog({
-            worldId: group.worldId,
-            title: name || undefined
+    function sendFriendBoop(friend: FriendRecord) {
+        return boopFriend({
+            id: friend?.id || friend?.userId,
+            label: getFriendActionLabel(friend, '')
         });
     }
 
-    function openSectionGroup(section: FriendsLocationsSectionActionTarget) {
-        openGroupDialog({
-            groupId: section.groupId,
-            title: undefined
-        });
-    }
-
-    function openFriendUser(friend: FriendRecord) {
-        openUserDialog({
-            userId: friend?.id,
-            title: getFriendActionLabel(friend, '') || undefined,
-            seedData: friend
-        });
-    }
-
-    function openFriendWorld(
-        target: FriendsLocationsSectionActionTarget,
-        location: FriendsLocationsLocationActionSummary
-    ) {
-        openWorldDialog({
-            worldId: resolveWorldDialogTarget(target),
-            title: normalizeString(location.label) || undefined
-        });
-    }
-
-    return {
-        canUseFriendLocation,
+    const handlers = {
         launchFriendLocation,
-        openFriendUser,
-        openFriendWorld,
-        openSectionGroup,
-        openSectionWorld,
-        openWorldGroup,
         requestFriendInvite,
         selfInviteFriendLocation,
         sendFriendBoop,
-        sendFriendInvite,
-        toggleCollapsibleGroup
+        sendFriendInvite
     };
+    const latestHandlers = useRef(handlers);
+    useLayoutEffect(() => {
+        latestHandlers.current = handlers;
+    });
+    const stableHandlers = useMemo<typeof handlers>(
+        () => ({
+            launchFriendLocation: (location) =>
+                latestHandlers.current.launchFriendLocation(location),
+            requestFriendInvite: (friend) =>
+                latestHandlers.current.requestFriendInvite(friend),
+            selfInviteFriendLocation: (location) =>
+                latestHandlers.current.selfInviteFriendLocation(location),
+            sendFriendBoop: (friend) =>
+                latestHandlers.current.sendFriendBoop(friend),
+            sendFriendInvite: (friend) =>
+                latestHandlers.current.sendFriendInvite(friend)
+        }),
+        []
+    );
+
+    return useMemo(
+        () => ({
+            ...stableHandlers,
+            canUseFriendLocation,
+            openFriendUser,
+            openFriendWorld,
+            openSectionGroup,
+            openSectionWorld,
+            openWorldGroup,
+            toggleCollapsibleGroup
+        }),
+        [canUseFriendLocation, stableHandlers, toggleCollapsibleGroup]
+    );
 }

@@ -17,6 +17,7 @@ fn facts() -> ChatboxFacts {
         system: None,
         gpu: None,
         game_session_seconds: None,
+        heart_rate: None,
     }
 }
 
@@ -329,6 +330,23 @@ fn album_line_hides_when_the_player_reports_no_album() {
 }
 
 #[test]
+fn heart_rate_line_shows_the_current_reading_and_hides_without_one() {
+    let with_heart_rate = ChatboxFacts {
+        heart_rate: Some(72),
+        ..facts()
+    };
+
+    assert_eq!(
+        render(module(&["❤ {heartrate} bpm", "{time}"]), with_heart_rate).as_deref(),
+        Some("❤ 72 bpm\n21:05")
+    );
+    assert_eq!(
+        render(module(&["❤ {heartrate} bpm", "{time}"]), facts()).as_deref(),
+        Some("21:05")
+    );
+}
+
+#[test]
 fn session_variable_counts_hours_and_minutes() {
     let facts = ChatboxFacts {
         game_session_seconds: Some(3_905),
@@ -467,17 +485,18 @@ fn turning_status_off_clears_the_bubble_once() {
 }
 
 #[test]
-fn paused_gate_sends_nothing_and_resumes_with_a_fresh_send() {
+fn paused_gate_clears_once_and_resumes_with_a_fresh_send() {
     let mut harness = Harness::new(config(vec![page("a", 300, vec![module(&["status"])])]));
     assert_eq!(harness.tick(0.0).outgoing.as_deref(), Some("status"));
 
     harness.gate = ChatboxGate::Paused(ChatboxPauseReason::Isolated);
     let paused = harness.tick(2.0);
-    assert_eq!(paused.outgoing, None);
+    assert_eq!(paused.outgoing.as_deref(), Some(""));
     assert_eq!(
         paused.status.pause_reason,
         Some(ChatboxPauseReason::Isolated)
     );
+    assert_eq!(harness.tick(2.5).outgoing, None);
     assert_eq!(
         harness.submit(3.0, "hello"),
         Err(ChatboxSendError::Paused(ChatboxPauseReason::Isolated))
@@ -486,6 +505,26 @@ fn paused_gate_sends_nothing_and_resumes_with_a_fresh_send() {
 
     harness.gate = ChatboxGate::Ready;
     assert_eq!(harness.tick(4.0).outgoing.as_deref(), Some("status"));
+}
+
+#[test]
+fn pause_right_after_a_send_waits_for_the_send_interval_before_clearing() {
+    let mut harness = Harness::new(config(vec![page("a", 300, vec![module(&["status"])])]));
+    assert_eq!(harness.tick(0.0).outgoing.as_deref(), Some("status"));
+
+    harness.gate = ChatboxGate::Paused(ChatboxPauseReason::GameNotRunning);
+    assert_eq!(harness.tick(0.5).outgoing, None);
+    assert_eq!(harness.tick(1.0).outgoing.as_deref(), Some(""));
+    assert_eq!(harness.tick(5.0).outgoing, None);
+}
+
+#[test]
+fn pause_without_anything_shown_sends_nothing() {
+    let mut harness = Harness::new(config(vec![page("a", 300, vec![module(&["status"])])]));
+    harness.gate = ChatboxGate::Paused(ChatboxPauseReason::GameNotRunning);
+
+    assert_eq!(harness.tick(0.0).outgoing, None);
+    assert_eq!(harness.tick(5.0).outgoing, None);
 }
 
 #[test]
@@ -696,6 +735,7 @@ fn fact_sources() -> ChatboxFactSources<'static> {
         gpu: None,
         is_game_running: true,
         last_game_started_at: Some("2026-11-03T10:30:00Z"),
+        heart_rate: None,
     }
 }
 

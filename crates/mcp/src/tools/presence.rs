@@ -18,7 +18,8 @@ use super::common::{deserialize_optional_bool, structured_result};
 #[tool_router(router = presence_tool_router, vis = "pub(crate)")]
 impl VrcxMcpServer {
     #[tool(
-        description = "[L1·query] List friends online right now from live VRCX-0 session memory (state, location, world, instance access, status, platform). Realtime, not history. Use for \"who is online\" or \"who can I join now\". Private instances may be redacted by VRChat privacy rules."
+        description = "[L1·query] List friends online right now from live VRCX-0 session memory (state, location, world, instance access, status, platform). Realtime, not history. Use for \"who is online\" or \"who can I join now\". Private instances may be redacted by VRChat privacy rules.",
+        annotations(read_only_hint = true)
     )]
     async fn get_online_friends(
         &self,
@@ -126,9 +127,33 @@ fn normalize_access_bucket(access_type: &str) -> String {
     }
 }
 
+fn deserialize_states<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    match Value::deserialize(deserializer)? {
+        Value::Null => Ok(None),
+        Value::String(value) => Ok(Some(
+            value.split([',', ';', '|']).map(str::to_owned).collect(),
+        )),
+        Value::Array(values) => values
+            .into_iter()
+            .map(|value| match value {
+                Value::String(value) => Ok(value),
+                _ => Err(serde::de::Error::custom("states entries must be strings")),
+            })
+            .collect::<Result<_, _>>()
+            .map(Some),
+        _ => Err(serde::de::Error::custom(
+            "states must be an array of presence state strings",
+        )),
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 struct OnlineFriendsParams {
+    #[serde(default, deserialize_with = "deserialize_states")]
     states: Option<Vec<String>>,
     #[serde(default, deserialize_with = "deserialize_optional_bool")]
     include_location: Option<bool>,

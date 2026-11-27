@@ -1,11 +1,12 @@
 import { commands } from '@/platform/tauri/bindings';
+import { AVTRDB_AVATAR_SEARCH_URL } from '@/shared/constants/link';
 import { publishPreferenceChanged } from '@/shared/events/preferenceEvents';
 import { isAvatarSearchQueryLongEnough } from '@/shared/utils/avatarSearchQuery';
+import { safeJsonParse } from '@/shared/utils/json';
 import { isRecord } from '@/shared/utils/record';
 
 import avatarProfileRepository from './avatarProfileRepository';
 import type { AvatarProfileRecord } from './avatarProfileRepository';
-import { safeJsonParse } from './baseRepository';
 import configRepository from './configRepository';
 
 export type AvatarSearchProviderConfig = {
@@ -35,7 +36,17 @@ interface SearchInput {
     query: string;
 }
 
-const DEFAULT_PROVIDER = 'https://api.avtrdb.com/v3/avatar/search/vrcx';
+export class AvatarProviderHttpError extends Error {
+    constructor(
+        readonly status: number,
+        readonly blocked: boolean
+    ) {
+        super(`Avatar search failed (${status})`);
+        this.name = 'AvatarProviderHttpError';
+    }
+}
+
+const DEFAULT_PROVIDER = AVTRDB_AVATAR_SEARCH_URL;
 const AVATAR_SEARCH_PROVIDER_PREFERENCE_KEYS = [
     'avatarRemoteDatabase',
     'VRCX_avatarRemoteDatabaseProviderList',
@@ -100,7 +111,7 @@ function buildProviderSearchUrl(providerUrl: string, query: string): string {
 
 function parseResponse(data: unknown): unknown {
     if (typeof data === 'string') {
-        return safeJsonParse(data, null);
+        return safeJsonParse(data);
     }
 
     return data;
@@ -162,8 +173,7 @@ async function getConfig(): Promise<AvatarSearchProviderConfig> {
     const selectedProviderValue = normalizeString(rawSelectedProviderValue);
 
     let parsedProviderList: unknown = safeJsonParse(
-        String(providerListValue ?? ''),
-        null
+        String(providerListValue ?? '')
     );
     let parsedProviders = Array.isArray(parsedProviderList)
         ? parsedProviderList
@@ -296,7 +306,10 @@ async function search({
     const json = parseResponse(response.data);
 
     if (response.status !== 200) {
-        throw new Error(`Avatar search failed (${response.status})`);
+        throw new AvatarProviderHttpError(
+            response.status,
+            response.serverBlocked
+        );
     }
     if (!Array.isArray(json)) {
         throw new Error('Avatar provider returned an unsupported response.');

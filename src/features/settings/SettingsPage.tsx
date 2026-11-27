@@ -11,7 +11,7 @@ import {
     TerminalIcon,
     UsersIcon
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router';
 
@@ -23,6 +23,7 @@ import {
 } from '@/components/layout/PageScaffold';
 import { ToolbarSearch } from '@/components/layout/ToolbarControls';
 import { useSettingsSearch } from '@/lib/useSettingsSearch';
+import { useVisitedTabs } from '@/lib/useVisitedTabs';
 import { cn } from '@/lib/utils';
 import type { SettingsManifestEntry } from '@/shared/constants/settingsManifest';
 import { Tabs, TabsList, TabsTrigger } from '@/ui/shadcn/tabs';
@@ -40,6 +41,7 @@ import { SettingsSystemTab } from './components/settings-tabs/SettingsSystemTab'
 import { SettingsVrTab } from './components/settings-tabs/SettingsVrTab';
 import { SettingsDialogs } from './components/SettingsDialogs';
 import { SettingsSearchResults } from './components/SettingsSearchResults';
+import { SettingsTabsVisibilityContext } from './components/SettingsViewParts';
 import {
     SettingsPageStateProvider,
     useSettingsPageSection
@@ -59,6 +61,17 @@ const SETTINGS_TAB_ICONS: Record<string, LucideIcon> = {
     feedback: MessageSquareIcon
 };
 
+const MemoSettingsSystemTab = memo(SettingsSystemTab);
+const MemoSettingsInterfaceTab = memo(SettingsInterfaceTab);
+const MemoSettingsSocialTab = memo(SettingsSocialTab);
+const MemoSettingsNotificationsTab = memo(SettingsNotificationsTab);
+const MemoSettingsVrTab = memo(SettingsVrTab);
+const MemoSettingsMediaTab = memo(SettingsMediaTab);
+const MemoSettingsAiTab = memo(SettingsAiTab);
+const MemoSettingsIntegrationsTab = memo(SettingsIntegrationsTab);
+const MemoSettingsAdvancedTab = memo(SettingsAdvancedTab);
+const MemoSettingsFeedbackTab = memo(SettingsFeedbackTab);
+
 export function SettingsPage() {
     return (
         <SettingsPageStateProvider>
@@ -75,6 +88,13 @@ function SettingsPageContent() {
     const [query, setQuery] = useState('');
     const searching = query.trim().length > 0;
     const results = useSettingsSearch(query);
+    const activeTab = shell.activeSettingsTab;
+    const keptTabs = useVisitedTabs(activeTab, '');
+    const visibleTab = searching ? '' : activeTab;
+    const tabsVisibility = useMemo(
+        () => ({ activeTab: visibleTab, keptTabs }),
+        [keptTabs, visibleTab]
+    );
     useSettingDeepLink();
 
     useEffect(() => {
@@ -156,16 +176,18 @@ function SettingsPageContent() {
                         searching && 'hidden'
                     )}
                 >
-                    <SettingsSystemTab />
-                    <SettingsInterfaceTab />
-                    <SettingsSocialTab />
-                    <SettingsNotificationsTab />
-                    <SettingsVrTab />
-                    <SettingsMediaTab />
-                    <SettingsAiTab active={shell.activeSettingsTab === 'ai'} />
-                    <SettingsIntegrationsTab />
-                    <SettingsAdvancedTab />
-                    <SettingsFeedbackTab />
+                    <SettingsTabsVisibilityContext value={tabsVisibility}>
+                        <MemoSettingsSystemTab />
+                        <MemoSettingsInterfaceTab />
+                        <MemoSettingsSocialTab />
+                        <MemoSettingsNotificationsTab />
+                        <MemoSettingsVrTab />
+                        <MemoSettingsMediaTab />
+                        <MemoSettingsAiTab active={activeTab === 'ai'} />
+                        <MemoSettingsIntegrationsTab />
+                        <MemoSettingsAdvancedTab />
+                        <MemoSettingsFeedbackTab />
+                    </SettingsTabsVisibilityContext>
                 </div>
             </Tabs>
             <SettingsDialogs />

@@ -21,6 +21,11 @@ import { ToolPageHeader } from '@/components/layout/ToolPageHeader';
 import { FullscreenImageViewer } from '@/components/media/FullscreenImageViewer';
 import { preloadImages } from '@/components/media/imageDecodeCache';
 import { getRememberedScreenshotThumbnailUrl } from '@/components/media/screenshotThumbnailUrlCache';
+import {
+    STORAGE_KEYS,
+    readStoredText,
+    writeStoredText
+} from '@/lib/browserStorage';
 import { convertFileSrc } from '@/platform/tauri/assets';
 import { commands, type ScreenshotFacet } from '@/platform/tauri/bindings';
 import mediaFileRepository from '@/repositories/mediaFileRepository';
@@ -51,6 +56,7 @@ import {
     parseScreenshotFilterParam,
     resolvePathAfterScreenshotDelete,
     SCREENSHOT_FAVORITES_FOLDER,
+    SCREENSHOT_PEOPLE_FOLDER,
     screenshotFilterFromScope,
     screenshotScopeFromFilter,
     type ScreenshotSearchScope
@@ -62,17 +68,18 @@ import { useScreenshotFavorites } from './useScreenshotFavorites';
 import { useScreenshotGalleryController } from './useScreenshotGalleryController';
 import { useScreenshotMetadataNavigation } from './useScreenshotMetadataNavigation';
 import { useScreenshotMetadataSearch } from './useScreenshotMetadataSearch';
+import { useScreenshotPeopleSections } from './useScreenshotPeopleSections';
 import { useScreenshotSearchFacets } from './useScreenshotSearchFacets';
 import { useScreenshotZipExport } from './useScreenshotZipExport';
 
-const DETAILS_VISIBLE_STORAGE_KEY = 'VRCX_0_ScreenshotDetailsVisible';
+const DETAILS_VISIBLE_STORAGE_KEY = STORAGE_KEYS.screenshotDetailsVisible;
 
 function readDetailsVisible() {
-    return localStorage.getItem(DETAILS_VISIBLE_STORAGE_KEY) !== 'false';
+    return readStoredText(DETAILS_VISIBLE_STORAGE_KEY) !== 'false';
 }
 
 function writeDetailsVisible(visible: boolean) {
-    localStorage.setItem(DETAILS_VISIBLE_STORAGE_KEY, String(visible));
+    writeStoredText(DETAILS_VISIBLE_STORAGE_KEY, String(visible));
 }
 
 function hasTextSelection() {
@@ -184,6 +191,10 @@ export function ScreenshotMetadataPage() {
     const { peopleFacets, worldFacets } = useScreenshotSearchFacets(
         Boolean(screenshotCacheStatus?.available),
         lastScanAt
+    );
+    const peopleSections = useScreenshotPeopleSections(
+        peopleFacets,
+        selectedGalleryFolder === SCREENSHOT_PEOPLE_FOLDER
     );
     useEffect(() => {
         if (lastScanAt) {
@@ -998,7 +1009,7 @@ export function ScreenshotMetadataPage() {
                     }}
                     albums={{
                         worlds: worldFacets,
-                        people: peopleFacets,
+                        people: peopleSections,
                         onOpen: openScreenshotAlbum
                     }}
                 />

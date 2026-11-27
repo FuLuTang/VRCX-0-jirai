@@ -29,8 +29,9 @@ use vrcx_0_application_realtime::{
     RealtimeInstanceQueueProjection, RealtimeNotificationProjection, RealtimeUserProjection,
 };
 use vrcx_0_assistant::{
-    AssistantChoiceRequestEvent, AssistantDeltaEvent, AssistantDoneEvent, AssistantErrorEvent,
-    AssistantToolCallEvent, AssistantToolResultEvent, AssistantTurnEntitiesEvent,
+    AssistantApprovalRequestEvent, AssistantChoiceRequestEvent, AssistantDeltaEvent,
+    AssistantDoneEvent, AssistantErrorEvent, AssistantToolCallEvent, AssistantToolResultEvent,
+    AssistantTurnEntitiesEvent,
 };
 use vrcx_0_core::realtime::RealtimeWsStatusPayload;
 use vrcx_0_core::screenshots::{ScreenshotExportProgress, ScreenshotLibraryScanStatus};
@@ -99,6 +100,7 @@ struct BackendRuntimeEventPayloadMap {
     game_isolation_state: vrcx_0_runtime_host_desktop::GameIsolationSnapshot,
     chatbox_state: vrcx_0_application_game::chatbox::ChatboxStatus,
     chatbox_config: vrcx_0_application_game::chatbox::ChatboxConfig,
+    heart_rate_state: vrcx_0_application_game::heart_rate::HeartRateStatus,
     privacy_lock_state: PrivacyLockSnapshot,
     desktop_widget_state: vrcx_0_runtime_host_desktop::desktop_widget::DesktopWidgetSnapshot,
 }
@@ -112,6 +114,7 @@ pub fn builder() -> Builder<tauri::Wry> {
         .typ::<AssistantToolCallEvent>()
         .typ::<AssistantToolResultEvent>()
         .typ::<AssistantChoiceRequestEvent>()
+        .typ::<AssistantApprovalRequestEvent>()
         .typ::<AssistantTurnEntitiesEvent>()
         .typ::<AssistantDoneEvent>()
         .typ::<AssistantErrorEvent>()
@@ -168,12 +171,18 @@ pub fn builder() -> Builder<tauri::Wry> {
             commands::application::lifecycle::app__game_isolation_set,
             commands::application::chatbox::app__chatbox_editor_state_get,
             commands::application::chatbox::app__chatbox_config_set,
+            commands::application::chatbox::app__chatbox_status_enabled_set,
+            commands::application::chatbox::app__chatbox_page_enabled_set,
             commands::application::chatbox::app__chatbox_status_get,
             commands::application::chatbox::app__chatbox_previewing_set,
             commands::application::chatbox::app__chatbox_send,
             commands::application::chatbox::app__chatbox_afk_set,
             commands::application::chatbox::app__chatbox_typing_set,
             commands::application::chatbox::app__chatbox_samples_render,
+            commands::application::heart_rate::app__heart_rate_status_get,
+            commands::application::heart_rate::app__heart_rate_connected_set,
+            commands::application::heart_rate::app__heart_rate_parameters_get,
+            commands::application::heart_rate::app__heart_rate_parameters_set,
             commands::application::background_mode::app__start_background_mode,
             commands::application::background_mode::app__backend_runtime_combined_snapshot_get,
             commands::application::background_mode::app__ensure_main_window,
@@ -262,6 +271,7 @@ pub fn builder() -> Builder<tauri::Wry> {
             commands::application::assistant::app__assistant_send_message,
             commands::application::assistant::app__assistant_cancel,
             commands::application::assistant::app__assistant_answer_choice,
+            commands::application::assistant::app__assistant_answer_approval,
             commands::application::assistant::app__assistant_list_sessions,
             commands::application::assistant::app__assistant_get_session,
             commands::application::assistant::app__assistant_new_session,

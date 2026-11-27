@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { userFacingErrorMessage } from '@/lib/errorDisplay';
-import avatarSearchProviderRepository from '@/repositories/avatarSearchProviderRepository';
+import avatarSearchProviderRepository, {
+    AvatarProviderHttpError
+} from '@/repositories/avatarSearchProviderRepository';
 import userProfileRepository from '@/repositories/userProfileRepository';
 import vrchatSearchRepository from '@/repositories/vrchatSearchRepository';
 import worldProfileRepository from '@/repositories/worldProfileRepository';
@@ -60,7 +62,6 @@ export function useSearchResults({
     worldCategories: SearchWorldCategory[];
 }) {
     const { t } = useTranslation();
-    const searchSequence = useSearchPageStore((state) => state.searchSequence);
     const [userRequest, setUserRequest] = useSearchPageField('userRequest');
     const [userResults, setUserResults] = useSearchPageField('userResults');
     const [isUserLoading, setIsUserLoading] =
@@ -82,6 +83,7 @@ export function useSearchResults({
 
     const runUserSearch = useCallback(
         async (nextRequest: UserSearchRequest) => {
+            const searchSequence = useSearchPageStore.getState().searchSequence;
             const sequence = searchSequence.user + 1;
             searchSequence.user = sequence;
             setIsUserLoading(true);
@@ -115,11 +117,12 @@ export function useSearchResults({
                 }
             }
         },
-        [searchSequence, setIsUserLoading, setUserRequest, setUserResults, t]
+        [setIsUserLoading, setUserRequest, setUserResults, t]
     );
 
     const runWorldSearch = useCallback(
         async (nextRequest: WorldSearchRequest) => {
+            const searchSequence = useSearchPageStore.getState().searchSequence;
             const sequence = searchSequence.world + 1;
             searchSequence.world = sequence;
             setIsWorldLoading(true);
@@ -154,11 +157,12 @@ export function useSearchResults({
                 }
             }
         },
-        [searchSequence, setIsWorldLoading, setWorldRequest, setWorldResults, t]
+        [setIsWorldLoading, setWorldRequest, setWorldResults, t]
     );
 
     const runGroupSearch = useCallback(
         async (nextRequest: GroupSearchRequest) => {
+            const searchSequence = useSearchPageStore.getState().searchSequence;
             const sequence = searchSequence.group + 1;
             searchSequence.group = sequence;
             setIsGroupLoading(true);
@@ -188,11 +192,12 @@ export function useSearchResults({
                 }
             }
         },
-        [searchSequence, setIsGroupLoading, setGroupRequest, setGroupResults, t]
+        [setIsGroupLoading, setGroupRequest, setGroupResults, t]
     );
 
     const runAvatarSearch = useCallback(
         async (nextRequest: AvatarSearchRequest) => {
+            const searchSequence = useSearchPageStore.getState().searchSequence;
             const sequence = searchSequence.avatar + 1;
             searchSequence.avatar = sequence;
             setIsAvatarLoading(true);
@@ -213,10 +218,20 @@ export function useSearchResults({
                 if (searchSequence.avatar === sequence) {
                     toast.add({
                         type: 'error',
-                        title: userFacingErrorMessage(
-                            error,
-                            t('view.search.toast.failed_to_search_avatars')
-                        )
+                        title:
+                            error instanceof AvatarProviderHttpError
+                                ? t(
+                                      error.blocked
+                                          ? 'view.search.toast.avatar_provider_blocked'
+                                          : 'view.search.toast.avatar_search_http_error',
+                                      { status: error.status }
+                                  )
+                                : userFacingErrorMessage(
+                                      error,
+                                      t(
+                                          'view.search.toast.failed_to_search_avatars'
+                                      )
+                                  )
                     });
                 }
             } finally {
@@ -225,13 +240,7 @@ export function useSearchResults({
                 }
             }
         },
-        [
-            searchSequence,
-            setIsAvatarLoading,
-            setAvatarRequest,
-            setAvatarResults,
-            t
-        ]
+        [setIsAvatarLoading, setAvatarRequest, setAvatarResults, t]
     );
 
     const handleSearch = useCallback(() => {
@@ -324,6 +333,7 @@ export function useSearchResults({
     }, [activeTab, handleSearch, searchText]);
 
     const handleClearSearch = useCallback(() => {
+        const searchSequence = useSearchPageStore.getState().searchSequence;
         searchSequence.user += 1;
         searchSequence.world += 1;
         searchSequence.group += 1;
@@ -342,7 +352,6 @@ export function useSearchResults({
         setGroupRequest(null);
         setAvatarRequest(null);
     }, [
-        searchSequence,
         setSearchText,
         setIsUserLoading,
         setIsWorldLoading,

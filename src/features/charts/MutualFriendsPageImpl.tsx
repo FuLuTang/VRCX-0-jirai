@@ -18,7 +18,7 @@ export function MutualFriendsPage() {
         actions,
         exclusions,
         fetch,
-        graph,
+        graph: { setGraphElementRef, ...graph },
         layout,
         manualRelations,
         selection,
@@ -46,10 +46,7 @@ export function MutualFriendsPage() {
                 onFetch={actions.fetchGraph}
             />
             <div className="relative min-h-0 flex-1 overflow-hidden">
-                <div
-                    ref={graph.setGraphElementRef}
-                    className="absolute inset-0"
-                />
+                <div ref={setGraphElementRef} className="absolute inset-0" />
 
                 <MutualFriendsHud
                     baseNodeCount={graph.baseNodeCount}

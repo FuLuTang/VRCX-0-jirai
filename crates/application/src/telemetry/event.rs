@@ -10,6 +10,20 @@ pub enum TelemetryClientEvent {
     ToolOpen {
         tool: String,
     },
+    DialogTabView {
+        dialog: String,
+        tab: String,
+        landing: bool,
+    },
+    LongFrame {
+        route: String,
+        dialog: Option<String>,
+        duration_ms: u32,
+    },
+    SlowCommand {
+        command: String,
+        duration_ms: u32,
+    },
     RouteError {
         error_class: String,
         name: Option<String>,

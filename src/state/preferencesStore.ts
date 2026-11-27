@@ -10,9 +10,7 @@ import {
     DEFAULT_TABLE_PAGE_SIZES,
     DEFAULT_PRINT_AUTO_DELETE_LIMIT,
     PRINT_AUTO_DELETE_LIMIT_MIN,
-    PRINT_AUTO_DELETE_LIMIT_MAX,
-    DEFAULT_TRANSLATION_ENDPOINT,
-    DEFAULT_TRANSLATION_MODEL
+    PRINT_AUTO_DELETE_LIMIT_MAX
 } from '@/shared/constants/settings';
 import {
     normalizeAvatarAutoCleanupPreference,
@@ -381,6 +379,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
     desktopWidgetNewestOnTop: true,
     webhookEnabled: false,
     webhookAuthEventsEnabled: true,
+    webhookPauseWithDoNotDisturb: false,
     webhookUrl: '',
     webhookFormat: 'generic',
     webhookFields: DEFAULT_GENERIC_WEBHOOK_FIELDS,
@@ -393,6 +392,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
     wristOverlayDarkBackground: true,
     wristOverlayShowDevices: true,
     wristOverlayShowBatteryPercent: false,
+    wristOverlayShowSeconds: false,
     relaunchVRChatAfterCrash: false,
     vrcQuitFix: true,
     focusVrchatOnJoin: false,
@@ -441,8 +441,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
     bioLanguage: 'en',
     translationAPIType: 'google',
     translationEndpointId: '',
-    translationAPIEndpoint: DEFAULT_TRANSLATION_ENDPOINT,
-    translationAPIModel: DEFAULT_TRANSLATION_MODEL,
+    translationAPIModel: '',
     translationAPIPrompt: '',
     translationAPIReasoningEffort: '',
     appFontFamily: 'geist',
@@ -652,6 +651,9 @@ export function normalizePreferenceSnapshot(snapshot: unknown = {}) {
         desktopWidgetNewestOnTop: normalizeBool(next.desktopWidgetNewestOnTop),
         webhookEnabled: normalizeBool(next.webhookEnabled),
         webhookAuthEventsEnabled: normalizeBool(next.webhookAuthEventsEnabled),
+        webhookPauseWithDoNotDisturb: normalizeBool(
+            next.webhookPauseWithDoNotDisturb
+        ),
         webhookUrl: String(next.webhookUrl || ''),
         webhookFormat: normalizeNotificationWebhookFormat(next.webhookFormat),
         webhookFields: String(
@@ -676,6 +678,7 @@ export function normalizePreferenceSnapshot(snapshot: unknown = {}) {
         wristOverlayShowBatteryPercent: normalizeBool(
             next.wristOverlayShowBatteryPercent
         ),
+        wristOverlayShowSeconds: normalizeBool(next.wristOverlayShowSeconds),
         relaunchVRChatAfterCrash: normalizeBool(next.relaunchVRChatAfterCrash),
         vrcQuitFix: normalizeBool(next.vrcQuitFix),
         focusVrchatOnJoin: normalizeBool(next.focusVrchatOnJoin),
@@ -758,12 +761,7 @@ export function normalizePreferenceSnapshot(snapshot: unknown = {}) {
             next.translationAPIType
         ),
         translationEndpointId: String(next.translationEndpointId || ''),
-        translationAPIEndpoint: String(
-            next.translationAPIEndpoint || DEFAULT_TRANSLATION_ENDPOINT
-        ),
-        translationAPIModel: String(
-            next.translationAPIModel || DEFAULT_TRANSLATION_MODEL
-        ),
+        translationAPIModel: String(next.translationAPIModel || ''),
         translationAPIPrompt: String(next.translationAPIPrompt || ''),
         translationAPIReasoningEffort: String(
             next.translationAPIReasoningEffort || ''

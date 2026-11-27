@@ -39,7 +39,7 @@ type SettingsActionsState = ReturnType<typeof useSettingsActions>;
 type AvatarProviderState = ReturnType<typeof useAvatarProviderConfig>;
 type DialogSectionInput = Pick<
     SettingsIntegrationsState,
-    | 'fetchTranslationModels'
+    | 'translationDefaultModel'
     | 'integrationStatus'
     | 'llmEndpoints'
     | 'saveTranslationApiConfig'
@@ -104,9 +104,7 @@ type IntegrationSectionInput = Pick<
 > &
     Pick<
         AvatarProviderState,
-        | 'applyAvatarProviderConfig'
-        | 'avatarProviderConfigRef'
-        | 'saveAvatarProviderConfig'
+        'applyAvatarProviderConfig' | 'saveAvatarProviderConfig'
     >;
 
 export type BuildSettingsPageStateSectionsInput = DialogSectionInput &

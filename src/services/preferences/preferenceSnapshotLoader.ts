@@ -1,3 +1,4 @@
+import { STORAGE_KEYS, readStoredText } from '@/lib/browserStorage';
 import { normalizeLanguageCode } from '@/localization/locales';
 import { commands } from '@/platform/tauri/bindings';
 import configRepository from '@/repositories/configRepository';
@@ -8,10 +9,6 @@ import {
     APP_FONT_DEFAULT_KEY
 } from '@/shared/constants/fonts';
 import { normalizeAvatarAutoCleanupPreference } from '@/shared/constants/settings';
-import {
-    DEFAULT_TRANSLATION_ENDPOINT,
-    DEFAULT_TRANSLATION_MODEL
-} from '@/shared/constants/settings';
 import { MINUTES_PER_DAY } from '@/shared/constants/time';
 import { DEFAULT_GENERIC_WEBHOOK_FIELDS } from '@/shared/constants/webhook';
 import { normalizeTrustColors } from '@/shared/utils/trustColors';
@@ -45,6 +42,11 @@ import {
 
 import { POST_UPDATE_CHANGELOG_TOAST_CONFIG_KEY } from '../changelogService';
 import { configureRecentActionCooldown } from '../recentActionService';
+import {
+    setShellNotificationIconDot,
+    setShellNotificationLayout,
+    setShellTaskbarIconDot
+} from '../shellNotificationDotService';
 import {
     normalizeAppCjkFontPack,
     normalizeAppFontFamily
@@ -164,6 +166,7 @@ export async function loadPreferenceSnapshot() {
         desktopWidgetNewestOnTop,
         webhookEnabled,
         webhookAuthEventsEnabled,
+        webhookPauseWithDoNotDisturb,
         webhookUrl,
         webhookFormat,
         webhookFields,
@@ -176,6 +179,7 @@ export async function loadPreferenceSnapshot() {
         wristOverlayDarkBackground,
         wristOverlayShowDevices,
         wristOverlayShowBatteryPercent,
+        wristOverlayShowSeconds,
         relaunchVRChatAfterCrash,
         vrcQuitFix,
         focusVrchatOnJoin,
@@ -217,7 +221,6 @@ export async function loadPreferenceSnapshot() {
         bioLanguage,
         translationAPIType,
         translationEndpointId,
-        translationAPIEndpoint,
         translationAPIModel,
         translationAPIPrompt,
         translationAPIReasoningEffort,
@@ -237,7 +240,7 @@ export async function loadPreferenceSnapshot() {
         discordWorldNameAsDiscordStatus
     ] = await Promise.all([
         configRepository.getBool('navIsCollapsed', false),
-        configRepository.getInt('navPanelWidth', 240),
+        Number(readStoredText(STORAGE_KEYS.navPanelWidth) ?? 240),
         configRepository.getBool('rightSidebarOpen', true),
         configRepository.getString(
             'notificationLayout',
@@ -328,6 +331,7 @@ export async function loadPreferenceSnapshot() {
         configRepository.getBool('desktopWidgetNewestOnTop', true),
         configRepository.getBool('webhookEnabled', false),
         configRepository.getBool('webhookAuthEventsEnabled', true),
+        configRepository.getBool('webhookPauseWithDoNotDisturb', false),
         configRepository.getString('webhookUrl', ''),
         configRepository.getString('webhookFormat', 'generic'),
         configRepository.getString(
@@ -343,6 +347,7 @@ export async function loadPreferenceSnapshot() {
         configRepository.getBool('wristOverlayDarkBackground', true),
         configRepository.getBool('wristOverlayShowDevices', true),
         configRepository.getBool('wristOverlayShowBatteryPercent', false),
+        configRepository.getBool('wristOverlayShowSeconds', false),
         configRepository.getBool('relaunchVRChatAfterCrash', false),
         configRepository.getBool('vrcQuitFix', true),
         configRepository.getBool('focusVrchatOnJoin', false),
@@ -396,14 +401,7 @@ export async function loadPreferenceSnapshot() {
         configRepository.getString('bioLanguage', 'en'),
         configRepository.getString('translationAPIType', 'google'),
         configRepository.getString('translationEndpointId', ''),
-        configRepository.getString(
-            'translationAPIEndpoint',
-            DEFAULT_TRANSLATION_ENDPOINT
-        ),
-        configRepository.getString(
-            'translationAPIModel',
-            DEFAULT_TRANSLATION_MODEL
-        ),
+        configRepository.getString('translationAPIModel', ''),
         configRepository.getString('translationAPIPrompt', ''),
         configRepository.getString('translationAPIReasoningEffort', ''),
         configRepository.getString('VRCX_fontFamily', APP_FONT_DEFAULT_KEY),
@@ -428,15 +426,11 @@ export async function loadPreferenceSnapshot() {
     useShellStore.getState().setSidebarOpen(!navIsCollapsed);
     useShellStore.getState().setNavWidth(navPanelWidth);
     useShellStore.getState().setRightSidebarOpen(rightSidebarOpen);
-    useShellStore
-        .getState()
-        .setNotificationLayout(
-            notificationLayout === 'table'
-                ? 'table'
-                : DEFAULT_NOTIFICATION_LAYOUT
-        );
-    useShellStore.getState().setNotificationIconDot(notificationIconDot);
-    useShellStore.getState().setTaskbarIconDot(taskbarIconDot);
+    setShellNotificationLayout(
+        notificationLayout === 'table' ? 'table' : DEFAULT_NOTIFICATION_LAYOUT
+    );
+    setShellNotificationIconDot(notificationIconDot);
+    setShellTaskbarIconDot(taskbarIconDot);
     useShellStore.getState().setAppearancePreferences({ hideNicknames });
     const resolvedTableDensity = normalizeTableDensity(
         tableDensity || (compactTableMode ? 'compact' : 'standard')
@@ -592,6 +586,7 @@ export async function loadPreferenceSnapshot() {
         desktopWidgetNewestOnTop: Boolean(desktopWidgetNewestOnTop),
         webhookEnabled: Boolean(webhookEnabled),
         webhookAuthEventsEnabled: Boolean(webhookAuthEventsEnabled),
+        webhookPauseWithDoNotDisturb: Boolean(webhookPauseWithDoNotDisturb),
         webhookUrl: String(webhookUrl || ''),
         webhookFormat: webhookFormat === 'discord' ? 'discord' : 'generic',
         webhookFields: String(webhookFields || DEFAULT_GENERIC_WEBHOOK_FIELDS),
@@ -606,6 +601,7 @@ export async function loadPreferenceSnapshot() {
         wristOverlayDarkBackground: Boolean(wristOverlayDarkBackground),
         wristOverlayShowDevices: Boolean(wristOverlayShowDevices),
         wristOverlayShowBatteryPercent: Boolean(wristOverlayShowBatteryPercent),
+        wristOverlayShowSeconds: Boolean(wristOverlayShowSeconds),
         relaunchVRChatAfterCrash: Boolean(relaunchVRChatAfterCrash),
         vrcQuitFix: Boolean(vrcQuitFix),
         focusVrchatOnJoin: Boolean(focusVrchatOnJoin),
@@ -662,9 +658,7 @@ export async function loadPreferenceSnapshot() {
         bioLanguage: normalizeLanguageCode(bioLanguage),
         translationAPIType: normalizeTranslationApiType(translationAPIType),
         translationEndpointId: String(translationEndpointId || ''),
-        translationAPIEndpoint:
-            translationAPIEndpoint || DEFAULT_TRANSLATION_ENDPOINT,
-        translationAPIModel: translationAPIModel || DEFAULT_TRANSLATION_MODEL,
+        translationAPIModel: translationAPIModel || '',
         translationAPIPrompt: translationAPIPrompt || '',
         translationAPIReasoningEffort: translationAPIReasoningEffort || '',
         appFontFamily: normalizeAppFontFamily(appFontFamily),

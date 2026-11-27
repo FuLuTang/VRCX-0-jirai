@@ -1,3 +1,6 @@
+import { memo } from 'react';
+
+import type { SidebarFriendRecord } from '@/components/friends/friendStatusModel';
 import { ListSectionHeader } from '@/components/layout/ListSectionHeader';
 import type { LocationMetadata } from '@/components/location/useLocationMetadata';
 import { cn } from '@/lib/utils';
@@ -11,8 +14,8 @@ import { Skeleton } from '@/ui/shadcn/skeleton';
 import type { StatusPreset } from './FriendsSidebarActionItems';
 import { FriendRow } from './FriendsSidebarFriendRow';
 import { InstanceHeaderRow } from './FriendsSidebarHeaders';
-import type { SidebarFriendRecord } from './friendsSidebarModel';
 import type { SidebarVirtualRow } from './friendsSidebarVirtualRowBuilder';
+import { sidebarAvatarSkeletonClassName } from './SidebarUserRowContent';
 import {
     isFriendsSidebarGroupKey,
     type FriendsSidebarGroupKey
@@ -47,6 +50,7 @@ type AppearanceView = {
     showInstanceIdInLocation?: boolean;
     showSidebarAvatarFrame?: boolean;
     showSidebarNameplate?: boolean;
+    sidebarCompactRows?: boolean;
     trustColor?: TrustColorMap;
 };
 
@@ -96,10 +100,20 @@ function SidebarMessageRow({
     );
 }
 
-function SidebarSkeletonRow() {
+function SidebarSkeletonRow({ compact = false }: { compact?: boolean }) {
     return (
-        <div className="flex items-center gap-2 rounded-md px-1.5 py-1.5">
-            <Skeleton className="size-8 shrink-0 rounded-full" />
+        <div
+            className={cn(
+                'flex items-center gap-2 rounded-md px-1.5',
+                compact ? 'py-1' : 'py-1.5'
+            )}
+        >
+            <Skeleton
+                className={cn(
+                    'shrink-0 rounded-full',
+                    sidebarAvatarSkeletonClassName(compact)
+                )}
+            />
             <div className="min-w-0 flex-1">
                 <Skeleton className="h-3.5 w-3/5" />
                 <Skeleton className="mt-2 h-3 w-4/5" />
@@ -108,33 +122,37 @@ function SidebarSkeletonRow() {
     );
 }
 
-function FriendVirtualRow({
+const EMPTY_STATUS_PRESETS: StatusPreset[] = [];
+
+const FriendVirtualRow = memo(function FriendVirtualRow({
     appearance,
+    canBoop,
+    canSendInvite,
+    canUseFriendInstance,
+    currentLocationStartedAt,
     friend,
-    metadataKey = '',
     isCurrentUser = false,
     isGroupByInstance = false,
     instanceLocation,
     friendCommands,
-    location,
-    runtime,
+    locationMetadata,
+    locationTime,
     statusCommands
 }: {
     appearance: AppearanceView;
+    canBoop: boolean;
+    canSendInvite: boolean;
+    canUseFriendInstance: boolean;
+    currentLocationStartedAt?: string | number | null;
     friend: SidebarFriendRecord;
-    metadataKey?: string;
     isCurrentUser?: boolean;
     isGroupByInstance?: boolean;
     instanceLocation?: string;
     friendCommands: FriendCommandsView;
-    location: LocationView;
-    runtime: RuntimeView;
+    locationMetadata?: LocationMetadata;
+    locationTime: FriendLocationTimeEntry | null;
     statusCommands: StatusCommandsView;
 }) {
-    const friendId = friend.id || '';
-    const instanceActionGates =
-        runtime.instanceActionGatesByUserId.get(friendId);
-
     return (
         <FriendRow
             friend={friend}
@@ -142,11 +160,11 @@ function FriendVirtualRow({
                 isCurrentUser,
                 isGroupByInstance,
                 instanceLocation,
-                locationTime: location.locationTimesByUserId[friendId] ?? null,
-                canSendInvite: Boolean(instanceActionGates?.canInvite),
+                locationTime,
+                canSendInvite,
                 canRequestInvite: !isCurrentUser,
-                canBoop: Boolean(runtime.currentUser?.isBoopingEnabled),
-                canUseFriendInstance: Boolean(instanceActionGates?.canJoin)
+                canBoop,
+                canUseFriendInstance
             }}
             rowCommands={{
                 onOpen: () => friendCommands.onOpenFriend(friend),
@@ -158,26 +176,27 @@ function FriendVirtualRow({
                 onSetStatusDescription: statusCommands.onSetStatusDescription,
                 onEditSocialStatus: statusCommands.onEditSocialStatus,
                 onApplyStatusPreset: statusCommands.onApplyStatusPreset,
-                statusPresets: isCurrentUser ? statusCommands.statusPresets : []
+                statusPresets: isCurrentUser
+                    ? statusCommands.statusPresets
+                    : EMPTY_STATUS_PRESETS
             }}
             appearance={{
                 randomUserColours: appearance.randomUserColours,
                 randomUserColourStyle: appearance.randomUserColourStyle,
                 isDarkMode: appearance.isDarkMode,
                 trustColor: appearance.trustColor,
-                currentLocationStartedAt:
-                    runtime.gameState.currentLocationStartedAt,
+                currentLocationStartedAt,
                 recentActionVersion: appearance.recentActionVersion,
-                locationMetadata:
-                    location.locationMetadataByKey.get(metadataKey),
+                locationMetadata,
                 showInstanceIdInLocation: appearance.showInstanceIdInLocation,
                 ageGatedInstancesVisible: appearance.ageGatedInstancesVisible,
                 showAvatarFrame: appearance.showSidebarAvatarFrame,
-                showNameplate: appearance.showSidebarNameplate
+                showNameplate: appearance.showSidebarNameplate,
+                compact: appearance.sidebarCompactRows
             }}
         />
     );
-}
+});
 
 function FriendsSidebarVirtualRow({
     appearance,
@@ -236,25 +255,43 @@ function FriendsSidebarVirtualRow({
                 <SidebarMessageRow className={row.className} text={row.text} />
             );
         case 'skeleton':
-            return <SidebarSkeletonRow />;
+            return (
+                <SidebarSkeletonRow compact={appearance.sidebarCompactRows} />
+            );
         case 'footer':
             return <div className="h-4" />;
         case 'friend':
-        default:
-            return row.friend ? (
+        default: {
+            if (!row.friend) {
+                return null;
+            }
+            const friendId = row.friend.id || '';
+            const instanceActionGates =
+                runtime.instanceActionGatesByUserId.get(friendId);
+            return (
                 <FriendVirtualRow
                     appearance={appearance}
+                    canBoop={runtime.currentUser?.isBoopingEnabled === true}
+                    canSendInvite={Boolean(instanceActionGates?.canInvite)}
+                    canUseFriendInstance={Boolean(instanceActionGates?.canJoin)}
+                    currentLocationStartedAt={
+                        runtime.gameState.currentLocationStartedAt
+                    }
                     friend={row.friend}
                     isCurrentUser={row.isCurrentUser}
                     isGroupByInstance={row.isGroupByInstance}
                     instanceLocation={row.instanceLocation}
-                    metadataKey={row.key}
                     friendCommands={friendCommands}
-                    location={location}
-                    runtime={runtime}
+                    locationMetadata={location.locationMetadataByKey.get(
+                        row.key ?? ''
+                    )}
+                    locationTime={
+                        location.locationTimesByUserId[friendId] ?? null
+                    }
                     statusCommands={statusCommands}
                 />
-            ) : null;
+            );
+        }
     }
 }
 

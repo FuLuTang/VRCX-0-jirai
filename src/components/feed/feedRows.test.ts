@@ -1,11 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { onlinePresence, pendingPresence } from '@/test/presenceFixtures';
-
 import {
     buildFeedFavoriteIdSet,
     canExpandFeedRow,
-    canRequestInviteFromFeedFriend,
     getFeedRowCreatedAtMs,
     getFeedRowId,
     isUserIdLike,
@@ -58,22 +55,6 @@ describe('feed row helpers', () => {
         ).toBe(`GPS:2026-05-15T00:00:00Z:${USER_ID}:wrld_1:instance`);
     });
 
-    it('resolves invite requests from presence and the current invite location', () => {
-        expect(
-            canRequestInviteFromFeedFriend({
-                id: USER_ID,
-                $presence: onlinePresence()
-            })
-        ).toBe(true);
-        expect(
-            canRequestInviteFromFeedFriend({
-                id: USER_ID,
-                $presence: pendingPresence()
-            })
-        ).toBe(false);
-        expect(canRequestInviteFromFeedFriend({ id: USER_ID })).toBe(false);
-    });
-
     it('hides stale offline locations only for online feed display rows', () => {
         expect(
             resolveFeedLocationForDisplay({
@@ -108,23 +89,23 @@ describe('feed row helpers', () => {
                 group_a: [USER_ID],
                 group_b: ['usr_other']
             },
-            localGroupNames: ['Local', 'Close'],
+            localGroupIds: [1, 2],
             localFriendFavorites: {
-                Local: [' usr_local ', ''],
-                Close: ['usr_close']
+                1: [' usr_local ', ''],
+                2: ['usr_close']
             }
         };
 
         expect([
             ...buildFeedFavoriteIdSet({
                 ...groups,
-                selectedGroupKeys: ['group_a', 'local:Close']
+                selectedGroupKeys: ['group_a', 'local:2']
             })
         ]).toEqual([USER_ID, 'usr_close']);
         expect([
             ...buildFeedFavoriteIdSet({
                 ...groups,
-                selectedGroupKeys: ['local:Local']
+                selectedGroupKeys: ['local:1']
             })
         ]).toEqual(['usr_local']);
     });
@@ -133,11 +114,11 @@ describe('feed row helpers', () => {
         const groups = {
             remoteGroupKeys: ['group_a'],
             remoteIdsByGroupKey: { group_a: [USER_ID] },
-            localGroupNames: ['Local'],
-            localFriendFavorites: { Local: ['usr_local'] }
+            localGroupIds: [1],
+            localFriendFavorites: { 1: ['usr_local'] }
         };
 
-        for (const selectedGroupKeys of [[], ['local:Deleted', 'group_gone']]) {
+        for (const selectedGroupKeys of [[], ['local:99', 'group_gone']]) {
             expect([
                 ...buildFeedFavoriteIdSet({ ...groups, selectedGroupKeys })
             ]).toEqual([USER_ID, 'usr_local']);

@@ -4,10 +4,9 @@ import {
     EyeOffIcon,
     MoreHorizontalIcon,
     TagIcon,
-    UserIcon,
     UsersIcon
 } from 'lucide-react';
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ListSectionHeader } from '@/components/layout/ListSectionHeader';
@@ -15,14 +14,14 @@ import {
     ToolbarRefreshButton,
     ToolbarSearch
 } from '@/components/layout/ToolbarControls';
-import { FadeInImage } from '@/components/media/FadeInImage';
+import { UserListItem } from '@/components/UserListItem';
 import type {
     GroupMemberRow,
     GroupProfileRecord,
     GroupRoleRecord
 } from '@/domain/entities/group';
 import { openUserDialog } from '@/services/dialogService';
-import { HintTooltip } from '@/ui/hint-tooltip';
+import { HintTooltip, IntentTooltip } from '@/ui/hint-tooltip';
 import { Badge } from '@/ui/shadcn/badge';
 import { Button } from '@/ui/shadcn/button';
 import {
@@ -36,7 +35,6 @@ import {
     ToggleGroupItem,
     ToggleGroupSeparator
 } from '@/ui/shadcn/toggle-group';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/shadcn/tooltip';
 
 import { getGroupRowImage, getGroupRowLabel } from './groupDialogUtils';
 import { GroupListState } from './GroupListState';
@@ -160,70 +158,50 @@ function GroupMemberTile({
         isFriend && row.visibility && row.visibility !== 'visible';
 
     return (
-        <Button
-            type="button"
-            variant="ghost"
-            className="box-border h-auto w-full min-w-0 justify-start gap-2.5 p-1.5 text-left text-sm font-normal"
-            onClick={() => {
-                if (userId) {
-                    openUserDialog({
-                        userId,
-                        title: user?.displayName || undefined,
-                        seedData: user
-                    });
-                }
-            }}
-        >
-            {image ? (
-                <FadeInImage
-                    src={image}
-                    alt=""
-                    className="size-9 shrink-0 rounded-full object-cover"
-                />
-            ) : (
-                <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-full">
-                    <UserIcon className="text-muted-foreground" />
-                </div>
-            )}
-            <span className="min-w-0 flex-1 overflow-hidden">
-                <span className="flex min-w-0 items-center gap-1 leading-5 font-medium">
-                    <span className="truncate">{label}</span>
-                    {row.isRepresenting ? (
-                        <Tooltip>
-                            <TooltipTrigger
-                                render={
-                                    <span className="inline-flex shrink-0" />
+        <UserListItem
+            className="w-full"
+            userId={userId}
+            seed={user}
+            imageUrl={image}
+            displayName={label}
+            nameSuffix={
+                row.isRepresenting || hiddenMembership ? (
+                    <>
+                        {row.isRepresenting ? (
+                            <IntentTooltip
+                                content={t('dialog.group.members.representing')}
+                            >
+                                <span className="inline-flex shrink-0">
+                                    <TagIcon className="text-muted-foreground size-3.5" />
+                                </span>
+                            </IntentTooltip>
+                        ) : null}
+                        {hiddenMembership ? (
+                            <IntentTooltip
+                                content={
+                                    row.visibility === 'friends'
+                                        ? t(
+                                              'dialog.user.label.visibility_friends'
+                                          )
+                                        : t(
+                                              'dialog.user.label.visibility_hidden'
+                                          )
                                 }
                             >
-                                <TagIcon className="text-muted-foreground size-3.5" />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                {t('dialog.group.members.representing')}
-                            </TooltipContent>
-                        </Tooltip>
-                    ) : null}
-                    {hiddenMembership ? (
-                        <Tooltip>
-                            <TooltipTrigger
-                                render={
-                                    <span className="inline-flex shrink-0" />
-                                }
-                            >
-                                {row.visibility === 'friends' ? (
-                                    <UsersIcon className="text-muted-foreground size-3.5" />
-                                ) : (
-                                    <EyeOffIcon className="text-muted-foreground size-3.5" />
-                                )}
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                {row.visibility === 'friends'
-                                    ? t('dialog.user.label.visibility_friends')
-                                    : t('dialog.user.label.visibility_hidden')}
-                            </TooltipContent>
-                        </Tooltip>
-                    ) : null}
-                </span>
-                {visibleRoles.length ? (
+                                <span className="inline-flex shrink-0">
+                                    {row.visibility === 'friends' ? (
+                                        <UsersIcon className="text-muted-foreground size-3.5" />
+                                    ) : (
+                                        <EyeOffIcon className="text-muted-foreground size-3.5" />
+                                    )}
+                                </span>
+                            </IntentTooltip>
+                        ) : null}
+                    </>
+                ) : undefined
+            }
+            subline={
+                visibleRoles.length ? (
                     <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1">
                         {visibleRoles.map((role) => (
                             <Badge
@@ -237,28 +215,32 @@ function GroupMemberTile({
                             </Badge>
                         ))}
                         {hiddenRoles.length ? (
-                            <Tooltip>
-                                <TooltipTrigger
-                                    render={
-                                        <Badge
-                                            variant="outline"
-                                            className="text-muted-foreground h-4 px-1.5 text-[10px] font-normal tabular-nums"
-                                        >
-                                            +{hiddenRoles.length}
-                                        </Badge>
-                                    }
-                                />
-                                <TooltipContent>
-                                    {hiddenRoles
-                                        .map((role) => roleLabel(role.name, t))
-                                        .join(', ')}
-                                </TooltipContent>
-                            </Tooltip>
+                            <IntentTooltip
+                                content={hiddenRoles
+                                    .map((role) => roleLabel(role.name, t))
+                                    .join(', ')}
+                            >
+                                <Badge
+                                    variant="outline"
+                                    className="text-muted-foreground h-4 px-1.5 text-[10px] font-normal tabular-nums"
+                                >
+                                    +{hiddenRoles.length}
+                                </Badge>
+                            </IntentTooltip>
                         ) : null}
                     </span>
-                ) : null}
-            </span>
-        </Button>
+                ) : undefined
+            }
+            onOpen={() => {
+                if (userId) {
+                    openUserDialog({
+                        userId,
+                        title: user?.displayName || undefined,
+                        seedData: user
+                    });
+                }
+            }}
+        />
     );
 }
 
@@ -310,7 +292,9 @@ export function GroupMembersPanel({
     const [toggled, setToggled] = useState<Set<string>>(() => new Set());
     const loadMoreRef = useRef<HTMLDivElement | null>(null);
     const loadMoreCallbackRef = useRef(onLoadMore);
-    loadMoreCallbackRef.current = onLoadMore;
+    useLayoutEffect(() => {
+        loadMoreCallbackRef.current = onLoadMore;
+    });
 
     const membersBusy = members.status === 'running';
     const memberTotal = members.totalCount ?? members.loadedCount;

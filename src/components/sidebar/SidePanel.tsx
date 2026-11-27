@@ -13,6 +13,10 @@ import { getNavIconComponent } from '@/components/layout/navIconRegistry';
 import { cn } from '@/lib/utils';
 import configRepository from '@/repositories/configRepository';
 import { refreshFriendAndFavoriteSnapshots } from '@/services/backgroundMaintenanceService';
+import {
+    hydrateSidebarTabLayout,
+    saveSidebarTabLayout
+} from '@/services/sidebarTabService';
 import { toast } from '@/services/toastService';
 import { restoreNormalWindowModeForIntent } from '@/services/windowModeService';
 import { SECOND_MS } from '@/shared/constants/time';
@@ -24,10 +28,6 @@ import {
     type SidebarWorldRoomsTabLayoutItem
 } from '@/shared/utils/sidebarTabLayout';
 import { useRuntimeStore } from '@/state/runtimeStore';
-import {
-    hydrateSidebarTabLayout,
-    saveSidebarTabLayout
-} from '@/state/sidebarTabStore';
 import { HintTooltip } from '@/ui/hint-tooltip';
 import { Button } from '@/ui/shadcn/button';
 import {
@@ -69,6 +69,7 @@ const defaultPrefs: SidePanelPreferences = {
     isHideFriendsInSameInstance: true,
     isSameInstanceAboveFavorites: false,
     isSidebarDivideByFriendGroup: false,
+    sidebarCompactRows: false,
     sidebarSortMethod1: 'Sort by Status',
     sidebarSortMethod2: 'Sort Alphabetically',
     sidebarSortMethod3: '',
@@ -164,6 +165,10 @@ export const SidePanel = forwardRef<HTMLElement, SidePanelProps>(
                     'isSidebarDivideByFriendGroup',
                     defaultPrefs.isSidebarDivideByFriendGroup
                 ),
+                configRepository.getBool(
+                    'sidebarCompactRows',
+                    defaultPrefs.sidebarCompactRows
+                ),
                 configRepository.getString(
                     'sidebarSortMethod1',
                     defaultPrefs.sidebarSortMethod1
@@ -185,6 +190,7 @@ export const SidePanel = forwardRef<HTMLElement, SidePanelProps>(
                         isHideFriendsInSameInstance,
                         isSameInstanceAboveFavorites,
                         isSidebarDivideByFriendGroup,
+                        sidebarCompactRows,
                         sidebarSortMethod1,
                         sidebarSortMethod2,
                         sidebarSortMethod3,
@@ -207,6 +213,7 @@ export const SidePanel = forwardRef<HTMLElement, SidePanelProps>(
                             isSidebarDivideByFriendGroup: Boolean(
                                 isSidebarDivideByFriendGroup
                             ),
+                            sidebarCompactRows: Boolean(sidebarCompactRows),
                             sidebarSortMethod1: toSidePanelSortMethod(
                                 sidebarSortMethod1 || ''
                             ),

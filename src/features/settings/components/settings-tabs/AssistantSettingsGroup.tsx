@@ -1,17 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { RuntimeModelSelect } from '@/features/assistant/components/RuntimeModelSelect';
+import { SettingsCard } from '@/components/layout/SettingsCard';
+import { RuntimeModelSelect } from '@/components/llm/RuntimeModelSelect';
 import {
     commands,
     type AssistantRuntimeSelection,
     type PlaybookMode
 } from '@/platform/tauri/bindings';
-import { toast } from '@/services/toastService';
 import {
-    openLlmEndpointsManager,
-    useLlmEndpointsStore
-} from '@/state/llmEndpointsStore';
+    loadLlmEndpoints,
+    openLlmEndpointsManager
+} from '@/services/llmEndpointsService';
+import { toast } from '@/services/toastService';
+import { useLlmEndpointsStore } from '@/state/llmEndpointsStore';
 import { Button } from '@/ui/shadcn/button';
 import {
     Select,
@@ -23,7 +25,6 @@ import {
 } from '@/ui/shadcn/select';
 import { Switch } from '@/ui/shadcn/switch';
 
-import { SettingsCard } from '../SettingsCard';
 import { Field } from '../SettingsField';
 
 const PLAYBOOK_MODES: PlaybookMode[] = ['auto', 'guided', 'open'];
@@ -35,7 +36,6 @@ type AssistantSettingsGroupProps = {
 const EMPTY_SELECTION: AssistantRuntimeSelection = {
     endpointId: null,
     model: null,
-    allowWrites: false,
     playbookMode: 'auto'
 };
 
@@ -48,7 +48,6 @@ export function AssistantSettingsGroup({
 }: AssistantSettingsGroupProps) {
     const { t } = useTranslation();
     const endpoints = useLlmEndpointsStore((state) => state.endpoints);
-    const loadEndpoints = useLlmEndpointsStore((state) => state.load);
     const [selection, setSelection] =
         useState<AssistantRuntimeSelection>(EMPTY_SELECTION);
     const [followCustomProxy, setFollowCustomProxy] = useState(true);
@@ -63,7 +62,7 @@ export function AssistantSettingsGroup({
             return;
         }
         let stale = false;
-        loadEndpoints()
+        loadLlmEndpoints()
             .catch(() => {})
             .finally(() => {
                 if (!stale) {
@@ -89,7 +88,7 @@ export function AssistantSettingsGroup({
         return () => {
             stale = true;
         };
-    }, [active, loadEndpoints]);
+    }, [active]);
 
     async function updateSelection(patch: Partial<AssistantRuntimeSelection>) {
         setSelection((current) => ({ ...current, ...patch }));
@@ -100,7 +99,6 @@ export function AssistantSettingsGroup({
                 await commands.appAssistantSetDefaultRuntime(
                     next.endpointId,
                     next.model,
-                    next.allowWrites,
                     next.playbookMode
                 )
             );

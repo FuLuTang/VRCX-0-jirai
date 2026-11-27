@@ -1,13 +1,15 @@
-import { useEffect, useEffectEvent, useRef, useState } from 'react';
+import { memo, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
+import { shallow } from 'zustand/shallow';
 
 import {
     getEventGroupId,
     getEventId
-} from '@/components/hosts/tools-dialogs/toolsDialogUtils';
+} from '@/components/group-event/groupEventFormat';
 import type { LoadStatus } from '@/domain/shared/types';
 import { userFacingErrorMessage } from '@/lib/errorDisplay';
+import { useStableCommands } from '@/lib/useStableCommands';
 import groupProfileRepository from '@/repositories/groupProfileRepository';
 import vrchatToolsRepository, {
     type GroupCalendarEventRecord
@@ -18,6 +20,10 @@ import {
     convertFileUrlToImageUrl,
     openExternalLink
 } from '@/services/entityMediaService';
+import {
+    recordDialogTabLanding,
+    recordDialogTabSwitch
+} from '@/services/telemetry/telemetryDialogTabs';
 import { recordToolOpen } from '@/services/telemetry/telemetryToolUsage';
 import { toast } from '@/services/toastService';
 import { vrchatGroupUrl } from '@/shared/constants/vrchatWebUrls';
@@ -56,7 +62,6 @@ import {
     normalizeGroupEvent,
     resolveGroupDialogTab
 } from './groupDialogUtils';
-import { shouldShowGroupBadgeValue } from './GroupDialogViewParts';
 import { GroupEventEditorDialog } from './GroupEventEditorDialog';
 import { staffRoleIdsOf } from './GroupMembersPanel';
 import { GroupPostEditorDialog } from './GroupPostEditorDialog';
@@ -70,6 +75,13 @@ import { useGroupDialogTabbedRuntimeState } from './useGroupDialogTabbedRuntimeS
 import { useGroupEventEditor } from './useGroupEventEditor';
 
 let lastGroupDialogTab = 'overview';
+
+const MemoGroupDialogHeaderSection = memo(
+    GroupDialogHeaderSection,
+    (prev, next) =>
+        prev.headerCommands === next.headerCommands &&
+        shallow(prev.headerModel, next.headerModel)
+);
 
 function isGroupRemoteTab(value: string): value is GroupRemoteTab {
     return value === 'posts' || value === 'photos';
@@ -163,7 +175,25 @@ export function GroupDialogTabbedView({
     const groupEventsRequestRef = useRef(0);
     const groupFollowingRequestRef = useRef(0);
     const followingEventIdsRef = useRef<Set<string>>(new Set());
-    const tabs = getGroupDialogTabs(t, Boolean(group.storeId));
+    const tabs = getGroupDialogTabs(
+        t,
+        Boolean(group.storeId),
+        activeInstances.length > 0
+    ).map((tab) =>
+        tab.value === 'instances'
+            ? {
+                  ...tab,
+                  label: (
+                      <span className="inline-flex items-baseline gap-1.5">
+                          <span>{tab.label}</span>
+                          <span className="text-muted-foreground text-[11px] leading-none font-medium tabular-nums">
+                              {activeInstances.length}
+                          </span>
+                      </span>
+                  )
+              }
+            : tab
+    );
     const posts =
         remoteStatus.posts === 'ready'
             ? remoteData.posts
@@ -233,6 +263,9 @@ export function GroupDialogTabbedView({
         const nextTab = resolveGroupDialogTab(tabs, lastGroupDialogTab);
         lastGroupDialogTab = nextTab;
         setActiveTab(nextTab);
+        if (group.id) {
+            recordDialogTabLanding('group', nextTab);
+        }
     });
 
     useEffect(() => {
@@ -482,6 +515,7 @@ export function GroupDialogTabbedView({
     function changeTab(tab: string) {
         lastGroupDialogTab = resolveGroupDialogTab(tabs, tab);
         setActiveTab(lastGroupDialogTab);
+        recordDialogTabSwitch('group', lastGroupDialogTab);
     }
 
     const loadPostsForTarget = useEffectEvent(() => {
@@ -532,10 +566,6 @@ export function GroupDialogTabbedView({
     const ownerLinkLabel = isGroupOwner
         ? 'You'
         : ownerLabel || group.ownerId || 'Owner';
-    const showPrivacyBadge = shouldShowGroupBadgeValue(group.privacy);
-    const showMembershipBadge = shouldShowGroupBadgeValue(
-        group.membershipStatus
-    );
 
     function copyGroupText(text: string, label: string) {
         return copyTextToClipboard(text, {
@@ -686,11 +716,9 @@ export function GroupDialogTabbedView({
         memberStatus,
         memberVisibility,
         ownerLinkLabel,
-        remoteStatus,
-        showMembershipBadge,
-        showPrivacyBadge
+        postsLoading: remoteStatus.posts === 'running'
     };
-    const headerCommands = {
+    const headerCommands = useStableCommands({
         onBlockToggle: () => onBlock(!isBlocked),
         onCancelRequest,
         onCopyGroupId: () => copyGroupText(group.id, t('dialog.group.info.id')),
@@ -707,6 +735,9 @@ export function GroupDialogTabbedView({
         onJoin,
         onLeave,
         onOpenGroupPage: () => openExternalLink(groupUrl),
+        onOpenLink: openExternalLink,
+        onCopyLink: (url: string) =>
+            copyGroupText(url, t('dialog.group.info.links')),
         onOpenModeration: () => {
             recordToolOpen('group-moderation');
             closeDialog();
@@ -719,7 +750,7 @@ export function GroupDialogTabbedView({
         onSubscribeToggle: () => onSubscribe(!isSubscribedToAnnouncements),
         onInviteUserToGroup: inviteUserToGroup,
         onVisibilityChange: onVisibility
-    };
+    });
     const tabModel: GroupDialogTabModel = {
         activeInstances,
         activeTab,
@@ -734,11 +765,7 @@ export function GroupDialogTabbedView({
         groupEventsError,
         groupEventsStatus,
         groupTitle,
-        groupUrl,
-        joinState,
         members: groupMembers.model,
-        memberStatus,
-        ownerLabel,
         photos,
         posts,
         previousInstances,
@@ -749,8 +776,7 @@ export function GroupDialogTabbedView({
     };
     const tabCommands: GroupDialogTabCommands = {
         onChangeTab: changeTab,
-        onCopyGroupUrl: () =>
-            copyGroupText(groupUrl, t('dialog.group.info.url')),
+        onRefreshInstances: onRefresh,
         onCreateEvent: eventEditor.openCreate,
         onDeleteEvent: (event) => {
             void eventEditor.remove(getEventId(event), event.title || '');
@@ -768,8 +794,6 @@ export function GroupDialogTabbedView({
         onLoadMoreMembers: () => {
             void groupMembers.loadMore();
         },
-        onOpenLink: openExternalLink,
-        onOpenOwner: openGroupOwner,
         onPreviousInstancesChange,
         onPreviewImage: previewImage,
         onPreviewRowImage: previewRowImage,
@@ -796,7 +820,7 @@ export function GroupDialogTabbedView({
             <EntityDialogTwoColumnLayout
                 railWidth="19rem"
                 rail={
-                    <GroupDialogHeaderSection
+                    <MemoGroupDialogHeaderSection
                         headerModel={headerModel}
                         headerCommands={headerCommands}
                     />

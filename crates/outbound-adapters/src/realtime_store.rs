@@ -1,9 +1,6 @@
 use std::sync::Arc;
 
-use vrcx_0_application_realtime::{
-    FavoriteBaselineStore, FeedQueryStore, FriendLogStore, GameLogLookup, RealtimeBatchWriter,
-    SocialMutationStore,
-};
+use vrcx_0_application_realtime::{RealtimeStore, SocialMutationStore};
 use vrcx_0_contracts::feed::{
     FeedLatestQueryInput, FeedLiveEntryInput, FeedReadModelOutput, FeedSearchQueryInput,
 };
@@ -13,7 +10,7 @@ use vrcx_0_contracts::friend_log::{
     FriendLogUpsertOptionsInput,
 };
 use vrcx_0_contracts::realtime::{RealtimePersistenceBatch, RealtimeWriteCounts};
-use vrcx_0_contracts::FavoriteRow;
+use vrcx_0_contracts::{FavoriteRow, LocalFavoriteGroup};
 use vrcx_0_core::{FavoriteEntityKind, OwnerId};
 use vrcx_0_persistence::DatabaseService;
 
@@ -27,7 +24,7 @@ impl PersistenceRealtimeStore {
     }
 }
 
-impl GameLogLookup for PersistenceRealtimeStore {
+impl RealtimeStore for PersistenceRealtimeStore {
     fn game_log_join_count(
         &self,
         owner: &OwnerId,
@@ -54,9 +51,7 @@ impl GameLogLookup for PersistenceRealtimeStore {
             &self.db, world_id,
         )?)
     }
-}
 
-impl FavoriteBaselineStore for PersistenceRealtimeStore {
     fn favorite_list(
         &self,
         owner: Option<&OwnerId>,
@@ -66,9 +61,17 @@ impl FavoriteBaselineStore for PersistenceRealtimeStore {
             &self.db, owner, kind,
         )?)
     }
-}
 
-impl FriendLogStore for PersistenceRealtimeStore {
+    fn favorite_group_list(
+        &self,
+        owner: Option<&OwnerId>,
+        kind: FavoriteEntityKind,
+    ) -> crate::Result<Vec<LocalFavoriteGroup>> {
+        Ok(vrcx_0_persistence::favorites::favorite_group_list(
+            &self.db, owner, kind,
+        )?)
+    }
+
     fn friend_log_current_list(&self, user_id: &str) -> crate::Result<Vec<FriendLogCurrentOutput>> {
         Ok(vrcx_0_persistence::friends::friend_log_current_list(
             &self.db,
@@ -86,6 +89,47 @@ impl FriendLogStore for PersistenceRealtimeStore {
             user_id.to_string(),
             entries,
             options,
+        )?)
+    }
+
+    fn write_realtime_batch(
+        &self,
+        owner: &OwnerId,
+        batch: &RealtimePersistenceBatch,
+    ) -> crate::Result<RealtimeWriteCounts> {
+        Ok(vrcx_0_persistence::realtime::write_realtime_batch(
+            &self.db, owner, batch,
+        )?)
+    }
+
+    fn feed_latest(
+        &self,
+        query: FeedLatestQueryInput,
+        live_entries: Vec<FeedLiveEntryInput>,
+        watermark: i64,
+        include_persisted_rows: bool,
+    ) -> crate::Result<FeedReadModelOutput> {
+        Ok(vrcx_0_persistence::feed::feed_latest_query(
+            &self.db,
+            query,
+            live_entries,
+            watermark,
+            include_persisted_rows,
+        )?)
+    }
+    fn feed_search(
+        &self,
+        query: FeedSearchQueryInput,
+        live_entries: Vec<FeedLiveEntryInput>,
+        watermark: i64,
+        include_persisted_rows: bool,
+    ) -> crate::Result<FeedReadModelOutput> {
+        Ok(vrcx_0_persistence::feed::feed_search_query(
+            &self.db,
+            query,
+            live_entries,
+            watermark,
+            include_persisted_rows,
         )?)
     }
 }
@@ -135,51 +179,6 @@ impl SocialMutationStore for PersistenceRealtimeStore {
             &self.db,
             user_id.to_string(),
             notification_id.to_string(),
-        )?)
-    }
-}
-
-impl RealtimeBatchWriter for PersistenceRealtimeStore {
-    fn write_realtime_batch(
-        &self,
-        owner: &OwnerId,
-        batch: &RealtimePersistenceBatch,
-    ) -> crate::Result<RealtimeWriteCounts> {
-        Ok(vrcx_0_persistence::realtime::write_realtime_batch(
-            &self.db, owner, batch,
-        )?)
-    }
-}
-
-impl FeedQueryStore for PersistenceRealtimeStore {
-    fn feed_latest(
-        &self,
-        query: FeedLatestQueryInput,
-        live_entries: Vec<FeedLiveEntryInput>,
-        watermark: i64,
-        include_persisted_rows: bool,
-    ) -> crate::Result<FeedReadModelOutput> {
-        Ok(vrcx_0_persistence::feed::feed_latest_query(
-            &self.db,
-            query,
-            live_entries,
-            watermark,
-            include_persisted_rows,
-        )?)
-    }
-    fn feed_search(
-        &self,
-        query: FeedSearchQueryInput,
-        live_entries: Vec<FeedLiveEntryInput>,
-        watermark: i64,
-        include_persisted_rows: bool,
-    ) -> crate::Result<FeedReadModelOutput> {
-        Ok(vrcx_0_persistence::feed::feed_search_query(
-            &self.db,
-            query,
-            live_entries,
-            watermark,
-            include_persisted_rows,
         )?)
     }
 }

@@ -118,6 +118,15 @@ export const commands = {
         __TAURI_INVOKE<ChatboxEditorState>('app__chatbox_editor_state_get'),
     appChatboxConfigSet: (config: ChatboxConfig) =>
         __TAURI_INVOKE<ChatboxConfig>('app__chatbox_config_set', { config }),
+    appChatboxStatusEnabledSet: (enabled: boolean) =>
+        __TAURI_INVOKE<ChatboxConfig>('app__chatbox_status_enabled_set', {
+            enabled
+        }),
+    appChatboxPageEnabledSet: (pageId: string, enabled: boolean) =>
+        __TAURI_INVOKE<ChatboxConfig>('app__chatbox_page_enabled_set', {
+            pageId,
+            enabled
+        }),
     appChatboxStatusGet: () =>
         __TAURI_INVOKE<ChatboxStatus | null>('app__chatbox_status_get'),
     appChatboxPreviewingSet: (previewing: boolean) =>
@@ -130,6 +139,20 @@ export const commands = {
         __TAURI_INVOKE<void>('app__chatbox_typing_set', { typing }),
     appChatboxSamplesRender: (lines: ChatboxLinePreviewInput[]) =>
         __TAURI_INVOKE<string[]>('app__chatbox_samples_render', { lines }),
+    appHeartRateStatusGet: () =>
+        __TAURI_INVOKE<HeartRateStatus>('app__heart_rate_status_get'),
+    appHeartRateConnectedSet: (connected: boolean) =>
+        __TAURI_INVOKE<HeartRateStatus>('app__heart_rate_connected_set', {
+            connected
+        }),
+    appHeartRateParametersGet: () =>
+        __TAURI_INVOKE<HeartRateParametersEditor>(
+            'app__heart_rate_parameters_get'
+        ),
+    appHeartRateParametersSet: (parameters: HeartRateParameters) =>
+        __TAURI_INVOKE<HeartRateParameters>('app__heart_rate_parameters_set', {
+            parameters
+        }),
     appStartBackgroundMode: () =>
         __TAURI_INVOKE<BackendRuntimeSnapshot>('app__start_background_mode'),
     appBackendRuntimeCombinedSnapshotGet: () =>
@@ -448,6 +471,16 @@ export const commands = {
             choiceId,
             userId
         }),
+    appAssistantAnswerApproval: (
+        sessionId: string,
+        approvalId: string,
+        approved: boolean
+    ) =>
+        __TAURI_INVOKE<null>('app__assistant_answer_approval', {
+            sessionId,
+            approvalId,
+            approved
+        }),
     appAssistantListSessions: () =>
         __TAURI_INVOKE<SessionSummary[]>('app__assistant_list_sessions'),
     appAssistantGetSession: (sessionId: string) =>
@@ -479,25 +512,22 @@ export const commands = {
         sessionId: string,
         endpointId: string | null,
         model: string | null,
-        allowWrites: boolean,
         playbookMode: PlaybookMode
     ) =>
         __TAURI_INVOKE<Session>('app__assistant_set_session_runtime', {
             sessionId,
             endpointId,
             model,
-            allowWrites,
             playbookMode
         }),
     appAssistantSetDefaultRuntime: (
         endpointId: string | null,
         model: string | null,
-        allowWrites: boolean,
         playbookMode: PlaybookMode
     ) =>
         __TAURI_INVOKE<AssistantRuntimeSelection>(
             'app__assistant_set_default_runtime',
-            { endpointId, model, allowWrites, playbookMode }
+            { endpointId, model, playbookMode }
         ),
     appLlmEndpointFollowCustomProxy: () =>
         __TAURI_INVOKE<boolean>('app__llm_endpoint_follow_custom_proxy'),
@@ -1137,7 +1167,7 @@ export const commands = {
     appRuntimeBackgroundJobRecord: (input: RuntimeJobRecordInput) =>
         __TAURI_INVOKE<void>('app__runtime_background_job_record', { input }),
     appExternalApiAvatarSearchGet: (input: ExternalApiAvatarSearchInput) =>
-        __TAURI_INVOKE<ExternalApiExecuteResponse>(
+        __TAURI_INVOKE<ExternalApiAvatarSearchResponse>(
             'app__external_api_avatar_search_get',
             { input }
         ),
@@ -1303,25 +1333,19 @@ export const commands = {
         ),
     appLocalFavoriteAdd: (input: LocalFavoriteInput) =>
         __TAURI_INVOKE<number>('app__local_favorite_add', { input }),
-    appLocalFavoriteGroupCreate: (input: LocalFavoriteGroupInput) =>
-        __TAURI_INVOKE<LocalFavoriteGroupWrite>(
-            'app__local_favorite_group_create',
-            { input }
-        ),
-    appLocalFavoriteGroupDelete: (input: LocalFavoriteGroupInput) =>
-        __TAURI_INVOKE<LocalFavoriteGroupWrite>(
-            'app__local_favorite_group_delete',
-            { input }
-        ),
-    appLocalFavoriteGroupRename: (input: LocalFavoriteGroupRenameInput) =>
-        __TAURI_INVOKE<LocalFavoriteGroupWrite>(
-            'app__local_favorite_group_rename',
-            { input }
-        ),
-    appLocalFavoriteGroupReorder: (input: LocalFavoriteGroupReorderInput) =>
-        __TAURI_INVOKE<string[]>('app__local_favorite_group_reorder', {
+    appLocalFavoriteGroupCreate: (input: LocalFavoriteGroupCreateInput) =>
+        __TAURI_INVOKE<LocalFavoriteGroup>('app__local_favorite_group_create', {
             input
         }),
+    appLocalFavoriteGroupDelete: (input: LocalFavoriteGroupInput) =>
+        __TAURI_INVOKE<number>('app__local_favorite_group_delete', { input }),
+    appLocalFavoriteGroupRename: (input: LocalFavoriteGroupRenameInput) =>
+        __TAURI_INVOKE<number>('app__local_favorite_group_rename', { input }),
+    appLocalFavoriteGroupReorder: (input: LocalFavoriteGroupReorderInput) =>
+        __TAURI_INVOKE<LocalFavoriteGroup[]>(
+            'app__local_favorite_group_reorder',
+            { input }
+        ),
     appLocalFavoriteRemove: (input: LocalFavoriteInput) =>
         __TAURI_INVOKE<number>('app__local_favorite_remove', { input }),
     appLocalFavoriteReorder: (input: LocalFavoriteReorderInput) =>
@@ -3025,6 +3049,30 @@ export type AppUpdateStatusSnapshot = {
     shouldNotify: boolean;
 };
 
+/**
+ *  A side-effecting tool call waiting for the user. `fields` are the exact
+ *  arguments the call runs with once approved.
+ */
+export type AssistantApproval = {
+    id: string;
+    toolCallId: string;
+    tool: string;
+    fields: AssistantApprovalField[];
+    favoriteMove: AssistantFavoriteMovePreview | null;
+};
+
+export type AssistantApprovalField = {
+    name: string;
+    value: string;
+};
+
+export type AssistantApprovalRequestEvent = {
+    ownerUserId: OwnerId;
+    sessionId: string;
+    turnId: string;
+    approval: AssistantApproval;
+};
+
 export type AssistantChart = {
     kind: AssistantChartKind;
     axis: AssistantChartAxis;
@@ -3087,10 +3135,36 @@ export type AssistantErrorEvent = {
     message: string;
 };
 
+export type AssistantFavoriteGroup = {
+    name: string;
+    displayName: string;
+};
+
+export type AssistantFavoriteMoveItem = {
+    entityId: string;
+    name: string | null;
+    source: AssistantFavoriteGroup | null;
+    status: AssistantFavoriteMoveStatus;
+};
+
+/**
+ *  What a `favorite_move` call would do, from its dry run, so the user approves
+ *  the whole batch knowing each favorite's name and current group.
+ */
+export type AssistantFavoriteMovePreview = {
+    kind: FavoriteEntityKind;
+    target: AssistantFavoriteGroup;
+    items: AssistantFavoriteMoveItem[];
+};
+
+export type AssistantFavoriteMoveStatus =
+    | 'wouldMove'
+    | 'alreadyInTarget'
+    | 'notFavorited';
+
 export type AssistantRuntimeSelection = {
     endpointId: string | null;
     model: string | null;
-    allowWrites: boolean;
     playbookMode: PlaybookMode;
 };
 
@@ -3124,6 +3198,7 @@ export type AssistantToolResultEvent = {
     entities: Entity[];
     charts: AssistantChart[];
     screenshots: AssistantScreenshots | null;
+    denied: boolean;
 };
 
 export type AssistantTurnEntitiesEvent = {
@@ -3385,6 +3460,7 @@ export type BackendRuntimeEventPayloadMap = {
     gameIsolationState: GameIsolationSnapshot;
     chatboxState: ChatboxStatus;
     chatboxConfig: ChatboxConfig;
+    heartRateState: HeartRateStatus;
     privacyLockState: PrivacyLockSnapshot;
     desktopWidgetState: DesktopWidgetSnapshot;
 };
@@ -3715,7 +3791,8 @@ export type ChatboxVariable =
     | 'gpu'
     | 'vram'
     | 'gputemp'
-    | 'session';
+    | 'session'
+    | 'heartrate';
 
 export type CleanupWarning = {
     kind: CleanupWarningKind;
@@ -4117,6 +4194,13 @@ export type ExternalApiAvatarSearchInput = {
     vrcxId?: string;
 };
 
+export type ExternalApiAvatarSearchResponse = {
+    status: number;
+    data: string;
+    raw: JsonValue;
+    serverBlocked: boolean;
+};
+
 export type ExternalApiExecuteResponse = {
     status: number;
     data: string;
@@ -4153,8 +4237,8 @@ export type FavoriteBaselineSnapshot = {
     favoriteAvatarGroups: FavoriteGroupOutput[];
     localAvatarFavorites: { [key in string]: string[] };
     localFriendFavorites: { [key in string]: string[] };
-    localAvatarFavoriteGroups: string[];
-    localFriendFavoriteGroups: string[];
+    localAvatarFavoriteGroups: LocalFavoriteGroup[];
+    localFriendFavoriteGroups: LocalFavoriteGroup[];
     localAvatarFavoritesList: string[];
     localFriendFavoritesList: string[];
     detail: string;
@@ -4169,7 +4253,7 @@ export type FavoriteBulkRemoveItem = {
     key: string;
     source: FavoriteBulkRemoveSource;
     entityId: string;
-    groupName?: string;
+    groupId?: number | null;
 };
 
 export type FavoriteBulkRemoveItemResult = {
@@ -4210,22 +4294,22 @@ export type FavoriteChange =
           type: 'localAdded';
           kind: FavoriteEntityKind;
           entityId: string;
-          groupName: string;
+          groupId: number;
       }
     | {
           type: 'localRemoved';
           kind: FavoriteEntityKind;
           entityId: string;
-          groupName: string;
+          groupId: number;
       }
-    | { type: 'localGroupCreated'; kind: FavoriteEntityKind; groupName: string }
+    | { type: 'localGroupCreated'; group: LocalFavoriteGroup }
     | {
           type: 'localGroupRenamed';
           kind: FavoriteEntityKind;
-          groupName: string;
-          newGroupName: string;
+          groupId: number;
+          name: string;
       }
-    | { type: 'localGroupDeleted'; kind: FavoriteEntityKind; groupName: string }
+    | { type: 'localGroupDeleted'; kind: FavoriteEntityKind; groupId: number }
     | { type: 'remoteAdded'; favorite: RawJson }
     | { type: 'remoteRemoved'; objectId: string };
 
@@ -4318,6 +4402,7 @@ export type FavoriteImportTarget = {
 
 export type FavoriteRow = {
     createdAt: string;
+    groupId: number;
     groupName: string;
     userId?: string | null;
     avatarId?: string | null;
@@ -5645,6 +5730,30 @@ export type GroupSearchParams = {
     n?: number | null;
 };
 
+export type HeartRateParameters = {
+    value: string[];
+    beat: string[];
+    connected: string[];
+    percent: string[];
+};
+
+export type HeartRateParametersEditor = {
+    parameters: HeartRateParameters;
+    defaults: HeartRateParameters;
+};
+
+export type HeartRatePhase = 'unavailable' | 'off' | 'waiting' | 'connected';
+
+export type HeartRateProblem = 'incompatible' | 'permissionDenied';
+
+export type HeartRateStatus = {
+    enabled: boolean;
+    phase: HeartRatePhase;
+    deviceName: string | null;
+    bpm: number | null;
+    problem: HeartRateProblem | null;
+};
+
 export type HostArchitecture = 'x86_64' | 'aarch64' | 'unknown';
 
 export type HostCapabilities = {
@@ -5978,43 +6087,49 @@ export type LlmModelReasoning = {
     mandatory: boolean;
 };
 
+export type LocalFavoriteGroup = {
+    id: number;
+    kind: FavoriteEntityKind;
+    name: string;
+    shared: boolean;
+};
+
+export type LocalFavoriteGroupCreateInput = {
+    kind: FavoriteEntityKind;
+    name?: string;
+};
+
 export type LocalFavoriteGroupInput = {
     kind: FavoriteEntityKind;
-    groupName?: string;
+    groupId: number;
 };
 
 export type LocalFavoriteGroupRenameInput = {
     kind: FavoriteEntityKind;
-    groupName?: string;
-    newGroupName?: string;
+    groupId: number;
+    name?: string;
 };
 
 export type LocalFavoriteGroupReorderInput = {
     kind: FavoriteEntityKind;
-    groupNames: string[];
-};
-
-export type LocalFavoriteGroupWrite = {
-    configKey: string;
-    groupNames: string[];
-    affected: number;
+    groupIds: number[];
 };
 
 export type LocalFavoriteInput = {
     kind: FavoriteEntityKind;
     entityId?: string;
-    groupName?: string;
+    groupId: number;
 };
 
 export type LocalFavoriteReorderInput = {
     kind: FavoriteEntityKind;
-    groupName?: string;
+    groupId: number;
     entityIds: string[];
 };
 
 export type LocalFavoriteSnapshot = {
     favorites: FavoriteRow[];
-    groupNames: string[];
+    groups: LocalFavoriteGroup[];
 };
 
 export type LocalGameAccount = {
@@ -6481,7 +6596,7 @@ export type NotificationMarkSeenBatchInput = {
 export type NotificationMarkSeenBatchItem = {
     id: string;
     version: number;
-    location: NotificationMarkSeenLocation;
+    type: string;
 };
 
 export type NotificationMarkSeenBatchResult = {
@@ -6492,19 +6607,17 @@ export type NotificationMarkSeenBatchResult = {
     lastError: string | null;
 };
 
-export type NotificationMarkSeenEffect = 'seen';
+export type NotificationMarkSeenEffect = 'seen' | 'expired';
 
 export type NotificationMarkSeenItemResult = {
     id: string;
     state: NotificationMarkSeenItemState;
-    effect: NotificationMarkSeenEffect | null;
+    effect: NotificationMarkSeenEffect;
     attempts: number;
     message: string;
 };
 
-export type NotificationMarkSeenItemState = 'succeeded' | 'failed';
-
-export type NotificationMarkSeenLocation = 'remote' | 'local';
+export type NotificationMarkSeenItemState = 'succeeded' | 'remoteFailed';
 
 export type NotificationRequestInviteAcceptInput = {
     ownerUserId: OwnerId;
@@ -7465,9 +7578,9 @@ export type Session = {
     title: string;
     messages: Message[];
     activeTurn: ActiveTurn | null;
+    pendingApproval: AssistantApproval | null;
     endpointId: string | null;
     model: string | null;
-    allowWrites: boolean;
     playbookMode: PlaybookMode;
     entityPanelOpen: boolean;
     surfacedEntities: Entity[];
@@ -7673,6 +7786,14 @@ export type StartupOnlineBackfillOutput = {
 export type TelemetryClientEvent =
     | { type: 'pageVisit'; route: string; landing: boolean }
     | { type: 'toolOpen'; tool: string }
+    | { type: 'dialogTabView'; dialog: string; tab: string; landing: boolean }
+    | {
+          type: 'longFrame';
+          route: string;
+          dialog: string | null;
+          duration_ms: number;
+      }
+    | { type: 'slowCommand'; command: string; duration_ms: number }
     | {
           type: 'routeError';
           error_class: string;
@@ -7700,6 +7821,8 @@ export type ToolResultRecord = {
     summary: string;
     entities: Entity[];
     charts?: AssistantChart[];
+    /**  The user declined the approval card, so the call never ran. */
+    denied?: boolean;
     screenshots?: AssistantScreenshots | null;
 };
 

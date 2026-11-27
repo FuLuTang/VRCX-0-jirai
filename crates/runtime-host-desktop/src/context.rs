@@ -3,8 +3,8 @@ use std::sync::{Arc, Mutex};
 use vrcx_0_application::auth::AuthCredentialStore;
 use vrcx_0_application_activity::notification::{
     extract_file_version, fallback_file_version, reload_activity_router,
-    rename_local_favorite_group_in_activity_filters, CachedNotificationUserImageResolver,
-    NotificationRemoteFuture, NotificationResolver,
+    CachedNotificationUserImageResolver, NotificationDoNotDisturbSlot, NotificationRemoteFuture,
+    NotificationResolver,
 };
 use vrcx_0_application_activity::{ActivityRouter, ActivitySink, ActivitySinkRegistry};
 use vrcx_0_application_core::{
@@ -28,6 +28,7 @@ use vrcx_0_persistence::DatabaseService;
 
 use crate::chatbox::ChatboxRuntime;
 use crate::game_isolation::GameIsolationRuntime;
+use crate::heart_rate::HeartRateRuntime;
 use crate::host_actions::RuntimeHost;
 use crate::notification::{
     migrate_legacy_overlay_notification_keys, seed_hmd_notifications_default, DesktopNotifier,
@@ -53,6 +54,7 @@ pub(crate) struct DesktopRuntimeServicesDeps {
     pub activity_router: ActivityRouter,
     pub activity_sinks: ActivitySinkRegistry,
     pub notification_projection_observers: RealtimeNotificationProjectionObserverRegistry,
+    pub notification_do_not_disturb_slot: NotificationDoNotDisturbSlot,
 }
 
 pub struct DesktopRuntimeServices {
@@ -79,6 +81,7 @@ pub struct DesktopRuntimeServices {
     game_log_snapshot: RuntimeSnapshotStore,
     now_playing: NowPlayingStore,
     chatbox: Arc<ChatboxRuntime>,
+    heart_rate: Arc<HeartRateRuntime>,
 }
 
 impl DesktopRuntimeServices {
@@ -100,6 +103,8 @@ impl DesktopRuntimeServices {
             host.clone(),
             deps.tasks.clone(),
         )?;
+        deps.notification_do_not_disturb_slot
+            .set(Arc::new(notification_do_not_disturb.clone()));
         let game_isolation =
             GameIsolationRuntime::new(deps.config.clone(), deps.event_bus.clone(), host.clone())?;
         let privacy_lock = Arc::new(PrivacyLockRuntime::new(
@@ -137,11 +142,18 @@ impl DesktopRuntimeServices {
                 policy: Arc::clone(&notification_policy),
             }));
         deps.activity_sinks.add(notification_sink);
+        let heart_rate = Arc::new(HeartRateRuntime::new(
+            deps.config.clone(),
+            deps.session.clone(),
+            game_isolation.clone(),
+            deps.event_bus.clone(),
+        ));
         let chatbox = Arc::new(ChatboxRuntime::new(
             deps.config.clone(),
             deps.session.clone(),
             game_isolation.clone(),
             deps.event_bus.clone(),
+            Arc::clone(&heart_rate),
         ));
         Ok(Self {
             web: deps.web,
@@ -167,21 +179,8 @@ impl DesktopRuntimeServices {
             game_log_snapshot: RuntimeSnapshotStore::default(),
             now_playing: NowPlayingStore::default(),
             chatbox,
+            heart_rate,
         })
-    }
-
-    pub fn rename_local_favorite_group_in_activity_filters(
-        &self,
-        group_name: &str,
-        new_group_name: &str,
-    ) -> vrcx_0_application_core::Result<()> {
-        rename_local_favorite_group_in_activity_filters(
-            self.config.as_ref(),
-            group_name,
-            new_group_name,
-        )?;
-        self.reload_overlay_activity_filters();
-        Ok(())
     }
 
     pub fn reload_overlay_activity_filters(&self) {
@@ -249,6 +248,10 @@ impl DesktopRuntimeServices {
 
     pub fn chatbox(&self) -> Arc<ChatboxRuntime> {
         Arc::clone(&self.chatbox)
+    }
+
+    pub fn heart_rate(&self) -> Arc<HeartRateRuntime> {
+        Arc::clone(&self.heart_rate)
     }
 
     pub fn event_bus(&self) -> RuntimeEventBus {

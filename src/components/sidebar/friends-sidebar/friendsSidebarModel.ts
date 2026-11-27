@@ -1,12 +1,8 @@
-import { presenceDotClassName, presenceOf } from '@/domain/friends/presence';
+import type { SidebarFriendRecord } from '@/components/friends/friendStatusModel';
 import {
     buildSameInstanceFriendGroups,
     type SameInstanceLastLocation
 } from '@/domain/friends/sameInstanceFriends';
-import type {
-    FriendProfileFields,
-    FriendRecordInput
-} from '@/domain/friends/types';
 import {
     compareByActiveStatus,
     getFriendsSortFunction,
@@ -17,24 +13,6 @@ import { getTrustColor, type TrustColorMap } from '@/shared/utils/trustColors';
 import { computeTrustLevel } from '@/shared/utils/userTransforms';
 import type { FriendLocationTimeEntry } from '@/state/friendLocationTimeStore';
 
-export type SidebarFriendRecord = FriendRecordInput &
-    Partial<FriendProfileFields> & {
-        $friendNumber?: number;
-        $userColour?: string;
-        created_at?: string;
-        developerType?: string;
-        displayName?: string;
-        id?: string;
-        last_activity?: string | number;
-        last_login?: string | number;
-        memberCount?: number;
-        name?: string;
-        tags?: string[];
-        updated_at?: string;
-        username?: string;
-        isFriend?: boolean;
-    };
-
 export type SidebarPreferences = {
     isHideFriendsInSameInstance?: boolean;
     isSameInstanceAboveFavorites?: boolean;
@@ -42,13 +20,10 @@ export type SidebarPreferences = {
     sidebarFavoriteGroupOrder?: string[];
     sidebarFavoriteGroups?: string[];
     sidebarGroupByInstance?: boolean;
+    sidebarCompactRows?: boolean;
     sidebarSortMethod1?: FriendSortMethod | '';
     sidebarSortMethod2?: FriendSortMethod | '';
     sidebarSortMethod3?: FriendSortMethod | '';
-};
-
-type SidebarStatusOptions = {
-    hideNonFriend?: boolean;
 };
 
 export type SameInstanceGroup = {
@@ -103,16 +78,6 @@ export function resolveTrustNameColour(
         );
     }
     return getTrustColor(friend, trustColor);
-}
-
-export function resolveSidebarStatusDotClassName(
-    friend: SidebarFriendRecord | null | undefined,
-    { hideNonFriend = true }: SidebarStatusOptions = {}
-) {
-    if (!friend || (hideNonFriend && friend.isFriend === false)) {
-        return '';
-    }
-    return presenceDotClassName(presenceOf(friend), friend.status);
 }
 
 export function sortRows<TRow extends SidebarFriendRecord>(

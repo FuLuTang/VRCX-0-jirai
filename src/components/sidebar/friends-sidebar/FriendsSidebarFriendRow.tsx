@@ -1,10 +1,15 @@
 import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { DeferredContextMenu } from '@/components/DeferredContextMenu';
 import {
     FriendInstanceTimer,
     FriendLocationTimer
 } from '@/components/friends/FriendInstanceTimer';
+import {
+    resolveSidebarStatusDotClassName,
+    type SidebarFriendRecord
+} from '@/components/friends/friendStatusModel';
 import { usePendingOfflineBlink } from '@/components/friends/usePendingOfflineBlink';
 import { useRecentlyOnline } from '@/components/friends/useRecentlyOnline';
 import type { LocationMetadata } from '@/components/location/useLocationMetadata';
@@ -14,8 +19,8 @@ import {
     useDecorationHover
 } from '@/components/ProfileDecorations';
 import { UserHoverCard } from '@/components/user-hover-card/UserHoverCard';
-import { UserDetailContent } from '@/components/UserDetailTile';
 import type { InstanceRosterTimestamp } from '@/domain/instances/instanceRoster';
+import { cn } from '@/lib/utils';
 import type { UserStatus } from '@/platform/tauri/bindings';
 import { getNameColour, userImage } from '@/services/entityMediaService';
 import { TRUST_COLOR_DEFAULTS } from '@/shared/constants/trustColors';
@@ -25,7 +30,6 @@ import type { FriendLocationTimeEntry } from '@/state/friendLocationTimeStore';
 import { useShellStore } from '@/state/shellStore';
 import { buttonVariants } from '@/ui/shadcn/button';
 import {
-    ContextMenu,
     ContextMenuCheckboxItem,
     ContextMenuContent,
     ContextMenuGroup,
@@ -33,8 +37,7 @@ import {
     ContextMenuSeparator,
     ContextMenuSub,
     ContextMenuSubContent,
-    ContextMenuSubTrigger,
-    ContextMenuTrigger
+    ContextMenuSubTrigger
 } from '@/ui/shadcn/context-menu';
 import {
     DropdownMenu,
@@ -52,11 +55,8 @@ import {
     resolveFriendRowLocationState,
     StaticSidebarLocation
 } from './FriendsSidebarLocation';
-import {
-    resolveSidebarStatusDotClassName,
-    resolveTrustNameColour,
-    type SidebarFriendRecord
-} from './friendsSidebarModel';
+import { resolveTrustNameColour } from './friendsSidebarModel';
+import { SidebarUserRowContent } from './SidebarUserRowContent';
 import { useSidebarMenuDoubleClick } from './useSidebarMenuDoubleClick';
 
 export function resolveFriendRowDisplay(
@@ -138,6 +138,7 @@ type FriendRowAppearance = {
     currentLocationStartedAt?: InstanceRosterTimestamp | null;
     showAvatarFrame?: boolean;
     showNameplate?: boolean;
+    compact?: boolean;
 };
 
 type FriendRowProps = {
@@ -190,7 +191,8 @@ export function FriendRow({
         ageGatedInstancesVisible = false,
         currentLocationStartedAt = null,
         showAvatarFrame = false,
-        showNameplate = false
+        showNameplate = false,
+        compact = false
     } = appearance || {};
     const decorationHover = useDecorationHover();
     const recentlyOnline = useRecentlyOnline(friend.id || '');
@@ -250,8 +252,10 @@ export function FriendRow({
             data-size="default"
             className={buttonVariants({
                 variant: 'ghost',
-                className:
-                    'relative isolate h-auto w-full min-w-0 justify-start gap-2 p-1.5 text-left font-normal'
+                className: cn(
+                    'relative isolate h-auto w-full min-w-0 justify-start gap-2 text-left font-normal',
+                    compact ? 'px-1.5 py-1' : 'p-1.5'
+                )
             })}
             data-pending-offline={isPendingOffline || undefined}
             onClick={sidebarWindowMode ? undefined : onOpen}
@@ -263,10 +267,10 @@ export function FriendRow({
                     active={decorationActive}
                 />
             ) : null}
-            <UserDetailContent
+            <SidebarUserRowContent
+                compact={compact}
                 imageUrl={imageUrl}
                 statusDotClassName={statusDotClassName}
-                avatarClassName="size-10"
                 avatarFrame={
                     iconFrameId ? (
                         <ProfileAvatarFrame
@@ -362,37 +366,30 @@ export function FriendRow({
         podButton
     );
 
-    return (
-        <ContextMenu>
-            {isCurrentUser ? (
-                <ContextMenuTrigger
-                    render={
-                        <div className="group flex w-full min-w-0 items-center gap-0.5">
-                            <div className="min-w-0 flex-1">{rowButton}</div>
-                            <AccountSwitcherPopover />
-                        </div>
-                    }
-                />
-            ) : (
-                <UserHoverCard
-                    userId={friend?.id}
-                    seed={friend}
-                    disabled={isCurrentUser}
-                >
-                    <ContextMenuTrigger
-                        render={
-                            sidebarWindowMode ? (
-                                <div>{rowButton}</div>
-                            ) : (
-                                podButton
-                            )
-                        }
-                    />
-                </UserHoverCard>
-            )}
-            <ContextMenuContent className="w-max max-w-[calc(100vw-1rem)] min-w-56">
-                {menuItems}
-            </ContextMenuContent>
-        </ContextMenu>
+    const menuContent = (
+        <ContextMenuContent className="w-max max-w-[calc(100vw-1rem)] min-w-56">
+            {menuItems}
+        </ContextMenuContent>
+    );
+
+    return isCurrentUser ? (
+        <DeferredContextMenu
+            trigger={
+                <div className="group flex w-full min-w-0 items-center gap-0.5">
+                    <div className="min-w-0 flex-1">{rowButton}</div>
+                    <AccountSwitcherPopover />
+                </div>
+            }
+        >
+            {menuContent}
+        </DeferredContextMenu>
+    ) : (
+        <UserHoverCard userId={friend?.id} seed={friend}>
+            <DeferredContextMenu
+                trigger={sidebarWindowMode ? <div>{rowButton}</div> : podButton}
+            >
+                {menuContent}
+            </DeferredContextMenu>
+        </UserHoverCard>
     );
 }

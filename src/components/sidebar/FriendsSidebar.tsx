@@ -1,7 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import {
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState
+} from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { CurrentUserSocialStatusDialog } from '@/components/dialogs/user-dialog/UserSelfEditDialogs';
+import { type SidebarFriendRecord } from '@/components/friends/friendStatusModel';
 import { useLocationMetadataBatch } from '@/components/location/useLocationMetadata';
 import { handleSidebarRowArrowNavigation } from '@/components/sidebar/sidebarRowArrowNavigation';
 import { useVirtualSidebarRows } from '@/components/sidebar/useVirtualSidebarRows';
@@ -22,6 +30,7 @@ import {
 import type { FriendRecord, FriendRosterById } from '@/domain/friends/types';
 import { useCurrentInviteContext } from '@/lib/useCurrentInviteContext';
 import { useFriendSortContext } from '@/lib/useFriendStats';
+import type { UserStatus } from '@/platform/tauri/bindings';
 import { subscribeRecentActions } from '@/services/recentActionService';
 import {
     buildLocalInstanceActionGateMap,
@@ -37,13 +46,13 @@ import {
     buildFavoriteCollectionSameInstanceGroups,
     buildFavoriteCollectionSidebarVirtualRows
 } from './friends-sidebar/favoriteCollectionSidebarRows';
+import type { StatusPreset } from './friends-sidebar/FriendsSidebarActionItems';
 import {
     buildSameInstanceGroups,
     friendMatchesSidebarFilterQuery,
     normalizeSidebarFilterQuery,
     sortActiveRows,
     sortRows,
-    type SidebarFriendRecord,
     type SidebarPreferences
 } from './friends-sidebar/friendsSidebarModel';
 import {
@@ -56,7 +65,10 @@ import {
 } from './friends-sidebar/friendsSidebarVirtualRowBuilder';
 import { FriendsSidebarVirtualRow } from './friends-sidebar/FriendsSidebarVirtualRows';
 import { useFriendsSidebarActions } from './friends-sidebar/useFriendsSidebarActions';
-import { useFriendsSidebarPreferences } from './friends-sidebar/useFriendsSidebarPreferences';
+import {
+    useFriendsSidebarPreferences,
+    type FriendsSidebarGroupKey
+} from './friends-sidebar/useFriendsSidebarPreferences';
 import { useFriendsSidebarDisplayPreferences } from './useFriendsSidebarDisplayPreferences';
 import { useFriendsSidebarFavoriteState } from './useFriendsSidebarFavoriteState';
 import { useFriendsSidebarRosterState } from './useFriendsSidebarRosterState';
@@ -308,12 +320,11 @@ export function FriendsSidebar({
             ...(favoriteFriendGroups || [])
                 .map((group) => group.key)
                 .filter((key): key is string => Boolean(key)),
-            ...(localFriendFavoriteGroups?.length
-                ? localFriendFavoriteGroups
-                : Object.keys(localFriendFavorites || {})
-            ).map((groupName) => `local:${groupName}`)
+            ...(localFriendFavoriteGroups || []).map(
+                (group) => `local:${group.id}`
+            )
         ],
-        [favoriteFriendGroups, localFriendFavoriteGroups, localFriendFavorites]
+        [favoriteFriendGroups, localFriendFavoriteGroups]
     );
     const hasFavoriteGroupFilter = useMemo(
         () =>
@@ -608,27 +619,25 @@ export function FriendsSidebar({
                     String(right.displayName || right.name || right.key || '')
                 );
             });
-        const orderedLocalGroups = [
-            ...(localFriendFavoriteGroups?.length
-                ? localFriendFavoriteGroups
-                : Object.keys(localFriendFavorites || {}))
-        ].sort((left, right) => {
-            const order = Array.isArray(prefs.sidebarFavoriteGroupOrder)
-                ? prefs.sidebarFavoriteGroupOrder
-                : [];
-            const leftIndex = order.indexOf(`local:${left}`);
-            const rightIndex = order.indexOf(`local:${right}`);
-            if (leftIndex >= 0 && rightIndex >= 0) {
-                return leftIndex - rightIndex;
+        const orderedLocalGroups = [...(localFriendFavoriteGroups || [])].sort(
+            (left, right) => {
+                const order = Array.isArray(prefs.sidebarFavoriteGroupOrder)
+                    ? prefs.sidebarFavoriteGroupOrder
+                    : [];
+                const leftIndex = order.indexOf(`local:${left.id}`);
+                const rightIndex = order.indexOf(`local:${right.id}`);
+                if (leftIndex >= 0 && rightIndex >= 0) {
+                    return leftIndex - rightIndex;
+                }
+                if (leftIndex >= 0) {
+                    return -1;
+                }
+                if (rightIndex >= 0) {
+                    return 1;
+                }
+                return 0;
             }
-            if (leftIndex >= 0) {
-                return -1;
-            }
-            if (rightIndex >= 0) {
-                return 1;
-            }
-            return 0;
-        });
+        );
 
         for (const group of orderedRemoteGroups) {
             if (!selectedFavoriteGroupKeys.has(group.key)) {
@@ -651,11 +660,14 @@ export function FriendsSidebar({
             }
         }
 
-        for (const groupName of orderedLocalGroups) {
-            if (!selectedFavoriteGroupKeys.has(`local:${groupName}`)) {
+        for (const localGroup of orderedLocalGroups) {
+            const localKey = `local:${localGroup.id}`;
+            if (!selectedFavoriteGroupKeys.has(localKey)) {
                 continue;
             }
-            const rowsForGroup = (localFriendFavorites?.[groupName] || [])
+            const rowsForGroup = (
+                localFriendFavorites?.[String(localGroup.id)] || []
+            )
                 .map((id) => favoriteRowById.get(normalizeId(id)))
                 .filter(isPresent);
             if (rowsForGroup.length) {
@@ -663,8 +675,8 @@ export function FriendsSidebar({
                     seen.add(normalizeId(friend.id))
                 );
                 sections.push({
-                    key: `local:${groupName}`,
-                    label: groupName,
+                    key: localKey,
+                    label: localGroup.name,
                     rows: sortRows(rowsForGroup, prefs, sortContext)
                 });
             }
@@ -762,8 +774,14 @@ export function FriendsSidebar({
         t
     ]);
 
+    const sidebarCompactRows = Boolean(prefs.sidebarCompactRows);
+    const estimateRowSize = useCallback(
+        (row: (typeof virtualRows)[number], index: number) =>
+            estimateFriendSidebarRowSize(row, index, sidebarCompactRows),
+        [sidebarCompactRows]
+    );
     const { getRowRef, viewportRef, virtualItems, totalSize } =
-        useVirtualSidebarRows(virtualRows, estimateFriendSidebarRowSize);
+        useVirtualSidebarRows(virtualRows, estimateRowSize);
     const visibleLocationMetadataEntries = useMemo(
         () =>
             virtualItems
@@ -787,36 +805,85 @@ export function FriendsSidebar({
         gameState,
         instanceActionGatesByUserId
     };
-    const appearanceView = {
-        ageGatedInstancesVisible,
-        isDarkMode,
-        randomUserColours,
-        randomUserColourStyle,
-        recentActionVersion,
-        showInstanceIdInLocation,
-        showSidebarAvatarFrame,
-        showSidebarNameplate,
-        trustColor
-    };
+    const appearanceView = useMemo(
+        () => ({
+            ageGatedInstancesVisible,
+            isDarkMode,
+            randomUserColours,
+            randomUserColourStyle,
+            recentActionVersion,
+            showInstanceIdInLocation,
+            showSidebarAvatarFrame,
+            showSidebarNameplate,
+            sidebarCompactRows,
+            trustColor
+        }),
+        [
+            ageGatedInstancesVisible,
+            isDarkMode,
+            randomUserColours,
+            randomUserColourStyle,
+            recentActionVersion,
+            showInstanceIdInLocation,
+            showSidebarAvatarFrame,
+            showSidebarNameplate,
+            sidebarCompactRows,
+            trustColor
+        ]
+    );
     const locationView = {
         locationMetadataByKey,
         locationTimesByUserId
     };
-    const friendRowCommands = {
-        onOpenFriend: openFriend,
-        onToggleSection: toggleSection,
-        onSelfInvite: selfInviteToFriendLocation,
-        onInvite: sendFriendInvite,
-        onRequestInvite: requestFriendInvite,
-        onBoop: sendFriendBoop
+    const rowHandlers = {
+        applyCurrentUserStatusPreset,
+        changeCurrentUserStatus,
+        editCurrentUserSocialStatus,
+        openFriend,
+        requestFriendInvite,
+        selfInviteToFriendLocation,
+        sendFriendBoop,
+        sendFriendInvite,
+        setCurrentUserStatusDescription,
+        toggleSection
     };
-    const statusCommands = {
-        statusPresets,
-        onChangeStatus: changeCurrentUserStatus,
-        onSetStatusDescription: setCurrentUserStatusDescription,
-        onEditSocialStatus: editCurrentUserSocialStatus,
-        onApplyStatusPreset: applyCurrentUserStatusPreset
-    };
+    const latestRowHandlers = useRef(rowHandlers);
+    useLayoutEffect(() => {
+        latestRowHandlers.current = rowHandlers;
+    });
+    const friendRowCommands = useMemo(
+        () => ({
+            onOpenFriend: (friend: SidebarFriendRecord) =>
+                latestRowHandlers.current.openFriend(friend),
+            onToggleSection: (id: FriendsSidebarGroupKey) =>
+                latestRowHandlers.current.toggleSection(id),
+            onSelfInvite: (location: string) =>
+                latestRowHandlers.current.selfInviteToFriendLocation(location),
+            onInvite: (friend: SidebarFriendRecord) =>
+                latestRowHandlers.current.sendFriendInvite(friend),
+            onRequestInvite: (friend: SidebarFriendRecord) =>
+                latestRowHandlers.current.requestFriendInvite(friend),
+            onBoop: (friend: SidebarFriendRecord) =>
+                latestRowHandlers.current.sendFriendBoop(friend)
+        }),
+        []
+    );
+    const statusCommands = useMemo(
+        () => ({
+            statusPresets,
+            onChangeStatus: (status: UserStatus) =>
+                latestRowHandlers.current.changeCurrentUserStatus(status),
+            onSetStatusDescription: (statusDescription: string) =>
+                latestRowHandlers.current.setCurrentUserStatusDescription(
+                    statusDescription
+                ),
+            onEditSocialStatus: () =>
+                latestRowHandlers.current.editCurrentUserSocialStatus(),
+            onApplyStatusPreset: (preset: StatusPreset) =>
+                latestRowHandlers.current.applyCurrentUserStatusPreset(preset)
+        }),
+        [statusPresets]
+    );
 
     return (
         <>

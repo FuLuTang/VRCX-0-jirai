@@ -6,19 +6,18 @@ use std::sync::{
 };
 use std::time::{Duration, Instant};
 
-use chrono::{Datelike, Local, Timelike};
 use uuid::Uuid;
 use vrcx_0_application_core::{
-    BackendRuntime, BackendRuntimeMode, ConfigStore, HostSessionRuntime, RuntimeAuthScope,
-    TaskStopToken, TaskSupervisor,
+    ConfigStore, HostSessionRuntime, RuntimeAuthScope, TaskStopToken, TaskSupervisor,
 };
 use vrcx_0_contracts::telemetry::{
-    AssistantHealthPayload, ClientErrorPayload, ConfigSnapshotPayload, PageHealthPayload,
-    TelemetryConfigSnapshot, TelemetryContext, TelemetryOfflineRecord, TelemetryRuntimeMode,
-    TelemetryVrcxOrigin, ToolUsagePayload,
+    AssistantHealthPayload, ClientErrorPayload, ConfigSnapshotPayload, DialogTabUsagePayload,
+    PageHealthPayload, PerformancePayload, TelemetryConfigSnapshot, TelemetryContext,
+    TelemetryOfflineRecord, TelemetryVrcxOrigin, ToolUsagePayload,
 };
 
 use super::accumulator::{TelemetryAccumulator, MAX_DETAILS_PER_PAYLOAD};
+use super::avatar_search::avatar_search_failure_detail;
 use super::event::TelemetryClientEvent;
 use super::scale::{db_size_bucket, friend_count_bucket, row_bucket, TelemetryDatabaseScale};
 
@@ -86,7 +85,6 @@ pub trait TelemetryEnvironment: Send + Sync {
     fn platform(&self) -> String;
     fn arch(&self) -> String;
     fn system_locale(&self) -> Option<String>;
-    fn timezone(&self) -> Option<String>;
     fn system_theme_category(&self) -> String;
     fn database_scale(&self) -> TelemetryDatabaseScale;
     fn legacy_vrcx_detected(&self) -> bool;
@@ -102,7 +100,6 @@ pub struct TelemetryRuntimeDeps {
     pub environment: Arc<dyn TelemetryEnvironment>,
     pub transport: Arc<dyn TelemetryTransport>,
     pub tasks: TaskSupervisor,
-    pub backend_runtime: BackendRuntime,
     pub auth_scope: RuntimeAuthScope,
     pub session: HostSessionRuntime,
     pub app_version: String,
@@ -113,7 +110,6 @@ struct TelemetryRuntimeInner {
     environment: Arc<dyn TelemetryEnvironment>,
     transport: Arc<dyn TelemetryTransport>,
     tasks: TaskSupervisor,
-    backend_runtime: BackendRuntime,
     auth_scope: RuntimeAuthScope,
     session: HostSessionRuntime,
     app_version: String,
@@ -158,7 +154,6 @@ impl TelemetryRuntime {
                 environment: deps.environment,
                 transport: deps.transport,
                 tasks: deps.tasks,
-                backend_runtime: deps.backend_runtime,
                 auth_scope: deps.auth_scope,
                 session: deps.session,
                 app_version: normalize_app_version(&deps.app_version),
@@ -193,6 +188,17 @@ impl TelemetryRuntime {
         }
         match self.inner.state.lock() {
             Ok(mut state) => state.acc.record(event),
+            Err(error) => tracing::debug!("failed to lock telemetry accumulator: {error}"),
+        }
+    }
+
+    pub fn record_avatar_search_failure(&self, provider_url: &str, status: i32) {
+        if !self.usage_enabled() {
+            return;
+        }
+        let detail = avatar_search_failure_detail(provider_url, status, &self.inner.app_version);
+        match self.inner.state.lock() {
+            Ok(mut state) => state.acc.record_client_error(detail),
             Err(error) => tracing::debug!("failed to lock telemetry accumulator: {error}"),
         }
     }
@@ -572,13 +578,15 @@ impl TelemetryRuntime {
     }
 
     async fn flush_collectors_locked(&self, session: &TelemetrySession) {
-        let (routes, tools, assistant_health) = {
+        let (routes, tools, dialog_tabs, performance, assistant_health) = {
             let Ok(state) = self.inner.state.lock() else {
                 return;
             };
             (
                 state.acc.route_snapshot(),
                 state.acc.tool_snapshot(),
+                state.acc.dialog_tab_snapshot(),
+                state.acc.performance_snapshot(),
                 state.acc.assistant_health_snapshot(),
             )
         };
@@ -611,12 +619,39 @@ impl TelemetryRuntime {
                 }
             }
         }
+        if let Some(dialog_tabs) = dialog_tabs {
+            let payload = DialogTabUsagePayload {
+                context: context.clone(),
+                tabs: dialog_tabs.entries,
+            };
+            if self
+                .post_debug("/api/v1/telemetry/dialog-tabs", &payload, "dialog tabs")
+                .await
+            {
+                if let Ok(mut state) = self.inner.state.lock() {
+                    state.acc.mark_dialog_tabs_sent(dialog_tabs.revision);
+                }
+            }
+        }
+        if let Some(performance) = performance {
+            let payload = PerformancePayload {
+                context: context.clone(),
+                frames: performance.frames,
+                commands: performance.commands,
+            };
+            if self
+                .post_debug("/api/v1/telemetry/performance", &payload, "performance")
+                .await
+            {
+                if let Ok(mut state) = self.inner.state.lock() {
+                    state.acc.mark_performance_sent(performance.revision);
+                }
+            }
+        }
         if let Some(assistant_health) = assistant_health {
             let payload = AssistantHealthPayload {
                 context: context.clone(),
-                tool_errors: assistant_health.entry.tool_errors,
-                turn_errors: assistant_health.entry.turn_errors,
-                details: assistant_health.entry.details,
+                details: assistant_health.details,
             };
             if self
                 .post_debug(
@@ -686,7 +721,6 @@ impl TelemetryRuntime {
     }
 
     fn context(&self, session: &TelemetrySession, session_ended: Option<bool>) -> TelemetryContext {
-        let now = Local::now();
         TelemetryContext {
             install_id: session.install_id.clone(),
             session_id: session.session_id.clone(),
@@ -694,14 +728,6 @@ impl TelemetryRuntime {
             platform: self.inner.environment.platform(),
             arch: self.inner.environment.arch(),
             locale: self.locale(),
-            timezone: self
-                .inner
-                .environment
-                .timezone()
-                .unwrap_or_else(|| "unknown".into()),
-            mode: runtime_mode(self.inner.backend_runtime.snapshot().mode),
-            local_weekday: local_weekday_number(now.weekday()),
-            local_hour: now.hour(),
             session_ended,
             vrchat_seen: None,
             signed_in: None,
@@ -729,7 +755,6 @@ impl TelemetryRuntime {
 
     fn basic_context(&self, session: &TelemetrySession) -> TelemetryContext {
         TelemetryContext {
-            mode: TelemetryRuntimeMode::Foreground,
             basic: Some(true),
             ..self.context(session, None)
         }
@@ -737,20 +762,12 @@ impl TelemetryRuntime {
 
     fn config_snapshot(&self, scale: TelemetryDatabaseScale) -> TelemetryConfigSnapshot {
         TelemetryConfigSnapshot {
-            auto_state_change_enabled: has_enabled_rules(
-                &self.config_string("presenceAutomationContextRules", "[]"),
-            ),
             auto_accept_invite_requests: normalize_enum_value(
                 &self.config_string("autoAcceptInviteRequests", "Off"),
-            ),
-            avatar_auto_cleanup: normalize_enum_value(
-                &self.config_string("avatarAutoCleanup", "Off"),
             ),
             theme_mode: self.theme_category(),
             db_size_bucket: db_size_bucket(scale.db_bytes),
             feed_rows_bucket: row_bucket(scale.feed_rows),
-            gamelog_rows_bucket: row_bucket(scale.gamelog_rows),
-            friend_log_rows_bucket: row_bucket(scale.friend_log_rows),
             friend_count_bucket: friend_count_bucket(scale.friend_count),
             vrcx_origin: self.vrcx_origin(),
             offline_record: self.offline_record(),
@@ -963,14 +980,6 @@ fn account_snapshot_ready(friend_count: Option<i64>, signed_in_for: Duration) ->
     friend_count.is_some_and(|count| count > 0) || signed_in_for >= ACCOUNT_SNAPSHOT_FRIEND_GRACE
 }
 
-fn runtime_mode(mode: BackendRuntimeMode) -> TelemetryRuntimeMode {
-    match mode {
-        BackendRuntimeMode::Foreground => TelemetryRuntimeMode::Foreground,
-        BackendRuntimeMode::Background => TelemetryRuntimeMode::Background,
-        BackendRuntimeMode::Headless => TelemetryRuntimeMode::Headless,
-    }
-}
-
 fn heartbeat_interval(heartbeats_scheduled: usize) -> Duration {
     EARLY_HEARTBEAT_INTERVALS
         .get(heartbeats_scheduled)
@@ -984,22 +993,6 @@ fn is_heartbeat_due(last: Option<Instant>, now: Instant, interval: Duration) -> 
 
 fn attempt_due(last_attempt: Option<Instant>, now: Instant) -> bool {
     last_attempt.is_none_or(|last| now.duration_since(last) >= SEND_RETRY_BACKOFF)
-}
-
-fn local_weekday_number(weekday: chrono::Weekday) -> u32 {
-    weekday.num_days_from_sunday()
-}
-
-fn has_enabled_rules(raw_rules: &str) -> bool {
-    serde_json::from_str::<serde_json::Value>(raw_rules)
-        .ok()
-        .as_ref()
-        .and_then(serde_json::Value::as_array)
-        .is_some_and(|rules| {
-            rules
-                .iter()
-                .any(|rule| rule.get("enabled").and_then(serde_json::Value::as_bool) != Some(false))
-        })
 }
 
 fn normalize_enum_value(value: &str) -> String {

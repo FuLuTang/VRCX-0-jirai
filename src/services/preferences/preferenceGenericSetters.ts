@@ -1,3 +1,4 @@
+import { STORAGE_KEYS, writeStoredText } from '@/lib/browserStorage';
 import { normalizeLanguageCode } from '@/localization/locales';
 import { commands } from '@/platform/tauri/bindings';
 import configRepository from '@/repositories/configRepository';
@@ -28,6 +29,12 @@ import {
     configureRecentActionCooldown,
     readRecentActionCooldown
 } from '../recentActionService';
+import {
+    removeShellMenuNotify,
+    setShellNotificationIconDot,
+    setShellNotificationLayout,
+    setShellTaskbarIconDot
+} from '../shellNotificationDotService';
 import {
     applyAppFontPreferences,
     applyThemeColor,
@@ -134,7 +141,7 @@ export async function setRightSidebarOpenPreference(open: boolean) {
 export async function setNavWidthPreference(value: string | number) {
     const width = normalizeNavWidth(value);
     useShellStore.getState().setNavWidth(width);
-    await configRepository.setInt('VRCX_navPanelWidth', width);
+    writeStoredText(STORAGE_KEYS.navPanelWidth, String(width));
     patchPreferences({ navPanelWidth: width });
     return width;
 }
@@ -143,7 +150,7 @@ export async function setNotificationLayoutPreference(
     layout: NotificationLayout
 ) {
     await configRepository.setString('notificationLayout', layout);
-    useShellStore.getState().setNotificationLayout(layout);
+    setShellNotificationLayout(layout);
     patchPreferences({ notificationLayout: layout });
     publishPreferenceChanged('notificationLayout', layout);
     return layout;
@@ -304,11 +311,11 @@ export async function setBoolConfigPreference(
     await configRepository.setBool(key, enabled);
     const normalizedKey = normalizePreferenceKey(key);
     if (normalizedKey === 'notificationIconDot') {
-        useShellStore.getState().setNotificationIconDot(enabled);
+        setShellNotificationIconDot(enabled);
     } else if (normalizedKey === 'taskbarIconDot') {
-        useShellStore.getState().setTaskbarIconDot(enabled);
+        setShellTaskbarIconDot(enabled);
     } else if (normalizedKey === 'friendLogNotificationDot' && !enabled) {
-        useShellStore.getState().removeNotify('friend-log');
+        removeShellMenuNotify('friend-log');
     } else if (normalizedKey === 'hideNicknames') {
         useShellStore.getState().setAppearancePreferences({
             hideNicknames: enabled

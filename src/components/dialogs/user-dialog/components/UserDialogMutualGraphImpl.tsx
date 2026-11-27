@@ -10,6 +10,7 @@ import { useMutualFriendLabels } from '@/lib/mutual-friends/useMutualFriendLabel
 import { useMutualFriendsLayoutSettings } from '@/lib/mutual-friends/useMutualFriendsLayoutSettings';
 import { useMutualFriendsSigmaLifecycle } from '@/lib/mutual-friends/useMutualFriendsSigmaLifecycle';
 import { openUserDialog } from '@/services/dialogService';
+import { userImage } from '@/services/entityMediaService';
 import { useResolvedThemeMode } from '@/services/themeService';
 import { useDialogStore } from '@/state/dialogStore';
 import { HintTooltip } from '@/ui/hint-tooltip';
@@ -31,12 +32,17 @@ import {
 export type UserDialogMutualGraphProps = {
     userId: string;
     displayName: string;
+    iconUrl: string;
     rows: readonly Record<string, unknown>[];
 };
+
+const EGO_MIN_NODE_SIZE = 10;
+const NODE_IMAGE_RESOLUTION = 128;
 
 export function UserDialogMutualGraph({
     userId,
     displayName,
+    iconUrl,
     rows
 }: UserDialogMutualGraphProps) {
     const graph = useMutualFriendGraphContext(true);
@@ -88,6 +94,16 @@ export function UserDialogMutualGraph({
             )
         };
     }, [egoGraph, resolvedTheme, userId]);
+    const nodeImageUrlById = useMemo(() => {
+        const urls = new Map<string, string>();
+        for (const row of [...rows, { id: userId, iconUrl }]) {
+            const url = userImage(row, NODE_IMAGE_RESOLUTION);
+            if (typeof row.id === 'string' && url) {
+                urls.set(row.id, url);
+            }
+        }
+        return urls;
+    }, [iconUrl, rows, userId]);
     const openNode = useCallback(
         (nodeId: string) => {
             if (nodeId !== userId) {
@@ -97,18 +113,22 @@ export function UserDialogMutualGraph({
         [userId]
     );
 
-    const sigma = useMutualFriendsSigmaLifecycle({
-        graph: egoGraph,
-        layoutSettings,
-        communityIndexById,
-        namedCommunityIndexes,
-        resolvedTheme,
-        crossCommunityOnly: false,
-        selectedNodeId: '',
-        selectedNodeIdRef,
-        onSelectNode: openNode,
-        forceLabels: true
-    });
+    const { isLayoutRunning, setGraphElementRef } =
+        useMutualFriendsSigmaLifecycle({
+            graph: egoGraph,
+            layoutSettings,
+            communityIndexById,
+            namedCommunityIndexes,
+            resolvedTheme,
+            crossCommunityOnly: false,
+            selectedNodeId: '',
+            selectedNodeIdRef,
+            onSelectNode: openNode,
+            forceLabels: true,
+            minNodeSize: EGO_MIN_NODE_SIZE,
+            emphasizedNodeId: userId,
+            nodeImageUrlById
+        });
 
     return (
         <div className="flex min-h-0 flex-1 flex-col gap-1.5">
@@ -119,10 +139,7 @@ export function UserDialogMutualGraph({
                 />
             ) : null}
             <div className="relative min-h-0 w-full flex-1 overflow-hidden rounded-md border">
-                <div
-                    ref={sigma.setGraphElementRef}
-                    className="absolute inset-0"
-                />
+                <div ref={setGraphElementRef} className="absolute inset-0" />
                 <Popover>
                     <HintTooltip
                         label={t('view.charts.mutual_friend.settings.title')}
@@ -167,7 +184,7 @@ export function UserDialogMutualGraph({
                         </Button>
                     </PopoverContent>
                 </Popover>
-                {sigma.isLayoutRunning ? (
+                {isLayoutRunning ? (
                     <div className="absolute inset-0 flex items-center justify-center">
                         <Spinner className="text-muted-foreground size-4" />
                     </div>

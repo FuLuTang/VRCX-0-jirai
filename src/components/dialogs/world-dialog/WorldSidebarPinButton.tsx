@@ -2,14 +2,14 @@ import { PinIcon, PinOffIcon } from 'lucide-react';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { toast } from '@/services/toastService';
+import { ToolbarIconButton } from '@/components/layout/ToolbarControls';
 import {
     hydrateSidebarTabLayout,
     pinWorldRoomsTab,
-    unpinWorldRoomsTab,
-    useSidebarTabStore
-} from '@/state/sidebarTabStore';
-import { Button } from '@/ui/shadcn/button';
+    unpinWorldRoomsTab
+} from '@/services/sidebarTabService';
+import { toast } from '@/services/toastService';
+import { useSidebarTabStore } from '@/state/sidebarTabStore';
 
 export function WorldSidebarPinButton({
     worldId,
@@ -51,22 +51,16 @@ export function WorldSidebarPinButton({
     }
 
     return (
-        <Button
-            type="button"
-            variant="outline"
-            size="xs"
-            className="ml-auto"
+        <ToolbarIconButton
+            icon={pinned ? PinOffIcon : PinIcon}
+            label={
+                pinned
+                    ? t('dialog.world.instances.unpin_from_sidebar')
+                    : t('dialog.world.instances.pin_to_sidebar')
+            }
+            active={pinned}
             disabled={!worldId || !hydrated}
             onClick={toggle}
-        >
-            {pinned ? (
-                <PinOffIcon data-icon="inline-start" />
-            ) : (
-                <PinIcon data-icon="inline-start" />
-            )}
-            {pinned
-                ? t('dialog.world.instances.unpin_from_sidebar')
-                : t('dialog.world.instances.pin_to_sidebar')}
-        </Button>
+        />
     );
 }

@@ -1,16 +1,11 @@
-import {
-    CrownIcon,
-    LockIcon,
-    PersonStandingIcon,
-    UserIcon
-} from 'lucide-react';
+import { CrownIcon, LockIcon, UsersIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { EntityAvatar } from '@/components/EntityAvatar';
 import { FriendLocationTimer } from '@/components/friends/FriendInstanceTimer';
-import { FadeInImage } from '@/components/media/FadeInImage';
-import { resolveSidebarStatusDotClassName } from '@/components/sidebar/friends-sidebar/friendsSidebarModel';
-import { UserDetailTile } from '@/components/UserDetailTile';
+import { resolveSidebarStatusDotClassName } from '@/components/friends/friendStatusModel';
+import { UserListItem } from '@/components/UserListItem';
 import type { EntityRecord } from '@/domain/entities/shared';
 import {
     presenceOf,
@@ -18,7 +13,6 @@ import {
     resolveFriendPresenceLocation
 } from '@/domain/friends/presence';
 import { useNowMs } from '@/lib/useNowMs';
-import { cn } from '@/lib/utils';
 import { userStatusLabel } from '@/shared/utils/userStatus';
 import { HintTooltip } from '@/ui/hint-tooltip';
 import { Button } from '@/ui/shadcn/button';
@@ -28,8 +22,9 @@ import {
     isUndisclosedMutualFriendRow,
     summarizeEntityRow,
     userIdForRow,
+    entityDescriptionSubtitle,
     userRowSubtitle,
-    worldOccupantSubtitle
+    worldOccupantCount
 } from '../userDialogRows';
 import { rowImage, type UserDialogEntityKind } from './userDialogEntityImages';
 import { EntityListState } from './UserDialogEntityListState';
@@ -105,14 +100,10 @@ export function EntityList({
                     kind === 'user'
                         ? userRowSubtitle(row, nowMs, t)
                         : kind === 'world'
-                          ? worldOccupantSubtitle(row)
-                          : typeof row.description === 'string'
-                            ? row.description
-                            : '';
-                const imageRoundedClassName =
-                    kind === 'user' ? 'rounded-full' : 'rounded-md';
-                const RowFallbackIcon =
-                    kind === 'avatar' ? PersonStandingIcon : UserIcon;
+                          ? ''
+                          : entityDescriptionSubtitle(row.description, label);
+                const occupants =
+                    kind === 'world' ? worldOccupantCount(row) : 0;
                 const userId = kind === 'user' ? userIdForRow(row) : '';
                 const rowPresence = kind === 'user' ? presenceOf(row) : null;
                 const isTraveling = rowPresence
@@ -149,12 +140,11 @@ export function EntityList({
 
                 if (kind === 'user') {
                     return (
-                        <UserDetailTile
+                        <UserListItem
                             key={rowKey}
                             userId={userId}
                             seed={row}
                             disabled={undisclosedMutualFriend}
-                            className="active:not-aria-[haspopup]:translate-y-0"
                             imageUrl={image}
                             statusDotClassName={dotClassName}
                             displayName={label || '\u2014'}
@@ -202,30 +192,10 @@ export function EntityList({
 
                 const content = (
                     <>
-                        <span className="relative size-9 shrink-0">
-                            {image ? (
-                                <FadeInImage
-                                    src={image}
-                                    alt=""
-                                    className={cn(
-                                        'size-9 object-cover',
-                                        imageRoundedClassName
-                                    )}
-                                />
-                            ) : (
-                                <span
-                                    className={cn(
-                                        'bg-muted flex size-9 items-center justify-center [&>svg]:size-4',
-                                        imageRoundedClassName
-                                    )}
-                                >
-                                    <RowFallbackIcon className="text-muted-foreground" />
-                                </span>
-                            )}
-                        </span>
+                        <EntityAvatar kind={kind} imageUrl={image} />
                         <span className="min-w-0 flex-1 overflow-hidden">
                             <span className="flex min-w-0 items-center gap-1">
-                                <span className="block truncate leading-snug font-medium">
+                                <span className="block truncate text-sm leading-5 font-medium">
                                     {label || '\u2014'}
                                 </span>
                                 {isPrivateWorld ? (
@@ -238,9 +208,24 @@ export function EntityList({
                                 ) : null}
                             </span>
                             {subtitle ? (
-                                <span className="text-muted-foreground block truncate text-xs">
+                                <span className="text-content-secondary block truncate text-xs leading-4">
                                     {subtitle}
                                 </span>
+                            ) : null}
+                            {occupants > 0 ? (
+                                <HintTooltip
+                                    label={t(
+                                        'dialog.user.worlds.current_occupants'
+                                    )}
+                                >
+                                    <span className="text-content-secondary flex w-fit items-center gap-1 text-xs leading-4 tabular-nums">
+                                        <UsersIcon
+                                            aria-hidden="true"
+                                            className="size-3"
+                                        />
+                                        {occupants}
+                                    </span>
+                                </HintTooltip>
                             ) : null}
                         </span>
                     </>
@@ -251,7 +236,7 @@ export function EntityList({
                         key={rowKey}
                         type="button"
                         variant="ghost"
-                        className="h-auto min-w-0 justify-start gap-2 px-1.5 py-1.5 text-left font-normal active:not-aria-[haspopup]:translate-y-0"
+                        className="h-auto min-w-0 justify-start gap-2.5 px-2 py-1.5 text-left font-normal active:not-aria-[haspopup]:translate-y-0"
                         onClick={() => openRow(row, kind)}
                     >
                         {content}

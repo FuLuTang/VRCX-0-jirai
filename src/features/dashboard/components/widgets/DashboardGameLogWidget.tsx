@@ -10,11 +10,14 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { AffinityBadge } from '@/components/affinity/AffinityBadge';
+import {
+    describeGameLogDetail,
+    getGameLogExternalTarget
+} from '@/components/game-log/gameLogRows';
+import { GAME_LOG_LIVE_REFRESH_THROTTLE_MS } from '@/components/game-log/gameLogTypes';
 import { Location } from '@/components/Location';
 import { buildFavoriteIdSet } from '@/domain/favorites/favoriteIdSet';
 import type { LoadStatus } from '@/domain/shared/types';
-import { describeGameLogDetail } from '@/features/game-log/gameLogRows';
-import { GAME_LOG_LIVE_REFRESH_THROTTLE_MS } from '@/features/game-log/gameLogTypes';
 import { userFacingErrorMessage } from '@/lib/errorDisplay';
 import { useThrottledValue } from '@/lib/useThrottledValue';
 import { cn } from '@/lib/utils';
@@ -207,11 +210,7 @@ function GameLogEntryContent({
             );
         case 'VideoPlay': {
             const videoLabel = row?.videoName || row?.videoUrl || '';
-            const canOpenVideo = Boolean(
-                row?.videoUrl &&
-                row?.videoId !== 'LSMedia' &&
-                row?.videoId !== 'PopcornPalace'
-            );
+            const canOpenVideo = Boolean(getGameLogExternalTarget(row));
             return (
                 <Tooltip>
                     <TooltipTrigger

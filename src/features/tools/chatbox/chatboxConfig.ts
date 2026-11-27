@@ -28,7 +28,8 @@ export const CHATBOX_VARIABLE_LABEL_KEYS: Record<ChatboxVariable, string> = {
     gpu: 'view.tools.chatbox.variables.gpu',
     vram: 'view.tools.chatbox.variables.vram',
     gputemp: 'view.tools.chatbox.variables.gputemp',
-    session: 'view.tools.chatbox.variables.session'
+    session: 'view.tools.chatbox.variables.session',
+    heartrate: 'view.tools.chatbox.variables.heartrate'
 };
 
 export function createChatboxLine(
@@ -156,25 +157,6 @@ export function moveChatboxLine(
         const lines = moveById(page.lines, activeId, overId);
         return lines ? { ...page, lines } : page;
     });
-}
-
-export function chatboxStatusLabelKey(status: ChatboxStatus): string {
-    if (status.pauseReason === 'isolated') {
-        return 'view.tools.chatbox.status.isolated';
-    }
-    if (status.pauseReason === 'gameNotRunning') {
-        return 'view.tools.chatbox.status.game_not_running';
-    }
-    switch (status.activity) {
-        case 'off':
-            return 'view.tools.chatbox.status.off';
-        case 'status':
-            return 'view.tools.chatbox.status.showing';
-        case 'manual':
-            return 'view.tools.chatbox.status.manual';
-        case 'afk':
-            return 'view.tools.chatbox.status.afk';
-    }
 }
 
 export function secondsUntilNextPage(

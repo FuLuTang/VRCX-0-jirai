@@ -36,6 +36,7 @@ export interface MutualFriendsGraphTheme {
     edgeManualColor: string;
     edgeActiveColor: string;
     labelColor: string;
+    emphasisLabelColor: string;
     hoverCardBackground: string;
     hoverCardForeground: string;
     hoverCardMutedForeground: string;
@@ -52,6 +53,22 @@ function readCssColor(
     }
     const value = getComputedStyle(container).getPropertyValue(property).trim();
     return value || fallback;
+}
+
+function resolveCssColorToRgba(value: string, fallback: string) {
+    if (!value) {
+        return fallback;
+    }
+    const context = document
+        .createElement('canvas')
+        .getContext('2d', { willReadFrequently: true });
+    if (!context) {
+        return fallback;
+    }
+    context.fillStyle = value;
+    context.fillRect(0, 0, 1, 1);
+    const [red, green, blue, alpha] = context.getImageData(0, 0, 1, 1).data;
+    return alpha ? `rgba(${red}, ${green}, ${blue}, ${alpha / 255})` : fallback;
 }
 
 export function mutualFriendsCommunityPalette(isDarkMode: boolean) {
@@ -83,6 +100,7 @@ export function buildMutualFriendsGraphTheme(
     isDarkMode: boolean,
     container: HTMLElement | null = null
 ): MutualFriendsGraphTheme {
+    const labelColor = isDarkMode ? '#e2e8f0' : '#111827';
     return {
         communityPalette: mutualFriendsCommunityPalette(isDarkMode),
         neutralCommunityColor: mutualFriendsNeutralCommunityColor(isDarkMode),
@@ -91,7 +109,15 @@ export function buildMutualFriendsGraphTheme(
         edgeCrossColor: isDarkMode ? '#4d5f78' : '#a3b0c2',
         edgeManualColor: isDarkMode ? '#4ade80' : '#15803d',
         edgeActiveColor: isDarkMode ? '#8fa3bd' : '#64748b',
-        labelColor: isDarkMode ? '#e2e8f0' : '#111827',
+        labelColor,
+        emphasisLabelColor: resolveCssColorToRgba(
+            readCssColor(
+                container ?? document.documentElement,
+                '--primary',
+                ''
+            ),
+            labelColor
+        ),
         hoverCardBackground: readCssColor(
             container,
             '--popover',

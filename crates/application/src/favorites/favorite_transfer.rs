@@ -16,7 +16,7 @@ use vrcx_0_core::OwnerId;
 const FAVORITE_RECOVERED_GROUP: &str = "Recovered";
 const FAVORITE_TRANSFER_PAGE_SIZE: i32 = 300;
 const FAVORITE_TRANSFER_MAX_PAGES: usize = 50;
-const FAVORITE_TRANSFER_REMOTE_INTERVAL: Duration = Duration::from_millis(250);
+pub(super) const FAVORITE_TRANSFER_REMOTE_INTERVAL: Duration = Duration::from_millis(250);
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -145,15 +145,15 @@ pub(super) struct FavoriteTransferDeps<'a> {
     pub mutation: AuthenticatedMutationContext<'a>,
 }
 
-struct FavoriteTransferItemOutcome {
-    result: FavoriteTransferItemResult,
-    local_changed: bool,
-    remote_changed: bool,
+pub(super) struct FavoriteTransferItemOutcome {
+    pub(super) result: FavoriteTransferItemResult,
+    pub(super) local_changed: bool,
+    pub(super) remote_changed: bool,
 }
 
-struct OnlineFavoriteIndex {
-    by_object_id: HashMap<String, String>,
-    group_counts: HashMap<String, i64>,
+pub(super) struct OnlineFavoriteIndex {
+    pub(super) by_object_id: HashMap<String, String>,
+    pub(super) group_counts: HashMap<String, i64>,
 }
 
 pub fn favorite_transfer_plan_for_item(
@@ -346,7 +346,7 @@ async fn transfer_item(
     }
 }
 
-async fn run_remote_to_remote_move(
+pub(super) async fn run_remote_to_remote_move(
     deps: &FavoriteTransferDeps<'_>,
     input: &FavoriteTransferInput,
     item: &FavoriteTransferItem,
@@ -707,10 +707,10 @@ fn add_local_favorite(
 ) -> Result<i64> {
     deps.mutation.ensure_current()?;
     let affected = deps.store.add(
-        Some(&OwnerId::new(deps.mutation.scope().current_user_id.clone())),
+        Some(&current_owner(deps)),
         input.kind,
         normalize_text(&item.entity_id),
-        normalize_text(&input.target.group),
+        local_group_id(&input.target.group)?,
     )?;
     cache_world_snapshot_if_safe(deps.world_cache, input, item);
     Ok(affected)
@@ -722,17 +722,15 @@ fn add_local_fallback_favorite(
     item: &FavoriteTransferItem,
 ) -> Result<i64> {
     deps.mutation.ensure_current()?;
-    super::local_favorites::create_local_favorite_group(
-        deps.store,
-        &OwnerId::new(deps.mutation.scope().current_user_id.clone()),
-        input.kind,
-        FAVORITE_RECOVERED_GROUP.to_string(),
-    )?;
+    let owner = current_owner(deps);
+    let group = deps
+        .store
+        .create_group(Some(&owner), input.kind, FAVORITE_RECOVERED_GROUP)?;
     let affected = deps.store.add(
-        Some(&OwnerId::new(deps.mutation.scope().current_user_id.clone())),
+        Some(&owner),
         input.kind,
         normalize_text(&item.entity_id),
-        FAVORITE_RECOVERED_GROUP.to_string(),
+        group.id,
     )?;
     cache_world_snapshot_if_safe(deps.world_cache, input, item);
     Ok(affected)
@@ -745,10 +743,10 @@ fn delete_local_favorite(
 ) -> Result<i64> {
     deps.mutation.ensure_current()?;
     deps.store.remove(
-        Some(&OwnerId::new(deps.mutation.scope().current_user_id.clone())),
+        Some(&current_owner(deps)),
         input.kind,
         normalize_text(&item.entity_id),
-        normalize_text(&input.source.group),
+        local_group_id(&input.source.group)?,
     )
 }
 
@@ -759,16 +757,26 @@ fn move_local_favorite(
 ) -> Result<i64> {
     deps.mutation.ensure_current()?;
     let result = deps.store.move_between_groups(
-        Some(&OwnerId::new(deps.mutation.scope().current_user_id.clone())),
+        Some(&current_owner(deps)),
         input.kind,
         normalize_text(&item.entity_id),
-        normalize_text(&input.source.group),
-        normalize_text(&input.target.group),
+        local_group_id(&input.source.group)?,
+        local_group_id(&input.target.group)?,
     )?;
     Ok(result.removed + result.added)
 }
 
-fn kind_equivalent_favorite_types(kind: &str) -> &'static [&'static str] {
+fn current_owner(deps: &FavoriteTransferDeps<'_>) -> OwnerId {
+    OwnerId::new(deps.mutation.scope().current_user_id.clone())
+}
+
+pub(super) fn local_group_id(group: &str) -> Result<i64> {
+    normalize_text(group)
+        .parse::<i64>()
+        .map_err(|_| Error::Custom(format!("Invalid local favorite group id: {group}")))
+}
+
+pub(super) fn kind_equivalent_favorite_types(kind: &str) -> &'static [&'static str] {
     match kind {
         "world" => &["world", "vrcPlusWorld"],
         "avatar" => &["avatar"],
@@ -777,11 +785,11 @@ fn kind_equivalent_favorite_types(kind: &str) -> &'static [&'static str] {
     }
 }
 
-fn favorite_group_count_key(favorite_type: &str, group: &str) -> String {
+pub(super) fn favorite_group_count_key(favorite_type: &str, group: &str) -> String {
     format!("{favorite_type}:{group}")
 }
 
-async fn fetch_online_favorite_index(
+pub(super) async fn fetch_online_favorite_index(
     deps: &FavoriteTransferDeps<'_>,
     kind: &str,
 ) -> Result<OnlineFavoriteIndex> {
@@ -844,7 +852,7 @@ async fn fetch_online_favorite_index(
     })
 }
 
-async fn fetch_favorite_group_capacity(
+pub(super) async fn fetch_favorite_group_capacity(
     deps: &FavoriteTransferDeps<'_>,
     favorite_type: &str,
 ) -> Result<i64> {
@@ -1013,7 +1021,7 @@ fn remote_favorite_type(input: &FavoriteTransferInput) -> VrchatFavoriteType {
         .unwrap_or_else(|| input.kind.into())
 }
 
-fn ensure_vrchat_response_ok(status: i32, data: &str, action: &str) -> Result<()> {
+pub(super) fn ensure_vrchat_response_ok(status: i32, data: &str, action: &str) -> Result<()> {
     if status < 400 {
         return Ok(());
     }
@@ -1045,7 +1053,7 @@ fn cache_world_snapshot_if_safe(
     }
 }
 
-fn string_field(value: &Value, keys: &[&str]) -> Option<String> {
+pub(super) fn string_field(value: &Value, keys: &[&str]) -> Option<String> {
     for key in keys {
         let text = match value.get(*key) {
             Some(Value::String(text)) => normalize_text(text),

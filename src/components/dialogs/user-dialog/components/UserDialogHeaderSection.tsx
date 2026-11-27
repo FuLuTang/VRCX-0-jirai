@@ -6,7 +6,6 @@ import {
     GemIcon,
     GlobeIcon,
     PencilIcon,
-    StickyNoteIcon,
     UserPlusIcon,
     UserRoundIcon
 } from 'lucide-react';
@@ -20,8 +19,10 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useLanguageNames } from '@/components/language/useLanguageNames';
 import { UserStatusDot } from '@/components/UserStatusDot';
 import type { UserBadgeRecord } from '@/domain/entities/user';
+import { formatDateTime } from '@/lib/dateTime';
 import { userFacingErrorMessage } from '@/lib/errorDisplay';
 import { cn } from '@/lib/utils';
 import type { RecentActionType } from '@/services/recentActionService';
@@ -37,6 +38,7 @@ import {
     EntityFactList,
     EntityFactRow,
     EntityFactValue,
+    EntityLinkFactRow,
     EntityOverviewCard
 } from '../../EntityDialogScaffold';
 import type {
@@ -56,7 +58,6 @@ import {
     normalizePreviousDisplayNames
 } from '../userDialogRows';
 import { PreviousDisplayNamesBadge } from '../UserDialogViewParts';
-import { languageDisplayName } from '../userProfileFields';
 import { deriveUserRelationshipBadges } from '../userRelationshipBadges';
 import type {
     AvatarOverrideState,
@@ -173,8 +174,10 @@ function resolveProfileBackgroundStyle(
         const url = resolveUserDialogBackgroundTextureUrl(profile);
         if (url) {
             const overlay = 'color-mix(in oklch, var(--card) 55%, transparent)';
+            const lowerOverlay =
+                'color-mix(in oklch, var(--card) 82%, transparent)';
             return {
-                backgroundImage: `linear-gradient(${overlay}, ${overlay}), url("${url}")`,
+                backgroundImage: `linear-gradient(${overlay} 0, ${overlay} 20rem, ${lowerOverlay} 34rem), url("${url}")`,
                 backgroundPosition: 'top center',
                 backgroundRepeat: 'no-repeat',
                 backgroundSize: 'cover'
@@ -188,6 +191,7 @@ export interface UserHeaderModel {
     actionStatus: string;
     appearanceVisibility: UserDialogProfileAppearanceVisibility;
     avatarOverrideState: AvatarOverrideState;
+    bioLinks: string[];
     bannerColor: string;
     bannerFallbackUrl: string;
     canInviteFromCurrentLocation: boolean;
@@ -205,7 +209,6 @@ export interface UserHeaderModel {
     isFriend: boolean;
     loadStatus: string;
     moderationState: ModerationState;
-    noteSummary: string;
     platform: ReturnType<typeof resolvePlatformMeta>;
     PlatformIcon: ComponentType | null;
     previousDisplayNames: ReturnType<typeof normalizePreviousDisplayNames>;
@@ -229,6 +232,8 @@ export interface UserHeaderCommands {
     onCopyUserId: () => void;
     onCopyUsername?: () => void;
     onCopyUserUrl: () => void;
+    onCopyLink: (url: string) => void;
+    onOpenLink: (url: string) => void;
     onEditMemo: () => void;
     onEditSelfProfile: () => void;
     onEditSelfStatus: () => void;
@@ -370,13 +375,20 @@ function UserDialogHeaderFacts({
 }: {
     factsModel: Pick<
         UserHeaderModel,
-        'actionStatus' | 'isCurrentUser' | 'profile' | 'username' | 'userUrl'
+        | 'actionStatus'
+        | 'bioLinks'
+        | 'isCurrentUser'
+        | 'profile'
+        | 'username'
+        | 'userUrl'
     >;
     factsCommands: Pick<
         UserHeaderCommands,
         | 'onCopyUserId'
         | 'onCopyUsername'
         | 'onCopyUserUrl'
+        | 'onCopyLink'
+        | 'onOpenLink'
         | 'onOpenDiscordProfile'
         | 'onOpenUserUrl'
         | 'onToggleSelfAvatarCopying'
@@ -385,18 +397,31 @@ function UserDialogHeaderFacts({
         | 'onToggleSelfSharedConnections'
     >;
 }) {
-    const { t } = useTranslation();
+    const { i18n, t } = useTranslation();
     const {
         actionStatus = 'idle',
+        bioLinks,
         isCurrentUser,
         profile = {},
         username,
         userUrl
     } = model;
+    const dateJoined = profile.date_joined
+        ? formatDateTime(
+              profile.date_joined,
+              { dateStyle: 'medium' },
+              {
+                  appLocale: i18n.resolvedLanguage || i18n.language,
+                  fallback: ''
+              }
+          )
+        : '';
     const {
         onCopyUserId,
         onCopyUsername,
         onCopyUserUrl,
+        onCopyLink,
+        onOpenLink,
         onOpenDiscordProfile,
         onOpenUserUrl,
         onToggleSelfAvatarCopying,
@@ -410,14 +435,14 @@ function UserDialogHeaderFacts({
 
     return (
         <EntityFactList className="border-stroke-subtle border-t pt-3">
-            <HeaderPreferenceRow
-                label={t('dialog.user.info.avatar_cloning')}
-                checked={Boolean(profile.allowAvatarCopying)}
-                disabled={actionsDisabled}
-                onToggle={isCurrentUser ? onToggleSelfAvatarCopying : undefined}
-            />
             {isCurrentUser ? (
                 <>
+                    <HeaderPreferenceRow
+                        label={t('dialog.user.info.avatar_cloning')}
+                        checked={Boolean(profile.allowAvatarCopying)}
+                        disabled={actionsDisabled}
+                        onToggle={onToggleSelfAvatarCopying}
+                    />
                     <HeaderPreferenceRow
                         label={t('dialog.user.info.booping')}
                         checked={profile.isBoopingEnabled !== false}
@@ -484,6 +509,12 @@ function UserDialogHeaderFacts({
                     </EntityFactValue>
                 </EntityFactRow>
             ) : null}
+            {dateJoined ? (
+                <EntityFactRow
+                    label={t('dialog.user.info.date_joined')}
+                    value={dateJoined}
+                />
+            ) : null}
             {discordId ? (
                 <EntityFactRow label="Discord">
                     <EntityFactValue
@@ -498,6 +529,14 @@ function UserDialogHeaderFacts({
                     </EntityFactValue>
                 </EntityFactRow>
             ) : null}
+            {bioLinks.map((link) => (
+                <EntityLinkFactRow
+                    key={link}
+                    link={link}
+                    onOpen={onOpenLink}
+                    onCopy={onCopyLink}
+                />
+            ))}
         </EntityFactList>
     );
 }
@@ -510,11 +549,13 @@ export function UserDialogHeaderSection({
     headerCommands: UserHeaderCommands;
 }) {
     const { t } = useTranslation();
+    const { languageName, languageDetail } = useLanguageNames();
     const resolvedThemeMode = useResolvedThemeMode();
     const {
         actionStatus = 'idle',
         appearanceVisibility,
         avatarOverrideState,
+        bioLinks,
         bannerColor,
         bannerFallbackUrl,
         canInviteFromCurrentLocation,
@@ -532,7 +573,6 @@ export function UserDialogHeaderSection({
         isFriend,
         loadStatus,
         moderationState,
-        noteSummary,
         platform,
         PlatformIcon,
         previousDisplayNames,
@@ -555,6 +595,8 @@ export function UserDialogHeaderSection({
         onCopyUserId,
         onCopyUsername,
         onCopyUserUrl,
+        onCopyLink,
+        onOpenLink,
         onEditMemo,
         onEditSelfProfile,
         onEditSelfStatus,
@@ -628,6 +670,7 @@ export function UserDialogHeaderSection({
     };
     const factsModel = {
         actionStatus,
+        bioLinks,
         isCurrentUser,
         profile,
         username,
@@ -637,6 +680,8 @@ export function UserDialogHeaderSection({
         onCopyUserId,
         onCopyUsername,
         onCopyUserUrl,
+        onCopyLink,
+        onOpenLink,
         onOpenDiscordProfile,
         onOpenUserUrl,
         onToggleSelfAvatarCopying,
@@ -923,7 +968,6 @@ export function UserDialogHeaderSection({
                     {hasTitleMeta ? (
                         <HeaderMetaRow icon={<GlobeIcon />}>
                             {profileLanguages.map((language, index) => {
-                                const code = language.key.toUpperCase();
                                 return (
                                     <span
                                         key={language.key}
@@ -933,14 +977,17 @@ export function UserDialogHeaderSection({
                                             <TooltipTrigger
                                                 render={
                                                     <span className="cursor-default">
-                                                        {languageDisplayName(
-                                                            language
+                                                        {languageName(
+                                                            language.key
                                                         )}
                                                     </span>
                                                 }
                                             />
                                             <TooltipContent>
-                                                {code}
+                                                {languageDetail(
+                                                    language.key,
+                                                    language.value
+                                                )}
                                             </TooltipContent>
                                         </Tooltip>
                                         {index < profileLanguages.length - 1 ? (
@@ -952,21 +999,6 @@ export function UserDialogHeaderSection({
                                 );
                             })}
                         </HeaderMetaRow>
-                    ) : null}
-                    {noteSummary ? (
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            title={noteSummary}
-                            aria-label={t('dialog.user.actions.edit_note_memo')}
-                            className="text-muted-foreground hover:text-foreground h-auto w-full min-w-0 justify-start gap-2 p-0 text-left text-xs font-normal hover:bg-transparent dark:hover:bg-transparent"
-                            onClick={onEditMemo}
-                        >
-                            <HeaderRowIcon icon={<StickyNoteIcon />} />
-                            <span className="min-w-0 flex-1 truncate">
-                                {noteSummary}
-                            </span>
-                        </Button>
                     ) : null}
                 </div>
             </div>

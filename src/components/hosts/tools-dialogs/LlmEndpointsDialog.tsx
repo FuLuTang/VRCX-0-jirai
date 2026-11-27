@@ -5,31 +5,23 @@ import {
     SquarePenIcon,
     Trash2Icon
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/lib/utils';
+import type { LlmEndpointDto } from '@/platform/tauri/bindings';
 import {
-    type LlmEndpointDetectModelsResult,
-    type LlmEndpointDto,
-    type LlmModelReasoning
-} from '@/platform/tauri/bindings';
+    deleteLlmEndpoint,
+    detectLlmEndpointModels,
+    loadLlmEndpoints,
+    upsertLlmEndpoint
+} from '@/services/llmEndpointsService';
 import { toast } from '@/services/toastService';
 import { mergeModels, useLlmEndpointsStore } from '@/state/llmEndpointsStore';
+import { SecretInput } from '@/ui/secret-input';
 import { Badge } from '@/ui/shadcn/badge';
 import { Button } from '@/ui/shadcn/button';
-import {
-    Combobox,
-    ComboboxChip,
-    ComboboxChips,
-    ComboboxChipsInput,
-    ComboboxContent,
-    ComboboxEmpty,
-    ComboboxItem,
-    ComboboxList,
-    ComboboxValue,
-    useComboboxAnchor
-} from '@/ui/shadcn/combobox';
+import { Checkbox } from '@/ui/shadcn/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -63,10 +55,10 @@ import {
 } from './llmEndpointPresets';
 
 type EndpointDraft = LlmEndpointProviderDraft;
-type ResolvedModelsForSave = {
-    models: string[];
-    modelReasoning: LlmModelReasoning[] | null;
-};
+
+function parseModelIds(value: string): string[] {
+    return mergeModels(value.split(/[,\n]/));
+}
 
 function draftFromEndpoint(endpoint: LlmEndpointDto): EndpointDraft {
     return {
@@ -134,24 +126,32 @@ export function LlmEndpointsDialog({
     const { t } = useTranslation();
     const endpoints = useLlmEndpointsStore((state) => state.endpoints);
     const loading = useLlmEndpointsStore((state) => state.loading);
-    const load = useLlmEndpointsStore((state) => state.load);
-    const upsert = useLlmEndpointsStore((state) => state.upsert);
-    const deleteEndpoint = useLlmEndpointsStore(
-        (state) => state.deleteEndpoint
-    );
-    const detectModels = useLlmEndpointsStore((state) => state.detectModels);
     const [view, setView] = useState<'list' | 'edit'>('list');
     const [draft, setDraft] = useState<EndpointDraft>(
         createEmptyLlmEndpointDraft
     );
     const draftRef = useRef(draft);
-    draftRef.current = draft;
-    const [detectedModels, setDetectedModels] = useState<string[]>([]);
-    const [modelQuery, setModelQuery] = useState('');
+    useLayoutEffect(() => {
+        draftRef.current = draft;
+    });
+    const [catalog, setCatalog] = useState<{
+        target: EndpointDraft;
+        models: string[];
+    } | null>(null);
+    const detectionRevision = useRef(0);
+    const [modelSearch, setModelSearch] = useState('');
+    const [manualModels, setManualModels] = useState('');
     const [saving, setSaving] = useState(false);
-    const modelsAnchor = useComboboxAnchor();
     const baseUrlValid = isValidBaseUrl(draft.baseUrl);
-    const modelOptions = mergeModels(detectedModels, draft.models);
+    const modelOptions = mergeModels(
+        catalog && sameDetectionTarget(catalog.target, draft)
+            ? catalog.models
+            : [],
+        draft.models
+    );
+    const visibleModels = modelOptions.filter((model) =>
+        model.toLowerCase().includes(modelSearch.trim().toLowerCase())
+    );
     const providerOptions = [
         {
             value: CUSTOM_LLM_ENDPOINT_PROVIDER_ID,
@@ -164,11 +164,12 @@ export function LlmEndpointsDialog({
     ];
 
     useEffect(() => {
+        detectionRevision.current += 1;
         if (!open) {
             return;
         }
         setView('list');
-        load().catch((error: unknown) => {
+        loadLlmEndpoints().catch((error: unknown) => {
             toast.add({
                 type: 'error',
                 title:
@@ -177,7 +178,15 @@ export function LlmEndpointsDialog({
                         : t('view.tools.llm_endpoints.load_failed')
             });
         });
-    }, [open, load, t]);
+        return () => {
+            detectionRevision.current += 1;
+        };
+    }, [open, t]);
+
+    function closeEditView() {
+        detectionRevision.current += 1;
+        setView('list');
+    }
 
     function dialogTitle(): string {
         if (view === 'list') {
@@ -189,17 +198,24 @@ export function LlmEndpointsDialog({
     }
 
     function openAddView() {
+        detectionRevision.current += 1;
         setDraft(createEmptyLlmEndpointDraft());
-        setDetectedModels([]);
-        setModelQuery('');
+        setCatalog(null);
+        setModelSearch('');
+        setManualModels('');
         setView('edit');
     }
 
     function openEditView(endpoint: LlmEndpointDto) {
-        setDraft(draftFromEndpoint(endpoint));
-        setDetectedModels([]);
-        setModelQuery('');
+        detectionRevision.current += 1;
+        const target = draftFromEndpoint(endpoint);
+        draftRef.current = target;
+        setDraft(target);
+        setCatalog({ target, models: endpoint.models });
+        setModelSearch('');
+        setManualModels('');
         setView('edit');
+        return target;
     }
 
     function updateDraftProvider(value: string | null) {
@@ -207,45 +223,38 @@ export function LlmEndpointsDialog({
             return;
         }
         setDraft((current) => applyLlmEndpointProviderPreset(current, value));
-        setDetectedModels([]);
+        setCatalog(null);
+        setModelSearch('');
+        setManualModels('');
     }
 
-    async function detectInto(
-        target: EndpointDraft
-    ): Promise<LlmEndpointDetectModelsResult | null> {
-        const useSavedEndpoint = shouldUseSavedLlmEndpointForDetect(target);
-        const result = await detectModels({
-            id: useSavedEndpoint ? target.id : null,
-            baseUrl: useSavedEndpoint ? null : target.baseUrl.trim() || null,
-            apiKey: useSavedEndpoint ? null : target.apiKey.trim() || null,
-            persist: useSavedEndpoint
-        });
-        if (!sameDetectionTarget(draftRef.current, target)) {
-            return null;
-        }
-        setDetectedModels(result.models);
-        setDraft((current) =>
-            sameDetectionTarget(current, target)
-                ? {
-                      ...current,
-                      detectedModelReasoning: result.modelReasoning
-                  }
-                : current
-        );
-        return result;
-    }
-
-    async function detectForDraft() {
+    async function detectForDraft(target = draft) {
+        const revision = ++detectionRevision.current;
         try {
-            const result = await detectInto(draft);
-            if (!result) {
+            const useSavedEndpoint = shouldUseSavedLlmEndpointForDetect(target);
+            const result = await detectLlmEndpointModels({
+                id: useSavedEndpoint ? target.id : null,
+                baseUrl: useSavedEndpoint
+                    ? null
+                    : target.baseUrl.trim() || null,
+                apiKey: useSavedEndpoint ? null : target.apiKey.trim() || null,
+                persist: false
+            });
+            if (
+                revision !== detectionRevision.current ||
+                !sameDetectionTarget(draftRef.current, target)
+            ) {
                 return;
             }
+            setCatalog({
+                target,
+                models: mergeModels(result.models, draftRef.current.models)
+            });
             setDraft((current) =>
-                sameDetectionTarget(current, draft)
+                sameDetectionTarget(current, target)
                     ? {
                           ...current,
-                          models: mergeModels(current.models, result.models)
+                          detectedModelReasoning: result.modelReasoning
                       }
                     : current
             );
@@ -258,6 +267,12 @@ export function LlmEndpointsDialog({
                     : t('view.tools.llm_endpoints.no_models_detected')
             });
         } catch (error) {
+            if (
+                revision !== detectionRevision.current ||
+                !sameDetectionTarget(draftRef.current, target)
+            ) {
+                return;
+            }
             toast.add({
                 type: 'error',
                 title:
@@ -268,57 +283,31 @@ export function LlmEndpointsDialog({
         }
     }
 
-    async function resolveModelsForSave(
-        target: EndpointDraft
-    ): Promise<ResolvedModelsForSave | null> {
-        if (target.models.length) {
-            return {
-                models: target.models,
-                modelReasoning: target.detectedModelReasoning
-            };
-        }
-        try {
-            return await detectInto(target);
-        } catch {
-            return {
-                models: [],
-                modelReasoning: null
-            };
-        }
-    }
-
     async function saveDraft() {
         const target = {
             ...draft,
-            models: mergeModels(draft.models, [modelQuery])
+            models: mergeModels(draft.models, parseModelIds(manualModels))
         };
         setSaving(true);
         try {
-            const resolved = await resolveModelsForSave(target);
-            if (!resolved) {
-                return;
-            }
-            const { models, modelReasoning } = resolved;
-            await upsert({
+            const { models } = target;
+            await upsertLlmEndpoint({
                 id: target.id,
                 name: target.name.trim(),
                 baseUrl: target.baseUrl.trim(),
                 apiKey: endpointApiKeyInput(target),
                 models,
-                modelReasoning
+                modelReasoning: target.detectedModelReasoning
             });
-            if (models.length) {
-                toast.add({
-                    type: 'success',
-                    title: t('view.tools.llm_endpoints.saved')
-                });
-            } else {
-                toast.add({
-                    type: 'warning',
-                    title: t('view.tools.llm_endpoints.saved_unusable')
-                });
-            }
-            setView('list');
+            toast.add({
+                type: models.length ? 'success' : 'warning',
+                title: t(
+                    models.length
+                        ? 'view.tools.llm_endpoints.saved'
+                        : 'view.tools.llm_endpoints.saved_unusable'
+                )
+            });
+            closeEditView();
         } catch (error) {
             toast.add({
                 type: 'error',
@@ -332,39 +321,39 @@ export function LlmEndpointsDialog({
         }
     }
 
-    function addQueriedModel(event: React.KeyboardEvent<HTMLInputElement>) {
-        const model = modelQuery.trim();
-        if (event.key !== 'Enter' || !model || modelOptions.includes(model)) {
-            return;
-        }
-        event.preventDefault();
+    function addManualModels() {
+        const models = parseModelIds(manualModels);
+        setCatalog({
+            target: draft,
+            models: mergeModels(modelOptions, models)
+        });
         setDraft((current) => ({
             ...current,
-            models: mergeModels(current.models, [model])
+            models: mergeModels(current.models, models)
         }));
-        setModelQuery('');
+        setManualModels('');
+        setModelSearch('');
+    }
+
+    function removeModel(model: string) {
+        setCatalog({
+            target: draft,
+            models: modelOptions.filter((value) => value !== model)
+        });
+        setDraft((current) => ({
+            ...current,
+            models: current.models.filter((value) => value !== model)
+        }));
     }
 
     function detectForRow(endpoint: LlmEndpointDto) {
-        detectModels({
-            id: endpoint.id,
-            baseUrl: null,
-            apiKey: null,
-            persist: true
-        }).catch((error: unknown) => {
-            toast.add({
-                type: 'error',
-                title:
-                    error instanceof Error
-                        ? error.message
-                        : t('view.tools.llm_endpoints.detect_failed')
-            });
-        });
+        const target = openEditView(endpoint);
+        void detectForDraft(target);
     }
 
     async function deleteEndpointWithFeedback(endpoint: LlmEndpointDto) {
         try {
-            await deleteEndpoint(endpoint.id);
+            await deleteLlmEndpoint(endpoint.id);
             toast.add({
                 type: 'success',
                 title: t('view.tools.llm_endpoints.deleted')
@@ -550,9 +539,8 @@ export function LlmEndpointsDialog({
                                     </Button>
                                 ) : null}
                             </div>
-                            <Input
+                            <SecretInput
                                 id="llm-endpoint-dialog-api-key"
-                                type="text"
                                 value={draft.apiKey}
                                 disabled={draft.clearKey}
                                 placeholder={
@@ -570,17 +558,20 @@ export function LlmEndpointsDialog({
                                 }
                             />
                         </div>
-                        <div className="grid gap-2">
+                        <fieldset className="grid min-w-0 gap-2">
+                            <legend className="sr-only">
+                                {t('view.tools.llm_endpoints.models')}
+                            </legend>
                             <div className="flex items-center justify-between gap-2">
-                                <Label>
+                                <span className="text-sm font-medium">
                                     {t('view.tools.llm_endpoints.models')}
-                                </Label>
+                                </span>
                                 <Button
                                     type="button"
                                     size="sm"
                                     variant="outline"
                                     disabled={loading || !baseUrlValid}
-                                    onClick={detectForDraft}
+                                    onClick={() => void detectForDraft()}
                                 >
                                     <RefreshCwIcon data-icon="inline-start" />
                                     {t(
@@ -588,67 +579,189 @@ export function LlmEndpointsDialog({
                                     )}
                                 </Button>
                             </div>
-                            <Combobox
-                                multiple
-                                autoHighlight
-                                items={modelOptions}
-                                value={draft.models}
-                                inputValue={modelQuery}
-                                onInputValueChange={setModelQuery}
-                                onValueChange={(models: string[]) =>
-                                    setDraft((current) => ({
-                                        ...current,
-                                        models
-                                    }))
+                            <p className="text-muted-foreground text-xs">
+                                {t(
+                                    'view.tools.llm_endpoints.models_description'
+                                )}
+                            </p>
+                            <Label htmlFor="llm-endpoint-model-search">
+                                {t('view.tools.llm_endpoints.models_search')}
+                            </Label>
+                            <Input
+                                id="llm-endpoint-model-search"
+                                type="search"
+                                value={modelSearch}
+                                autoComplete="off"
+                                autoCapitalize="none"
+                                spellCheck={false}
+                                onChange={(event) =>
+                                    setModelSearch(event.target.value)
                                 }
-                            >
-                                <ComboboxChips
-                                    ref={modelsAnchor}
-                                    className="w-full"
-                                >
-                                    <ComboboxValue>
-                                        {(models: string[]) => (
-                                            <>
-                                                {models.map((model) => (
-                                                    <ComboboxChip key={model}>
-                                                        <span className="max-w-48 truncate">
-                                                            {model}
-                                                        </span>
-                                                    </ComboboxChip>
-                                                ))}
-                                                <ComboboxChipsInput
-                                                    placeholder={
-                                                        models.length
-                                                            ? ''
-                                                            : t(
-                                                                  'view.tools.llm_endpoints.models_placeholder'
-                                                              )
-                                                    }
-                                                    onKeyDown={addQueriedModel}
-                                                />
-                                            </>
-                                        )}
-                                    </ComboboxValue>
-                                </ComboboxChips>
-                                <ComboboxContent anchor={modelsAnchor}>
-                                    <ComboboxEmpty>
+                            />
+                            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                                <span className="text-muted-foreground">
+                                    {t(
+                                        'view.tools.llm_endpoints.models_selected',
+                                        {
+                                            count: draft.models.length
+                                        }
+                                    )}
+                                </span>
+                                <div className="flex gap-1">
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        disabled={!visibleModels.length}
+                                        onClick={() =>
+                                            setDraft((current) => ({
+                                                ...current,
+                                                models: mergeModels(
+                                                    current.models,
+                                                    visibleModels
+                                                )
+                                            }))
+                                        }
+                                    >
                                         {t(
-                                            'view.tools.llm_endpoints.models_empty'
+                                            'view.tools.llm_endpoints.models_select_visible'
                                         )}
-                                    </ComboboxEmpty>
-                                    <ComboboxList>
-                                        {(model: string) => (
-                                            <ComboboxItem
-                                                key={model}
-                                                value={model}
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        disabled={!draft.models.length}
+                                        onClick={() => {
+                                            setCatalog({
+                                                target: draft,
+                                                models: modelOptions
+                                            });
+                                            setDraft((current) => ({
+                                                ...current,
+                                                models: []
+                                            }));
+                                        }}
+                                    >
+                                        {t(
+                                            'view.tools.llm_endpoints.models_clear'
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="max-h-56 min-h-24 overflow-y-auto rounded-md border p-1">
+                                {visibleModels.length ? (
+                                    visibleModels.map((model) => (
+                                        <div
+                                            key={model}
+                                            className="hover:bg-muted/50 flex items-center gap-1 rounded-sm pr-1"
+                                        >
+                                            <Label
+                                                htmlFor={`llm-endpoint-model-${encodeURIComponent(model)}`}
+                                                className="flex min-h-9 min-w-0 flex-1 cursor-pointer items-center gap-3 px-2 py-2 text-sm font-normal"
                                             >
-                                                {model}
-                                            </ComboboxItem>
+                                                <Checkbox
+                                                    id={`llm-endpoint-model-${encodeURIComponent(model)}`}
+                                                    checked={draft.models.includes(
+                                                        model
+                                                    )}
+                                                    onCheckedChange={(
+                                                        checked
+                                                    ) => {
+                                                        setCatalog({
+                                                            target: draft,
+                                                            models: modelOptions
+                                                        });
+                                                        setDraft((current) => ({
+                                                            ...current,
+                                                            models: checked
+                                                                ? mergeModels(
+                                                                      current.models,
+                                                                      [model]
+                                                                  )
+                                                                : current.models.filter(
+                                                                      (value) =>
+                                                                          value !==
+                                                                          model
+                                                                  )
+                                                        }));
+                                                    }}
+                                                />
+                                                <span className="min-w-0 break-all">
+                                                    {model}
+                                                </span>
+                                            </Label>
+                                            <Button
+                                                type="button"
+                                                size="icon-sm"
+                                                variant="ghost"
+                                                aria-label={t(
+                                                    'view.tools.llm_endpoints.models_remove',
+                                                    { model }
+                                                )}
+                                                onClick={() =>
+                                                    removeModel(model)
+                                                }
+                                            >
+                                                <Trash2Icon aria-hidden="true" />
+                                            </Button>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p className="text-muted-foreground px-2 py-5 text-center text-sm">
+                                        {t(
+                                            modelOptions.length
+                                                ? 'view.tools.llm_endpoints.models_no_matches'
+                                                : 'view.tools.llm_endpoints.models_empty'
                                         )}
-                                    </ComboboxList>
-                                </ComboboxContent>
-                            </Combobox>
-                        </div>
+                                    </p>
+                                )}
+                            </div>
+                            <Label htmlFor="llm-endpoint-manual-models">
+                                {t('view.tools.llm_endpoints.models_manual')}
+                            </Label>
+                            <div className="flex gap-2">
+                                <Input
+                                    id="llm-endpoint-manual-models"
+                                    value={manualModels}
+                                    autoComplete="off"
+                                    autoCapitalize="none"
+                                    spellCheck={false}
+                                    aria-describedby="llm-endpoint-manual-models-hint"
+                                    onChange={(event) =>
+                                        setManualModels(event.target.value)
+                                    }
+                                    onKeyDown={(event) => {
+                                        if (
+                                            event.key === 'Enter' &&
+                                            !event.nativeEvent.isComposing
+                                        ) {
+                                            event.preventDefault();
+                                            addManualModels();
+                                        }
+                                    }}
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    disabled={
+                                        !parseModelIds(manualModels).length
+                                    }
+                                    onClick={addManualModels}
+                                >
+                                    <PlusIcon data-icon="inline-start" />
+                                    {t('view.tools.llm_endpoints.models_add')}
+                                </Button>
+                            </div>
+                            <p
+                                id="llm-endpoint-manual-models-hint"
+                                className="text-muted-foreground text-xs"
+                            >
+                                {t(
+                                    'view.tools.llm_endpoints.models_manual_hint'
+                                )}
+                            </p>
+                        </fieldset>
                     </div>
                 )}
 
@@ -657,7 +770,7 @@ export function LlmEndpointsDialog({
                         <Button
                             type="button"
                             variant="outline"
-                            onClick={() => setView('list')}
+                            onClick={closeEditView}
                         >
                             {t('common.actions.cancel')}
                         </Button>

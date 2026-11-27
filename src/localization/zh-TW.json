@@ -34,19 +34,19 @@
         "search_avatar_provider_description": "開始搜尋前，請先選擇角色資料庫提供方。",
         "clear_search": "清除搜尋",
         "set_up_avatar_search": "設定角色搜尋",
-        "favorite_remote_groups_title": "還沒有 VRChat 收藏群組",
-        "favorite_remote_groups_description": "VRChat 帳號中的收藏群組會顯示在這裡。",
+        "favorite_remote_groups_title": "還沒有 VRChat 收藏分組",
+        "favorite_remote_groups_description": "VRChat 帳號中的收藏分組會顯示在這裡。",
         "favorite_local_groups_title": "還沒有本機群組",
         "favorite_local_groups_description": "建立本機群組，依自己的方式整理收藏。",
         "avatar_history_title": "還沒有角色使用紀錄",
         "avatar_history_description": "最近使用過的角色會顯示在這裡，方便你快速再次開啟。",
         "favorite_choose_group_description": "選擇一個群組，查看其中儲存的收藏。",
         "favorite_friends_title": "這個群組裡還沒有收藏好友",
-        "favorite_friends_description": "你加入這個收藏群組的用戶會顯示在這裡。",
+        "favorite_friends_description": "你加入這個收藏分組的用戶會顯示在這裡。",
         "favorite_worlds_title": "這個群組裡還沒有收藏世界",
-        "favorite_worlds_description": "你儲存到這個收藏群組的世界會顯示在這裡。",
+        "favorite_worlds_description": "你儲存到這個收藏分組的世界會顯示在這裡。",
         "favorite_avatars_title": "這個群組裡還沒有收藏角色",
-        "favorite_avatars_description": "你儲存到這個收藏群組的角色會顯示在這裡。",
+        "favorite_avatars_description": "你儲存到這個收藏分組的角色會顯示在這裡。",
         "find_more_friends": "尋找用戶",
         "find_more_worlds": "瀏覽世界",
         "find_more_avatars": "尋找角色",
@@ -178,6 +178,35 @@
             "picked": "已選擇 {name}",
             "skipped": "沒有為「{query}」選擇任何人"
         },
+        "approval": {
+            "title": "要允許「{action}」嗎？",
+            "description": "助手想進行這項變更，只有你批准後才會執行。",
+            "approve": "批准",
+            "deny": "拒絕",
+            "declined": "已拒絕：{action}",
+            "backup_hint": "移動時會先從原本的分組刪除，再加入新分組。強烈建議先備份收藏 ID 清單。",
+            "backup_open": "先去備份",
+            "approve_all": "全部批准",
+            "favorite_move": {
+                "summary": "要移到「{target}」的收藏：{count} 個",
+                "source": "原分組：{group}",
+                "already_in_target": "已在這個分組",
+                "not_favorited": "不在 VRChat 收藏中，會略過"
+            },
+            "fields": {
+                "userId": "用戶",
+                "note": "備註",
+                "kind": "類型",
+                "entityId": "對象",
+                "group": "分組",
+                "action": "操作",
+                "tags": "收藏分組",
+                "targetGroup": "移到",
+                "text": "文字",
+                "afk": "AFK",
+                "config": "設定"
+            }
+        },
         "scroll_to_latest": "捲動到底部",
         "connection": {
             "checking": "檢查連線",
@@ -198,7 +227,6 @@
             "model_unset": "目前沒有可用的模型",
             "search_models": "搜尋模型",
             "playbook_mode": "分析模式",
-            "allow_writes": "允許寫入操作",
             "manage_endpoints": "管理 LLM 端點",
             "reasoning_effort": "推理強度",
             "reasoning_effort_provider_default": "服務商預設",
@@ -210,6 +238,7 @@
         },
         "tools": {
             "favorite_local": "更新本機收藏",
+            "favorite_move": "移動 VRChat 收藏",
             "favorite_vrchat": "加入 VRChat 收藏",
             "find_user": "尋找使用者",
             "get_activity_streaks": "查看連續活躍紀錄",
@@ -688,6 +717,8 @@
             "save": "儲存",
             "search": "搜尋",
             "select": "選擇",
+            "show_secret": "顯示",
+            "hide_secret": "隱藏",
             "cancel": "取消",
             "view_options": "顯示選項",
             "cut": "剪下",
@@ -739,10 +770,14 @@
             "retry": "重試"
         },
         "error": {
+            "realtime_event_failed": "即時更新處理失敗",
+            "runtime_bootstrap_failed": "VRCX-0 未能完成啟動",
+            "language_sync_failed": "介面語言切換失敗",
             "action_failed": "無法完成此操作",
             "failed_to_load_data": "無法載入資料",
             "failed_open_instance_in_vrchat_falling_back_to_self_invite": "無法在 VRChat 中開啟房間，改用自我邀請",
-            "failed_to_save_memo": "無法儲存本機筆記"
+            "failed_to_save_memo": "無法儲存本機筆記",
+            "page_crashed": "哎呀，出了點問題"
         },
         "picker": {
             "more_not_shown": "還有 {count} 位未顯示，縮小搜尋範圍即可找到。"
@@ -754,6 +789,27 @@
         "filter": {
             "label": "篩選",
             "label_count": "篩選 ({count})"
+        },
+        "spoken_language": {
+            "ase": "美國手語",
+            "asf": "澳洲手語",
+            "bfi": "英國手語",
+            "cmn": "華語",
+            "dse": "荷蘭手語",
+            "fsl": "法國手語",
+            "gsg": "德國手語",
+            "jsl": "日本手語",
+            "kvk": "韓國手語",
+            "nzs": "紐西蘭手語",
+            "tws": "潮州話"
+        },
+        "friend_action": {
+            "request_invite_title": "申請加入？",
+            "request_invite_confirm": "申請加入",
+            "invite_request_sent": "已傳送加入申請",
+            "failed_to_request_invite": "申請加入失敗",
+            "boop_sent": "已傳送戳戳",
+            "failed_to_send_boop": "傳送戳戳失敗"
         }
     },
     "economy": {
@@ -943,7 +999,7 @@
         "toggle_theme": "切換主題"
     },
     "nav_menu": {
-        "changelog": "最新更新",
+        "changelog": "更新紀錄",
         "update": "更新",
         "update_downloading": "下載中",
         "update_downloaded": "重新啟動",
@@ -1073,6 +1129,18 @@
         "hide_friends_sidebar": "隱藏好友側邊欄",
         "enter_sidebar_mode": "側邊欄模式",
         "restore_full_window": "返回完整視窗",
+        "title_bar_card": {
+            "quick_search": "搜尋好友、模型、世界和群組，也能跳到頁面或開啟工具。貼上 VRChat 連結或 ID（usr_、wrld_ 等）可以直接開啟對應頁面，原本的「直接開啟」已合併到這裡。",
+            "open_quick_search": "開啟快速搜尋",
+            "notification": "好友邀請、邀約、群組公告等 VRChat 通知。通知中心只顯示最近 24 小時，更早的在通知紀錄裡。",
+            "unseen": "{count} 則未讀",
+            "open_notification_center": "開啟通知中心",
+            "open_notification_history": "查看通知紀錄",
+            "open_assistant": "開啟 AI 助手",
+            "always_on_top": "讓 VRCX-0 視窗一直顯示在其他視窗上方。",
+            "sidebar_mode": "把視窗縮成只有好友欄的窄條，適合掛機時放在螢幕一側。",
+            "sidebar_mode_blocked": "有工作正在進行，完成後才能切換。"
+        },
         "always_on_top": "視窗置頂",
         "zoom_in": "放大",
         "zoom_out": "縮小",
@@ -1174,7 +1242,7 @@
             "change_title": "變更鎖定密碼",
             "change_description": "輸入目前的鎖定密碼，再設定一組新密碼。",
             "clear_title": "移除鎖定密碼",
-            "clear_description": "輸入 VRChat 帳號密碼以移除鎖定密碼。只與 VRCX-0 本機儲存的密碼比對，不會傳送任何資料至 VRChat 伺服器。"
+            "clear_description": "以 VRChat 帳號密碼或掃碼確認身分後即可移除鎖定密碼。帳號密碼只與 VRCX-0 本機儲存的密碼比對，不會傳送任何資料至 VRChat 伺服器。"
         },
         "recover": {
             "description": "輸入 VRChat 帳號密碼以移除鎖定。只與 VRCX-0 本機儲存的密碼比對，不會傳送任何資料至 VRChat 伺服器。",
@@ -1278,27 +1346,28 @@
             "favorites_section": "收藏",
             "group_by_instance": "將同一房間的好友分組",
             "split_favorite_friends": "收藏好友依群組顯示",
+            "compact_rows": "緊湊好友列表",
             "show_grouped_friends": "同房好友也顯示在其他列表",
             "same_instance_above_favorites": "“同一房間”排在“收藏”前",
             "sort_secondary": "其次依據",
             "sort_tertiary": "第三依據",
-            "favorite_groups": "收藏群組",
+            "favorite_groups": "收藏分組",
             "favorite_groups_placeholder": "所有群組",
             "edit_group_order": "編輯群組順序",
             "custom_tabs": {
                 "configure": "自訂分頁",
                 "title": "自訂側邊欄分頁",
                 "display_mode": "分頁顯示",
-                "subtitle": "重新排列側邊欄分頁，或用收藏群組打造新的分頁。",
+                "subtitle": "重新排列側邊欄分頁，或用收藏分組打造新的分頁。",
                 "display_hint": "分頁在側邊欄中的顯示方式。",
-                "layout_hint": "拖曳可重新排序。“好友”與“群組”為內建分頁，你也可以把收藏群組新增為自訂分頁。",
+                "layout_hint": "拖曳可重新排序。“好友”與“群組”為內建分頁，你也可以把收藏分組新增為自訂分頁。",
                 "system_badge": "內建",
                 "world_badge": "世界",
                 "always_visible": "一律顯示",
                 "move_up": "上移",
                 "move_down": "下移",
                 "delete_tab": "刪除分頁",
-                "favorite_groups_summary": "收藏群組",
+                "favorite_groups_summary": "收藏分組",
                 "display_auto": "自動",
                 "display_icon_text": "圖示 + 文字",
                 "display_icon_only": "僅圖示",
@@ -1309,9 +1378,9 @@
                 "hide_groups": "隱藏群組",
                 "add_favorite_tab": "新增收藏分頁",
                 "favorite_collection_default": "收藏集合",
-                "remote_groups": "VRChat 收藏群組",
-                "local_groups": "本機收藏群組",
-                "no_favorite_groups": "未載入收藏群組",
+                "remote_groups": "VRChat 收藏分組",
+                "local_groups": "本機收藏分組",
+                "no_favorite_groups": "未載入收藏分組",
                 "empty_favorite_collection": "此收藏分頁中沒有好友。",
                 "dynamic": {
                     "drag_value": "拖曳 {value}",
@@ -1329,7 +1398,7 @@
             "view_more": "查看更多",
             "mark_all_read": "全部標記已讀",
             "marking_all_read": "正在標記已讀…",
-            "mark_read_failed": "未能標記已讀",
+            "mark_read_failed": "未能同步到 VRChat",
             "mark_as_read": "標記已讀",
             "more_actions": "更多操作",
             "join_now": "立即加入",
@@ -1343,8 +1412,6 @@
         },
         "success": {
             "vrchat_launch_request_sent": "已在 VRChat 中開啟",
-            "invite_request_sent": "已傳送加入申請",
-            "boop_sent": "已傳送戳戳",
             "friend_and_favorite_snapshots_refreshed": "已重新整理好友"
         },
         "error": {
@@ -1373,14 +1440,12 @@
             "backToSavedAccounts": "返回已儲存的帳號",
             "proxy_settings": "代理設定",
             "proxy_description": "連線至 VRChat（包括登入）時使用的代理伺服器。支援 127.0.0.1:7890、http://127.0.0.1:7890 和 socks5://127.0.0.1:7890。",
+            "more_options": "更多選項",
             "field": {
                 "username": "用戶名稱或電子信箱",
                 "password": "密碼",
-                "saveCredentials": "儲存登入資料"
-            },
-            "placeholder": {
-                "account": "VRChat 帳號",
-                "password": "VRChat 密碼"
+                "saveCredentials": "儲存登入資料",
+                "saveCredentialsHint": "斷線後自動重新登入，不必再輸入一次密碼"
             },
             "validation": {
                 "username_required": "需要用戶名稱或電子信箱",
@@ -1410,6 +1475,15 @@
             "expired_account": {
                 "title": "{name} 的工作階段已失效",
                 "description": "這個帳號沒有儲存密碼，不會自動重新登入。請輸入密碼或重新掃碼。"
+            },
+            "tagline": "VRChat 桌面夥伴：好友動態、遊戲紀錄、收藏整理",
+            "unofficial": "非 VRChat 官方產品",
+            "account_explainer": {
+                "title": "為什麼需要登入 VRChat 帳號？",
+                "account_data": "好友上線狀態、動態和收藏都來自你的帳號，和你在遊戲裡看到的一樣。",
+                "password_destination": "帳號密碼只會傳送到 VRChat 官方伺服器。",
+                "local_storage": "登入資料儲存在這台電腦上，可以隨時移除。",
+                "open_source": "原始碼公開，可以在 GitHub 上查看。"
             }
         },
         "feed": {
@@ -1462,17 +1536,17 @@
                 "title": "標題",
                 "scope": "範圍",
                 "all_friends": "全部好友",
-                "all_favorites": "全部收藏群組",
-                "selected_favorites": "指定收藏群組",
-                "groups_count": "{count} 個收藏群組",
+                "all_favorites": "全部收藏分組",
+                "selected_favorites": "指定收藏分組",
+                "groups_count": "{count} 個收藏分組",
                 "except_all_favorites": "排除全部收藏",
-                "except_groups_count": "排除 {count} 個收藏群組",
-                "exclude_favorites": "排除收藏群組",
+                "except_groups_count": "排除 {count} 個收藏分組",
+                "exclude_favorites": "排除收藏分組",
                 "exclude_none": "不排除",
-                "exclude_all_favorites": "全部收藏群組",
-                "exclude_selected_favorites": "指定收藏群組",
-                "excluded_favorite_groups": "排除的收藏群組",
-                "favorite_groups": "收藏群組",
+                "exclude_all_favorites": "全部收藏分組",
+                "exclude_selected_favorites": "指定收藏分組",
+                "excluded_favorite_groups": "排除的收藏分組",
+                "favorite_groups": "收藏分組",
                 "types": "類型",
                 "restore_preset": "還原範本",
                 "restore_preset_title": "要還原預設動態欄位嗎？",
@@ -1488,7 +1562,6 @@
                 "cannot_invite_no_current_vrchat_location_is_available": "無法邀請：你目前不在任何房間中",
                 "cannot_invite_from_the_current_instance_type": "無法邀請：你目前的房間不允許邀請",
                 "cannot_invite_current_location_is_not_a_concrete_instance": "無法邀請：你目前不在可加入的房間",
-                "cannot_request_invite_friend_is_not_online": "無法申請加入：好友不在線上",
                 "feed_query_failed": "無法載入動態"
             },
             "label": {
@@ -1502,9 +1575,7 @@
                 "stayed": "停留 {duration}"
             },
             "success": {
-                "vrchat_launch_request_sent": "已在 VRChat 中開啟",
-                "invite_request_sent": "已傳送加入申請",
-                "boop_sent": "已傳送戳戳"
+                "vrchat_launch_request_sent": "已在 VRChat 中開啟"
             },
             "loading": {
                 "loading_feed_rows": "正在載入動態"
@@ -1523,15 +1594,11 @@
                 "failed_to_load_instance_history": "載入房間歷史失敗",
                 "failed_to_launch_instance": "啟動房間失敗",
                 "failed_to_send_self_invite": "傳送自我邀請失敗",
-                "failed_to_send_invite": "傳送邀請失敗",
-                "failed_to_request_invite": "申請加入失敗",
-                "failed_to_send_boop": "傳送戳戳失敗"
+                "failed_to_send_invite": "傳送邀請失敗"
             },
             "modal": {
                 "send_invite": "傳送邀請？",
                 "invite": "邀請",
-                "request_invite": "申請加入？",
-                "request_invite_2": "申請加入",
                 "send": "傳送"
             },
             "dynamic": {
@@ -1571,9 +1638,9 @@
             "busy": "忙碌",
             "local_group": "本機：{name}",
             "all_matching_friends": "所有符合條件的好友",
-            "no_favorite_group": "無收藏群組",
-            "favorite_group_segment": "收藏群組",
-            "friend_is_not_in_hydrated_favorite_group": "這位好友的收藏群組尚未載入完成。"
+            "no_favorite_group": "無收藏分組",
+            "favorite_group_segment": "收藏分組",
+            "friend_is_not_in_hydrated_favorite_group": "這位好友的收藏分組尚未載入完成。"
         },
         "game_log": {
             "filters": {
@@ -1821,6 +1888,8 @@
                 "failed_to_search_worlds": "搜尋世界失敗",
                 "failed_to_search_groups": "搜尋群組失敗",
                 "failed_to_search_avatars": "搜尋角色失敗",
+                "avatar_provider_blocked": "角色資料庫提供方的伺服器端攔截了這次請求（HTTP {{status}}），請稍後再試或更換提供方",
+                "avatar_search_http_error": "搜尋角色失敗（HTTP {{status}}）",
                 "failed_to_save_avatar_provider": "儲存角色資料庫提供方失敗",
                 "failed_to_load_hot_worlds": "載入熱門世界失敗"
             }
@@ -1834,13 +1903,13 @@
                 "search_tags": "搜尋標籤",
                 "vrchat_favorites": "VRChat 收藏",
                 "local_favorites": "本機收藏",
-                "new_group": "新群組"
+                "new_group": "新增收藏分組"
             },
             "avatars": {
                 "search": "搜尋",
                 "vrchat_favorites": "VRChat 收藏",
                 "local_favorites": "本機收藏列表 (VRC+)",
-                "new_group": "新群組",
+                "new_group": "新增收藏分組",
                 "local_history": "本機歷史紀錄",
                 "styles": "樣式",
                 "almost_nuisance": "接近滋擾"
@@ -1876,9 +1945,9 @@
                 "sort_by_players": "按用戶數量排序",
                 "visibility": "可見性",
                 "group": "群組",
-                "favorite_group_renamed": "收藏群組已重新命名",
+                "favorite_group_renamed": "收藏分組已重新命名",
                 "group_visibility_changed": "群組可見性已變更",
-                "local_favorite_group_renamed": "本機收藏群組已重新命名",
+                "local_favorite_group_renamed": "本機收藏分組已重新命名",
                 "the_favorites_baseline_did_not_finish_loading": "收藏尚未載入完成",
                 "try_a_different_search_term": "嘗試其他搜尋詞",
                 "online_favorites_copy_hint": "線上收藏只能在各個線上群組之間移動。已在線上收藏的項目無法複製到另一個線上群組。",
@@ -1890,12 +1959,10 @@
                 "copied_favorite_export_data": "已複製收藏匯出資料",
                 "favorites_refreshed": "收藏已重新整理",
                 "vrchat_favorite_removed": "VRChat 收藏已移除",
-                "favorite_group_cleared": "收藏群組已清空",
-                "local_favorite_group_deleted": "本機收藏群組已刪除",
+                "favorite_group_cleared": "收藏分組已清空",
+                "local_favorite_group_deleted": "本機收藏分組已刪除",
                 "avatar_history_cleared": "角色歷史已清空",
                 "vrchat_launch_request_sent": "已在 VRChat 中開啟",
-                "invite_request_sent": "已傳送加入申請",
-                "boop_sent": "已傳送戳戳",
                 "avatar_selected": "角色已切換",
                 "copied_selected_favorite_ids": "已複製所選收藏 ID",
                 "selected_favorites_removed": "已移除所選收藏",
@@ -1911,8 +1978,8 @@
                 "copy_to": "複製到"
             },
             "empty": {
-                "no_favorite_groups_loaded": "未載入收藏群組",
-                "no_local_favorite_groups_loaded": "未載入本機收藏群組",
+                "no_favorite_groups_loaded": "未載入收藏分組",
+                "no_local_favorite_groups_loaded": "未載入本機收藏分組",
                 "no_local_group": "無本機群組",
                 "no_favorites_available_to_export": "沒有可匯出的收藏",
                 "the_selected_group_currently_has_no_items": "目前所選群組沒有項目"
@@ -1963,7 +2030,7 @@
                 },
                 "coachmark": {
                     "title": "分享世界集合",
-                    "description": "將任何世界收藏群組轉成可傳送給他人的頁面。",
+                    "description": "將任何世界收藏分組轉成可傳送給他人的頁面。",
                     "dismiss": "知道了"
                 },
                 "toast": {
@@ -2060,9 +2127,9 @@
                 "accept": "接受",
                 "invite": "邀請",
                 "decline": "拒絕",
+                "ignore": "忽略",
                 "delete_log": "刪除通知",
-                "decline_with_message": "拒絕並附上訊息",
-                "ignore_locally": "僅在本機忽略"
+                "decline_with_message": "拒絕並附上訊息"
             },
             "filters": {
                 "requestInvite": "請求邀請",
@@ -2142,14 +2209,18 @@
                 "search_emoji": "搜尋表情符號",
                 "send": "傳送"
             },
+            "action_scope": {
+                "vrchat": "在 VRChat 中執行",
+                "local": "僅修改 VRCX-0 本機資料"
+            },
             "success": {
                 "friend_request_accepted": "好友請求已接受",
                 "notification_declined": "通知已拒絕",
+                "friend_request_ignored": "已忽略好友請求",
                 "invite_response_sent": "已發送回覆",
                 "boop_sent": "已傳送戳戳",
                 "notification_response_sent": "完成",
-                "notification_log_entry_deleted": "通知已從歷史紀錄中移除",
-                "notification_ignored_locally": "已在本機忽略"
+                "notification_log_entry_deleted": "通知已從歷史紀錄中移除"
             },
             "error": {
                 "cannot_invite_no_current_vrchat_location_is_available": "無法邀請：你目前不在任何房間中",
@@ -2226,9 +2297,7 @@
             "success": {
                 "friend_detail_loading_cancelled": "好友詳細資訊載入已取消",
                 "roster_bootstrap_did_not_complete": "無法載入你的好友",
-                "vrchat_launch_request_sent": "已在 VRChat 中開啟",
-                "invite_request_sent": "已傳送加入申請",
-                "boop_sent": "已傳送戳戳"
+                "vrchat_launch_request_sent": "已在 VRChat 中開啟"
             },
             "empty": {
                 "no_friends_are_available_for_mutual_friends_loading": "沒有可用於載入共同好友的好友",
@@ -2541,9 +2610,9 @@
                 "room_social_rules": "自訂房間規則",
                 "room_social_rules_description": "其他規則可依優先順序變更狀態或狀態訊息。",
                 "when": "條件",
-                "friend_groups": "好友收藏群組",
-                "world_groups": "世界收藏群組",
-                "world_groups_hint": "留空即可套用至任何收藏群組。",
+                "friend_groups": "好友收藏分組",
+                "world_groups": "世界收藏分組",
+                "world_groups_hint": "留空即可套用至任何收藏分組。",
                 "instance_groups": "群組",
                 "minimum_friends": "最少好友數",
                 "minimum_players": "最少用戶數",
@@ -2555,7 +2624,7 @@
                 "preset_with_any_friend": "和任意好友在一起",
                 "preset_friend_count_at_least": "好友數至少為",
                 "preset_player_count_at_least": "用戶數至少為",
-                "preset_with_selected_groups": "和指定收藏群組的好友在一起",
+                "preset_with_selected_groups": "和指定收藏分組的好友在一起",
                 "preset_with_selected_friend": "和指定好友在一起",
                 "preset_in_selected_room_types": "位於指定房間類型",
                 "preset_in_favorite_worlds": "位於收藏的世界",
@@ -2566,8 +2635,8 @@
                 "allowlist_mode": "白名單模式",
                 "allowlist_mode_description": "自動回應仍要求目前房間允許傳送邀請。",
                 "all_favorite_friends": "所有收藏好友",
-                "selected_favorite_groups": "指定收藏群組",
-                "selected_favorite_groups_label": "指定收藏群組",
+                "selected_favorite_groups": "指定收藏分組",
+                "selected_favorite_groups_label": "指定收藏分組",
                 "allowed_statuses_label": "僅在我的狀態為",
                 "allowed_statuses_description": "全部不勾選則不限狀態。",
                 "automatic_replies_note": "自動回應只會在 VRChat 執行中且目前位置可傳送邀請時運作。每位傳送者各有冷卻時間。",
@@ -2755,6 +2824,7 @@
                 },
                 "history": {
                     "empty": "尚無傳送紀錄",
+                    "load_failed": "傳送紀錄載入失敗",
                     "summary": "{date} · {count} 張",
                     "open": "在 Discord 中開啟",
                     "retract": "從 Discord 收回"
@@ -2828,8 +2898,17 @@
                 "base_url": "基礎網址",
                 "base_url_invalid": "請填寫完整的 http:// 或 https:// 位址。",
                 "models": "模型",
-                "models_placeholder": "搜尋已偵測到的模型，或輸入後按 Enter 新增",
-                "models_empty": "尚未偵測到模型。輸入模型名稱後按 Enter 即可新增。",
+                "models_description": "偵測可用模型後，勾選要在 Social AI 和翻譯中使用的模型。",
+                "models_search": "搜尋模型",
+                "models_selected": "已選擇 {count} 個模型",
+                "models_select_visible": "全選搜尋結果",
+                "models_clear": "清空選擇",
+                "models_remove": "刪除 {model}",
+                "models_no_matches": "沒有相符的模型。",
+                "models_manual": "手動新增模型 ID",
+                "models_manual_hint": "多個 ID 以逗號分隔，按 Enter 或點擊新增，也可以直接儲存。",
+                "models_add": "新增",
+                "models_empty": "請先偵測模型，或手動新增模型 ID。",
                 "unusable": "還沒有模型，這個端點暫時無法使用。",
                 "key_saved": "已儲存",
                 "key_empty": "空白",
@@ -2840,7 +2919,7 @@
                 "clear_key": "清除鍵",
                 "key_preserve_placeholder": "若要保留已儲存的金鑰，請留空",
                 "saved": "已儲存端點",
-                "saved_unusable": "已儲存，但沒有找到這個端點的模型。",
+                "saved_unusable": "已儲存，目前未選擇模型。選擇模型後才能使用這個端點。",
                 "save_failed": "無法儲存端點",
                 "load_failed": "無法載入端點",
                 "models_detected": "已偵測到 {count} 個模型",
@@ -2856,6 +2935,7 @@
                 "title": "Chatbox",
                 "description": "在遊戲內的 Chatbox 顯示時間、正在播放和自訂文字，也能直接輸入或翻譯後送出。",
                 "save_failed": "Chatbox 設定儲存失敗。",
+                "load_failed": "Chatbox 設定載入失敗。",
                 "status": {
                     "off": "已關閉",
                     "manual": "正在顯示你的訊息",
@@ -2869,6 +2949,7 @@
                     "placeholder": "輸入訊息",
                     "translation": "翻譯",
                     "send": "送出",
+                    "translate": "翻譯",
                     "cancel": "取消",
                     "translating": "翻譯中…",
                     "translated": "譯文",
@@ -2881,6 +2962,7 @@
                     "game_not_running": "啟動 VRChat 後才能送出。",
                     "isolated": "關閉隔離模式後才能送出。",
                     "translation_settings": "翻譯設定",
+                    "options": "訊息選項",
                     "set_up_translation": "設定翻譯",
                     "shorten_needs_llm": "在翻譯設定改用 LLM 後才能用 AI 縮短。",
                     "send_phrase": "送出",
@@ -2897,6 +2979,7 @@
                     "remove_page": "刪除此頁",
                     "empty_page": "新增一行後這一頁才會顯示內容。",
                     "enabled": "顯示狀態",
+                    "summary": "已啟用 {on}/{total} 頁",
                     "add_line": "新增一行",
                     "blank_line": "空白行",
                     "remove_line": "刪除這一行",
@@ -2913,7 +2996,7 @@
                 "afk": {
                     "title": "AFK",
                     "go_afk": "我先離開",
-                    "back": "我回來了",
+                    "active": "目前為 AFK 狀態",
                     "auto_headset": "拿下頭顯時自動切換為 AFK",
                     "auto_headset_hint": "需要開啟手腕嵌入介面或頭顯通知。",
                     "text": "AFK 文字",
@@ -2921,7 +3004,7 @@
                     "show_duration": "顯示離開時長"
                 },
                 "settings": {
-                    "title": "設定",
+                    "connection": "OSC 連線",
                     "host": "位址",
                     "port": "連接埠",
                     "typing_indicator": "輸入時顯示正在輸入狀態（…）",
@@ -2933,7 +3016,7 @@
                 "editor": {
                     "insert_variable": "插入數值",
                     "insert_symbol": "符號",
-                    "presets": "樣式",
+                    "presets": "預設",
                     "template_placeholder": "輸入文字並插入數值"
                 },
                 "variables": {
@@ -2950,7 +3033,8 @@
                     "gpu": "顯示卡使用率",
                     "vram": "VRAM",
                     "gputemp": "顯示卡溫度",
-                    "session": "本次遊戲時長"
+                    "session": "本次遊戲時長",
+                    "heartrate": "心率"
                 },
                 "formats": {
                     "hour12": "12 小時制",
@@ -2979,8 +3063,40 @@
                     "time": "時間",
                     "music": "音樂",
                     "system": "系統",
-                    "session": "遊戲時長"
-                }
+                    "session": "遊戲時長",
+                    "heart_rate": "心率"
+                },
+                "heart_rate": {
+                    "title": "心率",
+                    "connect": "連接",
+                    "off": "未連接",
+                    "unavailable": "未偵測到藍牙，或藍牙已關閉",
+                    "waiting": "正在等待 {device}…",
+                    "connected": "已連接 {device} · {bpm} bpm",
+                    "no_reading": "已連接 {device} · 沒有讀數",
+                    "incompatible": "此裝置不提供心率，重新連接即可換一台裝置",
+                    "permission_denied": "藍牙權限遭拒，請在系統設定中允許後重新連接",
+                    "device": "心率裝置",
+                    "hint": "部分裝置只能連接一台，手機 App 可能會中斷連線。在狀態行中插入 {variable} 即可顯示心率。模型參數預設傳送常見預製件使用的 HR、isHRBeat（Pulsoid 與 Booth 上的多數預製件）以及 VRCOSC 的 VRCOSC/Heartrate 系列。",
+                    "save_failed": "無法變更心率連線。",
+                    "devices": "支援標準藍牙心率裝置，如心率帶、臂帶、Garmin、COROS、華為、Amazfit、小米手環 10 等，需在裝置上開啟心率廣播。",
+                    "parameters": {
+                        "title": "模型參數",
+                        "description": "設定心率要傳送到哪些模型參數。多個名稱以逗號分隔，留空則不傳送。",
+                        "value": "心率值（Int）",
+                        "value_hint": "每分鐘心跳數，如 HR、HeartRateInt",
+                        "beat": "心跳（Bool）",
+                        "beat_hint": "每次心跳短暫變為開，如 isHRBeat",
+                        "connected": "已連接（Bool）",
+                        "connected_hint": "有讀數時為開，如 isHRConnected",
+                        "percent": "心率比例（Float）",
+                        "percent_hint": "0～1，心率 ÷ 240，如 HRPercent",
+                        "vrcosc": "VRCOSC 的 VRCOSC/Heartrate 系列參數一律傳送，不受此處設定影響。",
+                        "save_failed": "無法儲存模型參數。",
+                        "open": "自訂參數名稱"
+                    }
+                },
+                "module_off": "已關閉"
             }
         },
         "profile": {
@@ -3023,7 +3139,7 @@
                 "header": "社交 AI",
                 "description": "新對話的預設設定。每個對話都可以在社交 AI 面板裡單獨調整。",
                 "default_model": "預設模型",
-                "default_model_description": "新對話預設使用這個模型。",
+                "default_model_description": "新對話預設使用這個模型；內容翻譯沒有另外指定模型時也會使用它。",
                 "default_model_unset": "目前沒有可用的模型",
                 "setup_hint": "社交 AI 需要先設定 OpenAI 相容的連線才能回答問題。",
                 "playbook_mode_description": "模型分析資料時的自由度。",
@@ -3100,7 +3216,8 @@
                     "hide_private_worlds": "隱藏私人世界",
                     "vr_device_status": "VR 裝置狀態",
                     "battery_percentage": "顯示電量百分比",
-                    "wrist_feed_notifications": "手腕疊加通知過濾器"
+                    "show_seconds": "顯示秒數",
+                    "wrist_feed_notifications": "手腕疊加通知篩選器"
                 },
                 "test_mode": {
                     "header": "疊加介面測試",
@@ -3250,8 +3367,8 @@
                     "proxy": "代理設定"
                 },
                 "favorites": {
-                    "header": "收藏群組篩選",
-                    "header_tooltip": "選擇哪些收藏群組要視為 VIP，以便在動態、遊戲紀錄、通知與 VR 嵌入介面中進行篩選",
+                    "header": "收藏分組篩選",
+                    "header_tooltip": "選擇哪些收藏分組要視為 VIP，以便在動態、遊戲紀錄、通知與 VR 嵌入介面中進行篩選",
                     "group_placeholder": "選擇群組"
                 },
                 "logging": {
@@ -3437,7 +3554,7 @@
                     },
                     "do_not_disturb": {
                         "header": "勿擾模式",
-                        "description": "暫時停止桌面通知、TTS、XSOverlay、OVR Toolkit 與 VRCX-0 頭顯彈出通知。Webhook、手腕動態與通知紀錄仍會繼續。",
+                        "description": "暫時停止桌面通知、TTS、XSOverlay、OVR Toolkit 與 VRCX-0 頭顯彈出通知。手腕動態與通知紀錄仍會繼續。Webhook 預設照常傳送，在「Webhook 通知」中開啟「勿擾模式時暫停」後會一併暫停。",
                         "end_on_game_start": "啟動 VRChat 時關閉勿擾模式",
                         "end_on_game_start_description": "僅在 VRChat 從未執行變為執行時觸發。進入遊戲後仍可再次開啟勿擾模式。",
                         "busy_status": "VRChat 狀態為“請勿打擾”時開啟勿擾模式",
@@ -3454,7 +3571,7 @@
                         "wayvr_notifications": "WayVR 通知",
                         "ovrtoolkit_hud_notifications": "OVR Toolkit HUD 通知",
                         "ovrtoolkit_wrist_notifications": "OVR Toolkit 手腕通知",
-                        "notification_filters": "VR 疊加通知過濾器",
+                        "notification_filters": "VR 疊加通知篩選器",
                         "user_images": "顯示好友頭像",
                         "notification_opacity": "通知不透明度",
                         "notification_timeout": "通知時長"
@@ -3471,7 +3588,7 @@
                     "desktop_notifications": {
                         "header": "桌面通知",
                         "when_to_display": "顯示時機",
-                        "notification_filters": "桌面通知過濾器",
+                        "notification_filters": "桌面通知篩選器",
                         "desktop_notification_while_afk": "在 AFK 時顯示桌面通知",
                         "notification_sound": "通知音",
                         "friend_icons": "顯示好友頭像"
@@ -3484,11 +3601,13 @@
                         "order": "排列順序",
                         "order_newest_top": "最新在上",
                         "order_newest_bottom": "最新在下",
-                        "activity_filters": "桌面疊加介面過濾器"
+                        "activity_filters": "桌面疊加介面篩選器"
                     },
                     "webhook": {
                         "header": "Webhook 通知",
                         "enabled": "啟用 Webhook 傳送功能",
+                        "pause_with_do_not_disturb": "勿擾模式時暫停",
+                        "pause_with_do_not_disturb_description": "開啟勿擾模式時，通知 Webhook 也會暫停傳送。VRChat 的「請勿打擾」狀態與隱私鎖不會暫停 Webhook。自動登入失敗通知仍會傳送。",
                         "auth_events_enabled": "傳送自動登入失敗通知",
                         "auth_events_description": "當 VRCX-0 無法自動恢復中斷的背景登入時，傳送通知。",
                         "url": "Webhook 網址",
@@ -3805,7 +3924,7 @@
                         "legacy_migration": "遷移 VRCX 資料",
                         "legacy_migration_description": "用指定 VRCX 資料夾中的資料替換目前 VRCX-0 設定和資料庫。",
                         "legacy_migration_confirm_title": "用 VRCX 資料替換 VRCX-0 資料？",
-                        "legacy_migration_confirm_description": "這會刪除目前 VRCX-0 設定和本機資料庫，並替換為在 {path} 找到的資料。VRCX-0 將重新啟動以完成遷移。原始 VRCX 資料不會被修改。",
+                        "legacy_migration_confirm_description": "將刪除目前 VRCX-0 的設定和本機資料庫，替換為以下位置的資料：\n{path}\n\nVRCX-0 會重新啟動以完成遷移，原版 VRCX 的資料不會被變更。",
                         "legacy_migration_confirm": "遷移並重新啟動",
                         "legacy_migration_not_available": "未找到支援的 VRCX 資料庫。",
                         "legacy_migration_restart_manually": "遷移已準備好。請重新啟動 VRCX-0 以完成遷移。",
@@ -3849,7 +3968,6 @@
                 "failed_to_save_proxy_settings": "儲存代理設定失敗",
                 "failed_to_crop_existing_prints": "裁剪已有的拍立得失敗",
                 "failed_to_save_translation_settings": "儲存翻譯設定失敗",
-                "failed_to_fetch_translation_models": "取得翻譯模型失敗",
                 "failed_to_save_feed_filters": "儲存動態篩選失敗"
             },
             "modal": {
@@ -3919,7 +4037,11 @@
                 "game_log_unavailable": "遊戲紀錄無法使用",
                 "game_log_widget_failed": "遊戲紀錄小工具失敗",
                 "instance_widget_failed": "房間小工具失敗",
-                "current_players_are_not_available_yet": "目前用戶暫無法使用"
+                "current_players_are_not_available_yet": "目前用戶暫無法使用",
+                "changes_not_saved_after_reset": "儀錶板已重設，本次變更未儲存，請重試",
+                "dashboard_not_found": "此儀表板已不存在",
+                "create_produced_invalid_config": "儀錶板設定無效，無法建立",
+                "update_produced_invalid_config": "儀錶板設定無效，無法儲存"
             },
             "empty": {
                 "no_feed_rows": "沒有動態項目",
@@ -4066,20 +4188,18 @@
                 "failed_to_refresh_favorites": "重新整理收藏失敗",
                 "failed_to_remove_local_favorite": "移除本機收藏失敗",
                 "failed_to_remove_vrchat_favorite": "移除 VRChat 收藏失敗",
-                "failed_to_rename_favorite_group": "重新命名收藏群組失敗",
-                "failed_to_change_group_visibility": "更改收藏群組可見性失敗",
-                "failed_to_clear_favorite_group": "清空收藏群組失敗",
-                "failed_to_rename_local_favorite_group": "重新命名本機收藏群組失敗",
-                "failed_to_delete_local_favorite_group": "刪除本機收藏群組失敗",
+                "failed_to_rename_favorite_group": "重新命名收藏分組失敗",
+                "failed_to_change_group_visibility": "更改收藏分組可見性失敗",
+                "failed_to_clear_favorite_group": "清空收藏分組失敗",
+                "failed_to_rename_local_favorite_group": "重新命名本機收藏分組失敗",
+                "failed_to_delete_local_favorite_group": "刪除本機收藏分組失敗",
                 "failed_to_refresh_avatar_history": "重新整理角色歷史失敗",
                 "failed_to_clear_avatar_history": "清空角色歷史失敗",
                 "failed_to_launch_instance": "啟動房間失敗",
                 "failed_to_send_self_invite": "傳送自我邀請失敗",
                 "failed_to_send_invite": "傳送邀請失敗",
-                "failed_to_request_invite": "申請加入失敗",
-                "failed_to_send_boop": "傳送戳戳失敗",
                 "failed_to_select_avatar": "切換角色失敗",
-                "failed_to_create_local_favorite_group": "建立本機收藏群組失敗",
+                "failed_to_create_local_favorite_group": "建立本機收藏分組失敗",
                 "failed_to_copy_selected_favorites": "複製所選收藏失敗",
                 "failed_to_move_selected_favorites": "移動所選收藏失敗",
                 "favorites_refresh_unavailable": "若未登入帳號，則無法刷新“我的最愛”",
@@ -4088,20 +4208,18 @@
             "modal": {
                 "remove_local_favorite": "移除本機收藏？",
                 "remove_vrchat_favorite": "移除 VRChat 收藏？",
-                "change_favorite_group_name": "修改收藏群組名稱",
+                "change_favorite_group_name": "修改收藏分組名稱",
                 "enter_the_new_display_name": "輸入新的群組名稱",
                 "change": "修改",
-                "clear_favorite_group": "清空收藏群組？",
-                "remove_all_favorites_from_this_group": "從此收藏群組中移除所有收藏？",
-                "rename_local_favorite_group": "重新命名本機收藏群組",
-                "enter_the_new_local_group_name": "輸入新的本機收藏群組名稱",
-                "delete_local_favorite_group": "刪除本機收藏群組？",
+                "clear_favorite_group": "清空收藏分組？",
+                "remove_all_favorites_from_this_group": "從此收藏分組中移除所有收藏？",
+                "rename_local_favorite_group": "重新命名本機收藏分組",
+                "enter_the_new_local_group_name": "輸入新的本機收藏分組名稱",
+                "delete_local_favorite_group": "刪除本機收藏分組？",
                 "delete_value": "刪除 {value}？",
                 "clear_avatar_history": "清空角色歷史？",
                 "send_invite": "傳送邀請？",
                 "invite": "邀請",
-                "request_invite": "申請加入？",
-                "request_invite_2": "申請加入",
                 "send": "傳送",
                 "delete_value_favorites": "刪除 {value} 個收藏？",
                 "this_action_cannot_be_undone": "此操作無法復原",
@@ -4113,7 +4231,7 @@
                 "user_fallback": "用戶",
                 "world_fallback": "世界",
                 "avatar_fallback": "角色",
-                "no_group_selected": "未選擇收藏群組"
+                "no_group_selected": "未選擇收藏分組"
             },
             "description": {
                 "this_user": "該用戶"
@@ -4125,7 +4243,7 @@
             },
             "dynamic": {
                 "remove_value_from_value": "從 {value2} 中移除 {value}？",
-                "local_group_value_already_exists": "本機收藏群組 {value} 已存在",
+                "local_group_value_already_exists": "本機收藏分組 {value} 已存在",
                 "removed_value_value_failed": "已移除 {value}；{value2} 個失敗",
                 "search_results_singular": "{count} 筆結果",
                 "search_results_plural": "{count} 筆結果",
@@ -4143,17 +4261,13 @@
                 "failed_to_unfriend_value": "解除{value}的好友關係失敗",
                 "failed_to_launch_instance": "啟動房間失敗",
                 "failed_to_send_self_invite": "傳送自我邀請失敗",
-                "failed_to_send_invite": "傳送邀請失敗",
-                "failed_to_request_invite": "申請加入失敗",
-                "failed_to_send_boop": "傳送戳戳失敗"
+                "failed_to_send_invite": "傳送邀請失敗"
             },
             "modal": {
                 "unfriend_user": "解除好友關係？",
                 "unfriend": "解除好友",
                 "send_invite": "傳送邀請？",
                 "invite": "邀請",
-                "request_invite": "申請加入？",
-                "request_invite_2": "申請加入",
                 "send": "傳送"
             },
             "dynamic": {
@@ -4165,26 +4279,30 @@
         },
         "notifications": {
             "toast": {
+                "no_current_user_session": "登入後才能查看通知",
                 "failed_to_load_notifications": "載入通知失敗",
                 "failed_to_mark_notification_as_seen": "標記通知為已讀失敗",
                 "failed_to_delete_notification": "刪除通知失敗",
                 "failed_to_accept_friend_request": "接受好友請求失敗",
                 "failed_to_decline_notification": "拒絕通知失敗",
-                "failed_to_ignore_notification": "忽略通知失敗",
                 "failed_to_send_invite": "傳送邀請失敗",
                 "invite_response_photo_sent": "已發送照片回覆",
                 "invite_response_sent": "已發送回覆",
-                "failed_to_send_notification_response": "無法完成該操作"
+                "failed_to_send_notification_response": "無法完成該操作",
+                "marked_read_locally_only": "已在本機標記已讀，但未能同步到 VRChat"
             },
             "modal": {
                 "delete_notification_log_entry": "刪除通知？",
                 "delete_the_local_value_log_entry": "要從歷史紀錄中刪除這則 {value} 通知嗎？",
                 "accept_friend_request": "接受好友請求",
                 "decline_notification": "拒絕通知",
+                "ignore_friend_request": "忽略好友請求",
                 "decline": "拒絕",
+                "ignore": "忽略",
                 "send_invite": "傳送邀請",
                 "accept_friend_request_consequence": "對方會加入你的好友清單。",
                 "decline_notification_consequence": "此通知會在 VRChat 上被移除。",
+                "ignore_friend_request_consequence": "它會在 VRChat 上移到「忽略好友請求」。",
                 "send_invite_consequence": "邀請會傳送到你目前所在的房間。"
             },
             "dynamic": {
@@ -4292,7 +4410,10 @@
             "accent": {
                 "header": "強調色",
                 "custom": "自訂",
-                "hex_label": "十六進位色碼"
+                "hex_label": "十六進位色碼",
+                "override_theme": "覆寫主題強調色",
+                "provided_by_theme": "由社群主題「{{name}}」提供",
+                "override_hint": "可能與主題配色不協調"
             },
             "custom_css": {
                 "status_on": "開啟",
@@ -4363,7 +4484,7 @@
             }
         },
         "about": {
-            "tagline": "這款採用 Tauri 和 Rust 開發的 VRCX，具備快速且輕量化的特點。",
+            "tagline": "更快、更好用，支援 AI。",
             "contributors": "貢獻者",
             "contributors_error": "無法載入貢獻者清單。",
             "thanks": "每一則翻譯、每一次測試、每一份錯誤回報，以及每一個點子，都來自社群。謝謝你。",
@@ -4723,7 +4844,6 @@
             },
             "groups": {
                 "header": "群組",
-                "sort_by": "排序依據",
                 "own_groups": "自身群組",
                 "mutual_groups": "相互加入的群組",
                 "groups": "群組",
@@ -4736,7 +4856,7 @@
             },
             "worlds": {
                 "header": "世界",
-                "sort_by": "分類依據：",
+                "current_occupants": "目前線上人數",
                 "sorting": {
                     "name": "名稱",
                     "updated": "已更新",
@@ -4754,7 +4874,6 @@
             },
             "avatars": {
                 "header": "角色",
-                "sort_by": "分類依據：",
                 "sort_by_name": "名稱",
                 "sort_by_update": "更新日期",
                 "sort_by_uploaded": "上傳日期",
@@ -4872,8 +4991,6 @@
                 "visibility_hidden": "隱藏",
                 "moderator": "VRChat 官方團隊",
                 "muted": "已靜音",
-                "order_by": "排序方式",
-                "group_by": "分組方式",
                 "trust_level": "信任等級",
                 "age_verified": "已通過年齡驗證",
                 "platform": "最近使用的平台",
@@ -4889,7 +5006,6 @@
                 "shared_connections_setting_updated": "共享連線設定已更新",
                 "discord_connections_setting_updated": "Discord 連線設定已更新",
                 "report_sent": "檢舉已傳送",
-                "boop_sent": "戳戳已傳送",
                 "profile_details_updated": "個人資料詳細資訊已更新",
                 "group_invite_sent": "群組邀請已傳送",
                 "left_group": "已退出群組",
@@ -4946,9 +5062,6 @@
                 "invite_message_sent": "邀請訊息已傳送",
                 "failed_to_send_invite": "傳送邀請失敗",
                 "invite_request_message_sent": "加入申請訊息已傳送",
-                "invite_request_sent": "加入申請已傳送",
-                "failed_to_request_invite": "申請加入失敗",
-                "failed_to_send_boop": "傳送戳戳失敗",
                 "already_viewing_user": "已在查看此用戶",
                 "failed_to_open_discord_profile": "開啟 Discord 資料失敗",
                 "translation_failed": "翻譯失敗",
@@ -5053,14 +5166,20 @@
                 "future_proofing": "可未來更新",
                 "labs": "社群實驗室",
                 "cache": "快取",
-                "restrictions_count_one": "{count} 項功能限制",
-                "restrictions_count_other": "{count} 項功能限制",
                 "content_horror": "恐怖",
                 "content_gore": "血腥",
                 "content_violence": "暴力",
                 "content_adult": "成人",
                 "content_sex": "色情",
-                "pedestals": "展示台"
+                "pedestals": "展示台",
+                "emoji_disabled": "已停用表情",
+                "stickers_disabled": "已停用貼紙",
+                "pedestals_disabled": "已停用展示台",
+                "prints_disabled": "已停用照片列印",
+                "drones_disabled": "已停用無人機",
+                "props_disabled": "已停用道具",
+                "third_person_view_disabled": "已停用第三人稱視角",
+                "debug_allowed": "允許偵錯"
             },
             "actions": {
                 "delete_cache_tooltip": "從快取中刪除世界",
@@ -5092,7 +5211,6 @@
                 "closed": "已關閉",
                 "public_count": "公開 {count}",
                 "private_count": "私人 {count}",
-                "capacity_count": "用戶上限 {count} ({max})",
                 "pin_to_sidebar": "固定到側欄",
                 "pinned_to_sidebar": "已固定到側欄",
                 "pin_to_sidebar_failed": "固定到側欄失敗",
@@ -5102,7 +5220,7 @@
                 "instance_creator": "房間建立者",
                 "languages_declared": "房主設定：{languages}",
                 "languages_current": "目前玩家：{languages}",
-                "filter_with_friends": "有好友在",
+                "filter_with_friends": "含好友",
                 "filter_hide_unavailable": "隱藏已關閉或已滿",
                 "filter_category_all": "全部",
                 "filter_clear": "清除篩選",
@@ -5146,7 +5264,18 @@
                 "friends_visited": "來過的好友",
                 "friends_last_visited": "好友上次造訪",
                 "persistent_data": "永久保存資料",
-                "cache_size": "快取大小"
+                "cache_size": "快取大小",
+                "sections": {
+                    "personal": "我與這個世界",
+                    "stats": "人氣",
+                    "release": "版本與發布",
+                    "technical": "技術資訊",
+                    "tags": "標籤與限制"
+                },
+                "favorite_rate": "收藏率 {rate}%",
+                "capacity_value": "建議 {recommended} · 上限 {max}",
+                "video_domains_count": "允許 {count} 個網域",
+                "attributes": "其他屬性"
             },
             "json": {
                 "header": "原始資料"
@@ -5290,6 +5419,13 @@
                 "failed_to_update_value": "更新{value}失敗",
                 "value_copied": "已複製{value}",
                 "set_value_as_your_vrchat_home_world": "將 {value} 設為你的 VRChat 起始世界？"
+            },
+            "rail": {
+                "online": "線上",
+                "favorites": "收藏",
+                "visits": "造訪",
+                "capacity": "上限",
+                "last_visited": "上次來過"
             }
         },
         "avatar": {
@@ -5299,7 +5435,8 @@
                 "fallback": "備用",
                 "impostor": "投影替身",
                 "future_proofing": "可未來更新",
-                "cache": "快取"
+                "cache": "快取",
+                "marketplace": "商店模型"
             },
             "actions": {
                 "delete_cache_tooltip": "從快取中刪除角色",
@@ -5350,7 +5487,13 @@
                 "gallery_move_earlier": "往前移",
                 "gallery_move_later": "往後移",
                 "gallery_delete_image": "刪除圖片",
-                "attributes": "特性"
+                "attributes": "特性",
+                "sections": {
+                    "personal": "我與這個模型",
+                    "details": "詳情",
+                    "performance": "效能",
+                    "tags": "標籤"
+                }
             },
             "performance": {
                 "header": "效能",
@@ -5538,7 +5681,8 @@
                 "no_active_instances": "沒有活躍房間",
                 "no_active_instances_description": "目前沒有列出此群組的公開房間或群組房間。",
                 "no_recent_events": "沒有最近的群組活動",
-                "preview_banner": "預覽 {value} 橫幅"
+                "preview_banner": "預覽 {value} 橫幅",
+                "open_instances": "目前有 {count} 個房間開放中"
             },
             "events": {
                 "header": "活動",
@@ -5732,6 +5876,26 @@
                 "join_state_invite": "僅限邀請",
                 "join_state_closed": "關閉",
                 "allow_join_prompt": "在群組房間中提示玩家加入群組"
+            },
+            "values": {
+                "privacy": {
+                    "default": "公開",
+                    "private": "私密"
+                },
+                "join_state": {
+                    "open": "自由加入",
+                    "request": "需申請",
+                    "invite": "僅限邀請",
+                    "closed": "已關閉"
+                },
+                "membership": {
+                    "member": "成員",
+                    "inactive": "未加入",
+                    "requested": "已申請",
+                    "invited": "已受邀",
+                    "banned": "已封鎖",
+                    "userblocked": "已封鎖"
+                }
             }
         },
         "favorite": {
@@ -6200,6 +6364,9 @@
             "worlds_description": "依世界分類的截圖",
             "people": "人物",
             "people_description": "依同框的人分類的截圖",
+            "people_section_friends": "好友",
+            "people_section_former_friends": "已刪除好友",
+            "people_section_others": "路人",
             "world_album_count": "{count} 個世界",
             "people_album_count": "{count} 人",
             "empty_albums": "還沒有可分類的截圖",
@@ -6260,19 +6427,23 @@
             "mode": "服務提供者",
             "mode_google": "Google 翻譯",
             "mode_deepl": "DeepL 免費 API",
+            "mode_llm": "LLM 端點",
             "test": "測試",
             "save": "儲存",
-            "msg_fill_endpoint_model": "請填寫 API 端點與模型",
             "msg_settings_saved": "翻譯設定已儲存",
+            "msg_no_default_model": "尚未設定預設模型。請在「設定 → AI」選擇預設模型，或在這裡指定一個模型。",
             "msg_test_success": "測試成功",
             "msg_test_failed": "測試失敗",
             "openai": {
-                "model": "模型名稱",
+                "model": "模型",
+                "model_description": "預設使用 AI 設定中的預設模型，也可以另外指定。",
+                "model_follow_default": "跟隨預設模型（{model}）",
+                "model_follow_default_unset": "跟隨預設模型（未設定）",
+                "model_follow_default_pending": "跟隨預設模型",
+                "model_endpoint_removed": "這個模型所在的 LLM 端點已刪除，翻譯會失敗。請重新選擇模型。",
+                "model_not_selected": "{model} 不在「{endpoint}」的已選模型中。",
                 "prompt_optional": "提示詞（選填）",
                 "prompt_optional_description": "選填的系統提示詞，必須包含變數 {targetLang}。",
-                "connection": "LLM 端點",
-                "connection_description": "僅支援與 OpenAI 相容的端點。",
-                "connection_placeholder": "選擇一個端點",
                 "reasoning_effort": "推理強度",
                 "reasoning_effort_provider_default": "提供者預設"
             },
@@ -6290,7 +6461,7 @@
             "reset": "重設"
         },
         "vr_notifications": {
-            "title": "VR 疊加通知過濾器",
+            "title": "VR 疊加通知篩選器",
             "description": "選擇 SteamVR 執行時哪些通知會傳送到 XSOverlay 和 OVR Toolkit。"
         },
         "tts_notifications": {
@@ -6302,11 +6473,11 @@
             "description": "選擇要在頭顯中顯示哪些執行時通知。"
         },
         "desktop_notifications": {
-            "title": "桌面通知過濾器",
+            "title": "桌面通知篩選器",
             "description": "選擇哪些活動會觸發桌面（系統）通知。上方的桌面通知顯示條件依然生效。"
         },
         "desktop_widget": {
-            "title": "桌面疊加介面過濾器",
+            "title": "桌面疊加介面篩選器",
             "description": "選擇哪些活動會顯示在桌面疊加介面中。"
         },
         "webhook_notifications": {
@@ -6314,7 +6485,7 @@
             "description": "選擇要傳送至已設定 Webhook 的執行階段通知。"
         },
         "wrist_feed_notifications": {
-            "title": "手腕疊加通知過濾器",
+            "title": "手腕疊加通知篩選器",
             "description": "選擇哪些內容顯示在手腕動態中。桌面通知使用單獨的篩選設定。",
             "scopes": {
                 "off": "關閉",
@@ -6401,10 +6572,10 @@
                 "VideoPlay": "影片播放"
             },
             "favorite_groups": {
-                "menu_label": "收藏群組",
-                "all_groups": "所有收藏群組",
-                "group_count": "{count} 個收藏群組",
-                "empty": "沒有可用的好友收藏群組。"
+                "menu_label": "收藏分組",
+                "all_groups": "所有收藏分組",
+                "group_count": "{count} 個收藏分組",
+                "empty": "沒有可用的好友收藏分組。"
             }
         },
         "previous_instances": {
@@ -6757,19 +6928,19 @@
                 "exclude": "排除"
             },
             "description": {
-                "paste_exported_ids_process_the_list_then_import_to_a_vrchat_or_local_favorite_group": "貼上匯出的 ID，處理列表後匯入到 VRChat 收藏群組或本機收藏群組"
+                "paste_exported_ids_process_the_list_then_import_to_a_vrchat_or_local_favorite_group": "貼上匯出的 ID，處理列表後匯入到 VRChat 收藏分組或本機收藏分組"
             },
             "label": {
                 "process_list": "處理列表",
-                "vrchat_group": "VRChat 收藏群組",
-                "local_group": "本機收藏群組",
+                "vrchat_group": "VRChat 收藏分組",
+                "local_group": "本機收藏分組",
                 "image": "圖片",
                 "name": "名稱",
                 "detail": "詳細資訊",
                 "actions": "操作",
                 "import_to": "匯入到",
                 "local": "本機",
-                "select_group": "選擇收藏群組"
+                "select_group": "選擇收藏分組"
             },
             "status": {
                 "processing": "處理中",
@@ -6946,7 +7117,7 @@
         },
         "email_otp": {
             "header": "雙重認證",
-            "description": "輸入寄送到電子信箱的數字代碼",
+            "description": "輸入 VRChat 寄到你電子信箱的驗證碼。在新裝置上登入時 VRChat 會寄出這封驗證信，這是正常的安全驗證。",
             "resend": "重新發送郵件",
             "verify": "驗證",
             "input_error": "無效的代碼"
@@ -7188,6 +7359,9 @@
             "deleted": "所有 VRChat 快取已刪除"
         },
         "gamelog": {
+            "debug_logging_title": "請開啟偵錯日誌",
+            "debug_logging_description": "VRChat 的偵錯日誌尚未開啟。請在 VRChat 快捷選單的「設定 > Debug > Enable Debug Logging」中開啟，然後重新加入房間或重新啟動 VRChat。",
+            "game_state_update_failed": "遊戲狀態更新失敗",
             "vrchat_must_be_closed": "必須先關閉 VRChat 才能變更此設定"
         },
         "error": "錯誤",
@@ -7208,7 +7382,7 @@
         "online_location": "在 {location} 上線",
         "online": "上線",
         "offline": "下線",
-        "status_update": "狀態：{status} {description}",
+        "status_update": "狀態改為 {status} {description}",
         "invite": "邀請你加入 {location} {message}",
         "request_invite": "加入申請 {message}",
         "invite_response": "邀請回覆 {message}",
@@ -7216,7 +7390,7 @@
         "friend_request": "好友請求",
         "friend": "成為好友",
         "unfriend": "不再是好友",
-        "trust_level": "信用等級：{trustLevel}",
+        "trust_level": "信用等級變為 {trustLevel}",
         "display_name": "改名為 {displayName}",
         "bio": "更新了自我介紹",
         "sentence": {
@@ -7249,14 +7423,14 @@
         "group_transfer_request_title": "群主轉讓請求",
         "group_left": "你已不在這個群組中",
         "group_member_updated": "你在這個群組的成員資訊有更新",
-        "group_member_roles": "你現在的身分組：{roles}",
+        "group_member_roles": "身分組變為 {roles}",
         "group_role_updated": "身分組「{role}」已被修改",
         "group_queue_ready_title": "房間排隊已準備完成",
         "group_instance_opened": "建立了一個新房間",
-        "group_instance_opened_location": "建立了一個新房間：{location}",
+        "group_instance_opened_location": "建立了新房間 {location}",
         "group_instances_opened": "建立了 {count} 個新房間",
         "instance_closed_title": "房間已關閉",
-        "instance_closed_location": "房間已關閉：{location}",
+        "instance_closed_location": "房間 {location} 已關閉",
         "event_title": "活動",
         "external_title": "外部應用程式",
         "video_play_title": "影片播放",
@@ -7264,7 +7438,7 @@
         "tracker_disconnected": "已中斷連線",
         "tracker_disconnected_battery": "已中斷連線 · 最後電量 {percent}%",
         "trackers_disconnected": "{count} 個已中斷連線",
-        "avatar_change": "角色：{avatar}",
+        "avatar_change": "角色改為 {avatar}",
         "blocked_player_joined": "被封鎖的用戶已加入",
         "blocked_player_left": "被封鎖的用戶已離開",
         "muted_player_joined": "被靜音的用戶已加入",
@@ -7439,6 +7613,28 @@
         "do_not_disturb_turn_off": "關閉勿擾模式",
         "game_isolation": "隔離模式",
         "game_isolation_active": "隔離模式已開啟 · 點擊關閉",
+        "chatbox_pages": "輪播頁",
+        "chatbox_open": "開啟 Chatbox 設定",
+        "card": {
+            "click": "點擊",
+            "right_click": "右鍵",
+            "on": "已開啟",
+            "off": "已關閉",
+            "on_click_through": "已開啟 · 滑鼠穿透",
+            "turn_on": "開啟",
+            "turn_off": "關閉",
+            "chatbox_click": "開關狀態顯示",
+            "chatbox_right_click": "選擇輪播頁、AFK 或開啟設定",
+            "do_not_disturb_click": "選擇時長或關閉",
+            "desktop_widget_right_click": "置頂、滑鼠穿透等選項",
+            "background_mode": "背景模式",
+            "background_mode_description": "關閉介面，只在背景執行，記憶體用量降至約十分之一；恢復後部分頁面狀態可能重設。",
+            "game_isolation_description": "本機遊戲登入的不是這個帳號時使用，暫停與本機遊戲相關的日誌、狀態和自動化聯動。",
+            "game_isolation_click": "查看說明並開啟",
+            "game_isolation_right_click": "查看說明",
+            "proxy_click": "修改代理設定",
+            "offline_record_click": "開啟記錄端設定"
+        },
         "do_not_disturb_failed": "無法更新勿擾模式",
         "world_collection_importing": "正在匯入世界集合（{progress}/{total}）",
         "game": "遊戲",
@@ -7480,7 +7676,6 @@
         "mutual_graph_fetching": "正在取得共同好友",
         "mutual_graph_progress": "共同好友關係圖譜取得進度",
         "start_background_mode": "切換到背景模式",
-        "start_background_mode_tooltip": "切換到背景模式",
         "modify_proxy_address": "修改代理位址",
         "proxy_disabled": "代理已停用",
         "proxy_enabled_direct": "已啟用代理，正在直接連線",
@@ -7489,14 +7684,15 @@
         "desktop_widget_off": "桌面疊加介面已關閉",
         "desktop_widget_on": "桌面疊加介面已開啟",
         "desktop_widget_click_through": "桌面疊加介面已開啟（滑鼠穿透）",
-        "desktop_widget_failed": "無法更新桌面疊加介面",
-        "desktop_widget_menu_hint": "按右鍵開啟更多選項"
+        "desktop_widget_failed": "無法更新桌面疊加介面"
     },
     "component": {
         "favorite_action_menu": {
             "toast": {
                 "failed_to_add_favorite": "新增收藏失敗",
                 "failed_to_remove_favorite": "移除收藏失敗",
+                "move_failed_restored": "無法移到新分組，已放回原分組。",
+                "move_failed_not_restored": "無法移到新分組，也沒能放回原分組，它已不在你的 VRChat 收藏中。",
                 "failed_to_add_local_favorite": "新增本機收藏失敗",
                 "failed_to_remove_local_favorite": "移除本機收藏失敗"
             }
@@ -7538,6 +7734,7 @@
             }
         },
         "instance_action_bar": {
+            "join": "加入",
             "toast": {
                 "failed_to_send_self_invite": "傳送自我邀請失敗",
                 "failed_to_refresh_instance": "重新整理房間失敗",
@@ -7604,8 +7801,6 @@
                 "failed_to_launch_instance": "啟動房間失敗",
                 "failed_to_send_self_invite": "傳送自我邀請失敗",
                 "failed_to_send_invite": "傳送邀請失敗",
-                "failed_to_request_invite": "申請加入失敗",
-                "failed_to_send_boop": "傳送戳戳失敗",
                 "failed_to_update_social_status": "更新社交狀態失敗",
                 "failed_to_update_status_description": "更新狀態訊息失敗",
                 "failed_to_update_status": "更新狀態失敗"
@@ -7613,8 +7808,6 @@
             "modal": {
                 "send_invite": "傳送邀請？",
                 "invite": "邀請",
-                "request_invite": "申請加入？",
-                "request_invite_2": "申請加入",
                 "send": "傳送",
                 "edit_status_description": "編輯狀態訊息"
             }
@@ -7667,7 +7860,7 @@
         "vrc_notification_center": {
             "toast": {
                 "failed_to_mark_notifications_as_seen": "標記通知為已讀失敗",
-                "mark_all_seen_partially_failed": "部分通知未能標記已讀",
+                "mark_all_seen_partially_failed": "已在本機全部標記已讀，部分未能同步到 VRChat",
                 "failed_to_accept_friend_request": "接受好友請求失敗",
                 "failed_to_decline_notification": "拒絕通知失敗",
                 "failed_to_send_invite": "傳送邀請失敗",
@@ -7828,11 +8021,11 @@
             "dashboard": "儀錶板",
             "dashboard_shell_with_embedded_widgets_and_suppor": "包含小工具和受支援頁面面板的儀錶板外殼。",
             "favorite_friends": "收藏好友",
-            "favorite_friends_groups_and_local_cache_view": "好友收藏群組和本機快取檢視。",
+            "favorite_friends_groups_and_local_cache_view": "好友收藏分組和本機快取檢視。",
             "favorite_worlds": "收藏世界",
-            "favorite_worlds_groups_and_local_cache_view": "世界收藏群組和本機快取檢視。",
+            "favorite_worlds_groups_and_local_cache_view": "世界收藏分組和本機快取檢視。",
             "favorite_avatars": "收藏角色",
-            "favorite_avatars_groups_and_local_cache_view": "角色收藏群組和本機快取檢視。",
+            "favorite_avatars_groups_and_local_cache_view": "角色收藏分組和本機快取檢視。",
             "friend_history": "好友紀錄",
             "friend_relationship_history_table_backed_by_loca": "由本機 SQL 支撐的好友關係歷史表。",
             "moderation": "用戶管理",

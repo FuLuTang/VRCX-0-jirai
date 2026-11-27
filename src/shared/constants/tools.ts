@@ -501,7 +501,6 @@ const toolDefinitionMap = new Map<string, ToolDefinition>(
 
 const quickAccessConfigKey = 'VRCX_toolsQuickAccessList';
 const recentToolsConfigKey = 'VRCX_toolsRecentList';
-const TOOLS_QUICK_ACCESS_UPDATED_EVENT = 'vrcx:tools-quick-access-updated';
 const TOOLS_STATUS_UPDATED_EVENT = 'vrcx:tools-status-updated';
 const RECENT_TOOLS_LIMIT = 3;
 const knownToolKeys = new Set(toolDefinitions.map((tool) => tool.key));
@@ -567,12 +566,6 @@ function getEquivalentToolNavKeys(toolKey: unknown): string[] {
     return Array.from(equivalentToolKeys).map((key) => `tool-${key}`);
 }
 
-function publishToolsQuickAccessUpdated(): void {
-    if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent(TOOLS_QUICK_ACCESS_UPDATED_EVENT));
-    }
-}
-
 function publishToolsStatusUpdated(): void {
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent(TOOLS_STATUS_UPDATED_EVENT));
@@ -628,7 +621,6 @@ export {
     normalizeRecentToolKeys,
     parseQuickAccessToolKeys,
     parseRecentToolKeys,
-    publishToolsQuickAccessUpdated,
     publishToolsStatusUpdated,
     quickAccessConfigKey,
     recentToolsConfigKey,

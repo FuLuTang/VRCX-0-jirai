@@ -1,5 +1,6 @@
 import {
     useEffect,
+    useEffectEvent,
     useMemo,
     useState,
     type Dispatch,
@@ -19,6 +20,10 @@ import {
     convertFileUrlToImageUrl,
     openExternalLink
 } from '@/services/entityMediaService';
+import {
+    recordDialogTabLanding,
+    recordDialogTabSwitch
+} from '@/services/telemetry/telemetryDialogTabs';
 import { vrchatWorldUrl } from '@/shared/constants/vrchatWebUrls';
 import { vrcxWorldDeepLink } from '@/shared/constants/vrcxDeepLinks';
 import { parseLocation } from '@/shared/utils/location';
@@ -44,7 +49,10 @@ import {
     type WorldWorldScreenshots
 } from './useWorldDialogScreenshots';
 import { WorldDialogOverviewSection } from './WorldDialogHeaderSection';
-import { buildWorldDialogDisplayInstanceRows } from './worldDialogInstanceRows';
+import {
+    buildWorldDialogDisplayInstanceRows,
+    worldDialogInstanceViewer
+} from './worldDialogInstanceRows';
 import { WorldDialogTabPanels } from './WorldDialogTabPanels';
 import {
     authorWorldTags,
@@ -110,6 +118,7 @@ export interface WorldDialogHeaderCommands {
 }
 
 export interface WorldDialogTabModel {
+    actionStatus: string;
     activeTab: string;
     authorTags: string[];
     currentUserId: string | null;
@@ -123,6 +132,7 @@ export interface WorldDialogTabModel {
     previousInstances: WorldPreviousInstances;
     previewUrl: string;
     restrictions: ReturnType<typeof visibleWorldTags>['restrictions'];
+    attributes: ReturnType<typeof visibleWorldTags>['attributes'];
     screenshots: WorldWorldScreenshots;
     screenshotsError: string;
     screenshotsRefreshDisabled: boolean;
@@ -136,9 +146,9 @@ export interface WorldDialogTabModel {
 
 export interface WorldDialogTabCommands {
     onChangeTab: (tab: string) => void;
-    onOpenAuthor: () => void;
     onOpenScreenshot: (path: string) => void;
     onPreviousInstancesChange: Dispatch<SetStateAction<WorldPreviousInstances>>;
+    onRefresh: () => void;
     onRefreshScreenshots: () => void;
     onSaveMemo: (memo: string) => void | Promise<void>;
 }
@@ -295,21 +305,21 @@ export function WorldDialogTabbedView({
             ...instance,
             ref: detail,
             userCount: firstKnownValue(
+                detail.n_users,
                 detail.userCount,
                 detail.occupants,
-                detail.n_users,
                 instance.userCount
             ),
             occupants: firstKnownValue(
+                detail.n_users,
                 detail.userCount,
                 detail.occupants,
-                detail.n_users,
                 instance.occupants
             ),
             playerCount: firstKnownValue(
+                detail.n_users,
                 detail.userCount,
                 detail.occupants,
-                detail.n_users,
                 Array.isArray(detail.users) ? detail.users.length : undefined,
                 instance.playerCount,
                 instance.userCount,
@@ -359,6 +369,10 @@ export function WorldDialogTabbedView({
         }
         return userIds;
     }, [currentUserId, currentUserSnapshot?.id, friendsById]);
+    const instanceViewer = useMemo(
+        () => worldDialogInstanceViewer(currentUserSnapshot),
+        [currentUserSnapshot]
+    );
     const { creatorGroupKey, displayInstanceRows } =
         buildWorldDialogDisplayInstanceRows({
             creatorGroupsById,
@@ -368,6 +382,7 @@ export function WorldDialogTabbedView({
             instanceRows: hydratedInstanceRows,
             isInstanceLocation,
             normalizedWorldId,
+            viewer: instanceViewer,
             world,
             worldDialogShortName
         });
@@ -395,7 +410,18 @@ export function WorldDialogTabbedView({
     function changeTab(tab: string) {
         lastWorldDialogTab = resolveWorldDialogTab(tabs, tab);
         setActiveTab(lastWorldDialogTab);
+        recordDialogTabSwitch('world', lastWorldDialogTab);
     }
+
+    const recordWorldTabLanding = useEffectEvent(() => {
+        recordDialogTabLanding('world', resolveWorldDialogTab(tabs, activeTab));
+    });
+
+    useEffect(() => {
+        if (world.id) {
+            recordWorldTabLanding();
+        }
+    }, [world.id]);
 
     useEffect(() => {
         const groupIds = creatorGroupKey
@@ -538,6 +564,7 @@ export function WorldDialogTabbedView({
         onRefresh
     };
     const tabModel: WorldDialogTabModel = {
+        actionStatus,
         activeTab,
         authorTags,
         currentUserId,
@@ -551,6 +578,7 @@ export function WorldDialogTabbedView({
         previousInstances,
         previewUrl,
         restrictions: visibleTags.restrictions,
+        attributes: visibleTags.attributes,
         screenshots: worldScreenshots,
         screenshotsError: worldScreenshotsError,
         screenshotsStatus: worldScreenshotsStatus,
@@ -563,13 +591,9 @@ export function WorldDialogTabbedView({
     };
     const tabCommands: WorldDialogTabCommands = {
         onChangeTab: changeTab,
-        onOpenAuthor: () =>
-            openUserDialog({
-                userId: world.authorId,
-                title: world.authorName || undefined
-            }),
         onOpenScreenshot,
         onPreviousInstancesChange,
+        onRefresh,
         onRefreshScreenshots: refreshWorldScreenshots,
         onSaveMemo
     };

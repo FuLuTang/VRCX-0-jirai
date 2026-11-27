@@ -1,18 +1,23 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use vrcx_0_application::avatars::cloudflare_block;
+use vrcx_0_application::telemetry::TelemetryRuntime;
 use vrcx_0_application_core::{
     Error, Result, RuntimeDiagnostics, RuntimeOperationStatus, RuntimeSyncEngine, WebClient,
 };
 use vrcx_0_integrations::external_api::{self, ExternalHttpRequestInput};
 
-pub use vrcx_0_integrations::external_api::ExternalApiExecuteResponse;
+pub use vrcx_0_integrations::external_api::{
+    ExternalApiAvatarSearchResponse, ExternalApiExecuteResponse,
+};
 
 #[derive(Clone)]
 pub struct ExternalApiRuntime {
     web: Arc<WebClient>,
     diagnostics: RuntimeDiagnostics,
     sync: RuntimeSyncEngine,
+    telemetry: TelemetryRuntime,
 }
 
 impl ExternalApiRuntime {
@@ -20,11 +25,13 @@ impl ExternalApiRuntime {
         web: Arc<WebClient>,
         diagnostics: RuntimeDiagnostics,
         sync: RuntimeSyncEngine,
+        telemetry: TelemetryRuntime,
     ) -> Self {
         Self {
             web,
             diagnostics,
             sync,
+            telemetry,
         }
     }
 
@@ -32,18 +39,32 @@ impl ExternalApiRuntime {
         &self,
         url: String,
         vrcx_id: String,
-    ) -> Result<ExternalApiExecuteResponse> {
-        self.execute(
-            "app__external_api_avatar_search_get",
-            "Searching external avatar provider.",
-            external_api::ExternalApiScope::AvatarSearch,
-            || {
-                let url = require_text(url, "ExternalApiAvatarSearchGet requires url.")?;
-                let vrcx_id = require_text(vrcx_id, "ExternalApiAvatarSearchGet requires vrcxId.")?;
-                Ok(external_api::avatar_search_get_input(&url, &vrcx_id))
-            },
-        )
-        .await
+    ) -> Result<ExternalApiAvatarSearchResponse> {
+        let provider_url = url.clone();
+        let response = self
+            .execute(
+                "app__external_api_avatar_search_get",
+                "Searching external avatar provider.",
+                external_api::ExternalApiScope::AvatarSearch,
+                || {
+                    let url = require_text(url, "ExternalApiAvatarSearchGet requires url.")?;
+                    let vrcx_id =
+                        require_text(vrcx_id, "ExternalApiAvatarSearchGet requires vrcxId.")?;
+                    Ok(external_api::avatar_search_get_input(&url, &vrcx_id))
+                },
+            )
+            .await?;
+        let server_blocked = response.status != 200 && cloudflare_block(&response.data).is_some();
+        if response.status != 200 && !server_blocked {
+            self.telemetry
+                .record_avatar_search_failure(&provider_url, response.status);
+        }
+        Ok(ExternalApiAvatarSearchResponse {
+            status: response.status,
+            data: response.data,
+            raw: response.raw,
+            server_blocked,
+        })
     }
 
     pub async fn youtube_video_metadata(

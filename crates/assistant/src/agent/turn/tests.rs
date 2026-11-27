@@ -27,6 +27,28 @@ async fn tool_wait_returns_when_the_budget_expires() {
     assert!(matches!(result, AwaitToolCall::TimedOut));
 }
 
+#[tokio::test]
+async fn a_cancel_beats_an_approval_that_arrives_with_it() {
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+    sender.send(true).unwrap();
+    let cancel = CancellationToken::new();
+    cancel.cancel();
+
+    let answer = wait_for_approval(receiver, &cancel).await;
+
+    assert!(matches!(answer, Approval::Cancelled));
+}
+
+#[tokio::test]
+async fn an_approval_on_a_live_turn_goes_through() {
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+    sender.send(true).unwrap();
+
+    let answer = wait_for_approval(receiver, &CancellationToken::new()).await;
+
+    assert!(matches!(answer, Approval::Approved));
+}
+
 #[test]
 fn system_prompt_keeps_core_boundaries_and_schema_field_names() {
     for phrase in [
@@ -298,6 +320,19 @@ fn llm_api_error_summary_omits_provider_response_body() {
     };
 
     assert_eq!(llm_error_summary(&error), "LLM API error (429)");
+}
+
+#[test]
+fn llm_protocol_error_summary_keeps_the_failure_reason() {
+    let error = AssistantLlmError::Api {
+        status: 200,
+        message: "chat stream ended before the model finished its response".into(),
+    };
+
+    assert_eq!(
+        llm_error_summary(&error),
+        "LLM API error (200): chat stream ended before the model finished its response"
+    );
 }
 
 #[test]

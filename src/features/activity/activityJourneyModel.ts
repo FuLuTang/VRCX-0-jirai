@@ -1,4 +1,4 @@
-import { toLocalDayKey } from '@/features/instance-history/instance-activity/instanceActivityDate';
+import { toLocalDayKey } from '@/lib/instanceActivityDate';
 import type {
     ActivityJourneyCompanion,
     ActivityJourneyVisit
@@ -14,9 +14,6 @@ export function normalizeActivityPageMode(
 ): ActivityPageMode {
     return value === 'journey' ? 'journey' : 'overview';
 }
-
-export const ACTIVITY_JOURNEY_DENSITY_KEY =
-    ACTIVITY_PAGE_CONFIG_KEYS.journeyDensity;
 
 export const JOURNEY_DENSITIES = ['standard', 'compact', 'dense'] as const;
 

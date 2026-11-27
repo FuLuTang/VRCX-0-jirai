@@ -20,11 +20,15 @@ use super::remote_favorites::{
     add_remote_favorite, clear_remote_favorite_group, delete_remote_favorite,
     save_remote_favorite_group, FavoriteRemoteMutationDeps,
 };
+use super::remote_move::{
+    list_remote_favorites, move_remote_favorites, FavoriteRemoteListInput, FavoriteRemoteListing,
+    FavoriteRemoteMoveInput, FavoriteRemoteMoveOutput,
+};
 use super::{
     FavoriteBulkRemoveInput, FavoriteBulkRemoveResult, FavoriteImportLocation,
     FavoriteImportOperation, FavoriteImportStatus, FavoriteRemoteAddInput,
     FavoriteRemoteDeleteInput, FavoriteRemoteGroupClearInput, FavoriteRemoteGroupSaveInput,
-    FavoriteTransferSelectionInput, FavoriteTransferSelectionResult, LocalFavoriteGroupWrite,
+    FavoriteTransferSelectionInput, FavoriteTransferSelectionResult, LocalFavoriteGroup,
 };
 use vrcx_0_application_core::{AuthenticatedMutationContext, Result};
 use vrcx_0_core::OwnerId;
@@ -131,13 +135,13 @@ impl FavoriteMutationCoordinator {
         &self,
         kind: FavoriteEntityKind,
         entity_id: String,
-        group_name: String,
+        group_id: i64,
     ) -> Result<i64> {
         add_local_favorite_scoped(
             &self.local_deps("Local favorite mutation")?,
             kind,
             entity_id,
-            group_name,
+            group_id,
         )
     }
 
@@ -145,76 +149,68 @@ impl FavoriteMutationCoordinator {
         &self,
         kind: FavoriteEntityKind,
         entity_id: String,
-        group_name: String,
+        group_id: i64,
     ) -> Result<i64> {
         remove_local_favorite_scoped(
             &self.local_deps("Local favorite mutation")?,
             kind,
             entity_id,
-            group_name,
+            group_id,
         )
     }
 
     pub fn create_local_group(
         &self,
         kind: FavoriteEntityKind,
-        group_name: String,
-    ) -> Result<LocalFavoriteGroupWrite> {
-        create_local_favorite_group_scoped(
-            &self.local_deps("Local favorite mutation")?,
-            kind,
-            group_name,
-        )
+        name: String,
+    ) -> Result<LocalFavoriteGroup> {
+        create_local_favorite_group_scoped(&self.local_deps("Local favorite mutation")?, kind, name)
     }
 
     pub fn rename_local_group(
         &self,
         kind: FavoriteEntityKind,
-        group_name: String,
-        new_group_name: String,
-    ) -> Result<LocalFavoriteGroupWrite> {
+        group_id: i64,
+        name: String,
+    ) -> Result<i64> {
         rename_local_favorite_group_scoped(
             &self.local_deps("Local favorite mutation")?,
             kind,
-            group_name,
-            new_group_name,
+            group_id,
+            name,
         )
     }
 
-    pub fn delete_local_group(
-        &self,
-        kind: FavoriteEntityKind,
-        group_name: String,
-    ) -> Result<LocalFavoriteGroupWrite> {
+    pub fn delete_local_group(&self, kind: FavoriteEntityKind, group_id: i64) -> Result<i64> {
         delete_local_favorite_group_scoped(
             &self.local_deps("Local favorite mutation")?,
             kind,
-            group_name,
+            group_id,
         )
     }
 
     pub fn reorder_local_groups(
         &self,
         kind: FavoriteEntityKind,
-        group_names: Vec<String>,
-    ) -> Result<Vec<String>> {
+        group_ids: Vec<i64>,
+    ) -> Result<Vec<LocalFavoriteGroup>> {
         reorder_local_favorite_groups_scoped(
             &self.local_deps("Local favorite mutation")?,
             kind,
-            group_names,
+            group_ids,
         )
     }
 
     pub fn reorder_local(
         &self,
         kind: FavoriteEntityKind,
-        group_name: String,
+        group_id: i64,
         entity_ids: Vec<String>,
     ) -> Result<i64> {
         reorder_local_favorites_scoped(
             &self.local_deps("Local favorite mutation")?,
             kind,
-            group_name,
+            group_id,
             entity_ids,
         )
     }
@@ -271,6 +267,43 @@ impl FavoriteMutationCoordinator {
     ) -> Result<vrcx_0_contracts::vrchat_api::VrchatResponse> {
         let deps = self.remote_deps(label)?;
         clear_remote_favorite_group(&deps, input).await
+    }
+
+    pub async fn move_remote(
+        &self,
+        input: FavoriteRemoteMoveInput,
+    ) -> Result<FavoriteRemoteMoveOutput> {
+        let kind = input.kind;
+        let mutation = self.capture("Favorite move")?;
+        let event_scope = mutation.scope().clone();
+        let outcome = move_remote_favorites(&self.transfer_deps(mutation), input).await?;
+        self.notify_invalidated(
+            &event_scope,
+            kind.into(),
+            outcome.local_changed,
+            outcome.remote_changed,
+        );
+        Ok(outcome.output)
+    }
+
+    pub async fn list_remote(
+        &self,
+        input: FavoriteRemoteListInput,
+    ) -> Result<FavoriteRemoteListing> {
+        let mutation = self.capture("Favorite listing")?;
+        list_remote_favorites(&self.transfer_deps(mutation), input).await
+    }
+
+    fn transfer_deps<'a>(
+        &'a self,
+        mutation: AuthenticatedMutationContext<'a>,
+    ) -> FavoriteTransferDeps<'a> {
+        FavoriteTransferDeps {
+            store: self.store.as_ref(),
+            remote: self.remote.as_ref(),
+            world_cache: self.world_cache.as_ref(),
+            mutation,
+        }
     }
 
     pub async fn transfer_selection(
