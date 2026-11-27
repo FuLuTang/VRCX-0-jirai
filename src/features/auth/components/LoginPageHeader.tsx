@@ -24,7 +24,9 @@ export function LoginPageHeader({
     return (
         <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex min-w-0 flex-col gap-0.5">
-                <div className="truncate text-lg font-semibold">VRCX-0-jirai</div>
+                <div className="truncate text-lg font-semibold">
+                    VRCX-0-jirai
+                </div>
                 <div className="text-muted-foreground text-xs">
                     {t('view.login.tagline')}
                 </div>

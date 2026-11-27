@@ -5,7 +5,7 @@ import {
     LoaderCircleIcon,
     MinusCircleIcon
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type {
@@ -71,11 +71,10 @@ export function SyncWorkflowDialog({
     runner: suppliedRunner
 }: SyncWorkflowDialogProps) {
     const { t } = useTranslation();
-    const runnerRef = useRef<SyncWorkflowRunner | null>(null);
-    if (!runnerRef.current) {
-        runnerRef.current = suppliedRunner ?? createSyncWorkflowRunner();
-    }
-    const runner = runnerRef.current;
+    // One runner per dialog instance; lazy state keeps the ref out of render.
+    const [runner] = useState<SyncWorkflowRunner>(
+        () => suppliedRunner ?? createSyncWorkflowRunner()
+    );
     const [snapshot, setSnapshot] = useState<SyncWorkflowSnapshot>(() =>
         runner.getSnapshot()
     );

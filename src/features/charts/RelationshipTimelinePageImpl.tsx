@@ -3,12 +3,9 @@ import { RefreshCcwIcon, TrendingUpIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import {
-    toLocalDayKey,
-    formatDateLabel
-} from '@/lib/instanceActivityDate';
 import { getLocalDayBounds } from '@/features/instance-history/instance-activity/instanceActivityRows';
 import { timeToText } from '@/lib/dateTime';
+import { toLocalDayKey, formatDateLabel } from '@/lib/instanceActivityDate';
 import feedRepository from '@/repositories/feedRepository';
 import { useFriendRosterStore } from '@/state/friendRosterStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
