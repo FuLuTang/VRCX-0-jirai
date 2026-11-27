@@ -1043,7 +1043,6 @@ export function UserDialogStatusDistributionPanel({
                                 `dialog.user.info.status.${entry.status.replace(' ', '_')}`
                             )}
                             value={formatStatsDuration(entry.seconds)}
-                            subtle
                         />
                     ))}
                 </InfoStatGrid>

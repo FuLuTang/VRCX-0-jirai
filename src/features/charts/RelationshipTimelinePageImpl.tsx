@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import {
     toLocalDayKey,
     formatDateLabel
-} from '@/features/instance-history/instance-activity/instanceActivityDate';
+} from '@/lib/instanceActivityDate';
 import { getLocalDayBounds } from '@/features/instance-history/instance-activity/instanceActivityRows';
 import { timeToText } from '@/lib/dateTime';
 import feedRepository from '@/repositories/feedRepository';
