@@ -1,19 +1,21 @@
 # VRCX-0-jirai 功能补全与验收清单
 
+> **2026-11-28 整理说明**：本文件从 `docs/` 移到了 `docs/jirai-port/`。文中提到的《后续迁移计划》《2026-10-13 实机验收与修复队列》《三条功能链路还原记录》已删除，原文可用 `git show ea3142a47:docs/jirai-port/<文件名>` 查看。
+
 本文记录 `VRCX-0-jirai` 相对 `VRCX-jirai` 尚缺或有行为差异的功能，以及可从 `VRCX-Luo` 借鉴的独立体验。它是后续逐项实现、验收的工作清单，含建议顺序与依赖，不代表待补事项已经完成。每完成一项，应更新状态、对应提交和验证结果；以实际代码与测试为准，不直接复制旧版 Vue/Electron 实现。
 
-状态：`待实现`、`部分实现`、`待实测`、`可选`、`暂缓`、`已完成`。本次复核日期为 **2026-10-13**，代码基准是 `707435714`，已合入 VRCX-0 v2.31.0（`620fb2b3a`）。代码存在与实机验收通过分别记录；旧任务名里的“自动”也不等于已接入自动调度。更细的旧版功能对照见 [README.zh-CN.md](../README.zh-CN.md#vrcx-jirai-功能还原核对表)。
+状态：`待实现`、`部分实现`、`待实测`、`可选`、`暂缓`、`已完成`。本次复核日期为 **2026-10-13**，代码基准是 `707435714`，已合入 VRCX-0 v2.31.0（`620fb2b3a`）。代码存在与实机验收通过分别记录；旧任务名里的“自动”也不等于已接入自动调度。更细的旧版功能对照见 [README.zh-CN.md](../../README.zh-CN.md#vrcx-jirai-功能还原核对表)。
 
-本文件是后续功能状态的主清单；实施顺序见 [后续迁移计划](jirai-port/后续迁移计划.md)，实机操作见 [待手测清单](jirai-port/待手测清单.md)。`旧版功能清单.md`、`评审结论与迭代计划.md`、`总执行规划.md` 和原 `执行任务/` 保留来源与设计历史，其中旧分支名、环境限制、任务完成状态和排期不代表当前状态。
+本文件是后续功能状态的主清单；实施顺序见 后续迁移计划，实机操作见 [待手测清单](待手测清单.md)。`旧版功能清单.md`、`评审结论与迭代计划.md`、`总执行规划.md` 和原 `执行任务/` 保留来源与设计历史，其中旧分支名、环境限制、任务完成状态和排期不代表当前状态。
 
 ### 2026-10-13 实机反馈更新
 
-用户已实际验收，当前状态以 [实机验收与修复队列](jirai-port/2026-10-13-实机验收与修复队列.md) 为准，下面较早的“已接入／待实测”仅说明代码存在。
+用户已实际验收，当前状态以 实机验收与修复队列 为准，下面较早的“已接入／待实测”仅说明代码存在。
 
 - 已通过归档：数据库迁移、窗口兼容模式开／关、启动／小时／按钮刷新、Bio／状态变更准确性、关系图详情与线色、自定义侧栏标签。后续不重复要求验收。
 - 已完成代码修复、等待实机复测：增强抓取取消人为间隔与并发上限；追踪列表名字复用最新资料；双人关系支持追踪对象和直接 ID；关系时间轴复用共享控件并移除额外背景；灯色图移至活动记录首位；无会员拖入图片也能打开准备入口并提示权限；启动 Online 补线和其他房间好友计时恢复。
 - 数据链待查：自己的 Bio 原先不进入 `self_profile_log`，现已接入原生观察与落盘，桌面宿主和应用调用测试通过，仍需真实账号产生 Bio 变化验收；自己的灯色观察／显示来源继续核对。
-- **2026-10-16 新增待实现：旧版自身历史补迁。** 原 VRCX-jirai 将自身 Bio／灯色／状态短语保存在当前账号的通用 Feed 表；上游 VRCX-0 新查询只看 `{owner}_self_profile_log`，导致迁入数据库的旧记录在个人资料历史／灯色图中缺失。应新增**版本化、一次性、可去重的数据迁移**，不重跑整库复制；细节与验收见 [R08-B 旧版自身历史数据补迁](jirai-port/2026-10-13-实机验收与修复队列.md#r08-b旧版自身历史数据补迁新增2026-10-16)。头像仍沿原有记录机制，不并入 `self_profile_log`。
+- **2026-10-16 新增待实现：旧版自身历史补迁。** 原 VRCX-jirai 将自身 Bio／灯色／状态短语保存在当前账号的通用 Feed 表；上游 VRCX-0 新查询只看 `{owner}_self_profile_log`，导致迁入数据库的旧记录在个人资料历史／灯色图中缺失。应新增**版本化、一次性、可去重的数据迁移**，不重跑整库复制；细节与验收见 R08-B 旧版自身历史数据补迁。头像仍沿原有记录机制，不并入 `self_profile_log`。
 - 共同好友 CURRENT／OLD／曾经好友／陌生人业务冲突先记录、专项处理；Overlay 提醒等待推荐交互验收；开发者群等待测试条件。按名字搜索仍暂缓。
 
 补充失败项：启动 Online 补线未显示，用户截图中下线后仍有状态／位置事件但没有上线记录。新增修复队列 R12，先查启动快照、任务结果、数据库与 Feed 刷新，和好友远端计时分别验收。
@@ -46,12 +48,12 @@
 
 ## 实施顺序与连带项
 
-增强抓取、关系功能和灯色占比均有实现；下一轮按 2026-10-13 实机失败结果逐项修补，顺序与依赖见 [修复队列](jirai-port/2026-10-13-实机验收与修复队列.md#修复顺序与依赖)。搜索按用户决定暂缓，多账号另行设计。下表保留上一轮接线完成时的范围，已报告的问题不再笼统标成“待实测”。
+增强抓取、关系功能和灯色占比均有实现；下一轮按 2026-10-13 实机失败结果逐项修补，顺序与依赖见 修复队列。搜索按用户决定暂缓，多账号另行设计。下表保留上一轮接线完成时的范围，已报告的问题不再笼统标成“待实测”。
 
 | 顺序 | 具体交付                                        | 已有部分与待补差距                                                                                                                | 连带项／依赖                                                                                             |
 | ---- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | 1    | 个人资料自身历史查询验收（第 5 项，代码已接入） | 自身 Bio 历史现读当前账号 `self_profile_log`，资料窗口 Activity 按目标玩家传 `isSelf`；好友 Feed Bio 与好友 Activity 保持原查询。 | 用真实账号验证账号切换、历史内容与空态；不扩成“完整历史”或新时间线。                                     |
-| 2    | 已接入功能的真实使用验收                        | 增强抓取、关系建议／提醒、OLD 关系融合、灯色占比、双人关系与 Feed 拖放均有代码；尚有真实 VR／数据库验证项。                       | 按 [待手测清单](jirai-port/待手测清单.md) 逐项记录通过／失败；发现缺陷再开小修，不把它们误记成从零移植。 |
+| 2    | 已接入功能的真实使用验收                        | 增强抓取、关系建议／提醒、OLD 关系融合、灯色占比、双人关系与 Feed 拖放均有代码；尚有真实 VR／数据库验证项。                       | 按 [待手测清单](待手测清单.md) 逐项记录通过／失败；发现缺陷再开小修，不把它们误记成从零移植。 |
 
 搜索相关按用户决定暂缓：保留第 4 项的来源与差异记录，不纳入近期实施顺序。
 
@@ -72,7 +74,7 @@ Feed → Gallery、Online 补线、手动关系、OLD 融合和关系时间轴�
 
 好友＋追踪非好友的统一自动／手动增强抓取、逐人进度、结果复用、公开 Profile Bio、请求合并、限流及账号取消已接入。渐进 Bio 扫描与增强自动抓取协调，具体入口和限制见本轮记录。
 
-实现及测试记录：[三条功能链路还原记录](jirai-port/三条功能链路还原记录.md)；真实数据及 VR 按手测清单验收。
+实现及测试记录：三条功能链路还原记录；真实数据及 VR 按手测清单验收。
 
 参考：`VRCX-jirai/src/coordinators/infoFetchCoordinator.js::runSilentInfoFetch`、`VRCX-jirai/src/coordinators/nonFriendCoordinator.js`、`VRCX-jirai/src/coordinators/friendSyncCoordinator.js`、`VRCX-jirai/src/stores/updateLoop.js`。当前入口：`VRCX-0-jirai/src/services/syncWorkflowActions.ts::createSyncWorkflowActions`、`VRCX-0-jirai/src/services/profileFetchExecutor.ts::createProfileFetchExecutor`、`VRCX-0-jirai/src/services/trackedNonfriendsRefreshExecutor.ts::createTrackedNonfriendsRefreshExecutor`、`VRCX-0-jirai/src/services/authenticatedRuntimeService.ts::applyFriendStep`、`VRCX-0-jirai/crates/persistence/src/realtime/write.rs::profile_feed_reconcile`、`VRCX-0-jirai/crates/application/src/social/profile_bio/mod.rs::scan_next_profile_bio`、`VRCX-0-jirai/crates/persistence/src/profile_bio.rs::profile_bio_next_stale_friend`。
 
@@ -80,7 +82,7 @@ Feed → Gallery、Online 补线、手动关系、OLD 融合和关系时间轴�
 
 UTC 分桶堆叠占比图、缩放、数字时长、日期提示与亮暗主题已接入；滑条停止一秒后重算，拖动不逐格查库。打开“活动记录”页签会与同页活动面板一起自动读取状态历史，仍可手动刷新；组件定向测试 7 项通过。自己单独读取有记录的游戏区间，不宣称完整在线历史。用户反馈图入口已移到活动记录首位；自己的历史表已有观测且查询能生成统计，仍需确认当前运行时是否持续写入新的自身灯色变化。
 
-实现及测试记录：[三条功能链路还原记录](jirai-port/三条功能链路还原记录.md)；真实数据及 VR 按手测清单验收。
+实现及测试记录：三条功能链路还原记录；真实数据及 VR 按手测清单验收。
 
 参考：`VRCX-jirai/src/components/dialogs/UserDialog/UserDialogStatusDistributionTab.vue::buildChartData/loadData`（旧图表与查询；缺观测区间的算法不能照抄）；当前组件 `VRCX-0-jirai/src/components/dialogs/user-dialog/components/UserDialogInfoTab.tsx::UserDialogStatusDistributionPanel`、统计函数 `VRCX-0-jirai/src/components/dialogs/user-dialog/components/statusDistribution.ts::buildStatusDistribution`，事件表定义 `VRCX-0-jirai/crates/persistence/src/realtime/schema.rs`。
 
@@ -88,7 +90,7 @@ UTC 分桶堆叠占比图、缩放、数字时长、日期提示与亮暗主题�
 
 旧推荐算法、私房优先、证据、确认／本次忽略及进房 Overlay 提醒已接入；确认写现有手动表并刷新图。真实进房且双方同场才提示，连续同房去重，不伪造游戏日志。
 
-实现及测试记录：[三条功能链路还原记录](jirai-port/三条功能链路还原记录.md)；真实数据及 VR 按手测清单验收。
+实现及测试记录：三条功能链路还原记录；真实数据及 VR 按手测清单验收。
 
 参考：`VRCX-jirai/src/stores/manualRelations.js::computeSuggestions/ignoreSuggestion/addManualRelation`（候选及处置）、`VRCX-jirai/src/coordinators/gameLogCoordinator.js`（进房提示触发）；当前接点 `VRCX-0-jirai/crates/application-game/src/activity_events/relationship_recommendations.rs::live_candidates`、`VRCX-0-jirai/crates/application-activity/src/router/runtime.rs`（通知路由）、`VRCX-0-jirai/crates/persistence/src/mutual_graph.rs::mutual_graph_manual_link_set`。
 
@@ -114,7 +116,7 @@ UTC 分桶堆叠占比图、缩放、数字时长、日期提示与亮暗主题�
 
 补本地记录峰值人数；没有可靠日志时显示未知。近时出现改为进入先后未知，不等同相约／共同进入。
 
-实现及测试记录：[三条功能链路还原记录](jirai-port/三条功能链路还原记录.md)；真实数据及 VR 按手测清单验收。
+实现及测试记录：三条功能链路还原记录；真实数据及 VR 按手测清单验收。
 
 参考：`VRCX-jirai/src/views/Charts/components/TwoPersonRelationship.vue::sharedInstances/loadData`（共同实例和人数展示）、`VRCX-jirai/src/services/database/gameLog.js::getCoInstanceHistoryBetweenFriends/getMaxPlayerCountForLocations`（原始查询）；当前接点 `VRCX-0-jirai/src/features/charts/TwoPersonRelationshipPageImpl.tsx::groupOverlapsByLocation`。
 
@@ -134,7 +136,7 @@ UTC 分桶堆叠占比图、缩放、数字时长、日期提示与亮暗主题�
 
 公开 /profile Bio 和 /users 有效灯色观察接入好友及非好友；缺字段不清空。与实时／后台共用比较落盘和 Feed 更新通知。
 
-实现及测试记录：[三条功能链路还原记录](jirai-port/三条功能链路还原记录.md)；真实数据及 VR 按手测清单验收。
+实现及测试记录：三条功能链路还原记录；真实数据及 VR 按手测清单验收。
 
 参考：`VRCX-jirai/src/coordinators/userCoordinator.js::showUserDialog/updateUserDialogProfile`（旧资料快照，旧审计提交 `eeb354a2`、`a3c22508`，后续 Bio 修复见 `3708e12f`）；当前 `VRCX-0-jirai/crates/runtime-host-desktop/src/vrchat_remote.rs::user_profile`、`VRCX-0-jirai/crates/runtime-host-desktop/src/profile_bio.rs::ProfileBioObserver`、`VRCX-0-jirai/crates/application/src/social/profile_bio/mod.rs::observe_profile_response`、`VRCX-0-jirai/crates/persistence/src/realtime/write.rs::profile_feed_reconcile`。
 
@@ -142,7 +144,7 @@ UTC 分桶堆叠占比图、缩放、数字时长、日期提示与亮暗主题�
 
 ### 关系时间轴参数防抖与查询 — 功能通过，主题与布局待改
 
-用户明确希望参数停止变化约 1 秒后再刷新，以免拖动时卡顿。当前 [关系时间轴](../src/features/charts/RelationshipTimelinePageImpl.tsx)在页面加载／账号切换／手动刷新时读取一次完整的 owner-scoped GPS／Offline 历史；Top users、Days per unit、Show others 和 Friends only 现在共用一个尾随 1 秒计时器，变化会重置计时，停下后才重算图表。底部 ECharts dataZoom 只调可视范围，保持即时缩放，不触发数据库查询。参数变化不会重复读取同一份全历史；本轮补齐的是筛选开关也要重置这个计时器。
+用户明确希望参数停止变化约 1 秒后再刷新，以免拖动时卡顿。当前 [关系时间轴](../../src/features/charts/RelationshipTimelinePageImpl.tsx)在页面加载／账号切换／手动刷新时读取一次完整的 owner-scoped GPS／Offline 历史；Top users、Days per unit、Show others 和 Friends only 现在共用一个尾随 1 秒计时器，变化会重置计时，停下后才重算图表。底部 ECharts dataZoom 只调可视范围，保持即时缩放，不触发数据库查询。参数变化不会重复读取同一份全历史；本轮补齐的是筛选开关也要重置这个计时器。
 
 代码考古未能在当前可见的旧 `VRCX-0-jirai` Git 历史或 `VRCX-jirai` 中确认“这些滑条每动一次都查数据库”：`VRCX-jirai/src/views/Charts/components/RelationshipTimeline.vue` 的数据查询只发生在 `loadData()`（挂载／刷新），参数变化调用的是 500ms `debouncedRebuildChart()`；当前 React 迁移版加载后端历史也不接收这些参数。若要求严格执行“停 1 秒后发 SQL”，需要有旧实现的提交／文件，或先定义该 SQL 应按什么参数缩小数据范围；否则重复读取相同数据会重新引入原有卡顿。
 
@@ -206,6 +208,6 @@ UTC 分桶堆叠占比图、缩放、数字时长、日期提示与亮暗主题�
 
 ## 对照来源
 
-- [当前迁移核对表](../README.zh-CN.md#vrcx-jirai-功能还原核对表)、[`VRCX-jirai` README](../../VRCX-jirai/README.md)。
+- [当前迁移核对表](../../README.zh-CN.md#vrcx-jirai-功能还原核对表)、[`VRCX-jirai` README](../../../VRCX-jirai/README.md)。
 - `VRCX-Luo` 本地提交：`be43cc2f`（好友侧栏状态动画）、`4c6b4cb0`／`8fab993c`／`3f632397`（双人共享世界排行与弹窗）。
-- 当前实现入口：[关系时间轴](../src/features/charts/RelationshipTimelinePageImpl.tsx)、[双人关系](../src/features/charts/TwoPersonRelationshipPageImpl.tsx)、[Bio 扫描](../crates/application/src/social/profile_bio/mod.rs)、[关系归档](../crates/persistence/src/mutual_graph.rs)。
+- 当前实现入口：[关系时间轴](../../src/features/charts/RelationshipTimelinePageImpl.tsx)、[双人关系](../../src/features/charts/TwoPersonRelationshipPageImpl.tsx)、[Bio 扫描](../../crates/application/src/social/profile_bio/mod.rs)、[关系归档](../../crates/persistence/src/mutual_graph.rs)。

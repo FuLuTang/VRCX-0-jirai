@@ -6,9 +6,9 @@
 
 - [待手测清单.md](待手测清单.md) —— GUI 手测清单，P0 部分已在 pc114514 上完成，只剩 P1 的 GUI 手测需要人来做（现行）。
 - [旧版功能清单.md](旧版功能清单.md) —— 旧版 Electron/Vue 仓库中 Jirai 自有行为的盘点与对照（用户在维护）。
-- [总执行规划.md](总执行规划.md) —— 任务 01–11 的总规划、依赖关系与执行状态（现行）。
+- [jirai-feature-backlog.md](jirai-feature-backlog.md) —— VRCX-0-jirai 相对 VRCX-jirai 缺失或有差异的功能清单与验收状态，后续功能状态的主清单（现行）。
 - [多账户进程隔离-RFC.md](多账户进程隔离-RFC.md) —— 多账户进程隔离的设计 RFC，结论为主对话已审查、仅 RFC 不实现多账户产品（暂缓）。
-- [workflowUI示意图.png](workflowUI示意图.png) —— 资料同步面板（workflowUI）的设计图。
+- [workflowUI示意图.png](workflowUI示意图.png) —— 增强型信息抓取面板（workflowUI）的设计图。
 - [09-半成品存档/](09-半成品存档/) —— 关系推荐的半成品代码（09-modified.diff 与 untracked 下的 Rust/前端源码），尚未接入（参考）。
 
 ## 参考/
@@ -32,4 +32,4 @@
 
 ## 已删除的文档
 
-> 参考/、计划/ 和总执行规划里提到的 `JIRAI_移植说明.md`、`docs/jirai-port/执行任务/`、`后续迁移计划.md`、`评审结论与迭代计划.md` 以及 `docs/jirai-port/reports/` 下的复杂功能报告已于 2026-11-27 删除，原文可用 `git show e6143d256:<路径>` 查看。`reports/` 下带时间戳的过程报告（例如 `reports/2026-11-16T2308Z-merge/`、`reports/2026-11-18T0040Z-pc-vs-github-jirai-audit/`、`reports/2026-11-18T1721Z-storage-env-audit/`、`reports/2026-11-20T1845Z-mimi-revert/`）没有并入本目录，原文在 MIMI 分支的历史里，可用 `git show 855f9e06f:<路径>` 查看。
+> 参考/、计划/ 里提到的 `JIRAI_移植说明.md`、`docs/jirai-port/执行任务/`、`后续迁移计划.md`、`评审结论与迭代计划.md` 以及 `docs/jirai-port/reports/` 下的复杂功能报告已于 2026-11-27 删除，原文可用 `git show e6143d256:<路径>` 查看。`总执行规划.md`（自述为历史规划）、`2026-10-13-实机验收与修复队列.md`、`三条功能链路还原记录.md` 于 2026-11-28 合并进 main 时删除，原文可用 `git show ea3142a47:docs/jirai-port/<文件名>` 查看。`reports/` 下带时间戳的过程报告（例如 `reports/2026-11-16T2308Z-merge/`、`reports/2026-11-18T0040Z-pc-vs-github-jirai-audit/`、`reports/2026-11-18T1721Z-storage-env-audit/`、`reports/2026-11-20T1845Z-mimi-revert/`）没有并入本目录，原文在 MIMI 分支的历史里，可用 `git show 855f9e06f:<路径>` 查看。
