@@ -165,7 +165,7 @@ pub fn profile_feed_reconcile_with_description_policy(
     // Keep the legacy progressive scanner's baseline in sync with explicit
     // observations, without altering its enable flag or freshness policy.
     if input.bio.is_some() {
-        let _ = crate::profile_bio::profile_bio_get(db, &owner_user_id, &user_id)?;
+        crate::profile_bio::profile_bio_get(db, &owner_user_id, &user_id)?;
     }
     db.write_transaction(|tx| {
         let bio_rows = tx.execute(
