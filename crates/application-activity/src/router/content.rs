@@ -219,7 +219,7 @@ pub(super) fn build_activity_content(event: &ActivityEvent) -> ActivityContent {
             ActivityText::message(OverlayMessage::notifications_relationship_recommendation(
                 actor_display_name,
                 &facts.title,
-                &facts.count.to_string(),
+                facts.count.to_string(),
             )),
         ),
         ActivityKind::BlockedOnPlayerJoined => titled_body(
