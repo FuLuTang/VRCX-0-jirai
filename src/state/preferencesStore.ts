@@ -379,6 +379,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
     desktopWidgetNewestOnTop: true,
     webhookEnabled: false,
     webhookAuthEventsEnabled: true,
+    webhookPauseWithDoNotDisturb: false,
     webhookUrl: '',
     webhookFormat: 'generic',
     webhookFields: DEFAULT_GENERIC_WEBHOOK_FIELDS,
@@ -391,6 +392,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
     wristOverlayDarkBackground: true,
     wristOverlayShowDevices: true,
     wristOverlayShowBatteryPercent: false,
+    wristOverlayShowSeconds: false,
     relaunchVRChatAfterCrash: false,
     vrcQuitFix: true,
     focusVrchatOnJoin: false,
@@ -649,6 +651,9 @@ export function normalizePreferenceSnapshot(snapshot: unknown = {}) {
         desktopWidgetNewestOnTop: normalizeBool(next.desktopWidgetNewestOnTop),
         webhookEnabled: normalizeBool(next.webhookEnabled),
         webhookAuthEventsEnabled: normalizeBool(next.webhookAuthEventsEnabled),
+        webhookPauseWithDoNotDisturb: normalizeBool(
+            next.webhookPauseWithDoNotDisturb
+        ),
         webhookUrl: String(next.webhookUrl || ''),
         webhookFormat: normalizeNotificationWebhookFormat(next.webhookFormat),
         webhookFields: String(
@@ -673,6 +678,7 @@ export function normalizePreferenceSnapshot(snapshot: unknown = {}) {
         wristOverlayShowBatteryPercent: normalizeBool(
             next.wristOverlayShowBatteryPercent
         ),
+        wristOverlayShowSeconds: normalizeBool(next.wristOverlayShowSeconds),
         relaunchVRChatAfterCrash: normalizeBool(next.relaunchVRChatAfterCrash),
         vrcQuitFix: normalizeBool(next.vrcQuitFix),
         focusVrchatOnJoin: normalizeBool(next.focusVrchatOnJoin),

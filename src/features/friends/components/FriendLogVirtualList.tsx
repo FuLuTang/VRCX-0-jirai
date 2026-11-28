@@ -1,4 +1,4 @@
-import { useMemo, type ComponentProps } from 'react';
+import { memo, useMemo, type ComponentProps, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { AppTable } from '@/components/data-table/appTable';
@@ -6,15 +6,13 @@ import {
     getColumnGridLayout,
     getColumnSizeVars
 } from '@/components/data-table/columnSizing';
-import { DataTableColumnResizeHandle } from '@/components/data-table/DataTableColumnResizeHandle';
 import {
     LogFilterContextMenu,
     getLogFilterRowAttributes,
     type LogFilterCommands
 } from '@/components/data-table/LogFilterContextMenu';
-import { getColumnOrderLocked } from '@/components/data-table/tableColumnLayout';
-import { TableColumnContextMenu } from '@/components/data-table/TableColumnVisibilityMenu';
 import { VirtualHistoryList } from '@/components/data-table/VirtualHistoryList';
+import { VirtualListColumnHeader } from '@/components/data-table/VirtualListColumnHeader';
 import { usePreferencesStore } from '@/state/preferencesStore';
 import { Button } from '@/ui/shadcn/button';
 import { Spinner } from '@/ui/shadcn/spinner';
@@ -22,6 +20,61 @@ import { Spinner } from '@/ui/shadcn/spinner';
 import { getFriendLogRowKey, type FriendLogRow } from '../friendLogRows';
 import { FriendLogDateCell, FriendLogDeleteAction } from './FriendLogColumns';
 import { FriendLogTypeIndicator, renderUserCell } from './FriendLogViewParts';
+
+type FriendLogDeleteActionProps = Omit<
+    ComponentProps<typeof FriendLogDeleteAction>,
+    'row'
+>;
+
+const FriendLogVirtualListRow = memo(function FriendLogVirtualListRow({
+    row,
+    displayName,
+    columnIds,
+    layout,
+    deleteAction
+}: {
+    row: FriendLogRow;
+    displayName: string;
+    columnIds: readonly string[];
+    layout: CSSProperties;
+    deleteAction: FriendLogDeleteActionProps;
+}) {
+    const { t } = useTranslation();
+    return (
+        <div
+            data-friend-history-row=""
+            data-vrcx-0-list-row=""
+            {...getLogFilterRowAttributes({
+                userId: row.userId || '',
+                userName: displayName,
+                type: row.type,
+                typeLabel: t(`view.friend_log.filters.${row.type}`)
+            })}
+            className="grid h-[var(--vrcx-0-table-row-height)] items-center border-b border-[var(--vrcx-0-table-divider)] hover:bg-[var(--vrcx-0-table-row-hover-surface)]"
+            style={layout}
+        >
+            {columnIds.map((columnId) => (
+                <div
+                    key={columnId}
+                    className="min-w-0 truncate px-[var(--vrcx-0-table-cell-padding-inline)]"
+                >
+                    {columnId === 'created_at' ? (
+                        <FriendLogDateCell row={row} />
+                    ) : columnId === 'type' ? (
+                        <FriendLogTypeIndicator type={row.type} />
+                    ) : columnId === 'displayName' ? (
+                        renderUserCell({
+                            ...row,
+                            resolvedDisplayName: displayName
+                        })
+                    ) : columnId === 'action' ? (
+                        <FriendLogDeleteAction {...deleteAction} row={row} />
+                    ) : null}
+                </div>
+            ))}
+        </div>
+    );
+});
 
 export function FriendLogVirtualList({
     rows,
@@ -42,7 +95,7 @@ export function FriendLogVirtualList({
     table: AppTable<FriendLogRow>;
     filterCommands: LogFilterCommands;
     resolveDisplayName(row: FriendLogRow): string;
-    deleteAction: Omit<ComponentProps<typeof FriendLogDeleteAction>, 'row'>;
+    deleteAction: FriendLogDeleteActionProps;
     resetKey: string;
     hasMore: boolean;
     loadingOlder: boolean;
@@ -62,16 +115,45 @@ export function FriendLogVirtualList({
             })),
         [rows, deleteAction.rowsOwnerUserId]
     );
-    const headers = table.getHeaderGroups().flatMap((group) => group.headers);
     const columns = table.getVisibleLeafColumns();
-    const layout = getColumnGridLayout(columns, 'displayName');
-    const labels: Record<string, string> = {
-        created_at: t('table.friendLog.date'),
-        type: t('table.friendLog.type'),
-        displayName: t('table.friendLog.user'),
-        action: t('table.friendLog.action')
-    };
-
+    const columnIds = useMemo(
+        () => columns.map((column) => column.id),
+        [columns]
+    );
+    const { gridTemplateColumns, minWidth } = getColumnGridLayout(
+        columns,
+        'displayName'
+    );
+    const layout = useMemo(
+        () => ({ gridTemplateColumns, minWidth }),
+        [gridTemplateColumns, minWidth]
+    );
+    const {
+        currentUserId,
+        deletingRowKey,
+        handleDeleteRow,
+        loadStatus,
+        rowsOwnerUserId,
+        shiftHeld
+    } = deleteAction;
+    const rowDeleteAction = useMemo(
+        () => ({
+            currentUserId,
+            deletingRowKey,
+            handleDeleteRow,
+            loadStatus,
+            rowsOwnerUserId,
+            shiftHeld
+        }),
+        [
+            currentUserId,
+            deletingRowKey,
+            handleDeleteRow,
+            loadStatus,
+            rowsOwnerUserId,
+            shiftHeld
+        ]
+    );
     const footer = loadOlderFailed ? (
         <div role="status" className="flex items-center gap-2">
             {t('view.friend_log.load_older_failed')}
@@ -111,77 +193,19 @@ export function FriendLogVirtualList({
                     onViewingLatestChange={onViewingLatestChange}
                     latestLabel={t('view.friend_log.latest')}
                     header={
-                        <div
-                            className="grid min-h-[var(--vrcx-0-table-header-height)] items-center text-xs text-[var(--vrcx-0-table-header-foreground)]"
-                            style={layout}
-                        >
-                            {headers.map((header) => (
-                                <TableColumnContextMenu
-                                    key={header.id}
-                                    column={header.column}
-                                    table={table}
-                                    enableColumnReorder={
-                                        !getColumnOrderLocked(table)
-                                    }
-                                >
-                                    <div className="relative flex h-full min-w-0 items-center px-[var(--vrcx-0-table-cell-padding-inline)]">
-                                        <span className="truncate">
-                                            {labels[header.column.id]}
-                                        </span>
-                                        {header.column.getCanResize() ? (
-                                            <DataTableColumnResizeHandle
-                                                header={header}
-                                                label={
-                                                    labels[header.column.id] ??
-                                                    ''
-                                                }
-                                            />
-                                        ) : null}
-                                    </div>
-                                </TableColumnContextMenu>
-                            ))}
-                        </div>
+                        <VirtualListColumnHeader
+                            layout={layout}
+                            table={table}
+                        />
                     }
                     renderRow={({ row }) => (
-                        <div
-                            data-friend-history-row=""
-                            {...getLogFilterRowAttributes({
-                                userId: row.userId || '',
-                                userName: resolveDisplayName(row),
-                                type: row.type,
-                                typeLabel: t(
-                                    `view.friend_log.filters.${row.type}`
-                                )
-                            })}
-                            className="grid h-[var(--vrcx-0-table-row-height)] items-center border-b border-[var(--vrcx-0-table-divider)] hover:bg-[var(--vrcx-0-table-row-hover-surface)]"
-                            style={layout}
-                        >
-                            {columns.map((column) => (
-                                <div
-                                    key={column.id}
-                                    className="min-w-0 truncate px-[var(--vrcx-0-table-cell-padding-inline)]"
-                                >
-                                    {column.id === 'created_at' ? (
-                                        <FriendLogDateCell row={row} />
-                                    ) : column.id === 'type' ? (
-                                        <FriendLogTypeIndicator
-                                            type={row.type}
-                                        />
-                                    ) : column.id === 'displayName' ? (
-                                        renderUserCell({
-                                            ...row,
-                                            resolvedDisplayName:
-                                                resolveDisplayName(row)
-                                        })
-                                    ) : column.id === 'action' ? (
-                                        <FriendLogDeleteAction
-                                            {...deleteAction}
-                                            row={row}
-                                        />
-                                    ) : null}
-                                </div>
-                            ))}
-                        </div>
+                        <FriendLogVirtualListRow
+                            row={row}
+                            displayName={resolveDisplayName(row)}
+                            columnIds={columnIds}
+                            layout={layout}
+                            deleteAction={rowDeleteAction}
+                        />
                     )}
                     footer={footer}
                     emptyState={footer}

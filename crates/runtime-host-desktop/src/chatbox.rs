@@ -13,21 +13,36 @@ use vrcx_0_application_game::chatbox::{
 };
 use vrcx_0_application_game::IS_GAME_NO_VR_CONFIG_KEY;
 use vrcx_0_host_desktop::gpu_usage::GpuUsageSampler;
-use vrcx_0_host_desktop::media_session::current_media_session;
+use vrcx_0_host_desktop::media_session::MediaSessionReader;
 use vrcx_0_host_desktop::osc_udp::OscUdpSender;
 use vrcx_0_host_desktop::system_usage::SystemUsageSampler;
 use vrcx_0_i18n::{text, ChatboxKey};
 use vrcx_0_osc::{chatbox_input_message, chatbox_typing_message};
 
 use crate::game_isolation::GameIsolationRuntime;
+use crate::heart_rate::HeartRateRuntime;
 
 const APP_LANGUAGE_CONFIG_KEY: &str = "appLanguage";
+
+pub(crate) fn osc_output_gate(
+    game_isolation: &GameIsolationRuntime,
+    is_game_running: bool,
+) -> ChatboxGate {
+    if game_isolation.is_enabled() {
+        ChatboxGate::Paused(ChatboxPauseReason::Isolated)
+    } else if !is_game_running {
+        ChatboxGate::Paused(ChatboxPauseReason::GameNotRunning)
+    } else {
+        ChatboxGate::Ready
+    }
+}
 
 pub struct ChatboxRuntime {
     config: Arc<dyn ConfigStore>,
     session: HostSessionRuntime,
     game_isolation: GameIsolationRuntime,
     event_bus: RuntimeEventBus,
+    heart_rate: Arc<HeartRateRuntime>,
     previewing: AtomicBool,
     state: Mutex<ChatboxRuntimeState>,
 }
@@ -36,6 +51,7 @@ pub struct ChatboxRuntime {
 struct ChatboxRuntimeState {
     scheduler: ChatboxScheduler,
     sender: OscUdpSender,
+    media_session: MediaSessionReader,
     system_usage: SystemUsageSampler,
     gpu_usage: GpuUsageSampler,
     settings: Option<ChatboxSettings>,
@@ -56,12 +72,14 @@ impl ChatboxRuntime {
         session: HostSessionRuntime,
         game_isolation: GameIsolationRuntime,
         event_bus: RuntimeEventBus,
+        heart_rate: Arc<HeartRateRuntime>,
     ) -> Self {
         Self {
             config,
             session,
             game_isolation,
             event_bus,
+            heart_rate,
             previewing: AtomicBool::new(false),
             state: Mutex::new(ChatboxRuntimeState::default()),
         }
@@ -81,11 +99,41 @@ impl ChatboxRuntime {
         &self,
         next: ChatboxConfig,
     ) -> vrcx_0_application_core::Result<ChatboxConfig> {
-        let next = next.normalized();
-        let serialized = serde_json::to_string(&next)
-            .map_err(|error| vrcx_0_application_core::Error::Custom(error.to_string()))?;
+        self.update_config(|_| next)
+    }
+
+    pub fn set_status_enabled(
+        &self,
+        status_enabled: bool,
+    ) -> vrcx_0_application_core::Result<ChatboxConfig> {
+        self.update_config(|current| ChatboxConfig {
+            status_enabled,
+            ..current
+        })
+    }
+
+    pub fn set_page_enabled(
+        &self,
+        page_id: &str,
+        enabled: bool,
+    ) -> vrcx_0_application_core::Result<ChatboxConfig> {
+        self.update_config(|mut current| {
+            if let Some(page) = current.pages.iter_mut().find(|page| page.id == page_id) {
+                page.enabled = enabled;
+            }
+            current
+        })
+    }
+
+    fn update_config(
+        &self,
+        update: impl FnOnce(ChatboxConfig) -> ChatboxConfig,
+    ) -> vrcx_0_application_core::Result<ChatboxConfig> {
         let mut state = self.lock_state();
         let previous = self.settings(&mut state).config;
+        let next = update(previous.clone()).normalized();
+        let serialized = serde_json::to_string(&next)
+            .map_err(|error| vrcx_0_application_core::Error::Custom(error.to_string()))?;
         self.config.set_string(CHATBOX_CONFIG_KEY, &serialized)?;
         if next.rotation_order_changed(&previous)
             || (next.status_enabled && !previous.status_enabled)
@@ -103,6 +151,7 @@ impl ChatboxRuntime {
 
     pub fn set_previewing(&self, previewing: bool) {
         self.previewing.store(previewing, Ordering::Release);
+        self.heart_rate.set_watching(previewing);
     }
 
     pub fn send_manual(&self, text: &str) -> vrcx_0_application_core::Result<ChatboxSendOutcome> {
@@ -155,10 +204,11 @@ impl ChatboxRuntime {
         needs: ChatboxFactNeeds,
         is_game_running: bool,
         last_game_started_at: Option<&str>,
+        heart_rate: Option<u16>,
     ) -> ChatboxFacts {
         let media_session = needs
             .media
-            .then(current_media_session)
+            .then(|| state.media_session.read())
             .flatten()
             .map(|media| ChatboxMedia {
                 title: media.title,
@@ -194,6 +244,7 @@ impl ChatboxRuntime {
             gpu,
             is_game_running,
             last_game_started_at,
+            heart_rate,
         })
     }
 
@@ -210,6 +261,7 @@ impl ChatboxRuntime {
             needs,
             session.is_game_running,
             session.last_game_started_at.as_deref(),
+            self.heart_rate.current_bpm(),
         );
         let output = state.scheduler.tick(ChatboxTickInput {
             now: Instant::now(),
@@ -244,13 +296,7 @@ impl ChatboxRuntime {
     }
 
     fn gate(&self, is_game_running: bool) -> ChatboxGate {
-        if self.game_isolation.is_enabled() {
-            ChatboxGate::Paused(ChatboxPauseReason::Isolated)
-        } else if !is_game_running {
-            ChatboxGate::Paused(ChatboxPauseReason::GameNotRunning)
-        } else {
-            ChatboxGate::Ready
-        }
+        osc_output_gate(&self.game_isolation, is_game_running)
     }
 
     fn transmit(

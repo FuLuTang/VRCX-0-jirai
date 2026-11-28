@@ -53,7 +53,8 @@ describe('AvatarSearchProviderRepository', () => {
         vi.mocked(commands.appExternalApiAvatarSearchGet).mockResolvedValue({
             status: 200,
             data: '[]',
-            raw: []
+            raw: [],
+            serverBlocked: false
         });
         vi.mocked(avatarProfileRepository.normalize).mockImplementation(
             (avatarInput: unknown) => {
@@ -154,7 +155,8 @@ describe('AvatarSearchProviderRepository', () => {
                     updatedAt: '2024-01-02T00:00:00Z'
                 }
             ]),
-            raw: { provider: true }
+            raw: { provider: true },
+            serverBlocked: false
         });
 
         const result = await avatarSearchProviderRepository.search({
@@ -193,6 +195,25 @@ describe('AvatarSearchProviderRepository', () => {
             (result.avatars as NormalizedAvatar[]).map((avatar) => avatar.id)
         ).toEqual(['avtr_alpha', 'avtr_beta']);
     });
+
+    it.each([
+        { status: 403, serverBlocked: true },
+        { status: 451, serverBlocked: false }
+    ])(
+        'rejects with status $status and blocked=$serverBlocked when the provider fails',
+        async ({ status, serverBlocked }) => {
+            vi.mocked(commands.appExternalApiAvatarSearchGet).mockResolvedValue(
+                { status, data: '', raw: {}, serverBlocked }
+            );
+
+            await expect(
+                avatarSearchProviderRepository.search({
+                    provider: DEFAULT_PROVIDER,
+                    query: 'alpha'
+                })
+            ).rejects.toMatchObject({ status, blocked: serverBlocked });
+        }
+    );
 
     it('persists the default provider list when no provider list is configured', async () => {
         vi.mocked(configRepository.has).mockResolvedValue(false);

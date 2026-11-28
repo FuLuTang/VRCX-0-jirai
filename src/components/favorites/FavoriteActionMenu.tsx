@@ -9,6 +9,7 @@ import type {
     FavoriteKind,
     FavoriteRecord,
     FavoriteStore,
+    LocalFavoriteGroup,
     RemoteFavoriteKind
 } from '@/domain/favorites/types';
 import { cn } from '@/lib/utils';
@@ -39,7 +40,8 @@ import {
 import { Spinner } from '@/ui/shadcn/spinner';
 
 const EMPTY_GROUPS: FavoriteStoreGroup[] = [];
-const EMPTY_LOCAL_GROUPS: string[] = [];
+const EMPTY_LOCAL_GROUPS: LocalFavoriteGroup[] = [];
+const DEFAULT_LOCAL_GROUP_NAME = 'Favorites';
 const EMPTY_FAVORITES: FavoriteGroupMap = {};
 
 type FavoriteActionMenuProps = {
@@ -151,22 +153,22 @@ function resolveRemoteFavoriteGroup(
 
 function hasLocalFavorite(
     localFavorites: FavoriteGroupMap,
-    groupName: string,
+    group: LocalFavoriteGroup,
     entityId: string
 ) {
+    const members = localFavorites?.[String(group.id)];
     return (
-        Array.isArray(localFavorites?.[groupName]) &&
-        localFavorites[groupName].some(
-            (value) => normalizeEntityId(value) === entityId
-        )
+        Array.isArray(members) &&
+        members.some((value) => normalizeEntityId(value) === entityId)
     );
 }
 
-function localGroupLabel(localFavorites: FavoriteGroupMap, groupName: string) {
-    const count = Array.isArray(localFavorites?.[groupName])
-        ? localFavorites[groupName].length
-        : 0;
-    return `${groupName} (${count})`;
+function localGroupLabel(
+    localFavorites: FavoriteGroupMap,
+    group: LocalFavoriteGroup
+) {
+    const members = localFavorites?.[String(group.id)];
+    return `${group.name} (${Array.isArray(members) ? members.length : 0})`;
 }
 
 function useFavoriteMenu({
@@ -193,24 +195,16 @@ function useFavoriteMenu({
         kind === 'world'
             ? localWorldFavorites.favoritesByGroup
             : storedLocalFavorites;
-    const localGroups = useMemo(() => {
-        if (kind === 'world') {
-            return localWorldFavorites.groupNames;
-        }
-        if (storedLocalGroups.length) {
-            return storedLocalGroups;
-        }
-        return Object.keys(localFavorites);
-    }, [
-        kind,
-        localFavorites,
-        localWorldFavorites.groupNames,
-        storedLocalGroups
-    ]);
+    const localGroups =
+        kind === 'world' ? localWorldFavorites.groups : storedLocalGroups;
+    const storeLoadStatus = useFavoriteStore((state) => state.loadStatus);
+    const localGroupsLoaded =
+        (kind === 'world' ? localWorldFavorites.status : storeLoadStatus) ===
+        'ready';
     const localFavoriteActive = useMemo(
         () =>
-            localGroups.some((groupName) =>
-                hasLocalFavorite(localFavorites, groupName, normalizedEntityId)
+            localGroups.some((group) =>
+                hasLocalFavorite(localFavorites, group, normalizedEntityId)
             ),
         [localFavorites, localGroups, normalizedEntityId]
     );
@@ -238,11 +232,47 @@ function useFavoriteMenu({
                 });
             }
             if (group) {
-                await vrchatFavoriteRepository.addFavorite({
-                    type: resolveFavoriteAddType(group, kind),
-                    favoriteId: normalizedEntityId,
-                    tags: group.name
-                });
+                try {
+                    await vrchatFavoriteRepository.addFavorite({
+                        type: resolveFavoriteAddType(group, kind),
+                        favoriteId: normalizedEntityId,
+                        tags: group.name
+                    });
+                } catch (error) {
+                    if (!remoteFavorite || !remoteFavoriteGroup) {
+                        throw error;
+                    }
+                    const restored = await vrchatFavoriteRepository
+                        .addFavorite({
+                            type: resolveFavoriteAddType(
+                                remoteFavoriteGroup,
+                                kind
+                            ),
+                            favoriteId: normalizedEntityId,
+                            tags: remoteFavoriteGroup.name
+                        })
+                        .then(
+                            () => true,
+                            () => false
+                        );
+                    toast.add({
+                        type: 'error',
+                        title:
+                            error instanceof Error
+                                ? error.message
+                                : t(
+                                      'component.favorite_action_menu.toast.failed_to_add_favorite'
+                                  ),
+                        description: restored
+                            ? t(
+                                  'component.favorite_action_menu.toast.move_failed_restored'
+                              )
+                            : t(
+                                  'component.favorite_action_menu.toast.move_failed_not_restored'
+                              )
+                    });
+                    return;
+                }
                 if (kind === 'world' && isRecord(entity)) {
                     persistWorldDetails(entity, normalizedEntityId);
                 } else if (kind === 'avatar' && isRecord(entity)) {
@@ -275,7 +305,7 @@ function useFavoriteMenu({
         }
     }
 
-    async function addLocalFavoriteToGroup(groupName: string) {
+    async function addLocalFavoriteToGroup(groupId: number) {
         if (!normalizedEntityId || actionStatusRef.current !== 'idle') {
             return;
         }
@@ -291,7 +321,7 @@ function useFavoriteMenu({
             await favoritePersistenceRepository.addLocalFavorite({
                 kind,
                 entityId: normalizedEntityId,
-                groupName
+                groupId
             });
             toast.add({
                 type: 'success',
@@ -313,7 +343,7 @@ function useFavoriteMenu({
         }
     }
 
-    async function removeLocalFavoriteFromGroup(groupName: string) {
+    async function removeLocalFavoriteFromGroup(groupId: number) {
         if (!normalizedEntityId || actionStatusRef.current !== 'idle') {
             return;
         }
@@ -324,7 +354,7 @@ function useFavoriteMenu({
             await favoritePersistenceRepository.removeLocalFavorite({
                 kind,
                 entityId: normalizedEntityId,
-                groupName
+                groupId
             });
             toast.add({
                 type: 'success',
@@ -367,7 +397,7 @@ function useFavoriteMenu({
         if (!groupName) {
             return;
         }
-        if (localGroups.includes(groupName)) {
+        if (localGroups.some((group) => group.name === groupName)) {
             toast.add({
                 type: 'error',
                 title: t(
@@ -379,7 +409,13 @@ function useFavoriteMenu({
             });
             return;
         }
+        await createLocalFavoriteGroupWithEntity(groupName);
+    }
 
+    async function createLocalFavoriteGroupWithEntity(groupName: string) {
+        if (!normalizedEntityId || actionStatusRef.current !== 'idle') {
+            return;
+        }
         actionStatusRef.current = 'local-favorite';
         setActionStatus('local-favorite');
         try {
@@ -388,14 +424,15 @@ function useFavoriteMenu({
             } else if (kind === 'avatar' && isRecord(entity)) {
                 persistAvatarDetails(entity, normalizedEntityId);
             }
-            await favoritePersistenceRepository.createLocalFavoriteGroup({
-                kind,
-                groupName
-            });
+            const group =
+                await favoritePersistenceRepository.createLocalFavoriteGroup({
+                    kind,
+                    name: groupName
+                });
             await favoritePersistenceRepository.addLocalFavorite({
                 kind,
                 entityId: normalizedEntityId,
-                groupName
+                groupId: group.id
             });
             toast.add({
                 type: 'success',
@@ -434,9 +471,11 @@ function useFavoriteMenu({
                   )
               ]
             : []),
-        ...localGroups.filter((groupName) =>
-            hasLocalFavorite(localFavorites, groupName, normalizedEntityId)
-        )
+        ...localGroups
+            .filter((group) =>
+                hasLocalFavorite(localFavorites, group, normalizedEntityId)
+            )
+            .map((group) => group.name)
     ];
 
     const items = (
@@ -492,29 +531,41 @@ function useFavoriteMenu({
             <DropdownMenuGroup>
                 <DropdownMenuLabel>{localFavoritesLabel}</DropdownMenuLabel>
                 {localGroups.length ? (
-                    localGroups.map((groupName) => {
+                    localGroups.map((group) => {
                         const isLocalFavorite = hasLocalFavorite(
                             localFavorites,
-                            groupName,
+                            group,
                             normalizedEntityId
                         );
                         return (
                             <DropdownMenuCheckboxItem
-                                key={groupName}
+                                key={group.id}
                                 checked={isLocalFavorite}
                                 onClick={(event) => event.preventDefault()}
                                 onCheckedChange={() => {
                                     if (isLocalFavorite) {
-                                        removeLocalFavoriteFromGroup(groupName);
+                                        removeLocalFavoriteFromGroup(group.id);
                                     } else {
-                                        addLocalFavoriteToGroup(groupName);
+                                        addLocalFavoriteToGroup(group.id);
                                     }
                                 }}
                             >
-                                {localGroupLabel(localFavorites, groupName)}
+                                {localGroupLabel(localFavorites, group)}
                             </DropdownMenuCheckboxItem>
                         );
                     })
+                ) : localGroupsLoaded ? (
+                    <DropdownMenuCheckboxItem
+                        checked={false}
+                        onClick={(event) => event.preventDefault()}
+                        onCheckedChange={() =>
+                            void createLocalFavoriteGroupWithEntity(
+                                DEFAULT_LOCAL_GROUP_NAME
+                            )
+                        }
+                    >
+                        {`${DEFAULT_LOCAL_GROUP_NAME} (0)`}
+                    </DropdownMenuCheckboxItem>
                 ) : (
                     <DropdownMenuItem disabled>
                         {t(

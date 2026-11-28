@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState
+} from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { buildMutualFriendsGraphTheme } from '@/lib/mutual-friends/mutualFriendsPalette';
@@ -31,7 +38,13 @@ interface SigmaLifecycleOptions {
     onSelectNode: (nodeId: string) => void;
     onOpenNode?: (nodeId: string) => void;
     forceLabels?: boolean;
+    minNodeSize?: number;
+    emphasizedNodeId?: string;
+    nodeImageUrlById?: ReadonlyMap<string, string>;
+    nodeImagesOnHover?: boolean;
 }
+
+const NO_NODE_IMAGES: ReadonlyMap<string, string> = new Map();
 
 export function useMutualFriendsSigmaLifecycle({
     graph,
@@ -44,7 +57,11 @@ export function useMutualFriendsSigmaLifecycle({
     selectedNodeIdRef,
     onSelectNode,
     onOpenNode,
-    forceLabels = false
+    forceLabels = false,
+    minNodeSize,
+    emphasizedNodeId,
+    nodeImageUrlById = NO_NODE_IMAGES,
+    nodeImagesOnHover = false
 }: SigmaLifecycleOptions) {
     const { t } = useTranslation();
     const containerRef = useRef<HTMLElement | null>(null);
@@ -57,29 +74,23 @@ export function useMutualFriendsSigmaLifecycle({
     const openNodeRef = useRef(onOpenNode);
     const [renderRetryToken, setRenderRetryToken] = useState(0);
     const [isLayoutRunning, setIsLayoutRunning] = useState(false);
-
-    selectNodeRef.current = onSelectNode;
-    openNodeRef.current = onOpenNode;
+    const [containerElement, setContainerElement] =
+        useState<HTMLElement | null>(null);
 
     const isDarkMode = resolvedTheme === 'dark';
     const theme = useMemo(
-        () => buildMutualFriendsGraphTheme(isDarkMode, containerRef.current),
-        [isDarkMode]
+        () => buildMutualFriendsGraphTheme(isDarkMode, containerElement),
+        [containerElement, isDarkMode]
     );
     const themeRef = useRef(theme);
-    themeRef.current = theme;
     const crossCommunityOnlyRef = useRef(crossCommunityOnly);
-    crossCommunityOnlyRef.current = crossCommunityOnly;
-    const hoverCardStringsRef = useRef({
-        connections: '',
-        lastFetched: '',
-        unavailable: ''
-    });
-    hoverCardStringsRef.current = {
+    const nodeImageUrlByIdRef = useRef(nodeImageUrlById);
+    const hoverCardStrings = {
         connections: t('view.charts.label.connections'),
         lastFetched: t('view.charts.mutual_friend.context_menu.last_fetched'),
         unavailable: t('view.charts.mutual_friend.label.mutuals_unavailable')
     };
+    const hoverCardStringsRef = useRef(hoverCardStrings);
 
     const {
         layoutIterations,
@@ -88,7 +99,16 @@ export function useMutualFriendsSigmaLifecycle({
         communitySeparation
     } = layoutSettings;
     const layoutSettingsRef = useRef(layoutSettings);
-    layoutSettingsRef.current = layoutSettings;
+
+    useLayoutEffect(() => {
+        selectNodeRef.current = onSelectNode;
+        openNodeRef.current = onOpenNode;
+        themeRef.current = theme;
+        crossCommunityOnlyRef.current = crossCommunityOnly;
+        nodeImageUrlByIdRef.current = nodeImageUrlById;
+        hoverCardStringsRef.current = hoverCardStrings;
+        layoutSettingsRef.current = layoutSettings;
+    });
 
     const teardownGraph = useCallback(() => {
         const controller = controllerRef.current;
@@ -104,6 +124,7 @@ export function useMutualFriendsSigmaLifecycle({
                 teardownGraph();
             }
             containerRef.current = node;
+            setContainerElement(node);
         },
         [teardownGraph]
     );
@@ -155,7 +176,9 @@ export function useMutualFriendsSigmaLifecycle({
             communityIndexById,
             namedCommunityIndexes,
             theme: themeRef.current,
-            forceLabels
+            forceLabels,
+            minNodeSize,
+            emphasizedNodeId
         })
             .then((builtGraph) => {
                 if (!active || containerRef.current !== container) {
@@ -177,7 +200,9 @@ export function useMutualFriendsSigmaLifecycle({
                     crossCommunityOnlyRef,
                     onSelectNode: (nodeId) => selectNodeRef.current(nodeId),
                     onOpenNode: (nodeId) => openNodeRef.current?.(nodeId),
-                    hoverCardStringsRef
+                    hoverCardStringsRef,
+                    nodeImageUrlByIdRef,
+                    nodeImagesOnHover
                 });
                 graphologyRef.current = builtGraph;
             })
@@ -201,8 +226,11 @@ export function useMutualFriendsSigmaLifecycle({
     }, [
         graph,
         communityIndexById,
+        emphasizedNodeId,
         forceLabels,
+        minNodeSize,
         namedCommunityIndexes,
+        nodeImagesOnHover,
         layoutIterations,
         layoutSpacing,
         renderRetryToken,
@@ -230,6 +258,21 @@ export function useMutualFriendsSigmaLifecycle({
     useEffect(() => {
         controllerRef.current?.applyEdgeEmphasis();
     }, [crossCommunityOnly]);
+
+    const appliedNodeImageUrlByIdRef = useRef(nodeImageUrlById);
+    useEffect(() => {
+        const previous = appliedNodeImageUrlByIdRef.current;
+        appliedNodeImageUrlByIdRef.current = nodeImageUrlById;
+        if (
+            previous.size === nodeImageUrlById.size &&
+            [...nodeImageUrlById].every(
+                ([node, url]) => previous.get(node) === url
+            )
+        ) {
+            return;
+        }
+        controllerRef.current?.applyNodeImages();
+    }, [nodeImageUrlById]);
 
     return {
         isLayoutRunning,

@@ -291,7 +291,7 @@ impl RealtimeHostRuntime {
         let (live_entries, watermark) = self
             .feed
             .snapshot(&OwnerId::new(query.user_id.clone()), &matcher)?;
-        self.deps.stores.feed.feed_latest(
+        self.deps.store.feed_latest(
             query,
             live_entries,
             watermark,
@@ -305,8 +305,7 @@ impl RealtimeHostRuntime {
             .feed
             .snapshot(&OwnerId::new(query.user_id.clone()), &matcher)?;
         self.deps
-            .stores
-            .feed
+            .store
             .feed_search(
                 query,
                 live_entries,

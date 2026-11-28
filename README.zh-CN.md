@@ -25,7 +25,7 @@ Windows · macOS · Linux
 
 VRChat 桌面辅助工具：查看好友在线状态和所在位置、记录遇到过的人和去过的世界、管理收藏等。
 
-VRCX-0 是 VRCX 的完全重写版本，由 VRCX 前维护者之一开发。基于 Rust 重建，更快、更轻，多年积累的数据依然流畅。
+VRCX-0 是 [VRCX](https://github.com/vrcx-team/VRCX) 的完全重写版本，由 VRCX 前维护者之一开发。基于 Rust 重建，更快、更轻，多年积累的数据依然流畅。
 
 ## 主要特点
 
@@ -168,6 +168,16 @@ macOS 首次启动如被系统拦截，请前往 **系统设置 → 隐私与安
 - 交流与提问：[Discord](https://discord.gg/fehKP3SVPN)
 - 问题反馈与功能建议：[GitHub Issues](https://github.com/Map1en/VRCX-0/issues)
 - 开发 blog：[blog.vrcx-0.dev](https://blog.vrcx-0.dev/zh/)
+
+## 技术架构
+
+- 业务逻辑、VRChat 协议、存储和后台任务全部由约 30 个 crate 组成的 Rust 工作区负责，React 19 界面只负责渲染
+- 桌面版、无头模式、MCP 服务器和 AI 助手共用同一套运行时
+- Rust 与界面之间的 IPC 全部带类型，TypeScript 绑定由 Rust 自动生成
+- 分层边界由 CI 中的架构测试强制保证
+- VR 悬浮层原生渲染，同时支持 OpenVR 和 OpenXR
+
+完整说明见 [ARCHITECTURE.md](ARCHITECTURE.md)（英文）。
 
 ## 从源码构建
 

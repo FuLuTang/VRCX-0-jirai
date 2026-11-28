@@ -1,5 +1,6 @@
 import {
     useEffect,
+    useEffectEvent,
     useMemo,
     useState,
     type Dispatch,
@@ -19,6 +20,10 @@ import {
     convertFileUrlToImageUrl,
     openExternalLink
 } from '@/services/entityMediaService';
+import {
+    recordDialogTabLanding,
+    recordDialogTabSwitch
+} from '@/services/telemetry/telemetryDialogTabs';
 import { vrchatWorldUrl } from '@/shared/constants/vrchatWebUrls';
 import { vrcxWorldDeepLink } from '@/shared/constants/vrcxDeepLinks';
 import { parseLocation } from '@/shared/utils/location';
@@ -127,6 +132,7 @@ export interface WorldDialogTabModel {
     previousInstances: WorldPreviousInstances;
     previewUrl: string;
     restrictions: ReturnType<typeof visibleWorldTags>['restrictions'];
+    attributes: ReturnType<typeof visibleWorldTags>['attributes'];
     screenshots: WorldWorldScreenshots;
     screenshotsError: string;
     screenshotsRefreshDisabled: boolean;
@@ -140,7 +146,6 @@ export interface WorldDialogTabModel {
 
 export interface WorldDialogTabCommands {
     onChangeTab: (tab: string) => void;
-    onOpenAuthor: () => void;
     onOpenScreenshot: (path: string) => void;
     onPreviousInstancesChange: Dispatch<SetStateAction<WorldPreviousInstances>>;
     onRefresh: () => void;
@@ -405,7 +410,18 @@ export function WorldDialogTabbedView({
     function changeTab(tab: string) {
         lastWorldDialogTab = resolveWorldDialogTab(tabs, tab);
         setActiveTab(lastWorldDialogTab);
+        recordDialogTabSwitch('world', lastWorldDialogTab);
     }
+
+    const recordWorldTabLanding = useEffectEvent(() => {
+        recordDialogTabLanding('world', resolveWorldDialogTab(tabs, activeTab));
+    });
+
+    useEffect(() => {
+        if (world.id) {
+            recordWorldTabLanding();
+        }
+    }, [world.id]);
 
     useEffect(() => {
         const groupIds = creatorGroupKey
@@ -562,6 +578,7 @@ export function WorldDialogTabbedView({
         previousInstances,
         previewUrl,
         restrictions: visibleTags.restrictions,
+        attributes: visibleTags.attributes,
         screenshots: worldScreenshots,
         screenshotsError: worldScreenshotsError,
         screenshotsStatus: worldScreenshotsStatus,
@@ -574,11 +591,6 @@ export function WorldDialogTabbedView({
     };
     const tabCommands: WorldDialogTabCommands = {
         onChangeTab: changeTab,
-        onOpenAuthor: () =>
-            openUserDialog({
-                userId: world.authorId,
-                title: world.authorName || undefined
-            }),
         onOpenScreenshot,
         onPreviousInstancesChange,
         onRefresh,

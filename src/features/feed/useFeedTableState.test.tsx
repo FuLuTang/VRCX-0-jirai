@@ -74,13 +74,13 @@ describe('useFeedTableState', () => {
                     '{}'
             ).sorting
         ).toEqual([{ id: 'type', desc: false }]);
+        first.unmount();
         expect(
             JSON.parse(
                 window.localStorage.getItem(getDataTableStorageKey('feed')) ||
                     '{}'
             ).columnSizing
         ).toEqual({ created_at: 144, displayName: 208 });
-        first.unmount();
 
         const second = renderHook(() => useFeedTableState(options));
 
@@ -91,5 +91,36 @@ describe('useFeedTableState', () => {
             created_at: 144,
             displayName: 208
         });
+    });
+
+    it('restores column order, hidden columns, and the order lock after remount', () => {
+        const first = renderHook(() => useFeedTableState(options));
+
+        act(() => {
+            first.result.current.setColumnOrder([
+                'expander',
+                'type',
+                'created_at',
+                'displayName',
+                'detail'
+            ]);
+            first.result.current.setColumnVisibility({ displayName: false });
+            first.result.current.setColumnOrderLocked(true);
+        });
+        first.unmount();
+
+        const second = renderHook(() => useFeedTableState(options));
+
+        expect(second.result.current.columnOrder).toEqual([
+            'expander',
+            'type',
+            'created_at',
+            'displayName',
+            'detail'
+        ]);
+        expect(second.result.current.columnVisibility).toEqual({
+            displayName: false
+        });
+        expect(second.result.current.columnOrderLocked).toBe(true);
     });
 });

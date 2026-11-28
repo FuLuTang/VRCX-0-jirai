@@ -1,6 +1,6 @@
 import type { FeedRowOutput } from '@/platform/tauri/bindings';
 import { DAY_MS } from '@/shared/constants/time';
-import { isRealInstance } from '@/shared/utils/instance';
+import { isRealInstance } from '@/shared/utils/location';
 
 export type RelationshipSession = {
     userId: string;

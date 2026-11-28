@@ -1,10 +1,10 @@
-import { ChevronDownIcon, UsersRoundIcon } from 'lucide-react';
+import { ChevronDownIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { EntityAvatar } from '@/components/EntityAvatar';
 import { LaunchModeContextMenuGroup } from '@/components/launch/LaunchModeContextMenuGroup';
 import { Location } from '@/components/Location';
-import { FadeInImage } from '@/components/media/FadeInImage';
 import { normalizeSidebarFilterQuery } from '@/components/sidebar/friends-sidebar/friendsSidebarModel';
 import { handleSidebarRowArrowNavigation } from '@/components/sidebar/sidebarRowArrowNavigation';
 import { useVirtualSidebarRows } from '@/components/sidebar/useVirtualSidebarRows';
@@ -28,6 +28,7 @@ import { openGroupDialog } from '@/services/dialogService';
 import { convertFileUrlToImageUrl } from '@/services/entityMediaService';
 import { selfInviteToInstance } from '@/services/launchService';
 import { toast } from '@/services/toastService';
+import { SAVED_GROUP_FAVORITES_CHANGED_EVENT } from '@/shared/events/savedGroupFavoritesEvents';
 import { checkCanInviteSelf } from '@/shared/utils/invite';
 import { parseLocation } from '@/shared/utils/location';
 import { normalizeString } from '@/shared/utils/string';
@@ -52,7 +53,6 @@ const GROUP_MESSAGE_ROW_SIZE = 64;
 const GROUP_FOOTER_ROW_SIZE = 16;
 const EMPTY_GROUP_ORDER: string[] = [];
 const EMPTY_GROUP_INSTANCES: GroupInstanceRecord[] = [];
-const SAVED_GROUP_FAVORITES_CHANGED_EVENT = 'saved-group-favorites-changed';
 
 type GroupSectionSidebarRow = {
     type: 'section';
@@ -345,26 +345,7 @@ function GroupInstanceRow({
                                 })
                             }
                         >
-                            <span className="bg-muted flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md border">
-                                {iconUrl ? (
-                                    <FadeInImage
-                                        src={iconUrl}
-                                        alt=""
-                                        className="size-full object-cover"
-                                        fallback={
-                                            <UsersRoundIcon
-                                                data-icon="inline-start"
-                                                className="text-muted-foreground"
-                                            />
-                                        }
-                                    />
-                                ) : (
-                                    <UsersRoundIcon
-                                        data-icon="inline-start"
-                                        className="text-muted-foreground"
-                                    />
-                                )}
-                            </span>
+                            <EntityAvatar kind="group" imageUrl={iconUrl} />
                             <span className="min-w-0 flex-1">
                                 <span className="block truncate leading-5 font-medium">
                                     {name}
@@ -724,7 +705,7 @@ export function GroupsSidebar({ filterQuery = '' }: { filterQuery?: string }) {
             case 'skeleton':
                 return (
                     <div className="flex items-center gap-2 rounded-md px-1.5 py-1.5">
-                        <Skeleton className="size-8 shrink-0 rounded-md" />
+                        <Skeleton className="size-10 shrink-0 rounded-[10px]" />
                         <div className="min-w-0 flex-1">
                             <Skeleton className="h-3.5 w-2/3" />
                             <Skeleton className="mt-2 h-3 w-4/5" />

@@ -4,6 +4,7 @@ import {
     LayersIcon,
     UsersIcon
 } from 'lucide-react';
+import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { CurrentInstanceBadge } from '@/components/instances/CurrentInstanceBadge';
@@ -11,7 +12,6 @@ import { EmptyState } from '@/components/layout/PageScaffold';
 import { Location } from '@/components/Location';
 import {
     localGameLocation,
-    presenceCanRequestInvite,
     presenceLiveInstanceTag
 } from '@/domain/friends/presence';
 import type { FriendRecord } from '@/domain/friends/types';
@@ -56,7 +56,8 @@ type FriendsLocationsCollapsibleGroupHeaderProps = {
 };
 
 type FriendsLocationCardItemProps = {
-    section: FriendsLocationsSection;
+    cardContentMode?: FriendsLocationsSection['cardContentMode'];
+    displayInstanceInfo?: boolean;
     friend: FriendRecord;
     currentUserId?: string | null;
     densityConfig: ReturnType<typeof getFriendsLocationsDensityConfig>;
@@ -189,8 +190,9 @@ export function FriendsLocationsCollapsibleGroupHeader({
     );
 }
 
-export function FriendsLocationCardItem({
-    section,
+export const FriendsLocationCardItem = memo(function FriendsLocationCardItem({
+    cardContentMode,
+    displayInstanceInfo,
     friend,
     currentUserId,
     densityConfig,
@@ -244,16 +246,15 @@ export function FriendsLocationCardItem({
             }}
             presentation={{
                 density: densityConfig,
-                contentMode: section.cardContentMode,
-                displayInstanceInfo: section.displayInstanceInfo !== false,
+                contentMode: cardContentMode,
+                displayInstanceInfo: displayInstanceInfo !== false,
                 showAvatarFrame,
                 showNameplate
             }}
             capabilities={{
                 useLocation: !friendIsCurrentUser && friendLocationAvailable,
                 sendInvite: !friendIsCurrentUser && canSendInvite,
-                requestInvite:
-                    !friendIsCurrentUser && presenceCanRequestInvite(presence),
+                requestInvite: !friendIsCurrentUser,
                 boop: !friendIsCurrentUser && canBoop
             }}
             actions={{
@@ -269,4 +270,4 @@ export function FriendsLocationCardItem({
             }}
         />
     );
-}
+});

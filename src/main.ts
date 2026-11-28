@@ -30,10 +30,12 @@ registerAuthenticatedRuntimeOnlineBackfill(async (accountId, signal) => {
 });
 
 async function bootstrap() {
-    const [, { App }] = await Promise.all([
+    const [, { App }, { installLongFrameTelemetry }] = await Promise.all([
         import('@/services/i18nService'),
-        import('./app/App')
+        import('./app/App'),
+        import('@/services/telemetry/telemetryLongFrames')
     ]);
+    installLongFrameTelemetry();
 
     const rootElement = document.getElementById('root');
 

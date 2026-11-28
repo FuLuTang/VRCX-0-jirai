@@ -10,6 +10,7 @@ import {
     ProfileBackupSegment,
     WorldCollectionImportSegment
 } from './BackgroundTaskSegments';
+import { ChatboxToggle } from './ChatboxToggle';
 import {
     RealtimeConnectionSegment,
     ServersSegment
@@ -58,6 +59,7 @@ export const StatusBarFooter = forwardRef<HTMLElement, StatusBarFooterProps>(
 
         const sessionActions = (
             <>
+                <ChatboxToggle />
                 <DoNotDisturbMenu />
                 <GameIsolationToggle />
                 <BackgroundModeButton />

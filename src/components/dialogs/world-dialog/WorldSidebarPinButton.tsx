@@ -3,13 +3,13 @@ import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ToolbarIconButton } from '@/components/layout/ToolbarControls';
-import { toast } from '@/services/toastService';
 import {
     hydrateSidebarTabLayout,
     pinWorldRoomsTab,
-    unpinWorldRoomsTab,
-    useSidebarTabStore
-} from '@/state/sidebarTabStore';
+    unpinWorldRoomsTab
+} from '@/services/sidebarTabService';
+import { toast } from '@/services/toastService';
+import { useSidebarTabStore } from '@/state/sidebarTabStore';
 
 export function WorldSidebarPinButton({
     worldId,
@@ -58,6 +58,7 @@ export function WorldSidebarPinButton({
                     ? t('dialog.world.instances.unpin_from_sidebar')
                     : t('dialog.world.instances.pin_to_sidebar')
             }
+            active={pinned}
             disabled={!worldId || !hydrated}
             onClick={toggle}
         />

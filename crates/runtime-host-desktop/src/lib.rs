@@ -24,6 +24,7 @@ mod game_media;
 mod game_state_store;
 mod group;
 mod group_order;
+mod heart_rate;
 mod host_actions;
 mod host_file_access;
 mod instance_launch;
@@ -57,7 +58,9 @@ pub use background_image::{
 };
 pub use context::DesktopRuntimeServices;
 pub use database_upgrade::{DatabaseUpgradeLifecycle, DesktopDatabaseUpgradeRuntime};
-pub use external_api::{ExternalApiExecuteResponse, ExternalApiRuntime};
+pub use external_api::{
+    ExternalApiAvatarSearchResponse, ExternalApiExecuteResponse, ExternalApiRuntime,
+};
 pub use game_client::{GameClientHostRuntime, GameClientHostRuntimeDeps};
 pub use game_isolation::{GameIsolationRuntime, GameIsolationSnapshot, LocalGameAccount};
 pub use game_log::{GameLogHostRuntime, GameLogHostRuntimeDeps};

@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use serde_json::{json, Map};
 use vrcx_0_application_core::{
-    RuntimeTask, RuntimeTaskExecutor, RuntimeTaskHandle, TaskSupervisor,
+    DiscardTaskExecutor, RuntimeTask, RuntimeTaskExecutor, RuntimeTaskHandle, TaskSupervisor,
 };
 use vrcx_0_core::friends::{FriendBaselineEntry, FriendBaselinePresence, FriendRecord};
 use vrcx_0_persistence::realtime::{
@@ -14,27 +14,6 @@ use super::*;
 use crate::test_support::test_runtime;
 use vrcx_0_core::OwnerId;
 use vrcx_0_persistence::feed::test_support::seed_feed_bio_row;
-
-#[derive(Clone, Copy)]
-struct DiscardTaskExecutor;
-
-struct FinishedTaskHandle;
-
-impl RuntimeTaskExecutor for DiscardTaskExecutor {
-    fn spawn(&self, _task: RuntimeTask) -> Box<dyn RuntimeTaskHandle> {
-        Box::new(FinishedTaskHandle)
-    }
-}
-
-impl RuntimeTaskHandle for FinishedTaskHandle {
-    fn abort(&self) {}
-
-    fn is_finished(&self) -> bool {
-        true
-    }
-
-    fn join_or_abort(&mut self, _timeout: Duration) {}
-}
 
 fn friend(id: &str, display_name: &str, state_bucket: &str, location: &str) -> FriendBaselineEntry {
     FriendBaselineEntry {
@@ -140,12 +119,19 @@ async fn favorites_list_the_newest_rows_and_count_every_group() {
         ("wrld_b", "Chill"),
         ("wrld_c", "Games"),
     ] {
+        let group = vrcx_0_persistence::favorites::favorite_group_create(
+            db.as_ref(),
+            Some(&OwnerId::new("usr_owner")),
+            vrcx_0_core::FavoriteEntityKind::World,
+            group,
+        )
+        .unwrap();
         vrcx_0_persistence::favorites::favorite_add(
             db.as_ref(),
             Some(&OwnerId::new("usr_owner")),
             vrcx_0_core::FavoriteEntityKind::World,
             world_id.into(),
-            group.into(),
+            group.id,
         )
         .unwrap();
     }
@@ -189,7 +175,7 @@ async fn favorites_list_the_newest_rows_and_count_every_group() {
 }
 
 #[tokio::test]
-async fn friend_feed_search_resolves_target_pages_results_and_guards_global_history() {
+async fn friend_feed_search_resolves_target_pages_results_and_searches_global_history() {
     let (_dir, runtime, db) =
         crate::test_support::test_runtime_with_database("in-process-friend-feed", "usr_owner")
             .unwrap();
@@ -299,7 +285,6 @@ async fn friend_feed_search_resolves_target_pages_results_and_guards_global_hist
         .call_tool(
             "search_friend_feed",
             Some(Map::from_iter([
-                ("allHistory".into(), json!(true)),
                 ("eventTypes".into(), json!(["bio"])),
                 ("limit".into(), json!(10)),
                 ("timeWindow".into(), json!("24h")),
@@ -348,15 +333,26 @@ async fn friend_feed_search_resolves_target_pages_results_and_guards_global_hist
         assert!(invalid.text.contains("timeWindow"));
     }
 
-    let unbounded = tools
-        .call_tool(
-            "search_friend_feed",
-            Some(Map::from_iter([("query".into(), json!("needle"))])),
-        )
-        .await
-        .unwrap();
-    assert!(unbounded.is_error);
-    assert!(unbounded.text.contains("allHistory=true"));
+    for global_history in [
+        Map::from_iter([("query".into(), json!("needle"))]),
+        Map::from_iter([
+            ("eventTypes".into(), json!(["bio"])),
+            ("timeWindow".into(), json!("all")),
+        ]),
+    ] {
+        let unbounded = tools
+            .call_tool("search_friend_feed", Some(global_history))
+            .await
+            .unwrap();
+        assert!(!unbounded.is_error, "{}", unbounded.text);
+        assert_eq!(
+            unbounded.structured.unwrap()["rows"]
+                .as_array()
+                .unwrap()
+                .len(),
+            3
+        );
+    }
 }
 
 #[tokio::test]
@@ -397,6 +393,20 @@ async fn in_process_bridge_tolerates_reported_assistant_argument_shapes() {
         .await
         .unwrap();
     assert!(!copresence.is_error, "{}", copresence.text);
+
+    let capitalized_bool = tools
+        .call_tool(
+            "get_copresence_summary",
+            Some(Map::from_iter([
+                ("friendsOnly".into(), json!("True")),
+                ("groupBy".into(), json!("friend")),
+                ("limit".into(), json!(10)),
+                ("utcOffsetMinutes".into(), json!(540)),
+            ])),
+        )
+        .await
+        .unwrap();
+    assert!(!capitalized_bool.is_error, "{}", capitalized_bool.text);
 
     let activity = tools
         .call_tool(
@@ -602,7 +612,6 @@ fn friend_feed_search_completes_with_one_blocking_thread() {
             tools.call_tool(
                 "search_friend_feed",
                 Some(Map::from_iter([
-                    ("allHistory".into(), json!(true)),
                     ("query".into(), json!("needle")),
                     ("eventTypes".into(), json!(["bio"])),
                 ])),
@@ -666,7 +675,7 @@ fn friend_feed_cancellation_releases_the_only_blocking_thread() {
         let started = {
             let call = tools.call_tool(
                 "search_friend_feed",
-                Some(Map::from_iter([("allHistory".into(), json!(true))])),
+                Some(Map::new()),
             );
             tokio::pin!(call);
             tokio::select! {

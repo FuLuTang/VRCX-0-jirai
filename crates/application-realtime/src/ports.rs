@@ -1,5 +1,4 @@
 use serde_json::Value;
-use std::sync::Arc;
 use vrcx_0_application_core::Result;
 use vrcx_0_contracts::feed::{
     FeedLatestQueryInput, FeedLiveEntryInput, FeedReadModelOutput, FeedSearchQueryInput,
@@ -11,18 +10,15 @@ use vrcx_0_contracts::friend_log::{
 };
 use vrcx_0_contracts::realtime::{RealtimePersistenceBatch, RealtimeWriteCounts};
 use vrcx_0_contracts::vrchat_api::VrchatRequest;
-use vrcx_0_contracts::FavoriteRow;
+use vrcx_0_contracts::{FavoriteRow, LocalFavoriteGroup};
 use vrcx_0_core::{FavoriteEntityKind, OwnerId};
 
-pub trait RealtimeBatchWriter: Send + Sync {
+pub trait RealtimeStore: Send + Sync {
     fn write_realtime_batch(
         &self,
         owner: &OwnerId,
         batch: &RealtimePersistenceBatch,
     ) -> Result<RealtimeWriteCounts>;
-}
-
-pub trait FriendLogStore: Send + Sync {
     fn friend_log_current_list(&self, user_id: &str) -> Result<Vec<FriendLogCurrentOutput>>;
     fn friend_log_replace_current(
         &self,
@@ -30,17 +26,16 @@ pub trait FriendLogStore: Send + Sync {
         entries: Vec<FriendLogCurrentEntryInput>,
         options: FriendLogReplaceOptionsInput,
     ) -> Result<FriendLogMutationResult>;
-}
-
-pub trait FavoriteBaselineStore: Send + Sync {
     fn favorite_list(
         &self,
         owner: Option<&OwnerId>,
         kind: FavoriteEntityKind,
     ) -> Result<Vec<FavoriteRow>>;
-}
-
-pub trait GameLogLookup: Send + Sync {
+    fn favorite_group_list(
+        &self,
+        owner: Option<&OwnerId>,
+        kind: FavoriteEntityKind,
+    ) -> Result<Vec<LocalFavoriteGroup>>;
     fn lookup_game_log_world_name(&self, world_id: &str) -> Result<String>;
     fn friend_location_history(
         &self,
@@ -53,9 +48,6 @@ pub trait GameLogLookup: Send + Sync {
         user_id: &str,
         display_name: &str,
     ) -> Result<i64>;
-}
-
-pub trait FeedQueryStore: Send + Sync {
     fn feed_latest(
         &self,
         query: FeedLatestQueryInput,
@@ -91,35 +83,6 @@ pub trait SocialMutationStore: Send + Sync {
         entries: Vec<FriendLogHistoryEntryInput>,
     ) -> Result<i64>;
     fn expire_notification(&self, owner_user_id: &str, notification_id: &str) -> Result<()>;
-}
-
-#[derive(Clone)]
-pub struct RealtimeStores {
-    pub batch_writer: Arc<dyn RealtimeBatchWriter>,
-    pub friend_log: Arc<dyn FriendLogStore>,
-    pub favorites: Arc<dyn FavoriteBaselineStore>,
-    pub game_log: Arc<dyn GameLogLookup>,
-    pub feed: Arc<dyn FeedQueryStore>,
-}
-
-impl RealtimeStores {
-    pub fn shared<T>(store: Arc<T>) -> Self
-    where
-        T: RealtimeBatchWriter
-            + FriendLogStore
-            + FavoriteBaselineStore
-            + GameLogLookup
-            + FeedQueryStore
-            + 'static,
-    {
-        Self {
-            batch_writer: store.clone(),
-            friend_log: store.clone(),
-            favorites: store.clone(),
-            game_log: store.clone(),
-            feed: store,
-        }
-    }
 }
 
 pub trait RealtimeRemoteRequests: Send + Sync {

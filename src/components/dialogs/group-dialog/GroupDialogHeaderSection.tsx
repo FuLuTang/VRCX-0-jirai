@@ -4,6 +4,7 @@ import {
     BellOffIcon,
     CalendarPlusIcon,
     CopyIcon,
+    CrownIcon,
     ExternalLinkIcon,
     ImageIcon,
     KeyRoundIcon,
@@ -34,6 +35,7 @@ import { useTranslation } from 'react-i18next';
 import type { GroupProfileRecord } from '@/domain/entities/group';
 import { userFacingErrorMessage } from '@/lib/errorDisplay';
 import type { GroupMemberVisibility } from '@/platform/tauri/bindings';
+import { HintTooltip } from '@/ui/hint-tooltip';
 import { Avatar, AvatarFallback, AvatarImage } from '@/ui/shadcn/avatar';
 import { Badge } from '@/ui/shadcn/badge';
 import { Button } from '@/ui/shadcn/button';
@@ -47,9 +49,15 @@ import {
     EntityActionItem,
     EntityActionSeparator,
     EntityActionSub,
+    EntityFactAction,
+    EntityFactList,
+    EntityFactRow,
+    EntityFactValue,
+    EntityLinkFactRow,
     EntityOverviewCard
 } from '../EntityDialogScaffold';
-import type { GroupActionStatus, GroupRemoteStatus } from './groupDialogTypes';
+import type { GroupActionStatus } from './groupDialogTypes';
+import { groupValueLabel } from './groupDialogUtils';
 import { GroupTitleLanguages } from './GroupDialogViewParts';
 import { SavedGroupFavoriteButton } from './SavedGroupFavoriteButton';
 
@@ -80,9 +88,7 @@ interface GroupHeaderModel {
     memberStatus: string;
     memberVisibility: string;
     ownerLinkLabel: string;
-    remoteStatus: GroupRemoteStatus;
-    showMembershipBadge: boolean;
-    showPrivacyBadge: boolean;
+    postsLoading: boolean;
 }
 
 interface GroupHeaderCommands {
@@ -100,6 +106,8 @@ interface GroupHeaderCommands {
     onJoin: () => void;
     onLeave: () => void;
     onOpenGroupPage: () => void;
+    onOpenLink: (url: string) => void;
+    onCopyLink: (url: string) => void;
     onOpenModeration: () => void;
     onOpenOwner: () => void;
     onPreviewIcon: () => void;
@@ -165,9 +173,7 @@ export function GroupDialogHeaderSection({
         memberStatus,
         memberVisibility,
         ownerLinkLabel,
-        remoteStatus,
-        showMembershipBadge,
-        showPrivacyBadge
+        postsLoading
     } = model;
     const {
         onBlockToggle,
@@ -184,6 +190,8 @@ export function GroupDialogHeaderSection({
         onJoin,
         onLeave,
         onOpenGroupPage,
+        onOpenLink,
+        onCopyLink,
         onOpenModeration,
         onOpenOwner,
         onPreviewIcon,
@@ -236,6 +244,8 @@ export function GroupDialogHeaderSection({
                 };
     const PrimaryIcon = primaryAction.icon;
 
+    const groupLinks = Array.isArray(group.links) ? group.links : [];
+    const notableJoinState = Boolean(joinState) && joinState !== 'open';
     return (
         <EntityOverviewCard
             media={
@@ -261,74 +271,76 @@ export function GroupDialogHeaderSection({
                 </Button>
             }
         >
-            <div className="flex min-w-0 items-start gap-2">
-                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                    <CardTitle className="flex min-w-0 flex-wrap items-center gap-1.5 text-lg leading-tight">
-                        {group.name ? (
-                            <Tooltip>
-                                <TooltipTrigger
-                                    render={
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            className="h-auto min-w-0 flex-1 justify-start overflow-hidden p-0 text-left text-lg leading-tight font-semibold whitespace-normal hover:bg-transparent"
-                                            onClick={onCopyGroupName}
-                                        >
-                                            <span className="line-clamp-2 min-w-0 break-words">
-                                                {groupTitle}
-                                            </span>
-                                        </Button>
-                                    }
-                                />
-                                <TooltipContent>
-                                    {t('common.actions.copy')}
-                                </TooltipContent>
-                            </Tooltip>
-                        ) : (
-                            <span className="min-w-0 break-words">
-                                {groupTitle}
-                            </span>
-                        )}
-                    </CardTitle>
-                    {languageRows.length ? (
-                        <div className="flex min-w-0 flex-wrap items-center gap-1">
-                            <GroupTitleLanguages
-                                languages={languageRows}
-                                limit={2}
-                            />
-                        </div>
-                    ) : null}
-                    {subtitle ? (
-                        <div className="text-muted-foreground font-mono text-xs break-all">
-                            {subtitle}
-                        </div>
-                    ) : null}
-                    {group.ownerId ? (
+            <div className="flex min-w-0 flex-col gap-1.5">
+                <CardTitle className="flex min-w-0 flex-wrap items-center gap-1.5 text-lg leading-tight">
+                    {group.name ? (
                         <Tooltip>
                             <TooltipTrigger
                                 render={
                                     <Button
                                         type="button"
                                         variant="ghost"
-                                        className="text-muted-foreground hover:text-foreground h-auto max-w-full justify-start gap-1 p-0 text-xs font-normal hover:bg-transparent"
-                                        onClick={onOpenOwner}
+                                        className="h-auto min-w-0 flex-1 justify-start overflow-hidden p-0 text-left text-lg leading-tight font-semibold whitespace-normal hover:bg-transparent"
+                                        onClick={onCopyGroupName}
                                     >
-                                        <UserIcon data-icon="inline-start" />
-                                        <span className="truncate">
-                                            {t('dialog.group.label.owner')}{' '}
-                                            {ownerLinkLabel}
+                                        <span className="line-clamp-2 min-w-0 text-balance break-words">
+                                            {groupTitle}
                                         </span>
                                     </Button>
                                 }
                             />
                             <TooltipContent>
-                                {t(
-                                    'dialog.group.action.open_group_owner_profile'
-                                )}
+                                {t('common.actions.copy')}
                             </TooltipContent>
                         </Tooltip>
-                    ) : null}
-                </div>
+                    ) : (
+                        <span className="min-w-0 break-words">
+                            {groupTitle}
+                        </span>
+                    )}
+                </CardTitle>
+                {subtitle ? (
+                    <div className="text-muted-foreground font-mono text-xs break-all">
+                        {subtitle}
+                    </div>
+                ) : null}
+                <GroupTitleLanguages languages={languageRows} />
+                {group.ownerId ? (
+                    <span className="text-muted-foreground flex min-w-0 items-center gap-2 text-xs">
+                        <HintTooltip label={t('dialog.group.label.owner_2')}>
+                            <span
+                                role="img"
+                                aria-label={t('dialog.group.label.owner_2')}
+                                className="inline-flex shrink-0"
+                            >
+                                <CrownIcon className="size-3.5 opacity-70" />
+                            </span>
+                        </HintTooltip>
+                        <button
+                            type="button"
+                            className="hover:text-foreground focus-visible:text-foreground min-w-0 cursor-pointer truncate text-left transition-colors outline-none"
+                            title={t(
+                                'dialog.group.action.open_group_owner_profile'
+                            )}
+                            onClick={onOpenOwner}
+                        >
+                            {ownerLinkLabel}
+                        </button>
+                    </span>
+                ) : null}
+            </div>
+            <div className="flex items-center gap-2">
+                <Button
+                    type="button"
+                    size="lg"
+                    className="min-w-0 flex-1"
+                    variant={primaryAction.variant}
+                    disabled={primaryAction.disabled}
+                    onClick={primaryAction.onClick}
+                >
+                    <PrimaryIcon data-icon="inline-start" />
+                    <span className="truncate">{primaryAction.label}</span>
+                </Button>
                 {group.id ? (
                     <SavedGroupFavoriteButton groupId={group.id} />
                 ) : null}
@@ -431,7 +443,7 @@ export function GroupDialogHeaderSection({
                             {canManagePosts ? (
                                 <EntityActionItem
                                     icon={TicketIcon}
-                                    disabled={remoteStatus.posts === 'running'}
+                                    disabled={postsLoading}
                                     onClick={() => {
                                         onCreateGroupPost();
                                     }}
@@ -580,37 +592,27 @@ export function GroupDialogHeaderSection({
                 </EntityActionDropdown>
             </div>
 
-            <div className="flex flex-wrap gap-1.5">
-                {showPrivacyBadge ? (
-                    <Badge variant="outline">
-                        <ShieldIcon data-icon="inline-start" />
-                        {group.privacy}
-                    </Badge>
-                ) : null}
-                {joinState ? (
-                    <Badge variant="outline">{joinState}</Badge>
-                ) : null}
-                {showMembershipBadge ? (
-                    <Badge variant="secondary">{group.membershipStatus}</Badge>
-                ) : null}
-                {group.isVerified ? (
-                    <Badge>
-                        <BadgeCheckIcon data-icon="inline-start" />
-                        {t('dialog.group.tags.verified')}
-                    </Badge>
-                ) : null}
-            </div>
-
-            <Button
-                type="button"
-                className="w-full"
-                variant={primaryAction.variant}
-                disabled={primaryAction.disabled}
-                onClick={primaryAction.onClick}
-            >
-                <PrimaryIcon data-icon="inline-start" />
-                <span className="truncate">{primaryAction.label}</span>
-            </Button>
+            {group.isVerified || notableJoinState ? (
+                <div className="flex flex-wrap gap-1.5">
+                    {group.isVerified ? (
+                        <Badge
+                            variant="outline"
+                            className="text-muted-foreground font-normal"
+                        >
+                            <BadgeCheckIcon data-icon="inline-start" />
+                            {t('dialog.group.tags.verified')}
+                        </Badge>
+                    ) : null}
+                    {notableJoinState ? (
+                        <Badge
+                            variant="outline"
+                            className="text-muted-foreground font-normal"
+                        >
+                            {groupValueLabel(t, 'join_state', joinState)}
+                        </Badge>
+                    ) : null}
+                </div>
+            ) : null}
 
             <Separator />
 
@@ -625,13 +627,61 @@ export function GroupDialogHeaderSection({
                 />
                 <GroupRailMetric
                     label={t('dialog.group.label.privacy')}
-                    value={group.privacy}
+                    value={groupValueLabel(t, 'privacy', group.privacy)}
                 />
                 <GroupRailMetric
                     label={t('dialog.group.label.membership')}
-                    value={memberStatus || group.membershipStatus}
+                    value={groupValueLabel(
+                        t,
+                        'membership',
+                        memberStatus || group.membershipStatus
+                    )}
                 />
             </div>
+
+            {group.id ? (
+                <EntityFactList className="border-t pt-3">
+                    {groupUrl ? (
+                        <EntityFactRow label={t('dialog.group.info.url')}>
+                            <EntityFactValue
+                                display={groupUrl.replace(/^https?:\/\//, '')}
+                                title={groupUrl}
+                            >
+                                <EntityFactAction
+                                    label={t('common.actions.open_link')}
+                                    icon={ExternalLinkIcon}
+                                    onClick={onOpenGroupPage}
+                                />
+                                <EntityFactAction
+                                    label={t('common.actions.copy')}
+                                    icon={CopyIcon}
+                                    onClick={onCopyGroupUrl}
+                                />
+                            </EntityFactValue>
+                        </EntityFactRow>
+                    ) : null}
+                    <EntityFactRow label={t('dialog.group.info.id')}>
+                        <EntityFactValue
+                            display={`${group.id.slice(0, 12)}\u2026${group.id.slice(-4)}`}
+                            title={group.id}
+                        >
+                            <EntityFactAction
+                                label={t('dialog.group.info.id_tooltip')}
+                                icon={CopyIcon}
+                                onClick={onCopyGroupId}
+                            />
+                        </EntityFactValue>
+                    </EntityFactRow>
+                    {groupLinks.map((link) => (
+                        <EntityLinkFactRow
+                            key={link}
+                            link={link}
+                            onOpen={onOpenLink}
+                            onCopy={onCopyLink}
+                        />
+                    ))}
+                </EntityFactList>
+            ) : null}
 
             {detail ? (
                 <>

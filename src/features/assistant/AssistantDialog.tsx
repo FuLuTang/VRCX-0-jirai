@@ -12,12 +12,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
+import { RuntimeModelSelect } from '@/components/llm/RuntimeModelSelect';
 import {
     getEffectiveReasoningEffort,
     getModelReasoning,
     getValidReasoningEfforts,
     shouldShowReasoningEffortSelector
-} from '@/features/llm/reasoning';
+} from '@/lib/llmReasoning';
 import { cn } from '@/lib/utils';
 import {
     commands,
@@ -25,6 +26,7 @@ import {
     type PlaybookMode,
     type Session
 } from '@/platform/tauri/bindings';
+import { loadLlmEndpoints } from '@/services/llmEndpointsService';
 import { toast } from '@/services/toastService';
 import { useAssistantChatStore } from '@/state/assistantChatStore';
 import { useLlmEndpointsStore } from '@/state/llmEndpointsStore';
@@ -74,7 +76,6 @@ import { useDraftPrompts } from './components/AssistantFollowUps';
 import { AssistantTranscript } from './components/AssistantTranscript';
 import { Composer } from './components/Composer';
 import { EntityPanel } from './components/EntityPanel';
-import { RuntimeModelSelect } from './components/RuntimeModelSelect';
 import { SessionSidebar } from './components/SessionSidebar';
 import type { AssistantHealth } from './useAssistantHealth';
 import { useAssistantHealth } from './useAssistantHealth';
@@ -116,7 +117,6 @@ export function AssistantDialog() {
     const navigate = useNavigate();
     const runtimeStatus = useAssistantRuntimeStatus();
     const endpoints = useLlmEndpointsStore((state) => state.endpoints);
-    const loadEndpoints = useLlmEndpointsStore((state) => state.load);
     const [runtimeSelection, setRuntimeSelection] =
         useState<AssistantRuntimeSelection>(DEFAULT_RUNTIME_SELECTION);
     const [assistantReasoningEffort, setAssistantReasoningEffort] =
@@ -179,7 +179,7 @@ export function AssistantDialog() {
     useEffect(() => {
         if (open) {
             refreshSessions();
-            loadEndpoints()
+            loadLlmEndpoints()
                 .catch(() => {})
                 .finally(() => setEndpointsLoaded(true));
             commands
@@ -187,7 +187,7 @@ export function AssistantDialog() {
                 .then((effort) => setAssistantReasoningEffort(effort))
                 .catch(() => {});
         }
-    }, [loadEndpoints, open]);
+    }, [open]);
 
     useEffect(() => {
         if (open && activeSessionId && !messages) {
@@ -250,7 +250,7 @@ export function AssistantDialog() {
     }
 
     function refreshSelectableModels() {
-        loadEndpoints().catch(() => {});
+        loadLlmEndpoints().catch(() => {});
     }
 
     async function updateReasoningEffort(effort: string) {

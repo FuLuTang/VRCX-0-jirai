@@ -25,7 +25,7 @@ Windows · macOS · Linux
 
 VRChat 데스크톱 도우미. 친구의 접속 상태와 위치를 확인하고, 만난 사람과 방문한 월드를 기록하고, 즐겨찾기를 관리하는 등 다양한 기능을 제공합니다.
 
-VRCX-0는 VRCX의 이전 유지보수 담당자 중 한 명이 처음부터 다시 만든 VRCX입니다. Rust로 재구축해 더 빠르고 가벼우며, 몇 년치 기록이 쌓여도 쾌적합니다.
+VRCX-0는 VRCX의 이전 유지보수 담당자 중 한 명이 처음부터 다시 만든 [VRCX](https://github.com/vrcx-team/VRCX)입니다. Rust로 재구축해 더 빠르고 가벼우며, 몇 년치 기록이 쌓여도 쾌적합니다.
 
 ## 주요 특징
 
@@ -98,6 +98,16 @@ VRCX-0은 앱 개선을 위해 익명 사용 정보를 수집합니다. 무작�
 - 질문 및 소통: [Discord](https://discord.gg/fehKP3SVPN)
 - 버그 제보 및 기능 요청: [GitHub Issues](https://github.com/Map1en/VRCX-0/issues)
 - 개발 블로그: [blog.vrcx-0.dev](https://blog.vrcx-0.dev/en/)
+
+## 기술 구조
+
+- 비즈니스 로직, VRChat 프로토콜, 데이터 저장, 백그라운드 작업은 모두 약 30개 crate로 이루어진 Rust 워크스페이스가 담당하고, React 19 화면은 렌더링만 맡습니다
+- 데스크톱 앱, 헤드리스 모드, MCP 서버, AI 어시스턴트가 같은 런타임을 공유합니다
+- Rust와 화면 사이의 IPC는 모두 타입이 지정되어 있으며, TypeScript 바인딩은 Rust에서 자동 생성됩니다
+- 레이어 간 경계는 CI의 아키텍처 테스트로 강제합니다
+- VR 오버레이는 네이티브로 렌더링하며 OpenVR와 OpenXR을 모두 지원합니다
+
+자세한 내용은 [ARCHITECTURE.md](ARCHITECTURE.md)(영어)를 참고하세요.
 
 ## 소스에서 빌드
 

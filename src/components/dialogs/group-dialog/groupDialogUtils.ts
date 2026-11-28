@@ -1,4 +1,6 @@
-import { getEventId } from '@/components/hosts/tools-dialogs/toolsDialogUtils';
+import type { TFunction } from 'i18next';
+
+import { getEventId } from '@/components/group-event/groupEventFormat';
 import type {
     GroupAnnouncementRecord,
     GroupProfileRecord
@@ -354,4 +356,17 @@ export function normalizeGroupEvent(
         title: replaceBioSymbols(event?.title || ''),
         description: replaceBioSymbols(event?.description || '')
     };
+}
+
+export function groupValueLabel(
+    t: TFunction,
+    kind: 'privacy' | 'join_state' | 'membership',
+    value: string | null | undefined
+) {
+    if (!value) {
+        return '';
+    }
+    const key = `dialog.group.values.${kind}.${value}`;
+    const label = t(key);
+    return label === key ? value : label;
 }

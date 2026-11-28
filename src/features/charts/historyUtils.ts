@@ -1,5 +1,8 @@
-import { isRealInstance } from '@/shared/utils/instance';
-import { normalizeLocationValue, parseLocation } from '@/shared/utils/location';
+import {
+    isRealInstance,
+    normalizeLocationValue,
+    parseLocation
+} from '@/shared/utils/location';
 
 export type HistoryDiffLine = {
     type: 'equal' | 'add' | 'remove';

@@ -25,7 +25,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/components/favorites/useLocalWorldFavorites', () => ({
     useLocalWorldFavorites: () => ({
         favoritesByGroup: {},
-        groupNames: [],
+        groups: [],
         reload: vi.fn(),
         status: 'ready'
     })
@@ -64,6 +64,7 @@ vi.mock('@/state/favoriteStore', () => ({
             localAvatarFavorites: {},
             localFriendFavoriteGroups: [],
             localFriendFavorites: {},
+            loadStatus: 'ready',
             remoteFavoritesByObjectId: {},
             ...mocks.favoriteState
         })
@@ -152,6 +153,8 @@ vi.mock('@/ui/shadcn/spinner', () => ({
     Spinner: () => <span />
 }));
 
+import { toast } from '@/services/toastService';
+
 import {
     FavoriteActionMenu,
     FavoriteActionSub,
@@ -166,6 +169,7 @@ type FavoriteStoreState = {
     localAvatarFavorites: {};
     localFriendFavoriteGroups: [];
     localFriendFavorites: {};
+    loadStatus: 'ready';
     remoteFavoritesByObjectId: {};
 };
 
@@ -176,7 +180,11 @@ type ModalStoreState = {
 describe('FavoriteActionMenu local group creation', () => {
     beforeEach(() => {
         mocks.addLocalFavorite.mockReset().mockResolvedValue(1);
-        mocks.createLocalFavoriteGroup.mockReset().mockResolvedValue(undefined);
+        mocks.createLocalFavoriteGroup
+            .mockReset()
+            .mockImplementation(({ kind, name }) =>
+                Promise.resolve({ id: 42, kind, name, shared: false })
+            );
         mocks.prompt.mockReset().mockResolvedValue({
             ok: true,
             value: 'Frequently used'
@@ -212,14 +220,49 @@ describe('FavoriteActionMenu local group creation', () => {
             await waitFor(() =>
                 expect(mocks.createLocalFavoriteGroup).toHaveBeenCalledWith({
                     kind,
-                    groupName: 'Frequently used'
+                    name: 'Frequently used'
                 })
             );
             expect(mocks.addLocalFavorite).toHaveBeenCalledWith({
                 kind,
                 entityId,
-                groupName: 'Frequently used'
+                groupId: 42
             });
+        }
+    );
+
+    it.each<[FavoriteKind, string]>([
+        ['friend', 'usr_friend'],
+        ['world', 'wrld_world'],
+        ['avatar', 'avtr_avatar']
+    ])(
+        'creates a Favorites group on the first local %s favorite',
+        async (kind, entityId) => {
+            render(
+                <FavoriteActionMenu
+                    kind={kind}
+                    entityId={entityId}
+                    entity={{ id: entityId, name: entityId }}
+                    iconOnly
+                />
+            );
+
+            fireEvent.click(
+                screen.getByRole('menuitemcheckbox', { name: 'Favorites (0)' })
+            );
+
+            await waitFor(() =>
+                expect(mocks.addLocalFavorite).toHaveBeenCalledWith({
+                    kind,
+                    entityId,
+                    groupId: 42
+                })
+            );
+            expect(mocks.createLocalFavoriteGroup).toHaveBeenCalledWith({
+                kind,
+                name: 'Favorites'
+            });
+            expect(mocks.prompt).not.toHaveBeenCalled();
         }
     );
 });
@@ -326,6 +369,50 @@ describe('FavoriteActionMenu VRChat favorite groups', () => {
         expect(mocks.deleteFavorite.mock.invocationCallOrder[0]).toBeLessThan(
             mocks.addFavorite.mock.invocationCallOrder[0]
         );
+    });
+
+    it('puts the favorite back in its original group when adding to the new group fails', async () => {
+        mocks.addFavorite
+            .mockRejectedValueOnce(new Error('Group is full'))
+            .mockResolvedValueOnce({});
+        openMenu('group_0');
+
+        fireEvent.click(groupItem('Karaoke'));
+
+        await waitFor(() =>
+            expect(mocks.addFavorite).toHaveBeenLastCalledWith({
+                type: 'friend',
+                favoriteId: 'usr_friend',
+                tags: 'group_0'
+            })
+        );
+        await waitFor(() =>
+            expect(toast.add).toHaveBeenCalledWith({
+                type: 'error',
+                title: 'Group is full',
+                description:
+                    'component.favorite_action_menu.toast.move_failed_restored'
+            })
+        );
+    });
+
+    it('says the favorite was lost when putting it back also fails', async () => {
+        mocks.addFavorite
+            .mockRejectedValueOnce(new Error('Group is full'))
+            .mockRejectedValueOnce(new Error('Network error'));
+        openMenu('group_0');
+
+        fireEvent.click(groupItem('Karaoke'));
+
+        await waitFor(() =>
+            expect(toast.add).toHaveBeenCalledWith({
+                type: 'error',
+                title: 'Group is full',
+                description:
+                    'component.favorite_action_menu.toast.move_failed_not_restored'
+            })
+        );
+        expect(mocks.addFavorite).toHaveBeenCalledTimes(2);
     });
 
     it('adds the favorite to the clicked group when it is not favorited yet', async () => {

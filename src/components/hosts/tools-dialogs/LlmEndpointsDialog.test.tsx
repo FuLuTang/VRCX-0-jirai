@@ -58,20 +58,19 @@ vi.mock('@/state/llmEndpointsStore', () => ({
         selector: (state: {
             endpoints: typeof mocks.endpoints;
             loading: boolean;
-            load: typeof mocks.load;
-            upsert: typeof mocks.upsert;
-            deleteEndpoint: typeof mocks.deleteEndpoint;
-            detectModels: typeof mocks.detectModels;
         }) => unknown
     ) =>
         selector({
             endpoints: mocks.endpoints,
-            loading: false,
-            load: mocks.load,
-            upsert: mocks.upsert,
-            deleteEndpoint: mocks.deleteEndpoint,
-            detectModels: mocks.detectModels
+            loading: false
         })
+}));
+
+vi.mock('@/services/llmEndpointsService', () => ({
+    loadLlmEndpoints: mocks.load,
+    upsertLlmEndpoint: mocks.upsert,
+    deleteLlmEndpoint: mocks.deleteEndpoint,
+    detectLlmEndpointModels: mocks.detectModels
 }));
 
 vi.mock('@/ui/shadcn/badge', () => ({
@@ -287,7 +286,7 @@ describe('LlmEndpointsDialog', () => {
             })
         );
         const apiKeyInput = inputByLabel('view.tools.llm_endpoints.api_key');
-        expect(apiKeyInput.type).toBe('text');
+        expect(apiKeyInput.type).toBe('password');
         expect(apiKeyInput.value).toBe('sk-existing');
         fireEvent.click(
             await screen.findByRole('button', {
