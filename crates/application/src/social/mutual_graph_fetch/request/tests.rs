@@ -8,8 +8,8 @@ use vrcx_0_contracts::vrchat_api::VrchatResponse;
 
 use super::*;
 use crate::remote::VrchatRequestFuture;
-use crate::social::MutualGraphStore;
 use crate::social::mutual_graph_fetch::MutualGraphObservationInput;
+use crate::social::MutualGraphStore;
 
 #[derive(Debug, PartialEq)]
 struct GraphCommit {
@@ -207,7 +207,11 @@ async fn empty_non_friend_list_does_not_create_an_isolated_node() -> Result<()> 
     assert!(store.commits.lock().unwrap().is_empty());
     assert_eq!(
         *store.archives.lock().unwrap(),
-        vec![(session.user_id.clone(), "usr_target".to_string(), Vec::<String>::new())]
+        vec![(
+            session.user_id.clone(),
+            "usr_target".to_string(),
+            Vec::<String>::new()
+        )]
     );
     Ok(())
 }

@@ -257,12 +257,10 @@ fn profile_feed_reconcile_records_only_owner_scoped_changes() -> Result<(), crat
     // writing into the active owner's Feed tables.
     let other = OwnerId::new("usr_other");
     assert!(profile_feed_reconcile(&db, &other, input()).is_err());
-    assert!(profile_feed_reconcile(
-        &db,
-        &OwnerId::new(""),
-        ProfileFeedReconcileInput::default()
-    )
-    .is_err());
+    assert!(
+        profile_feed_reconcile(&db, &OwnerId::new(""), ProfileFeedReconcileInput::default())
+            .is_err()
+    );
 
     let self_bio = db.execute(
         "SELECT COUNT(*) FROM usrself_feed_bio",

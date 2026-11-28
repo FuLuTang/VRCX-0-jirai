@@ -249,7 +249,9 @@ impl LocalDataRuntime {
         input: ProfileFeedReconcileInput,
     ) -> Result<ProfileFeedReconcileOutput> {
         let owner = self.current_owner();
-        let (output, entries) = self.store.profile_feed_reconcile_with_entries(&owner, input)?;
+        let (output, entries) = self
+            .store
+            .profile_feed_reconcile_with_entries(&owner, input)?;
         self.realtime
             .emit_persisted_profile_entries(&owner, entries);
         Ok(output)
@@ -774,10 +776,7 @@ impl LocalDataRuntime {
         self.store.mutual_graph_snapshot_get(user_id)
     }
 
-    pub fn mutual_graph_history_get(
-        &self,
-        friend_id: String,
-    ) -> Result<MutualGraphHistoryOutput> {
+    pub fn mutual_graph_history_get(&self, friend_id: String) -> Result<MutualGraphHistoryOutput> {
         let owner = self.current_owner();
         if owner.is_empty() {
             return Err(Error::PersistenceInvalidData(
@@ -787,7 +786,10 @@ impl LocalDataRuntime {
         self.store.mutual_graph_history_get(&owner, friend_id)
     }
 
-    pub fn mutual_graph_extras_get(&self, owner_user_id: String) -> Result<MutualGraphExtrasOutput> {
+    pub fn mutual_graph_extras_get(
+        &self,
+        owner_user_id: String,
+    ) -> Result<MutualGraphExtrasOutput> {
         let owner = self.owner_for_expected(&owner_user_id)?;
         self.store.mutual_graph_extras_get(&owner)
     }

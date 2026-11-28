@@ -144,9 +144,7 @@ impl RealtimeHostRuntime {
                 );
                 (
                     true,
-                    has_status
-                        && persisted
-                        && !self.feed.persistence_disabled(),
+                    has_status && persisted && !self.feed.persistence_disabled(),
                 )
             }
             RealtimeFriendApplyResult::MissingBaseline | RealtimeFriendApplyResult::Ignored => {

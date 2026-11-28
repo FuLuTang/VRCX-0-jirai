@@ -4,9 +4,7 @@ use std::sync::Arc;
 
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use cookie_store::{CookieStore, RawCookie};
-use reqwest::header::{
-    HeaderName, HeaderValue, CONTENT_TYPE, REFERER, RETRY_AFTER, USER_AGENT,
-};
+use reqwest::header::{HeaderName, HeaderValue, CONTENT_TYPE, REFERER, RETRY_AFTER, USER_AGENT};
 use reqwest::multipart::{Form, Part};
 use reqwest::redirect::Policy;
 use reqwest::{Client, Method, Proxy};

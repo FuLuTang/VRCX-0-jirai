@@ -4,11 +4,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use super::test_support::*;
 use super::*;
 use crate::realtime::{RealtimeSessionContext, RealtimeTransportLifecycleEvent};
+use crate::social_baseline::service::FriendStatusVerdicts;
+use crate::FriendLocationTimeSource;
 use vrcx_0_application_core::HostSessionGameProcessStatus as GameProcessStatus;
 use vrcx_0_contracts::{InstanceRosterMember, InstanceRosterSnapshot};
 use vrcx_0_core::friends::{FriendBaselineEntry, FriendBaselinePresence, FriendRecord};
-use crate::FriendLocationTimeSource;
-use crate::social_baseline::service::FriendStatusVerdicts;
 use vrcx_0_core::presence::PresenceView;
 use vrcx_0_core::OwnerId;
 
@@ -867,10 +867,7 @@ fn startup_baseline_restores_remote_arrival_and_repeated_baselines_keep_it() -> 
         .restore_location_history(&owner, transport.generation + 1, &stale_history)
         .is_none());
     assert_eq!(runtime.runtime().deps.instance_dwell.snapshot(), restored);
-    assert_eq!(
-        restored[0].source,
-        FriendLocationTimeSource::Realtime
-    );
+    assert_eq!(restored[0].source, FriendLocationTimeSource::Realtime);
     assert!(runtime
         .take_events_for_test()
         .iter()

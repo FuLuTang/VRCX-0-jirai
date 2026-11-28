@@ -215,7 +215,7 @@ describe('hydrating the saved sidebar layout', () => {
         });
         expect(
             store.useSidebarTabStore.getState().tabLayout.map((item) => item.id)
-        ).toEqual(['friends', 'favorite-a', 'groups']);
+        ).toEqual(['friends', 'tracked-nonfriends', 'favorite-a', 'groups']);
     });
 
     it('retries reading the layout after a failed read', async () => {
@@ -247,7 +247,7 @@ describe('hydrating the saved sidebar layout', () => {
         const ids = store.useSidebarTabStore
             .getState()
             .tabLayout.map((item) => item.id);
-        expect(ids).toEqual(['friends', 'groups']);
+        expect(ids).toEqual(['friends', 'tracked-nonfriends', 'groups']);
         expect(store.useSidebarTabStore.getState().tabLayoutHydrated).toBe(
             true
         );

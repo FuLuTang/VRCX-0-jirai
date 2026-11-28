@@ -6,8 +6,7 @@ use vrcx_0_contracts::vrchat_api::VrchatResponse;
 
 type SharedProfileRequestResult =
     std::result::Result<VrchatResponse, Arc<vrcx_0_application_core::Error>>;
-type SharedProfileRequestSender =
-    tokio::sync::watch::Sender<Option<SharedProfileRequestResult>>;
+type SharedProfileRequestSender = tokio::sync::watch::Sender<Option<SharedProfileRequestResult>>;
 
 /// Coalesces concurrent profile requests that target the same account scope and
 /// user, so one network round trip feeds every joined caller and each of them

@@ -82,24 +82,20 @@ impl LocalDataStore {
         owner: &OwnerId,
         friend_id: String,
     ) -> Result<MutualGraphHistoryOutput> {
-        Ok(
-            vrcx_0_persistence::mutual_graph::mutual_graph_history_get(
-                self.db.as_ref(),
-                owner.as_str().to_string(),
-                friend_id,
-            )?,
-        )
+        Ok(vrcx_0_persistence::mutual_graph::mutual_graph_history_get(
+            self.db.as_ref(),
+            owner.as_str().to_string(),
+            friend_id,
+        )?)
     }
 
     /// Tracked non-friends plus manual relations that the mutual-friends graph
     /// needs in addition to the persisted snapshot.
     pub fn mutual_graph_extras_get(&self, owner: &OwnerId) -> Result<MutualGraphExtrasOutput> {
-        Ok(
-            vrcx_0_persistence::mutual_graph::mutual_graph_extras_get(
-                self.db.as_ref(),
-                owner.as_str().to_string(),
-            )?,
-        )
+        Ok(vrcx_0_persistence::mutual_graph::mutual_graph_extras_get(
+            self.db.as_ref(),
+            owner.as_str().to_string(),
+        )?)
     }
 
     pub fn mutual_graph_tracked_user_set(
