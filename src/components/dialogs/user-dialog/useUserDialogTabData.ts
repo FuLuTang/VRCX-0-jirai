@@ -439,21 +439,19 @@ export function useUserDialogTabData({
         setRemoteStatus((current) => ({ ...current, [tab]: 'running' }));
         setRemoteErrors((current) => ({ ...current, [tab]: '' }));
         try {
-            const { rows, favoriteWorldGroups } =
-                await loadUserDialogTabData({
-                    tab,
-                    userId: profileUserId,
-                    endpoint: currentEndpoint,
-                    currentUserId: currentUserId || '',
-                    currentAvatarId,
-                    previousAvatarSwapTime,
-                    worldSort,
-                    worldOrder,
-                    licensedAvatars:
-                        effectiveAvatarReleaseStatus === 'licensed',
-                    refetch,
-                    repositories: userDialogTabServiceRepositories
-                });
+            const { rows, favoriteWorldGroups } = await loadUserDialogTabData({
+                tab,
+                userId: profileUserId,
+                endpoint: currentEndpoint,
+                currentUserId: currentUserId || '',
+                currentAvatarId,
+                previousAvatarSwapTime,
+                worldSort,
+                worldOrder,
+                licensedAvatars: effectiveAvatarReleaseStatus === 'licensed',
+                refetch,
+                repositories: userDialogTabServiceRepositories
+            });
 
             // Loading the mutual tab can change the shared graph, so the chart
             // context has to refetch. The service no longer reports a dedicated

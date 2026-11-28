@@ -1049,9 +1049,7 @@ export function UserDialogBioPanel({
                                 ) : null}
                             </div>
                         ) : (
-                            <TextScroll className="min-w-0">
-                                {text}
-                            </TextScroll>
+                            <TextScroll className="min-w-0">{text}</TextScroll>
                         )}
                         {error}
                     </div>

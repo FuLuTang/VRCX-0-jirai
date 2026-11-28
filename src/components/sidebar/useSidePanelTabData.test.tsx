@@ -51,6 +51,7 @@ const prefs: SidePanelPreferences = {
     isHideFriendsInSameInstance: false,
     isSameInstanceAboveFavorites: false,
     isSidebarDivideByFriendGroup: false,
+    sidebarCompactRows: false,
     sidebarFavoriteGroupOrder: [],
     sidebarFavoriteGroups: [],
     sidebarGroupByInstance: false,

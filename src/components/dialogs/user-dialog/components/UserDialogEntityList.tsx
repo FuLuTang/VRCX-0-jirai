@@ -13,6 +13,7 @@ import {
     resolveFriendPresenceLocation
 } from '@/domain/friends/presence';
 import { useNowMs } from '@/lib/useNowMs';
+import { cn } from '@/lib/utils';
 import { userStatusLabel } from '@/shared/utils/userStatus';
 import { HintTooltip } from '@/ui/hint-tooltip';
 import { Button } from '@/ui/shadcn/button';

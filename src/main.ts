@@ -4,10 +4,10 @@ import { createRoot } from 'react-dom/client';
 import '@/styles/globals.css';
 import { installDevPerformanceTimelineGuard } from '@/app/devPerformanceTimelineGuard';
 import { initializeRelationshipRecommendations } from '@/features/charts/relationship-recommendations/relationshipRecommendationsService';
-import { startupOnlineBackfillExecutor } from '@/services/startupOnlineBackfillExecutor';
 import { registerAuthenticatedRuntimeOnlineBackfill } from '@/services/authenticatedRuntimeService';
 import { initializeEnhancedInfoFetch } from '@/services/enhancedInfoFetchService';
 import { installErrorLogging } from '@/services/errorLogService';
+import { startupOnlineBackfillExecutor } from '@/services/startupOnlineBackfillExecutor';
 
 // only use in dev to prevent OOM from React dev tools User Timing measures
 installDevPerformanceTimelineGuard();

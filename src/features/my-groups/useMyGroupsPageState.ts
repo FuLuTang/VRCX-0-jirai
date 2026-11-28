@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState
+} from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -81,7 +88,11 @@ export function useMyGroupsPageState() {
     const { openSections, toggleSection } = useMyGroupsSectionPreferences();
     const loadSequenceRef = useRef(0);
     const currentUserIdRef = useRef(currentUserId);
-    currentUserIdRef.current = currentUserId;
+    // Keep the latest account for async callbacks without touching the ref
+    // during render.
+    useLayoutEffect(() => {
+        currentUserIdRef.current = currentUserId;
+    }, [currentUserId]);
     const autoJoinAttemptedUserIdsRef = useRef(new Set<string>());
     const orderRefreshSequenceRef = useRef(0);
     const sortManuallyChangedRef = useRef(false);
