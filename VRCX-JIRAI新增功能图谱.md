@@ -335,14 +335,14 @@ flowchart TB
 | A4 追踪非好友 | 已实现：`tracked_nonfriends.rs`（200 行：`:32 list/:54 add/:74 remove/:87 is_tracked/:104 update_name`）；建表 `realtime/schema.rs:87`；命令 `commands/local/tracked_nonfriends.rs`（5 个）；`trackedNonfriendsStore.ts:52`、侧栏 `TrackedNonfriendsSidebar.tsx`（`SidePanel.tsx:456` 挂载）、资料页入口 `UserDialogHeaderActions.tsx:214 toggleTrackedNonfriend`；刷新 `trackedNonfriendsRefreshExecutor.ts:178`（`:197` 注册）。**缺口保持**：`realtime/jirai.rs:83` 拒绝非好友做 Online 补线，故无独立 Online/Offline 事件流 | 无变化 |
 | A5 信息抓取 | 已实现，且**比 v2 描述的完整**：执行体 `enhancedProfileFetchExecutor.ts`（380 行，`:82 createProfileFetchExecutor`，目标 = 好友 ∪ 追踪非好友 `:104-125`，失败重试 `RETRY_INTERVAL_MS=3000`）；`profileFetchExecutor.ts` 仅 48 行装配并 `registerProfileFetchExecutor`；调度服务 `enhancedInfoFetchService.ts`（400 行，`:336 initializeEnhancedInfoFetch` 由 `main.ts:9` 启动，订阅原生好友基线完成事件、`reconnect` 不触发、配置键 `enhancedInfoFetchEnabled` 默认 true）；**状态栏常驻进度已存在**：`EnhancedInfoFetchStatus`（`StatusBarFooter.tsx:113`）；**目标数预览已存在**：`getEnhancedInfoFetchTargetCounts`（`:95`）；落库 `realtime/jirai.rs:123 profile_feed_reconcile`；工作流弹窗 `SyncWorkflowDialog.tsx` | v2「无 StatusBar 常驻进度」「无目标总数预览」「250ms 节流」**三条作废**；`manual-relations-sync` 与 `relationship-recommendations` 两个工作流动作仍是 `skippedAction` 桩（`syncWorkflowActions.ts:121/133`） |
 | A6 Bio Diff | 已迁移：`UserDialogInfoTab.tsx:664 UserDialogBioPanel`；历史源 `feedRepository.queryFeed`（`:703`）；**词级内联 diff 已有**：`bioHistory.ts:71 buildInlineBioDiff`（CJK 感知，`tokenizeBio` + segments，测试 `bioHistory.test.ts:83`）+ 分组 `groupBioHistoryRows`（`:32`）；行级 `historyUtils.ts:92 buildLineDiff` 另存 | v2「行级而非词级」**作废** |
-| A7 自动跟随 | **MIMI 已实现（与 jirai 一致：入口隐藏）**；以下为基线 `ea3142a47` 时的记录：**未实现**（`autoFollow`/`tryOpenInstance` 在代码中 0 命中，仅 docs 提及）；与 jirai 作者主动隐藏入口、VRCX-0 backlog 标「暂缓」一致 | 补成因 |
+| A7 自动跟随 | **未实现**（`autoFollow`/`tryOpenInstance` 在代码中 0 命中，仅 docs 提及）；与 jirai 作者主动隐藏入口、VRCX-0 backlog 标「暂缓」一致 | 补成因 |
 | A8 状态分布 | 已迁移并扩展：`statusDistribution.ts`（**288 行**，`:170 buildStatusDistribution`、`:204 statusBucketDays`、`:221 buildStatusDistributionBuckets`、`:196 STATUS_DISTRIBUTION_COLORS`）；面板已拆为独立文件 `UserDialogStatusDistribution.tsx`，**挂在「Activity」标签**（`UserDialogDataTabs.tsx:624`），查询在 `statusDistributionQuery.ts` | v2「`UserDialogInfoTab.tsx:862` 面板」**作废**，位置改为 Activity 标签 |
 | A9 Feed 拖放 | 已实现：`FeedImageDropOverlay.tsx`（`:13 FEED_IMAGE_DROP_TARGETS`、`:119 onFileDragDrop`，Tauri 原生拖放）→ `FeedPage.tsx:35` 路由 state → `useFeedImageDropIntake.ts:24 readFeedImageDrop` → `useGalleryPageController.ts:140` | 无变化 |
 | A10 假记录注入 | 未完成：管道在（`app__game_log_entries_add`、`gameLogPersistenceRepository.ts:75 addGameLogEntries`、`:187 addGamelogExternalToDatabase`），但除这两个封装与 `bindings.ts:228` 外**无任何 UI 调用方**；backlog `:198` 明列「暂缓：手动插入实例进出记录」 | 补暂缓出处 |
 | A11 启动加群 | **已实现**：`useMyGroupsPageState.ts:120-142`（`defaultGroupId='grp_44b87c7b-…'`，`shouldAutoJoin` = 偏好已水合 ∧ `autoJoinGroupCertification` ∧ 未加入 ∧ 本用户未尝试过）→ `groupProfileRepository.joinGroup` → 重拉群组；有测试「does not join from a stale account group response」（`useMyGroupsPageState.test.tsx:236`）；**触发时机是进入「我的群组」页并完成偏好水合后**，不是 jirai 的「登录后群组加载完成即触发」；README.zh-CN `:91` 明示默认开启 | **消除 v2 内部矛盾**（v2 同时写「完成」与「调用路径仍待确认」）；补上触发时机差异 |
 | A12 Bio 清理 | **清理无、预防有**：无历史清理（`bioClear`/`suspiciousBio`/`clearBurst` 零命中；唯一 `suspicious` 命中是 `crates/application-realtime/src/social_baseline/service/friends/baseline.rs:123 collect_suspicious_friend_ids`，同名不同义）；但污染源已在写入路径堵住——`realtime/jirai.rs:144` 的 `input.bio` 为 `Option<String>`、`:186 bio_updated` 仅 `Some` 才触发，前端 `enhancedProfileFetchExecutor.ts:263` 缺字段即省略，测试 `realtime/jirai/tests.rs:225`。**且 #12 的 `198e07f8`（2026-09-27）晚于 VRCX-0 盘点截止点 `c8b8f744`（2026-05-20，`README.zh-CN.md:85`），从未被盘点** | **重新定性**：由「未迁移」改为「按场景」（仅迁入 jirai 旧库历史污染时才需清理） |
 | A13 多账户 | 明确排除：`docs/jirai-port/多账户进程隔离-RFC.md`；VRCX-0 仅有「已保存账号 + 切换」；backlog 条目 7 标「待独立设计」 | 无变化 |
-| A14 快速搜索 Bio 检索 | **MIMI 已实现**（`profile_bio` 当前 Bio，第 4 级匹配）；以下为基线时的记录：未迁移：全局快速搜索目录 `quick_search_catalog.rs:111-120` 仅 7 类（friends/own_avatars/favorite_avatars/own_worlds/favorite_worlds/own_groups/joined_groups）；Feed 页内有 bio LIKE（`feed/query.rs:300`，**查历史行含 `previous_bio`**）；**产品暂缓**：`README.zh-CN.md:122` 与 backlog `:95-105` 记录「用户 2026-10-02 决定暂不优化搜索」 | 补暂缓出处；jirai 用 `MAX(id)` 只匹配每人**最新**一条（backlog `:99` 已纠正此前"遍历全部历史"的误读） |
+| A14 快速搜索 Bio 检索 | 未迁移：全局快速搜索目录 `quick_search_catalog.rs:111-120` 仅 7 类（friends/own_avatars/favorite_avatars/own_worlds/favorite_worlds/own_groups/joined_groups）；Feed 页内有 bio LIKE（`feed/query.rs:300`，**查历史行含 `previous_bio`**）；**产品暂缓**：`README.zh-CN.md:122` 与 backlog `:95-105` 记录「用户 2026-10-02 决定暂不优化搜索」 | 补暂缓出处；jirai 用 `MAX(id)` 只匹配每人**最新**一条（backlog `:99` 已纠正此前"遍历全部历史"的误读） |
 | A15 更新通道 | N/A（VRCX-0-jirai 有自己的发版通道，`release.yml` → GitHub Release 草稿） | 无变化 |
 | **A16 OLD 互惠历史表** | **已实现，且比 jirai 更严**：表 `database/schema.rs:291`（同名 `{prefix}_mutual_graph_links_old`，同结构）；`mutual_graph.rs:64 mutual_graph_history_get`（按好友取）、`:224`（整表快照）、`:402`（写入，`ON CONFLICT … WHERE julianday(excluded.date) >= julianday(date)` 只让日期前进）、`:431 mutual_graph_observation_archive`（含 `observation_is_stale` 过期观测保护，**jirai 无此保护**）；前端 `mutualFriendsGraphData.ts:68/114 historicalLinks` → 边 `historical: true` 淡化渲染（`mutualFriendsSigmaGraph.ts:546-563`）；命令 `app__mutual_graph_history_get`（`:33`）。backlog `:205` 记录语义「OLD 日期表示最后成功确认时间」 | **v3 新增行** |
 | — 启动 Online 补线 | **VRCX-0-jirai 新增**：jirai 老版**对当前用户自己**有 Online/Offline 写 Feed（`userCoordinator.js:315`，条件 `ref.id === currentUser.id`，引入于 `cf942bd0`），但**没有**对好友的「启动时补 Online 边」；VRCX-0 的 `realtime/jirai.rs:37 insert_startup_online_backfill` 才是后者（`:83` 仅限当前好友） | **措辞修正**：v2「jirai 老版无此实现」过宽，应限定为「对好友的启动补线」 |
@@ -351,10 +351,10 @@ flowchart TB
 
 | 分类 | 条目 | 数量 |
 | --- | --- | --- |
-| 已落地（代码 + 入口接通 + 有测试） | 1、2、3、3b、4、5、6、8、9、11、16；**MIMI：14、7（入口隐藏，与 jirai 一致）、17（快速搜索近期对象与前缀）** | ~~**11**~~ ~~**13**~~ **14** |
-| 半截 | ~~14~~（MIMI 已完成） | ~~**1**~~ **0** |
-| 管道在、入口缺 | 10（Rust 命令与仓库方法在，无 UI 调用方；**冻结**） | **1** |
-| 无 | ~~7~~、12（**冻结**）、13 | ~~**3**~~ **2** |
+| 已落地（代码 + 入口接通 + 有测试） | 1、2、3、3b、4、5、6、8、9、11、16 | **11** |
+| 半截 | 14（有 Feed 页历史行检索，无全局快速搜索入口，且语义不同） | **1** |
+| 管道在、入口缺 | 10（Rust 命令与仓库方法在，无 UI 调用方） | **1** |
+| 无 | 7、12、13 | **3** |
 | 不适用 | 15 | **1** |
 | 合计 | | **17** |
 
@@ -372,6 +372,4 @@ flowchart TB
 
 > **2026-11-18T04:43Z 补充：VRCX-0-jirai 侧基线冻结在 pc114514 的 `ea3142a47`**（`C:\Users\tangh\Documents\GitHub\VRCX-0-jirai`，`main`）。本图谱里 VRCX-0 侧的现状描述取证于同一提交，无需改动。决议见 `reports/2026-11-18T0053Z-rust-rewrite-roadmap/README.md` 第 1.0b 节。
 
-> **2026-11-18T20:50Z 回写（MIMI 交付，`reports/2026-11-18T2050Z-mimi-delivery/README.md`）**：在分支 `MIMI`（相对冻结基线 `ea3142a47` 的增量）上，**#14 快速搜索 Bio → 完成**（全局快速搜索好友结果按 `profile_bio` 当前 Bio 匹配，第 4 级 名字 > 备注 > 笔记 > Bio，≥2 字符，共享 8 条上限；结果行显示 Bio）；**#7 自动跟随 → 完成（与 jirai 一致：入口隐藏）**（Rust 状态机 + 事件，前端执行 attach / 退出并桌面重启；对话框挂全局 Host，无可见入口）。#10、#12 **冻结**（判定不变，不推进）；#13 不做。计数：**完成 13 / 部分 1（#10 冻结）/ 未完成 2（#12 冻结、#13）/ 不适用 1**。已完成 11 项的行未改动（冻结清单守卫 G-1 输出 0 行）。真机表现见同目录《人工实机测试文档.md》，未在本轮验证。
-
-> **2026-11-19T01:05Z 回写（MIMI 历史遗留修复与遗漏补齐，`reports/2026-11-19T0105Z-mimi-legacy-fix-delivery/README.md`）**：依据仓库根目录《历史遗留修复与遗漏补齐.md》补齐 M1–M4（M5 忽略）。① **#3b** 补齐子入口「打开玩家资料时弹推测关联询问」（M1，修复队列 R04 落地）；② **#6** 补齐子行为「Feed 页 Bio / 状态 diff 按 CJK 字切分」（M2）；#3b、#6 仍为完成，计数不变。③ **新增 #17「快速搜索近期对象与前缀」→ 完成**（M3：空查询显示最近遇到 / 最近去过，按账号隔离；M4：`!` `@` `#` 前缀）。图谱新增节点 **#17 快速搜索近期对象与前缀**（外围，挂在 B5「快速搜索 Ctrl+K」下；jirai 提交 `e8e862da`、`30ba80f6`、`bda7ddad`、`1dc272ce`、`0fc3eb8f`）。计数 **完成 14 / 部分 1（#10 冻结）/ 未完成 2（#12 冻结、#13）/ 不适用 1**（合计 18 项）。已完成项的既有行未改，只追加。真机表现见同报告目录《人工实机测试文档.md》。
+> **2026-11-20 补充（MIMI 撤回，用户决定）**：#14 快速搜索 Bio、#7 自动跟随，以及 #17 快速搜索近期对象与前缀（M3、M4），曾在 MIMI 分支实现，后按用户决定（2026-11-20：「我之前说了不做的那些，就是不做了」）全部撤回，判定仍为原判定（#14 部分 / 产品暂缓，#7 有意不做，#17 不立项）；打开资料时的推测关联询问（M1，#3b）同时撤回。#6 在 MIMI 补了 Feed 页 Bio / 状态 diff 按 CJK 字切分（M2，提交 `0f3e02b0b`），#6 仍为完成。计数仍为 **11 / 2 / 3 / 1**（17 项）。撤回记录见 `reports/2026-11-20T1845Z-mimi-revert/README.md`。

@@ -264,14 +264,14 @@ VRCX-jirai 把新功能挂到上游既有的一批注册点上。下表是"锚�
 | 4 | 追踪非好友 | 6 + 定时器 | ✅ | **高** | `tracked_nonfriends.rs` 200 行；缺非好友 Online/Offline 事件流（`jirai.rs:83` 显式拒绝） |
 | 5 | 信息抓取 | 4 | ✅ | **高** | 执行体 `enhancedProfileFetchExecutor.ts` 380 行 + 调度 `enhancedInfoFetchService.ts` 400 行；**已有**状态栏常驻进度与目标数预览；`manual-relations-sync` / `relationship-recommendations` 两个工作流动作仍是桩 |
 | 6 | Bio Diff | 5 | ✅ | **高** | **词级内联 diff 已有**（`bioHistory.ts:71 buildInlineBioDiff`，CJK 感知、不拼 HTML）；自身 Bio 走 `appSelfBioHistoryQuery`；**数据源已对齐 `/profile` 公开资料接口** |
-| 7 | 自动跟随 | 2（空转） | ❌ | **无 → MIMI 完成（与 jirai 一致：入口隐藏）** | `autoFollow` 全仓 0 命中；jirai 作者 `3a5c269e` 主动隐藏入口，VRCX-0 backlog 标「暂缓」 |
+| 7 | 自动跟随 | 2（空转） | ❌ | **无** | `autoFollow` 全仓 0 命中；jirai 作者 `3a5c269e` 主动隐藏入口，VRCX-0 backlog 标「暂缓」 |
 | 8 | 状态分布 | 5 | ✅ | **高** | `statusDistribution.ts` **288 行**；面板在 **Activity 标签**（`UserDialogDataTabs.tsx:624`）；自身走 `appSelfStatusHistoryQuery`；backlog 记「自身采集仍待查」 |
 | 9 | Feed 拖放 | 7 | ✅ | **高** | `useFeedImageDropIntake.ts` 113 行；Tauri 原生拖放 `onFileDragDrop` → 5 个目标分类 → Gallery **裁剪流程**（`openCropRequest`），受 VRC+ 门控；backlog 记「待实机复测」 |
 | 10 | 假记录注入 | 4 | ✅ | **低** | 有管道无 UI（写入封装无任何 UI 调用方）；`合成历史记录.md` 结论「**暂不实现**，先建完整性契约」 |
 | 11 | 启动加群 | 5 | ✅ | **高** | `useMyGroupsPageState.ts:120-142` 完整自动加群；偏好键 `VRCX_autoJoinGroupCertification` 同名同默认 `true`；**触发时机不同**：需进入「我的群组」页（仅 `MyGroupsPage.tsx:75` 使用） |
 | 12 | Bio 清理 | 4 | ✅ | **清理无 / 预防有** | 无历史清理；但新写入已在根因处堵住（`input.bio: Option<String>`、缺字段省略、`tests.rs:225` 断言）；仅「迁入 jirai 旧库的历史污染」才需要清理 |
 | 13 | 多账户 | 6 | ⚠️ 部分 | **无**（刻意不做） | jirai 侧 `require` 断链；VRCX-0 RFC「仅 RFC，不实现」并把旧 V4 定性为反例 |
-| 14 | 快速搜索 Bio | 4 | ✅ | **中（半截）→ MIMI 完成** | Feed 页有 bio 检索（含 `previous_bio`，会重复出人）；全局快速搜索目录仅 7 类、无 bio；用户 2026-10-02 决定暂缓 |
+| 14 | 快速搜索 Bio | 4 | ✅ | **中（半截，产品暂缓）** | Feed 页有 bio 检索（含 `previous_bio`，会重复出人）；全局快速搜索目录仅 7 类、无 bio；用户 2026-10-02 决定暂缓 |
 | 15 | 更新通道 | 5 | ✅ | **N/A** | VRCX-0 有独立发版链 |
 | **16** | **OLD 互惠历史表** | 3 + 读写点 | ✅ | **高（写入更严）** | 同名同结构表；`ON CONFLICT … julianday` 日期只前进 + `observation_is_stale`；参数化写入；前端历史边淡化 + 对话框 `$mutualConfirmed` 二值标记 |
 
@@ -279,10 +279,10 @@ VRCX-jirai 把新功能挂到上游既有的一批注册点上。下表是"锚�
 
 | 分类 | 条目 | 数量 |
 | --- | --- | --- |
-| 高等价（代码+入口接通+有测试） | 1、2、3、3b、4、5、6、8、9、11、16；**MIMI：14、7（入口隐藏，与 jirai 一致）、17（快速搜索近期对象与前缀）** | ~~**11**~~ ~~**13**~~ **14** |
-| 中（半截） | ~~14~~（MIMI 已完成） | ~~**1**~~ **0** |
-| 低（管道在、入口缺） | 10（**冻结**） | **1** |
-| 无 | ~~7~~、12（清理，**冻结**）、13 | ~~**3**~~ **2** |
+| 高等价（代码+入口接通+有测试） | 1、2、3、3b、4、5、6、8、9、11、16 | **11** |
+| 中（半截） | 14 | **1** |
+| 低（管道在、入口缺） | 10 | **1** |
+| 无 | 7、12（清理）、13 | **3** |
 | N/A | 15 | **1** |
 | 合计 | | **17** |
 
@@ -566,6 +566,4 @@ jirai 相对分叉点改动 145 个文件，上游本次改动 53 个文件，**
 
 > **2026-11-18T04:43Z 补充：VRCX-0-jirai 侧基线冻结在 pc114514 的 `ea3142a47`**（`C:\Users\tangh\Documents\GitHub\VRCX-0-jirai`，`main`）。本文 VRCX-0 侧的文件与行号取证于同一提交，无需重做；它们**不适用于**本机旧工作目录 `3200bc3c7`。决议见 `reports/2026-11-18T0053Z-rust-rewrite-roadmap/README.md` 第 1.0b 节。
 
-> **2026-11-18T20:50Z 回写（MIMI 交付，`reports/2026-11-18T2050Z-mimi-delivery/README.md`）**：在分支 `MIMI`（相对冻结基线 `ea3142a47` 的增量）上，**#14 快速搜索 Bio → 完成**（全局快速搜索好友结果按 `profile_bio` 当前 Bio 匹配，第 4 级 名字 > 备注 > 笔记 > Bio，≥2 字符，共享 8 条上限；结果行显示 Bio）；**#7 自动跟随 → 完成（与 jirai 一致：入口隐藏）**（Rust 状态机 + 事件，前端执行 attach / 退出并桌面重启；对话框挂全局 Host，无可见入口）。#10、#12 **冻结**（判定不变，不推进）；#13 不做。计数：**完成 13 / 部分 1（#10 冻结）/ 未完成 2（#12 冻结、#13）/ 不适用 1**。已完成 11 项的行未改动（冻结清单守卫 G-1 输出 0 行）。真机表现见同目录《人工实机测试文档.md》，未在本轮验证。
-
-> **2026-11-19T01:05Z 回写（MIMI 历史遗留修复与遗漏补齐，`reports/2026-11-19T0105Z-mimi-legacy-fix-delivery/README.md`）**：依据仓库根目录《历史遗留修复与遗漏补齐.md》补齐 M1–M4（M5 忽略）。① **#3b** 补齐子入口「打开玩家资料时弹推测关联询问」（M1，修复队列 R04 落地）；② **#6** 补齐子行为「Feed 页 Bio / 状态 diff 按 CJK 字切分」（M2）；#3b、#6 仍为完成，计数不变。③ **新增 #17「快速搜索近期对象与前缀」→ 完成**（M3：空查询显示最近遇到 / 最近去过，按账号隔离；M4：`!` `@` `#` 前缀）。映射：#17 = jirai `e8e862da`/`30ba80f6`（近期对象）+ `bda7ddad`/`1dc272ce`/`0fc3eb8f`（前缀）→ VRCX-0 `crates/persistence/src/quick_search_recent.rs`、`crates/application/src/social/quick_search_catalog.rs`（`recent` / `query_prefixed`）、`src/components/sidebar/QuickSearchDialog.tsx`；#3b 询问 = jirai `392365f0` → `useUserRelationshipRecommendationPrompt` 经 `RelationshipRecommendationPromptHost`；#6 Feed diff = jirai `295614b3` → `FeedDifferenceHtml.ts`。计数 **完成 14 / 部分 1（#10 冻结）/ 未完成 2（#12 冻结、#13）/ 不适用 1**（合计 18 项）。已完成项的既有行未改，只追加。真机表现见同报告目录《人工实机测试文档.md》。
+> **2026-11-20 补充（MIMI 撤回，用户决定）**：#14 快速搜索 Bio、#7 自动跟随，以及 #17 快速搜索近期对象与前缀（M3、M4），曾在 MIMI 分支实现，后按用户决定（2026-11-20：「我之前说了不做的那些，就是不做了」）全部撤回，判定仍为原判定（#14 部分 / 产品暂缓，#7 有意不做，#17 不立项）；打开资料时的推测关联询问（M1，#3b）同时撤回。#6 在 MIMI 补了 Feed 页 Bio / 状态 diff 按 CJK 字切分（M2，提交 `0f3e02b0b`），#6 仍为完成。计数仍为 **11 / 2 / 3 / 1**（17 项）。撤回记录见 `reports/2026-11-20T1845Z-mimi-revert/README.md`。
