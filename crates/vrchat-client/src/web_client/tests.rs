@@ -8,7 +8,8 @@ async fn api_read_preserves_retry_after_header() {
     let server = tokio::spawn(async move {
         let (mut socket, _) = listener.accept().await.unwrap();
         let mut buffer = [0; 4096];
-        socket.read(&mut buffer).await.unwrap();
+        // Drain the request; the reply does not depend on how much arrived.
+        let _request_len = socket.read(&mut buffer).await.unwrap();
         socket.write_all(b"HTTP/1.1 429 Too Many Requests\r\nRetry-After: 120\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}").await.unwrap();
     });
     let client = WebClient::new(None, None, env!("CARGO_PKG_VERSION")).unwrap();
