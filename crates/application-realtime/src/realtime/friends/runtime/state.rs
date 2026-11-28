@@ -791,6 +791,33 @@ pub(crate) fn apply_friend_number(
     true
 }
 
+fn preserve_fields_over_placeholder(incoming: &mut FriendRecord, existing: &FriendRecord) {
+    incoming.last_platform = existing.last_platform.clone();
+    incoming.status = existing.status.clone();
+    incoming.status_description = existing.status_description.clone();
+
+    for key in [
+        "tags",
+        "developerType",
+        "trustLevel",
+        derived_keys::TRUST_LEVEL,
+        derived_keys::TRUST_CLASS,
+        derived_keys::TRUST_SORT_NUM,
+        derived_keys::IS_MODERATOR,
+        derived_keys::IS_TROLL,
+        derived_keys::IS_PROBABLE_TROLL,
+    ] {
+        match existing.extra.get(key) {
+            Some(value) => {
+                incoming.extra.insert(key.to_string(), value.clone());
+            }
+            None => {
+                incoming.extra.remove(key);
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod location_history_tests {
     use super::*;
@@ -909,32 +936,5 @@ mod location_history_tests {
         assert_eq!(leaving.source, FriendLocationTimeSource::GameLog);
         assert_eq!(leaving.since_ms, Some(arrival_since));
         assert_eq!(phase_since("usr_leaving"), 3000);
-    }
-}
-
-fn preserve_fields_over_placeholder(incoming: &mut FriendRecord, existing: &FriendRecord) {
-    incoming.last_platform = existing.last_platform.clone();
-    incoming.status = existing.status.clone();
-    incoming.status_description = existing.status_description.clone();
-
-    for key in [
-        "tags",
-        "developerType",
-        "trustLevel",
-        derived_keys::TRUST_LEVEL,
-        derived_keys::TRUST_CLASS,
-        derived_keys::TRUST_SORT_NUM,
-        derived_keys::IS_MODERATOR,
-        derived_keys::IS_TROLL,
-        derived_keys::IS_PROBABLE_TROLL,
-    ] {
-        match existing.extra.get(key) {
-            Some(value) => {
-                incoming.extra.insert(key.to_string(), value.clone());
-            }
-            None => {
-                incoming.extra.remove(key);
-            }
-        }
     }
 }
